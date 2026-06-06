@@ -1,0 +1,451 @@
+const prisma = require('../services/dbService');
+const logger = require('../services/logger');
+
+const studentRepository = {
+    async findByUserId(userId) {
+        return prisma.student.findUnique({
+            where: { userId },
+            include: {
+                marks: { include: { subject: true } },
+                attendance: { include: { subject: true } },
+                timetable: { include: { subject: true } },
+                assignments: true,
+                notifications: true,
+                fees: true
+            }
+        });
+    },
+
+    async upsertStudent(userId, data) {
+        logger.info(`Repository: Upserting student ${userId}`);
+        const rollNum = data.roll || '';
+        const sec = data.section || 'A';
+        return prisma.student.upsert({
+            where: { userId },
+            update: {
+                password: data.password,
+                name: data.name,
+                roll: data.roll,
+                roll_number: rollNum,
+                section: sec,
+                program: data.program,
+                branch: data.branch,
+                semester: data.semester,
+                year: data.year,
+                gender: data.gender,
+                dob: data.dob,
+                email: data.email,
+                phone: data.phone,
+                fatherName: data.fatherName,
+                motherName: data.motherName,
+                fatherMobile: data.fatherMobile,
+                hostel: data.hostel,
+                roomNo: data.roomNo,
+                cgpa: data.cgpa,
+                percentage: data.percentage,
+                address: data.address
+            },
+            create: {
+                userId,
+                password: data.password,
+                name: data.name,
+                roll: data.roll,
+                roll_number: rollNum,
+                section: sec,
+                program: data.program,
+                branch: data.branch,
+                semester: data.semester,
+                year: data.year,
+                gender: data.gender,
+                dob: data.dob,
+                email: data.email,
+                phone: data.phone,
+                fatherName: data.fatherName,
+                motherName: data.motherName,
+                fatherMobile: data.fatherMobile,
+                hostel: data.hostel,
+                roomNo: data.roomNo,
+                cgpa: data.cgpa,
+                percentage: data.percentage,
+                address: data.address
+            }
+        });
+    },
+
+    async updateSyncStatus(id, isSyncing, lastSync = null) {
+        return prisma.student.update({
+            where: { id },
+            data: {
+                isSyncing,
+                ...(lastSync ? { lastSync } : {})
+            }
+        });
+    }
+};
+
+const subjectRepository = {
+    async findOrCreate(code, name, credits = '3.0', semester = '', branch = '') {
+        const cleanCode = code.trim().toUpperCase();
+        const cleanName = name ? name.trim() : cleanCode;
+        
+        return prisma.subject.upsert({
+            where: { code: cleanCode },
+            update: {
+                name: cleanName,
+                credits: credits || '3.0',
+                semester: semester || '',
+                branch: branch || ''
+            },
+            create: {
+                code: cleanCode,
+                name: cleanName,
+                credits: credits || '3.0',
+                semester: semester || '',
+                branch: branch || ''
+            }
+        });
+    }
+};
+
+const markRepository = {
+    async saveMarks(studentId, marksArray) {
+        logger.info(`Repository: Saving ${marksArray.length} mark records for student ${studentId}`);
+        
+        return prisma.$transaction(async (tx) => {
+            // Find student to get semester and branch details
+            const student = await tx.student.findUnique({
+                where: { id: studentId }
+            });
+            const studentSemester = student ? student.semester : '';
+            const studentBranch = student ? student.branch : '';
+
+            // Delete old mark records for this student first to avoid duplicates
+            await tx.markRecord.deleteMany({
+                where: { studentId }
+            });
+
+            const createdRecords = [];
+            for (const record of marksArray) {
+                // Find or create subject
+                const subject = await tx.subject.upsert({
+                    where: { code: record.name.toUpperCase() },
+                    update: {
+                        credits: record.credits || '3.0',
+                        semester: studentSemester,
+                        branch: studentBranch
+                    },
+                    create: {
+                        code: record.name.toUpperCase(),
+                        name: record.name,
+                        credits: record.credits || '3.0',
+                        semester: studentSemester,
+                        branch: studentBranch
+                    }
+                });
+
+                // Insert new MarkRecord
+                const newMark = await tx.markRecord.create({
+                    data: {
+                        studentId,
+                        subjectId: subject.id,
+                        grade: record.grade || 'N/A',
+                        credits: record.credits || '3.0',
+                        type: record.type || 'Core',
+                        status: (record.grade === 'F' || record.grade === 'Backlog') ? 'Backlog' :
+                                (record.grade === 'Absent' || record.grade === 'Ab') ? 'Absent' : 'Pass'
+                    }
+                });
+                createdRecords.push(newMark);
+            }
+            return createdRecords;
+        });
+    }
+};
+
+const attendanceRepository = {
+    async saveAttendance(studentId, attendanceArray) {
+        logger.info(`Repository: Saving ${attendanceArray.length} attendance records for student ${studentId}`);
+        
+        return prisma.$transaction(async (tx) => {
+            // Find student to get semester and branch details
+            const student = await tx.student.findUnique({
+                where: { id: studentId }
+            });
+            const studentSemester = student ? student.semester : '';
+            const studentBranch = student ? student.branch : '';
+
+            // Clear previous attendance records
+            await tx.attendanceRecord.deleteMany({
+                where: { studentId }
+            });
+
+            const createdRecords = [];
+            for (const record of attendanceArray) {
+                const subjectCode = record.name.toUpperCase();
+                
+                // Find or create subject
+                const subject = await tx.subject.upsert({
+                    where: { code: subjectCode },
+                    update: {
+                        semester: studentSemester,
+                        branch: studentBranch
+                    },
+                    create: {
+                        code: subjectCode,
+                        name: record.name,
+                        credits: '3.0',
+                        semester: studentSemester,
+                        branch: studentBranch
+                    }
+                });
+
+                // Calculate percentage strictly: Present / Total * 100
+                const held = record.held || record.total || 0;
+                const attended = record.attended || 0;
+                const percentage = held > 0 ? parseFloat(((attended / held) * 100).toFixed(2)) : 0;
+                
+                let status = 'Excellent';
+                if (percentage < 65) status = 'Warning';
+                else if (percentage < 75) status = 'Acceptable';
+                else if (percentage < 85) status = 'Good';
+
+                const newAttendance = await tx.attendanceRecord.create({
+                    data: {
+                        studentId,
+                        subjectId: subject.id,
+                        held,
+                        attended,
+                        percentage,
+                        status
+                    }
+                });
+                createdRecords.push(newAttendance);
+            }
+            return createdRecords;
+        });
+    }
+};
+
+const timetableRepository = {
+    async saveTimetable(studentId, timetableArray) {
+        logger.info(`Repository: Saving ${timetableArray.length} timetable slots for student ${studentId}`);
+        
+        return prisma.$transaction(async (tx) => {
+            // Find student to get semester and branch details
+            const student = await tx.student.findUnique({
+                where: { id: studentId }
+            });
+            const studentSemester = student ? student.semester : '';
+            const studentBranch = student ? student.branch : '';
+
+            // Delete old timetable slots
+            await tx.timetableSlot.deleteMany({
+                where: { studentId }
+            });
+
+            const createdSlots = [];
+            for (const slot of timetableArray) {
+                const subjectCode = slot.subjectCode.toUpperCase();
+                
+                // Find or create subject
+                const subject = await tx.subject.upsert({
+                    where: { code: subjectCode },
+                    update: { 
+                        name: slot.subjectName,
+                        semester: studentSemester,
+                        branch: studentBranch
+                    },
+                    create: {
+                        code: subjectCode,
+                        name: slot.subjectName,
+                        credits: '3.0',
+                        semester: studentSemester,
+                        branch: studentBranch
+                    }
+                });
+
+                const newSlot = await tx.timetableSlot.create({
+                    data: {
+                        studentId,
+                        subjectId: subject.id,
+                        day: slot.day,
+                        period: slot.period.toString(),
+                        room: slot.room || 'N/A',
+                        section: slot.section || 'A',
+                        facultyName: slot.facultyName || 'TBA',
+                        time: slot.time || ''
+                    }
+                });
+                createdSlots.push(newSlot);
+            }
+            return createdSlots;
+        });
+    }
+};
+
+const syllabusRepository = {
+    async saveSyllabus(subjectCode, unitsArray) {
+        logger.info(`Repository: Saving ${unitsArray.length} syllabus units for subject ${subjectCode}`);
+        
+        return prisma.$transaction(async (tx) => {
+            const subject = await tx.subject.findUnique({
+                where: { code: subjectCode.toUpperCase() }
+            });
+            
+            if (!subject) {
+                logger.warn(`Repository: Cannot sync syllabus for missing subject ${subjectCode}`);
+                return [];
+            }
+
+            // Clear old syllabus units
+            await tx.syllabusUnit.deleteMany({
+                where: { subjectId: subject.id }
+            });
+
+            const createdUnits = [];
+            for (const unit of unitsArray) {
+                const newUnit = await tx.syllabusUnit.create({
+                    data: {
+                        subjectId: subject.id,
+                        unitNumber: unit.unitNumber,
+                        title: unit.title || `Unit ${unit.unitNumber}`,
+                        content: unit.content || '',
+                        completed: unit.completed || false
+                    }
+                });
+                createdUnits.push(newUnit);
+            }
+            return createdUnits;
+        });
+    },
+
+    async updateUnitCompletion(unitId, completed) {
+        return prisma.syllabusUnit.update({
+            where: { id: unitId },
+            data: { completed }
+        });
+    }
+};
+
+const assignmentRepository = {
+    async saveAssignments(studentId, assignmentsArray) {
+        logger.info(`Repository: Saving ${assignmentsArray.length} assignments for student ${studentId}`);
+        
+        return prisma.$transaction(async (tx) => {
+            await tx.assignment.deleteMany({
+                where: { studentId }
+            });
+
+            const createdList = [];
+            for (const asn of assignmentsArray) {
+                const newAsn = await tx.assignment.create({
+                    data: {
+                        studentId,
+                        title: asn.title,
+                        subject: asn.subject || '--',
+                        status: asn.status || 'Pending',
+                        date: asn.date || '--'
+                    }
+                });
+                createdList.push(newAsn);
+            }
+            return createdList;
+        });
+    }
+};
+
+const notificationRepository = {
+    async saveNotifications(studentId, notificationsArray) {
+        logger.info(`Repository: Saving ${notificationsArray.length} notifications for student ${studentId}`);
+        
+        return prisma.$transaction(async (tx) => {
+            await tx.notification.deleteMany({
+                where: { studentId }
+            });
+
+            const createdList = [];
+            for (const notif of notificationsArray) {
+                const newNotif = await tx.notification.create({
+                    data: {
+                        studentId,
+                        title: notif.title,
+                        message: notif.message,
+                        date: notif.date || new Date().toLocaleDateString(),
+                        isRead: notif.isRead || false
+                    }
+                });
+                createdList.push(newNotif);
+            }
+            return createdList;
+        });
+    }
+};
+
+const auditLogRepository = {
+    async log(studentId, action, details) {
+        logger.debug(`AuditLog: [${action}] Student: ${studentId || 'None'} - ${details}`);
+        return prisma.auditLog.create({
+            data: {
+                studentId,
+                action,
+                details
+            }
+        });
+    }
+};
+
+const feeRepository = {
+    async saveFees(studentId, semester, feesData) {
+        logger.info(`Repository: Saving fees for student ${studentId}, semester ${semester}`);
+        
+        return prisma.$transaction(async (tx) => {
+            // Delete old fee records for this student and semester
+            await tx.fee.deleteMany({
+                where: { studentId, semester }
+            });
+
+            const createdFees = [];
+            if (feesData && feesData.transactions) {
+                for (const line of feesData.transactions) {
+                    const amount = parseFloat(line.amount.replace(/[^\d.]/g, '')) || 0;
+                    const paidAmount = parseFloat(line.paid.replace(/[^\d.]/g, '')) || 0;
+                    const dueAmount = parseFloat(line.due.replace(/[^\d.]/g, '')) || 0;
+                    
+                    const newFee = await tx.fee.create({
+                        data: {
+                            studentId,
+                            semester,
+                            feeType: line.title,
+                            amount,
+                            paidAmount,
+                            dueAmount,
+                            dueDate: line.date || '--',
+                            paymentStatus: line.status || (dueAmount > 0 ? 'Due' : 'Paid')
+                        }
+                    });
+                    createdFees.push(newFee);
+                }
+            }
+            return createdFees;
+        });
+    },
+
+    async getFeesForStudent(studentId) {
+        return prisma.fee.findMany({
+            where: { studentId }
+        });
+    }
+};
+
+module.exports = {
+    studentRepository,
+    subjectRepository,
+    markRepository,
+    attendanceRepository,
+    timetableRepository,
+    syllabusRepository,
+    assignmentRepository,
+    notificationRepository,
+    auditLogRepository,
+    feeRepository
+};

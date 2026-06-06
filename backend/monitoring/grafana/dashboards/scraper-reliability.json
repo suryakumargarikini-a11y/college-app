@@ -1,0 +1,168 @@
+{
+  "uid": "scraper-reliability-v2",
+  "title": "ERP Scraper Reliability",
+  "tags": ["scraper", "erp", "reliability", "sitam"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1, "title": "ERP Health Score",
+      "type": "gauge",
+      "gridPos": { "x": 0, "y": 0, "w": 4, "h": 6 },
+      "targets": [{ "expr": "erp_provider_health_score{provider=\"sitam-scraper\"}", "legendFormat": "Health" }],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0, "max": 100, "unit": "percent",
+          "thresholds": { "steps": [
+            { "color": "red",    "value": 0  },
+            { "color": "orange", "value": 40 },
+            { "color": "yellow", "value": 60 },
+            { "color": "green",  "value": 80 }
+          ]}
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "showThresholdLabels": true }
+    },
+    {
+      "id": 2, "title": "Reliability Forecast Score",
+      "type": "gauge",
+      "gridPos": { "x": 4, "y": 0, "w": 4, "h": 6 },
+      "targets": [{ "expr": "erp_forecast_reliability_score{provider=\"sitam-scraper\"}", "legendFormat": "Forecast" }],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0, "max": 100, "unit": "percent",
+          "thresholds": { "steps": [
+            { "color": "red",    "value": 0  },
+            { "color": "orange", "value": 40 },
+            { "color": "yellow", "value": 60 },
+            { "color": "green",  "value": 80 }
+          ]}
+        }
+      }
+    },
+    {
+      "id": 3, "title": "Load Shedding Mode",
+      "type": "stat",
+      "gridPos": { "x": 8, "y": 0, "w": 4, "h": 3 },
+      "targets": [{ "expr": "erp_load_shedding_mode{provider=\"sitam-scraper\"}", "legendFormat": "Mode" }],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "NORMAL",    "color": "green"  } } },
+            { "type": "value", "options": { "1": { "text": "DEGRADED",  "color": "yellow" } } },
+            { "type": "value", "options": { "2": { "text": "PROTECTED", "color": "orange" } } },
+            { "type": "value", "options": { "3": { "text": "EMERGENCY", "color": "red"    } } }
+          ]
+        }
+      }
+    },
+    {
+      "id": 4, "title": "Queue Pressure Level",
+      "type": "stat",
+      "gridPos": { "x": 12, "y": 0, "w": 4, "h": 3 },
+      "targets": [{ "expr": "erp_queue_pressure_level{provider=\"sitam-scraper\"}", "legendFormat": "Pressure" }],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "NORMAL",   "color": "green"  } } },
+            { "type": "value", "options": { "1": { "text": "ELEVATED", "color": "yellow" } } },
+            { "type": "value", "options": { "2": { "text": "HIGH",     "color": "orange" } } },
+            { "type": "value", "options": { "3": { "text": "CRITICAL", "color": "red"    } } }
+          ]
+        }
+      }
+    },
+    {
+      "id": 5, "title": "CAPTCHA Detection Rate",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 6, "w": 12, "h": 6 },
+      "targets": [
+        { "expr": "rate(erp_captcha_detections_total{provider=\"sitam-scraper\"}[5m])", "legendFormat": "CAPTCHAs/sec" },
+        { "expr": "erp_forecast_captcha_risk{provider=\"sitam-scraper\"}", "legendFormat": "Forecast Risk %" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short" } }
+    },
+    {
+      "id": 6, "title": "Selector Fallback Depth (P95)",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 6, "w": 12, "h": 6 },
+      "targets": [
+        { "expr": "histogram_quantile(0.95, rate(erp_selector_fallback_depth_bucket{provider=\"sitam-scraper\"}[5m]))", "legendFormat": "P95 Depth" },
+        { "expr": "rate(erp_selector_failures_total{provider=\"sitam-scraper\"}[5m])", "legendFormat": "Selector Failures/sec" }
+      ]
+    },
+    {
+      "id": 7, "title": "Anti-Bot Events by Type",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 6 },
+      "targets": [
+        { "expr": "rate(erp_antibot_events_total{provider=\"sitam-scraper\"}[5m])", "legendFormat": "{{type}}" }
+      ]
+    },
+    {
+      "id": 8, "title": "Sync Retry Breakdown",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 12, "w": 12, "h": 6 },
+      "targets": [
+        { "expr": "rate(erp_retry_attempts_total{provider=\"sitam-scraper\"}[5m])", "legendFormat": "{{errorType}} → {{action}}" }
+      ]
+    },
+    {
+      "id": 9, "title": "Browser Reputation Scores",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 18, "w": 12, "h": 6 },
+      "targets": [
+        { "expr": "erp_browser_reputation_score", "legendFormat": "{{browserId}}" },
+        { "expr": "rate(erp_browser_quarantine_total{provider=\"sitam-scraper\"}[5m])", "legendFormat": "Quarantines/sec" }
+      ]
+    },
+    {
+      "id": 10, "title": "Sync Dedup & Partial Recovery",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 18, "w": 12, "h": 6 },
+      "targets": [
+        { "expr": "rate(erp_sync_dedup_hits_total{provider=\"sitam-scraper\"}[5m])",      "legendFormat": "Dedup Hits/sec" },
+        { "expr": "rate(erp_partial_sync_recovery_total{provider=\"sitam-scraper\"}[5m])", "legendFormat": "Partial Recoveries/sec" }
+      ]
+    },
+    {
+      "id": 11, "title": "ERP Outage Forecast Risk",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 24, "w": 12, "h": 6 },
+      "targets": [
+        { "expr": "erp_forecast_outage_risk{provider=\"sitam-scraper\"}", "legendFormat": "Outage Probability %" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percent", "max": 100, "min": 0 } }
+    },
+    {
+      "id": 12, "title": "Page Scrape Duration (P95)",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 24, "w": 12, "h": 6 },
+      "targets": [
+        { "expr": "histogram_quantile(0.95, rate(erp_page_scrape_duration_seconds_bucket{provider=\"sitam-scraper\"}[5m]))", "legendFormat": "{{page}} P95" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "id": 13, "title": "ERP Maintenance Events",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 30, "w": 12, "h": 6 },
+      "targets": [
+        { "expr": "rate(erp_maintenance_mode_total{provider=\"sitam-scraper\"}[1h])", "legendFormat": "{{severity}}" }
+      ]
+    },
+    {
+      "id": 14, "title": "Selector Promotions & DOM Drift",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 30, "w": 12, "h": 6 },
+      "targets": [
+        { "expr": "rate(erp_selector_promotions_total{provider=\"sitam-scraper\"}[1h])", "legendFormat": "Promotions/hr" },
+        { "expr": "histogram_quantile(0.95, rate(erp_dom_drift_score_bucket{provider=\"sitam-scraper\"}[5m]))", "legendFormat": "DOM Drift P95" }
+      ]
+    }
+  ],
+  "time": { "from": "now-3h", "to": "now" },
+  "timepicker": {},
+  "schemaVersion": 38,
+  "version": 2
+}

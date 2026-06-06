@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-fixed-variant": "#5c5b5b",
+                        "surface-container-lowest": "#ffffff",
+                        "inverse-on-surface": "#9c9d9f",
+                        "secondary-dim": "#644586",
+                        "primary-fixed": "#e4e2e1",
+                        "on-primary-fixed": "#3f3f3f",
+                        "on-tertiary-container": "#61242f",
+                        "on-secondary-fixed": "#4f3170",
+                        "secondary-fixed-dim": "#e5caff",
+                        "on-surface-variant": "#5c5f64",
+                        "surface-dim": "#d8dae0",
+                        "on-primary": "#fbf8f8",
+                        "on-background": "#303337",
+                        "tertiary-dim": "#823e48",
+                        "on-secondary": "#fff6ff",
+                        "on-error-container": "#68001f",
+                        "surface-container-low": "#f4f3f7",
+                        "on-primary-container": "#525151",
+                        "background": "#faf9fc",
+                        "tertiary": "#904954",
+                        "surface-bright": "#faf9fc",
+                        "secondary-fixed": "#efdbff",
+                        "secondary-container": "#efdbff",
+                        "surface-container-high": "#e7e8ed",
+                        "surface-container": "#ededf2",
+                        "tertiary-container": "#fca3ae",
+                        "surface": "#faf9fc",
+                        "on-error": "#fff7f7",
+                        "surface-variant": "#e1e2e8",
+                        "on-surface": "#303337",
+                        "on-tertiary-fixed-variant": "#6c2d37",
+                        "on-secondary-fixed-variant": "#6c4d8f",
+                        "tertiary-fixed": "#fca3ae",
+                        "primary-dim": "#535353",
+                        "on-secondary-container": "#624384",
+                        "on-tertiary-fixed": "#450e1a",
+                        "on-tertiary": "#fff7f7",
+                        "primary-container": "#e4e2e1",
+                        "outline-variant": "#b0b2b7",
+                        "error": "#ac3149",
+                        "error-container": "#f76a80",
+                        "primary-fixed-dim": "#d6d4d3",
+                        "error-dim": "#770326",
+                        "surface-container-highest": "#e1e2e8",
+                        "surface-tint": "#5f5f5f",
+                        "inverse-primary": "#ffffff",
+                        "primary": "#5f5f5f",
+                        "secondary": "#705193",
+                        "outline": "#787b80",
+                        "tertiary-fixed-dim": "#ec96a1",
+                        "inverse-surface": "#0d0e10"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "1rem",
+                        "lg": "2rem",
+                        "xl": "3rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Plus Jakarta Sans"],
+                        "body": ["Manrope"],
+                        "label": ["Manrope"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(24px);
+        }
+        .editorial-shadow {
+            box-shadow: 0 10px 40px rgba(48, 51, 55, 0.06);
+        }
+        body {
+            font-family: 'Manrope', sans-serif;
+            background-color: #faf9fc;
+            color: #303337;
+        }
+        h1, h2, h3 {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="min-h-screen pb-32">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-white/70 dark:bg-zinc-900/70 backdrop-blur-xl shadow-[0_10px_40px_rgba(48,51,55,0.06)] flex justify-between items-center px-6 py-4 w-full">
+<div class="flex items-center gap-4">
+<button class="p-2 hover:bg-zinc-100/50 dark:hover:bg-zinc-800/50 transition-all duration-300 ease-in-out rounded-full">
+<span class="material-symbols-outlined text-zinc-800 dark:text-zinc-100">arrow_back</span>
+</button>
+</div>
+<h1 class="text-lg font-bold tracking-tighter text-zinc-800 dark:text-zinc-100 font-plus-jakarta-sans tracking-tight font-bold">Academic Editorial</h1>
+<button class="p-2 hover:bg-zinc-100/50 dark:hover:bg-zinc-800/50 transition-all duration-300 ease-in-out rounded-full mr-2">
+<span class="material-symbols-outlined text-zinc-800 dark:text-zinc-100">notifications</span>
+</button><div class="w-10 h-10 rounded-full overflow-hidden border-2 border-white editorial-shadow">
+<img alt="Student Profile" class="w-full h-full object-cover" data-alt="close-up portrait of a stylish young student with a warm expression in a soft-lit indoor academic setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCUzXBkwOvhx-_gBShQVMNfQpI2K-J5pevLspSzKoDKY2jhU6kcZea4RKLLrPm0mmlZbiTSc1n82HIQqXn-x2k7Oc3EgQKZ0Jxh2T9lVENkAh0Eh-s4CPbdKkZfgj778FQY0KvB1zS_kmMtD95JshUG5LZQQJN0dgcHmvP3jGoSJHE0FpKQyp7Cf9NuO5ZwJ0d8xsQeo0G32nfFiQa-vFJd6QP_GfHZh9m0s8eGxJayU6eLA2xeYulCsSDTcSopgNSdig4I38RSgLw"/>
+</div>
+</header>
+<main class="pt-24 px-6 max-w-4xl mx-auto space-y-12">
+<!-- Hero Section: Organic Profile Frame -->
+<section class="relative flex flex-col md:flex-row items-center gap-10 py-8">
+<!-- Asymmetric Floating Shapes -->
+<div class="absolute -top-10 -left-10 w-48 h-48 bg-secondary-container/40 rounded-full blur-3xl -z-10"></div>
+<div class="absolute top-20 -right-10 w-64 h-64 bg-tertiary-container/30 rounded-full blur-[80px] -z-10"></div>
+<!-- Profile Photo with Organic Framing -->
+<div class="relative group">
+<div class="w-48 h-48 md:w-64 md:h-64 rounded-[4rem] overflow-hidden transform rotate-3 transition-transform hover:rotate-0 duration-500 editorial-shadow border-4 border-surface-container-lowest">
+<img alt="Alex Sterling" class="w-full h-full object-cover" data-alt="editorial portrait of a young student against a neutral soft-focus background with natural morning light" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBqhkUYDFaGKOaVRr3slof3dLPwuyVplgKYr1M3iVWbZBsxJjJ9n8L-BEfyggEkDCjbr5BXCLSheGR_npLZIGq8eCDlOMs8jNzQOToVElodPT4biTK5puA2Y8ihqB9UL7lga5tN65drw-ENgB3WMfW3odd5I8JoQsfxFzdpIGFLteXV8ZuUJBcLB_RsKoRUqviGpQeIxbIdqvgwJnJ0IwPN4MMT7YFLs-nzgpKUid7dnTZTpYX5bBdA77b68brlt1dq6xqi5Omthqc"/>
+</div>
+<!-- Pill Shape Overlay -->
+<div class="absolute -bottom-4 -right-4 bg-primary text-on-primary px-6 py-2 rounded-full font-bold editorial-shadow">
+                    Year 3
+                </div>
+</div>
+<!-- Profile Identity Header -->
+<div class="text-center md:text-left space-y-4">
+<div class="space-y-1">
+<span class="text-secondary font-bold tracking-widest text-[11px] uppercase">Scholar ID: EA-2024-089</span>
+<h2 class="text-4xl md:text-5xl font-extrabold tracking-tight text-on-surface">Alex Sterling</h2>
+<p class="text-on-surface-variant font-medium text-lg">B.Des in Ethos &amp; Digital Systems</p>
+</div>
+<div class="flex flex-wrap justify-center md:justify-start gap-3">
+<button class="bg-primary text-on-primary px-8 py-3 rounded-full font-bold editorial-shadow hover:scale-105 active:scale-95 transition-all duration-300 flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">edit</span>
+                        Edit Profile
+                    </button>
+<button class="bg-surface-container-highest text-on-surface-variant px-6 py-3 rounded-full font-bold hover:bg-surface-container-high transition-all duration-300">
+                        Share Portfolio
+                    </button>
+</div>
+</div>
+</section>
+<!-- Bento Grid: Student Details -->
+<section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<!-- Contact Card -->
+<div class="col-span-1 md:col-span-2 bg-surface-container-low rounded-xl p-8 editorial-shadow space-y-6">
+<h3 class="text-xl font-bold text-on-surface border-b border-outline-variant/10 pb-4">Personal Contact</h3>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-8">
+<div class="space-y-1">
+<label class="text-[10px] font-bold uppercase tracking-tighter text-on-surface-variant/60">Institutional Email</label>
+<p class="font-semibold text-on-surface">a.sterling@etheric.edu</p>
+</div>
+<div class="space-y-1">
+<label class="text-[10px] font-bold uppercase tracking-tighter text-on-surface-variant/60">Phone Number</label>
+<p class="font-semibold text-on-surface">+1 (555) 023-4982</p>
+</div>
+<div class="space-y-1">
+<label class="text-[10px] font-bold uppercase tracking-tighter text-on-surface-variant/60">Design Studio</label>
+<p class="font-semibold text-on-surface">North Wing, Floor 4, Bay 12</p>
+</div>
+<div class="space-y-1">
+<label class="text-[10px] font-bold uppercase tracking-tighter text-on-surface-variant/60">Research Focus</label>
+<p class="font-semibold text-on-surface">Human-Centered AI</p>
+</div>
+</div>
+</div>
+<!-- Faculty Info Pill -->
+<div class="col-span-1 bg-secondary-container text-on-secondary-container rounded-xl p-8 editorial-shadow flex flex-col justify-between">
+<div>
+<span class="material-symbols-outlined text-3xl mb-4">school</span>
+<h3 class="text-xl font-bold">Faculty Advisor</h3>
+</div>
+<div class="mt-8">
+<p class="font-bold text-lg leading-tight">Dr. Julian Vane</p>
+<p class="text-sm opacity-80">Dean of Applied Design</p>
+<div class="mt-4 w-full h-1 bg-on-secondary-container/10 rounded-full overflow-hidden">
+<div class="bg-secondary w-3/4 h-full"></div>
+</div>
+</div>
+</div>
+</section>
+<!-- Performance Summary Circles -->
+<section class="space-y-8">
+<div class="flex items-center justify-between">
+<h3 class="text-2xl font-bold tracking-tight text-on-surface">Academic Momentum</h3>
+<span class="bg-tertiary-container text-on-tertiary-container px-4 py-1 rounded-full text-xs font-bold">Last updated: Oct 24</span>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-8">
+<!-- Gauge 1 -->
+<div class="flex flex-col items-center gap-4 group">
+<div class="relative w-32 h-32 flex items-center justify-center">
+<svg class="w-full h-full transform -rotate-90">
+<circle class="text-surface-container-high" cx="64" cy="64" fill="transparent" r="56" stroke="currentColor" stroke-width="12"></circle>
+<circle class="text-secondary rounded-full" cx="64" cy="64" fill="transparent" r="56" stroke="currentColor" stroke-dasharray="351.8" stroke-dashoffset="35.2" stroke-width="12"></circle>
+</svg>
+<div class="absolute flex flex-col items-center">
+<span class="text-2xl font-black text-on-surface">3.9</span>
+<span class="text-[9px] uppercase font-bold text-on-surface-variant">GPA</span>
+</div>
+</div>
+<p class="text-sm font-bold text-on-surface-variant group-hover:text-secondary transition-colors">Cumulative GPA</p>
+</div>
+<!-- Gauge 2 -->
+<div class="flex flex-col items-center gap-4 group">
+<div class="relative w-32 h-32 flex items-center justify-center">
+<svg class="w-full h-full transform -rotate-90">
+<circle class="text-surface-container-high" cx="64" cy="64" fill="transparent" r="56" stroke="currentColor" stroke-width="12"></circle>
+<circle class="text-tertiary rounded-full" cx="64" cy="64" fill="transparent" r="56" stroke="currentColor" stroke-dasharray="351.8" stroke-dashoffset="105.5" stroke-width="12"></circle>
+</svg>
+<div class="absolute flex flex-col items-center">
+<span class="text-2xl font-black text-on-surface">94%</span>
+<span class="text-[9px] uppercase font-bold text-on-surface-variant">Att.</span>
+</div>
+</div>
+<p class="text-sm font-bold text-on-surface-variant group-hover:text-tertiary transition-colors">Attendance</p>
+</div>
+<!-- Gauge 3 -->
+<div class="flex flex-col items-center gap-4 group">
+<div class="relative w-32 h-32 flex items-center justify-center">
+<svg class="w-full h-full transform -rotate-90">
+<circle class="text-surface-container-high" cx="64" cy="64" fill="transparent" r="56" stroke="currentColor" stroke-width="12"></circle>
+<circle class="text-primary rounded-full" cx="64" cy="64" fill="transparent" r="56" stroke="currentColor" stroke-dasharray="351.8" stroke-dashoffset="175.9" stroke-width="12"></circle>
+</svg>
+<div class="absolute flex flex-col items-center">
+<span class="text-2xl font-black text-on-surface">18</span>
+<span class="text-[9px] uppercase font-bold text-on-surface-variant">Credits</span>
+</div>
+</div>
+<p class="text-sm font-bold text-on-surface-variant group-hover:text-primary transition-colors">Credits Earned</p>
+</div>
+<!-- Gauge 4 -->
+<div class="flex flex-col items-center gap-4 group">
+<div class="relative w-32 h-32 flex items-center justify-center">
+<svg class="w-full h-full transform -rotate-90">
+<circle class="text-surface-container-high" cx="64" cy="64" fill="transparent" r="56" stroke="currentColor" stroke-width="12"></circle>
+<circle class="text-on-secondary-fixed-variant rounded-full" cx="64" cy="64" fill="transparent" r="56" stroke="currentColor" stroke-dasharray="351.8" stroke-dashoffset="70.3" stroke-width="12"></circle>
+</svg>
+<div class="absolute flex flex-col items-center">
+<span class="text-2xl font-black text-on-surface">A+</span>
+<span class="text-[9px] uppercase font-bold text-on-surface-variant">Grade</span>
+</div>
+</div>
+<p class="text-sm font-bold text-on-surface-variant group-hover:text-on-secondary-fixed-variant transition-colors">Studio Project</p>
+</div>
+</div>
+</section>
+<!-- Abstract Decorative Element -->
+<div class="w-full h-32 bg-gradient-to-r from-secondary-container/20 via-tertiary-container/20 to-secondary-container/20 rounded-[4rem] editorial-shadow flex items-center justify-center overflow-hidden relative">
+<div class="absolute -top-10 left-1/4 w-32 h-32 bg-white/40 rounded-full blur-xl"></div>
+<p class="font-headline font-bold text-zinc-400/30 text-5xl tracking-[2rem] uppercase select-none">Excellence</p>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-3 bg-white/70 dark:bg-zinc-900/70 backdrop-blur-2xl shadow-[0_-10px_40px_rgba(48,51,55,0.06)] rounded-t-[3rem] pb-safe">
+<!-- Home -->
+<a class="flex flex-col items-center justify-center text-zinc-400 dark:text-zinc-500 px-6 py-2 scale-95 active:scale-90 transition-transform hover:text-zinc-900 dark:hover:text-zinc-100" href="#">
+<span class="material-symbols-outlined mb-1">home_app_logo</span>
+<span class="font-manrope text-[11px] font-semibold uppercase tracking-widest">Home</span>
+</a>
+<!-- Happenings -->
+<a class="flex flex-col items-center justify-center text-zinc-400 dark:text-zinc-500 px-6 py-2 scale-95 active:scale-90 transition-transform hover:text-zinc-900 dark:hover:text-zinc-100" href="#">
+<span class="material-symbols-outlined mb-1">auto_awesome</span>
+<span class="font-manrope text-[11px] font-semibold uppercase tracking-widest">Happenings</span>
+</a>
+<!-- Marks (Active/Profile Context) -->
+<a class="flex flex-col items-center justify-center bg-purple-100 dark:bg-purple-900/40 text-purple-900 dark:text-purple-100 rounded-full px-6 py-2 scale-95 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 1;">grade</span>
+<span class="font-manrope text-[11px] font-semibold uppercase tracking-widest">Marks</span>
+</a>
+</nav>
+</body></html>

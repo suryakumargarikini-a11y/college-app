@@ -1,0 +1,351 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Mixed --",
+        "enable": true,
+        "hide": true,
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "id": null,
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "title": "API Request Logs & Throughput Diagnostics",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "Loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 1
+      },
+      "id": 2,
+      "options": {
+        "showLabels": false,
+        "wrapLogMessage": true,
+        "enableLogDetails": true,
+        "showTime": true,
+        "showCommonLabels": false,
+        "prettifyLogMessage": false
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "Loki"
+          },
+          "editorMode": "code",
+          "expr": "{job=\"sitam-erp\"} | json | level=~\"$level\" | tag=~\"$tag\" | line_format \"{{.message}}\" |= \"$search\"",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "API Log Stream (Filtered by Level / Tag / Search)",
+      "type": "logs"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 9
+      },
+      "id": 3,
+      "title": "Queue & Background Worker Diagnostics",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "Loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 10
+      },
+      "id": 4,
+      "options": {
+        "showLabels": false,
+        "wrapLogMessage": true,
+        "enableLogDetails": true,
+        "showTime": true,
+        "showCommonLabels": false,
+        "prettifyLogMessage": false
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "Loki"
+          },
+          "editorMode": "code",
+          "expr": "{job=\"sitam-erp\"} | json | tag=~\"QUEUE_FAILURE|WORKER_CRASH|QUEUE_STALL\" |= \"$search\"",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Queue Failures & Worker Crashes Log Stream",
+      "type": "logs"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 18
+      },
+      "id": 5,
+      "title": "Puppeteer Browser Pool Forensics",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "Loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 19
+      },
+      "id": 6,
+      "options": {
+        "showLabels": false,
+        "wrapLogMessage": true,
+        "enableLogDetails": true,
+        "showTime": true,
+        "showCommonLabels": false,
+        "prettifyLogMessage": false
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "Loki"
+          },
+          "editorMode": "code",
+          "expr": "{job=\"sitam-erp\"} | json | message=~\"(?i).*browser.*\" |= \"$search\"",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Puppeteer Browser Pool Lifecycle Logs",
+      "type": "logs"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 27
+      },
+      "id": 7,
+      "title": "Database & Cache Infrastructure Errors",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "Loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 28
+      },
+      "id": 8,
+      "options": {
+        "showLabels": false,
+        "wrapLogMessage": true,
+        "enableLogDetails": true,
+        "showTime": true,
+        "showCommonLabels": false,
+        "prettifyLogMessage": false
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "Loki"
+          },
+          "editorMode": "code",
+          "expr": "{job=\"sitam-erp\"} | json | tag=~\"DB_FAILURE|DB_LOCK_CONTENTION|REDIS_OUTAGE|REDIS_COMMAND_FAILURE|REDIS_MEMORY_PRESSURE\" |= \"$search\"",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Database (Postgres) & Cache (Redis) Diagnostic Log Stream",
+      "type": "logs"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 37
+      },
+      "id": 9,
+      "title": "ERP Health & Firebase Notification Logs",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "Loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 38
+      },
+      "id": 10,
+      "options": {
+        "showLabels": false,
+        "wrapLogMessage": true,
+        "enableLogDetails": true,
+        "showTime": true,
+        "showCommonLabels": false,
+        "prettifyLogMessage": false
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "Loki"
+          },
+          "editorMode": "code",
+          "expr": "{job=\"sitam-erp\"} | json | tag=~\"ERP_OUTAGE_FAILURE|CIRCUIT_BREAKER_STATE_CHANGE|FIREBASE_DELIVERY_FAILURE|FIREBASE_DELIVERY_SUMMARY\" |= \"$search\"",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "ERP Outages & Firebase Push Notification Logs",
+      "type": "logs"
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 36,
+  "style": "dark",
+  "tags": [
+    "sitam",
+    "logging",
+    "forensics"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "value": [
+            "info",
+            "warn",
+            "error",
+            "fatal"
+          ]
+        },
+        "description": "Log Level",
+        "hide": 0,
+        "includeAll": true,
+        "multi": true,
+        "name": "level",
+        "options": [
+          { "text": "trace", "value": "trace" },
+          { "text": "debug", "value": "debug" },
+          { "text": "info", "value": "info" },
+          { "text": "warn", "value": "warn" },
+          { "text": "error", "value": "error" },
+          { "text": "fatal", "value": "fatal" }
+        ],
+        "query": "trace,debug,info,warn,error,fatal",
+        "type": "custom"
+      },
+      {
+        "current": {
+          "selected": true,
+          "value": [
+            "SECURITY_ALERT",
+            "QUEUE_FAILURE",
+            "WORKER_CRASH",
+            "QUEUE_STALL",
+            "DB_FAILURE",
+            "DB_LOCK_CONTENTION",
+            "REDIS_OUTAGE",
+            "REDIS_COMMAND_FAILURE",
+            "REDIS_MEMORY_PRESSURE",
+            "ERP_OUTAGE_FAILURE",
+            "CIRCUIT_BREAKER_STATE_CHANGE",
+            "FIREBASE_DELIVERY_FAILURE",
+            "FIREBASE_DELIVERY_SUMMARY"
+          ]
+        },
+        "description": "SRE tag labels",
+        "hide": 0,
+        "includeAll": true,
+        "multi": true,
+        "name": "tag",
+        "options": [
+          { "text": "SECURITY_ALERT", "value": "SECURITY_ALERT" },
+          { "text": "QUEUE_FAILURE", "value": "QUEUE_FAILURE" },
+          { "text": "WORKER_CRASH", "value": "WORKER_CRASH" },
+          { "text": "QUEUE_STALL", "value": "QUEUE_STALL" },
+          { "text": "DB_FAILURE", "value": "DB_FAILURE" },
+          { "text": "DB_LOCK_CONTENTION", "value": "DB_LOCK_CONTENTION" },
+          { "text": "REDIS_OUTAGE", "value": "REDIS_OUTAGE" },
+          { "text": "REDIS_COMMAND_FAILURE", "value": "REDIS_COMMAND_FAILURE" },
+          { "text": "REDIS_MEMORY_PRESSURE", "value": "REDIS_MEMORY_PRESSURE" },
+          { "text": "ERP_OUTAGE_FAILURE", "value": "ERP_OUTAGE_FAILURE" },
+          { "text": "CIRCUIT_BREAKER_STATE_CHANGE", "value": "CIRCUIT_BREAKER_STATE_CHANGE" },
+          { "text": "FIREBASE_DELIVERY_FAILURE", "value": "FIREBASE_DELIVERY_FAILURE" },
+          { "text": "FIREBASE_DELIVERY_SUMMARY", "value": "FIREBASE_DELIVERY_SUMMARY" }
+        ],
+        "query": "SECURITY_ALERT,QUEUE_FAILURE,WORKER_CRASH,QUEUE_STALL,DB_FAILURE,DB_LOCK_CONTENTION,REDIS_OUTAGE,REDIS_COMMAND_FAILURE,REDIS_MEMORY_PRESSURE,ERP_OUTAGE_FAILURE,CIRCUIT_BREAKER_STATE_CHANGE,FIREBASE_DELIVERY_FAILURE,FIREBASE_DELIVERY_SUMMARY",
+        "type": "custom"
+      },
+      {
+        "current": {
+          "selected": true,
+          "value": ""
+        },
+        "name": "search",
+        "options": [],
+        "query": "",
+        "type": "textbox"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "title": "Loki Log Explorer & Forensics",
+  "uid": "log-explorer",
+  "version": 1
+}

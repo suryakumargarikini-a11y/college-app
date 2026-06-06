@@ -1,0 +1,9 @@
+{
+  "artifactName": "tamper-asset",
+  "artifactHash": "59ab8fdfa947c4fd3db57d00513afc083a6ecd85f44a69d38e40b5e05bc5d24b",
+  "signature": "958d35158eaaa8346565e82c2952d2daa03571f9940018a4f0bb30833feec993",
+  "algorithm": "HMAC-SHA256",
+  "signingKeyId": "default-hmac-key",
+  "timestamp": "2026-06-06T20:28:05.970Z",
+  "provenanceId": "bd3a9db5-9e15-45d4-82ca-858c426bfe17"
+}

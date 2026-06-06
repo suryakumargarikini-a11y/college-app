@@ -1,0 +1,177 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Mixed --",
+        "enable": true,
+        "hide": true,
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "id": null,
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "title": "Throughput & Active Latencies",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 0,
+        "y": 1
+      },
+      "id": 2,
+      "title": "Total API Requests/Second",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total[1m]))",
+          "legendFormat": "Requests/sec",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 8,
+        "y": 1
+      },
+      "id": 3,
+      "title": "Active In-Flight HTTP Requests",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(active_http_requests)",
+          "legendFormat": "Active Requests",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 16,
+        "y": 1
+      },
+      "id": 4,
+      "title": "HTTP Status Distribution (Last 5m)",
+      "type": "barchart",
+      "targets": [
+        {
+          "expr": "sum by (status) (increase(http_requests_total[5m]))",
+          "legendFormat": "{{status}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 7
+      },
+      "id": 5,
+      "title": "Endpoint Latencies & Slow Queries",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "id": 6,
+      "title": "Request Duration Percentiles (Seconds)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(http_request_duration_seconds{quantile=\"0.5\"}) by (route)",
+          "legendFormat": "{{route}} p50",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(http_request_duration_seconds{quantile=\"0.95\"}) by (route)",
+          "legendFormat": "{{route}} p95",
+          "refId": "B"
+        },
+        {
+          "expr": "sum(http_request_duration_seconds{quantile=\"0.99\"}) by (route)",
+          "legendFormat": "{{route}} p99",
+          "refId": "C"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "id": 7,
+      "title": "Slow Requests (>500ms Threshold) Count",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by (route) (increase(http_slow_requests_total[5m]))",
+          "legendFormat": "{{route}} Slow Requests/5m",
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 36,
+  "style": "dark",
+  "tags": ["sitam", "api"],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "title": "API Performance",
+  "uid": "api-performance",
+  "version": 1
+}

@@ -1,0 +1,17 @@
+{
+  "appId": "co.in.sitamecap.erp",
+  "appName": "SITAM Smart ERP",
+  "webDir": "frontend",
+  "bundledWebRuntime": false,
+  "server": {
+    "allowNavigation": [
+      "localhost:3000",
+      "localhost:3001"
+    ]
+  },
+  "plugins": {
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    }
+  }
+}

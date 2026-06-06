@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800&amp;family=Manrope:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-error-container": "#68001f",
+                    "error": "#ac3149",
+                    "error-container": "#f76a80",
+                    "surface-container-highest": "#e1e2e8",
+                    "background": "#faf9fc",
+                    "on-primary-fixed": "#3f3f3f",
+                    "surface-container-high": "#e7e8ed",
+                    "tertiary-fixed-dim": "#ec96a1",
+                    "on-tertiary-fixed-variant": "#6c2d37",
+                    "outline-variant": "#b0b2b7",
+                    "surface-dim": "#d8dae0",
+                    "surface": "#faf9fc",
+                    "on-surface-variant": "#5c5f64",
+                    "primary-container": "#e4e2e1",
+                    "surface-variant": "#e1e2e8",
+                    "surface-bright": "#faf9fc",
+                    "secondary-fixed-dim": "#e5caff",
+                    "on-secondary-fixed": "#4f3170",
+                    "inverse-primary": "#ffffff",
+                    "on-secondary": "#fff6ff",
+                    "tertiary-dim": "#823e48",
+                    "on-tertiary": "#fff7f7",
+                    "secondary-dim": "#644586",
+                    "on-secondary-fixed-variant": "#6c4d8f",
+                    "inverse-surface": "#0d0e10",
+                    "on-error": "#fff7f7",
+                    "tertiary-fixed": "#fca3ae",
+                    "surface-container-lowest": "#ffffff",
+                    "primary-fixed-dim": "#d6d4d3",
+                    "surface-container": "#ededf2",
+                    "on-background": "#303337",
+                    "surface-container-low": "#f4f3f7",
+                    "primary-dim": "#535353",
+                    "primary-fixed": "#e4e2e1",
+                    "surface-tint": "#5f5f5f",
+                    "on-tertiary-fixed": "#450e1a",
+                    "secondary": "#705193",
+                    "on-primary-fixed-variant": "#5c5b5b",
+                    "secondary-container": "#efdbff",
+                    "error-dim": "#770326",
+                    "on-surface": "#303337",
+                    "inverse-on-surface": "#9c9d9f",
+                    "tertiary-container": "#fca3ae",
+                    "on-primary": "#fbf8f8",
+                    "on-tertiary-container": "#61242f",
+                    "tertiary": "#904954",
+                    "outline": "#787b80",
+                    "on-secondary-container": "#624384",
+                    "on-primary-container": "#525151",
+                    "secondary-fixed": "#efdbff",
+                    "primary": "#5f5f5f"
+            },
+            "borderRadius": {
+                    "DEFAULT": "1rem",
+                    "lg": "2rem",
+                    "xl": "3rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Plus Jakarta Sans"],
+                    "body": ["Manrope"],
+                    "label": ["Manrope"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Manrope', sans-serif; background-color: #faf9fc; color: #303337; }
+        h1, h2, h3 { font-family: 'Plus Jakarta Sans', sans-serif; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface min-h-screen">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-white/70 dark:bg-zinc-900/70 backdrop-blur-3xl shadow-md shadow-zinc-900/5 flex justify-between items-center px-6 py-4 w-full">
+<div class="flex items-center gap-4">
+<button class="active:scale-95 duration-200 p-2 rounded-full hover:bg-purple-50/50">
+<span class="material-symbols-outlined text-purple-600">arrow_back</span>
+</button>
+<h1 class="text-lg font-extrabold tracking-tighter text-zinc-800 font-['Plus_Jakarta_Sans']">Ethereal Scholar</h1>
+</div>
+<div class="flex items-center gap-2">
+<button class="active:scale-95 duration-200 p-2 rounded-full hover:bg-purple-50/50">
+<span class="material-symbols-outlined text-purple-600">notifications</span>
+</button>
+</div>
+</header>
+<!-- Navigation Drawer (SideNav for Desktop) -->
+<aside class="fixed left-0 top-0 h-full hidden md:flex flex-col p-6 z-[60] bg-white/30 backdrop-blur-2xl h-screen w-72 rounded-r-3xl border-r border-white/20 shadow-2xl shadow-purple-500/5">
+<div class="mb-12 flex flex-col items-start px-2">
+<div class="w-16 h-16 rounded-2xl mb-4 bg-secondary-container overflow-hidden">
+<img alt="Student Portrait" class="w-full h-full object-cover" data-alt="Close-up portrait of a young male student with glasses in a library, soft daylight illuminating his face, professional and clean aesthetic" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA7rq2_teNYV_mmBH68vog7Vwp4Nx28hze8lO7Cl49cHru47flTawzWAEoQNcMRaXynfvMXfSmVzoOEZOZc6lHWIh8L7xrIbURtgceXkcV6REDt2usKTF-JHdNc2O4PakOCTksJMGGXJy9ZD6_pRlhlpXKpr8kIEfL_7p6o-AbdvjAGPymtn43WvG_3B7vCL64Nq5SUuVaccE8Pbh6RUcCu2-GUSjliSXSB3sVdg30POsyzNNx2NKZtGIpNckbvOVs04PJWdBaoWZk"/>
+</div>
+<h3 class="font-headline font-extrabold text-on-surface tracking-tight">Julian Vance</h3>
+<p class="text-[11px] font-label font-bold uppercase tracking-widest text-on-surface-variant">Computer Science</p>
+<span class="mt-1 px-2 py-0.5 bg-tertiary-container/30 text-on-tertiary-container text-[9px] font-bold tracking-widest rounded-full uppercase">GPA 3.8</span>
+</div>
+<nav class="flex flex-col gap-2">
+<a class="flex items-center gap-4 px-4 py-3 text-zinc-600 hover:bg-white/40 transition-all rounded-xl" href="#">
+<span class="material-symbols-outlined">calendar_view_week</span>
+<span class="font-['Manrope'] text-[13px] uppercase tracking-widest font-bold">Timetable</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 text-zinc-600 hover:bg-white/40 transition-all rounded-xl" href="#">
+<span class="material-symbols-outlined">menu_book</span>
+<span class="font-['Manrope'] text-[13px] uppercase tracking-widest font-bold">Curriculum</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 bg-white/50 text-purple-700 rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span class="font-['Manrope'] text-[13px] uppercase tracking-widest font-bold">Payments</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 text-zinc-600 hover:bg-white/40 transition-all rounded-xl" href="#">
+<span class="material-symbols-outlined">account_balance_wallet</span>
+<span class="font-['Manrope'] text-[13px] uppercase tracking-widest font-bold">Statements</span>
+</a>
+</nav>
+</aside>
+<!-- Main Content -->
+<main class="pt-24 pb-12 px-6 md:pl-80 max-w-7xl mx-auto">
+<!-- Header Section -->
+<section class="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
+<div>
+<span class="text-[10px] font-bold uppercase tracking-[0.2em] text-secondary mb-2 block">Financial Overview</span>
+<h2 class="text-3xl md:text-4xl font-extrabold tracking-tighter text-on-surface mb-2">Tuition &amp; Fees</h2>
+<p class="text-on-surface-variant max-w-md">Manage your academic investments and track upcoming commitments for the Fall 2024 semester.</p>
+</div>
+<button class="bg-primary text-on-primary px-8 py-4 rounded-full font-headline font-bold text-sm shadow-md hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-2 self-start">
+<span class="material-symbols-outlined">account_balance</span>
+                Make Payment
+            </button>
+</section>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<!-- Summary Card -->
+<div class="md:col-span-1 flex flex-col gap-6">
+<div class="bg-secondary-container/40 backdrop-blur-3xl rounded-lg p-8 border border-white/40 flex flex-col justify-between h-64">
+<div>
+<p class="text-[10px] font-bold uppercase tracking-widest text-on-secondary-container/70 mb-4">Total Outstanding</p>
+<h3 class="text-4xl font-extrabold tracking-tighter text-on-secondary-container">$2,840.00</h3>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-on-secondary-container" style="font-variation-settings: 'FILL' 1;">error</span>
+<p class="text-xs font-bold text-on-secondary-container">Due in 12 days</p>
+</div>
+</div>
+<div class="bg-surface-container-lowest rounded-lg p-8 shadow-md shadow-zinc-900/5 flex flex-col justify-center h-48">
+<p class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-4">Payment Methods</p>
+<div class="flex items-center gap-4">
+<div class="w-12 h-8 bg-zinc-100 rounded flex items-center justify-center">
+<span class="material-symbols-outlined text-zinc-400">credit_card</span>
+</div>
+<div>
+<p class="text-sm font-bold">Visa ending in 4242</p>
+<p class="text-[10px] text-on-surface-variant">Expires 12/26</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Transaction History -->
+<div class="md:col-span-2 bg-surface-container-low/50 backdrop-blur-xl rounded-lg border border-white/20 p-8">
+<div class="flex justify-between items-center mb-8">
+<h3 class="text-xl font-bold tracking-tight">Recent Activity</h3>
+<button class="text-xs font-bold uppercase tracking-widest text-primary hover:underline transition-all">View All History</button>
+</div>
+<div class="space-y-6">
+<!-- Transaction Item 1 -->
+<div class="flex items-center justify-between group">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-full bg-tertiary-container/20 flex items-center justify-center text-tertiary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">school</span>
+</div>
+<div>
+<h4 class="font-bold text-sm">Library Overdue Fee</h4>
+<p class="text-[11px] text-on-surface-variant">Oct 14, 2023 • Reference #88122</p>
+</div>
+</div>
+<div class="text-right">
+<p class="font-extrabold text-sm">$15.00</p>
+<span class="text-[9px] font-bold uppercase tracking-widest px-2 py-1 bg-on-error-container/10 text-on-error-container rounded-full">Pending</span>
+</div>
+</div>
+<!-- Transaction Item 2 -->
+<div class="flex items-center justify-between group">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-full bg-secondary-container/20 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">menu_book</span>
+</div>
+<div>
+<h4 class="font-bold text-sm">Course Materials - CS402</h4>
+<p class="text-[11px] text-on-surface-variant">Oct 02, 2023 • Reference #88045</p>
+</div>
+</div>
+<div class="text-right">
+<p class="font-extrabold text-sm">$142.50</p>
+<span class="text-[9px] font-bold uppercase tracking-widest px-2 py-1 bg-green-100 text-green-800 rounded-full">Paid</span>
+</div>
+</div>
+<!-- Transaction Item 3 -->
+<div class="flex items-center justify-between group">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-full bg-primary-container/40 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">apartment</span>
+</div>
+<div>
+<h4 class="font-bold text-sm">Housing Installment (Monthly)</h4>
+<p class="text-[11px] text-on-surface-variant">Sep 28, 2023 • Reference #87991</p>
+</div>
+</div>
+<div class="text-right">
+<p class="font-extrabold text-sm">$1,200.00</p>
+<span class="text-[9px] font-bold uppercase tracking-widest px-2 py-1 bg-green-100 text-green-800 rounded-full">Paid</span>
+</div>
+</div>
+<!-- Transaction Item 4 -->
+<div class="flex items-center justify-between group">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-full bg-secondary-container/20 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">sports_soccer</span>
+</div>
+<div>
+<h4 class="font-bold text-sm">Athletics Association Fee</h4>
+<p class="text-[11px] text-on-surface-variant">Sep 15, 2023 • Reference #87552</p>
+</div>
+</div>
+<div class="text-right">
+<p class="font-extrabold text-sm">$45.00</p>
+<span class="text-[9px] font-bold uppercase tracking-widest px-2 py-1 bg-green-100 text-green-800 rounded-full">Paid</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Decorative Quote / Note Section -->
+<section class="mt-12">
+<div class="relative overflow-hidden rounded-xl bg-on-surface h-48 flex items-center px-12 group">
+<div class="absolute inset-0 opacity-20 transition-transform duration-700 group-hover:scale-110">
+<img alt="Academic background" class="w-full h-full object-cover" data-alt="Dreamy shot of open antique books in a sunlit university library, floating dust motes and soft shallow depth of field" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC5A7Nvsomx6uojWOZsYZixAd7IR3VJQ15AKb3OPgWY0h0GWWGcWlUFKpuBJFQGS799dNvloG2PGWYBkz_pN8SYcdFiervHeRzN0h9F4_v_LIm5x-_bUl0eK_qJCNZkUhUHiNaX3yKnV2BEPCk0I4vsj8qCk6Gi17dfTmJXEKK9j6XQNihw0fJzPgp8X9NS8Lr3G-VIM1o0cdXA-Xa9Wj8pS_O_m0GCpGyFprRllhg5gQ4nTnn_Alwki7dB3n3jJkv4hwtuh6YCAQc"/>
+</div>
+<div class="absolute inset-0 bg-gradient-to-r from-on-surface via-on-surface/80 to-transparent"></div>
+<div class="relative z-10 max-w-lg">
+<span class="text-tertiary-fixed text-[9px] font-bold uppercase tracking-[0.3em] mb-3 block">Scholar's Note</span>
+<p class="text-white text-lg font-headline font-bold italic tracking-tight leading-snug">"An investment in knowledge always pays the best interest."</p>
+<p class="text-white/50 text-[10px] mt-2 font-bold uppercase tracking-widest">— Benjamin Franklin</p>
+</div>
+</div>
+</section>
+</main>
+</body></html>

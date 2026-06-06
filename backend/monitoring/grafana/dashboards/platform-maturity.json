@@ -1,0 +1,61 @@
+{
+  "uid": "platform-maturity-v1",
+  "title": "Platform Maturity & Compliance Index",
+  "tags": ["governance", "maturity", "sitam"],
+  "timezone": "browser",
+  "refresh": "1m",
+  "panels": [
+    {
+      "id": 1,
+      "type": "gauge",
+      "title": "Overall Platform Maturity Index",
+      "gridPos": { "x": 0, "y": 0, "w": 8, "h": 6 },
+      "targets": [
+        {
+          "expr": "platform_maturity_score",
+          "legendFormat": "Maturity Index"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "red" },
+              { "value": 75, "color": "orange" },
+              { "value": 90, "color": "green" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Security Compliance Level",
+      "gridPos": { "x": 8, "y": 0, "w": 8, "h": 6 },
+      "targets": [
+        {
+          "expr": "avg(compliance_score)",
+          "legendFormat": "Compliance"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Operational Reliability Index",
+      "gridPos": { "x": 16, "y": 0, "w": 8, "h": 6 },
+      "targets": [
+        {
+          "expr": "reliability_scorecard_value{scorecard_type=\"platform\"}",
+          "legendFormat": "Reliability"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 36,
+  "version": 1
+}

@@ -1,0 +1,54 @@
+{
+  "scannedAt": "2026-06-06T20:28:16.506Z",
+  "dependenciesScannedCount": 27,
+  "risks": [
+    {
+      "packageName": "@opentelemetry/sdk-node",
+      "version": "^0.52.0",
+      "severity": "MEDIUM",
+      "findings": [
+        "Package version ^0.52.0 may be older than 2 years without updates."
+      ]
+    },
+    {
+      "packageName": "@opentelemetry/auto-instrumentations-node",
+      "version": "^0.47.0",
+      "severity": "MEDIUM",
+      "findings": [
+        "Package version ^0.47.0 may be older than 2 years without updates."
+      ]
+    },
+    {
+      "packageName": "@opentelemetry/exporter-trace-otlp-http",
+      "version": "^0.52.0",
+      "severity": "MEDIUM",
+      "findings": [
+        "Package version ^0.52.0 may be older than 2 years without updates."
+      ]
+    },
+    {
+      "packageName": "firebase-admin",
+      "version": "^13.10.0",
+      "severity": "MEDIUM",
+      "findings": [
+        "Package version ^13.10.0 may be older than 2 years without updates."
+      ]
+    },
+    {
+      "packageName": "uuid",
+      "version": "^14.0.0",
+      "severity": "MEDIUM",
+      "findings": [
+        "Package version ^14.0.0 may be older than 2 years without updates."
+      ]
+    },
+    {
+      "packageName": "winston-daily-rotate-file",
+      "version": "^5.0.0",
+      "severity": "MEDIUM",
+      "findings": [
+        "Package version ^5.0.0 may be older than 2 years without updates."
+      ]
+    }
+  ]
+}

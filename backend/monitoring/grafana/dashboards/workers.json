@@ -1,0 +1,94 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Mixed --",
+        "enable": true,
+        "hide": true,
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "id": null,
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "title": "Worker Daemon Processes",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 1
+      },
+      "id": 2,
+      "title": "Active Worker Count",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(workers_active)",
+          "legendFormat": "Active workers",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 1
+      },
+      "id": 3,
+      "title": "Worker Job Processing Latency (Seconds)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "worker_job_duration_seconds{quantile=\"0.95\"}",
+          "legendFormat": "{{jobType}} job latency p95",
+          "refId": "A"
+        },
+        {
+          "expr": "worker_job_duration_seconds{quantile=\"0.5\"}",
+          "legendFormat": "{{jobType}} job latency p50",
+          "refId": "B"
+        }
+      ]
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 36,
+  "style": "dark",
+  "tags": ["sitam", "workers"],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "title": "Worker Observability",
+  "uid": "workers",
+  "version": 1
+}

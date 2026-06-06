@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Ethereal Scholar | Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Manrope:wght@400;500;600;700;800&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container": "#ededf2",
+                        "on-error": "#fff7f7",
+                        "on-surface": "#303337",
+                        "on-background": "#303337",
+                        "primary": "#5f5f5f",
+                        "tertiary-fixed": "#fca3ae",
+                        "on-tertiary": "#fff7f7",
+                        "tertiary-dim": "#823e48",
+                        "outline-variant": "#b0b2b7",
+                        "on-tertiary-container": "#61242f",
+                        "tertiary": "#904954",
+                        "on-tertiary-fixed": "#450e1a",
+                        "surface-container-low": "#f4f3f7",
+                        "on-primary-container": "#525151",
+                        "outline": "#787b80",
+                        "on-error-container": "#68001f",
+                        "secondary": "#705193",
+                        "on-surface-variant": "#5c5f64",
+                        "on-secondary-fixed": "#4f3170",
+                        "inverse-surface": "#0d0e10",
+                        "surface-container-lowest": "#ffffff",
+                        "secondary-container": "#efdbff",
+                        "surface-container-highest": "#e1e2e8",
+                        "primary-fixed-dim": "#d6d4d3",
+                        "primary-container": "#e4e2e1",
+                        "secondary-dim": "#644586",
+                        "surface-variant": "#e1e2e8",
+                        "on-tertiary-fixed-variant": "#6c2d37",
+                        "secondary-fixed": "#efdbff",
+                        "error": "#ac3149",
+                        "on-secondary-fixed-variant": "#6c4d8f",
+                        "secondary-fixed-dim": "#e5caff",
+                        "surface": "#faf9fc",
+                        "background": "#faf9fc",
+                        "tertiary-container": "#fca3ae",
+                        "inverse-on-surface": "#9c9d9f",
+                        "inverse-primary": "#ffffff",
+                        "surface-bright": "#faf9fc",
+                        "primary-dim": "#535353",
+                        "on-primary-fixed-variant": "#5c5b5b",
+                        "primary-fixed": "#e4e2e1",
+                        "error-container": "#f76a80",
+                        "on-secondary": "#fff6ff",
+                        "surface-dim": "#d8dae0",
+                        "surface-container-high": "#e7e8ed",
+                        "tertiary-fixed-dim": "#ec96a1",
+                        "on-primary-fixed": "#3f3f3f",
+                        "on-secondary-container": "#624384",
+                        "on-primary": "#fbf8f8",
+                        "surface-tint": "#5f5f5f",
+                        "error-dim": "#770326"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "1rem",
+                        "lg": "2rem",
+                        "xl": "3rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Plus Jakarta Sans"],
+                        "body": ["Manrope"],
+                        "label": ["Manrope"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        body {
+            font-family: 'Manrope', sans-serif;
+            background-color: #faf9fc;
+            color: #303337;
+        }
+        h1, h2, h3 {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background min-h-screen pb-32">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-white/70 backdrop-blur-3xl shadow-sm shadow-slate-200/40">
+<div class="flex justify-between items-center px-6 h-16 w-full max-w-7xl mx-auto">
+<div class="flex items-center gap-4">
+<button class="p-2 hover:bg-slate-100/50 transition-all active:scale-95 duration-200 rounded-full">
+<span class="material-symbols-outlined text-purple-600">menu</span>
+</button>
+<h1 class="text-xl font-extrabold text-slate-800 tracking-tighter">Ethereal Scholar</h1>
+</div>
+<div class="flex items-center gap-3">
+<button class="p-2 hover:bg-slate-100/50 transition-all active:scale-95 duration-200 rounded-full relative">
+<span class="material-symbols-outlined text-slate-500">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-tertiary-container rounded-full"></span>
+</button>
+<div class="w-9 h-9 rounded-full overflow-hidden border-2 border-white shadow-sm">
+<img alt="Student Portrait" class="w-full h-full object-cover" data-alt="Close-up portrait of a young male student with glasses looking thoughtfully at the camera in a soft-lit indoor library setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDTsNpGxAs-ssGKoQJyBm8yoGoSTovZTBoImJG-BC5Uq4kqylwCAbyt8bR0r1PHlW4Adjs0uEQk2_nPD6otHcW5wEvPr8SNjUSXG3JYrmacFrA0ECCkaMLexD7BPDfCH96LDWz6CxJV8jl5NASU1xmlBVzzDKOxO-CI_nKju1Xax5Ns6S-zcGgJeGBDFA8oH7NibF0N25jegntJnv89DoQ2HLHJyehJkTGpZe4Ic9cjRwzOgMOG3elx7CajTbD6Bmo-lb9sqUkzqZY"/>
+</div>
+</div>
+</div>
+</header>
+<main class="pt-20 px-6 max-w-7xl mx-auto">
+<!-- Welcome Section -->
+<section class="mb-8">
+<p class="text-[10px] font-bold tracking-widest uppercase text-purple-600 mb-1">DASHBOARD</p>
+<h2 class="text-2xl font-extrabold tracking-tight text-on-background">Greetings, Julian.</h2>
+</section>
+<!-- Today's Timetable (Horizontal Scroll) -->
+<section class="mb-10">
+<div class="flex justify-between items-end mb-4">
+<h3 class="text-sm font-bold uppercase tracking-widest text-slate-500">Today's Timetable</h3>
+<span class="text-[10px] font-bold text-purple-600">VIEW FULL</span>
+</div>
+<div class="flex overflow-x-auto gap-4 pb-4 hide-scrollbar -mx-6 px-6">
+<!-- Card 1 -->
+<div class="glass-card min-w-[180px] p-5 rounded-lg flex flex-col gap-3 shadow-[0_4px_20px_rgba(48,51,55,0.04)]">
+<div class="w-10 h-10 rounded-2xl bg-secondary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">terminal</span>
+</div>
+<div>
+<p class="text-[10px] font-bold text-slate-400 tracking-wider">CS-402</p>
+<h4 class="text-sm font-bold text-on-surface">Data Structures</h4>
+</div>
+<div class="flex flex-col gap-1 mt-2">
+<div class="flex items-center gap-2 text-[11px] text-slate-500">
+<span class="material-symbols-outlined text-xs">meeting_room</span>
+<span>Lab 302</span>
+</div>
+<div class="flex items-center gap-2 text-[11px] text-purple-600 font-bold">
+<span class="material-symbols-outlined text-xs">schedule</span>
+<span>09:00 AM</span>
+</div>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="glass-card min-w-[180px] p-5 rounded-lg flex flex-col gap-3 shadow-[0_4px_20px_rgba(48,51,55,0.04)]">
+<div class="w-10 h-10 rounded-2xl bg-tertiary-container/30 flex items-center justify-center">
+<span class="material-symbols-outlined text-tertiary" style="font-variation-settings: 'FILL' 1;">calculate</span>
+</div>
+<div>
+<p class="text-[10px] font-bold text-slate-400 tracking-wider">MA-101</p>
+<h4 class="text-sm font-bold text-on-surface">Linear Algebra</h4>
+</div>
+<div class="flex flex-col gap-1 mt-2">
+<div class="flex items-center gap-2 text-[11px] text-slate-500">
+<span class="material-symbols-outlined text-xs">meeting_room</span>
+<span>Hall B</span>
+</div>
+<div class="flex items-center gap-2 text-[11px] text-purple-600 font-bold">
+<span class="material-symbols-outlined text-xs">schedule</span>
+<span>11:30 AM</span>
+</div>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="glass-card min-w-[180px] p-5 rounded-lg flex flex-col gap-3 shadow-[0_4px_20px_rgba(48,51,55,0.04)]">
+<div class="w-10 h-10 rounded-2xl bg-surface-container-highest flex items-center justify-center">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">language</span>
+</div>
+<div>
+<p class="text-[10px] font-bold text-slate-400 tracking-wider">EN-202</p>
+<h4 class="text-sm font-bold text-on-surface">Technical Comm.</h4>
+</div>
+<div class="flex flex-col gap-1 mt-2">
+<div class="flex items-center gap-2 text-[11px] text-slate-500">
+<span class="material-symbols-outlined text-xs">meeting_room</span>
+<span>Room 105</span>
+</div>
+<div class="flex items-center gap-2 text-[11px] text-purple-600 font-bold">
+<span class="material-symbols-outlined text-xs">schedule</span>
+<span>02:00 PM</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Notice Banner -->
+<section class="mb-10">
+<div class="w-full bg-tertiary-container text-on-tertiary-container p-4 rounded-lg flex items-center gap-4 relative overflow-hidden">
+<div class="absolute right-0 top-0 w-24 h-full bg-gradient-to-l from-white/20 to-transparent"></div>
+<span class="material-symbols-outlined text-2xl flex-shrink-0">info</span>
+<p class="text-sm font-semibold tracking-tight leading-snug">Last Date to Clear the Next Term Fee – May 31st, 2026</p>
+</div>
+</section>
+<!-- Add More Tiles Section -->
+<div class="flex justify-between items-center mb-6">
+<div>
+<h3 class="text-sm font-bold uppercase tracking-widest text-slate-500">Workspace</h3>
+<p class="text-[10px] text-slate-400">Customize your quick actions</p>
+</div>
+<button class="w-10 h-10 bg-on-surface text-white rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-transform">
+<span class="material-symbols-outlined">add</span>
+</button>
+</div>
+<!-- Feature Bento Grid -->
+<section class="grid grid-cols-2 gap-4 mb-10">
+<!-- Row 1 -->
+<div class="bg-surface-container-lowest p-5 rounded-lg shadow-[0_4px_20px_rgba(48,51,55,0.04)] flex flex-col justify-between h-36">
+<div class="flex justify-between items-start">
+<span class="material-symbols-outlined text-purple-500" style="font-variation-settings: 'FILL' 1;">campaign</span>
+<span class="px-2 py-0.5 bg-purple-100 text-purple-700 text-[10px] font-bold rounded-full">29</span>
+</div>
+<div>
+<h4 class="text-sm font-bold text-on-surface">Announce</h4>
+<p class="text-[10px] text-slate-400">Campus updates</p>
+</div>
+</div>
+<div class="bg-secondary-container/30 p-5 rounded-lg flex flex-col justify-between h-36">
+<div class="flex justify-between items-start">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">auto_stories</span>
+<span class="px-2 py-0.5 bg-white text-secondary text-[10px] font-bold rounded-full border border-secondary/20">NEW</span>
+</div>
+<div>
+<h4 class="text-sm font-bold text-on-secondary-container">Curriculum</h4>
+<p class="text-[10px] text-secondary/60">Syllabus &amp; Books</p>
+</div>
+</div>
+<!-- Row 2 -->
+<div class="bg-surface-container-lowest p-5 rounded-lg shadow-[0_4px_20px_rgba(48,51,55,0.04)] flex flex-col justify-between h-36">
+<span class="material-symbols-outlined text-slate-400">account_balance_wallet</span>
+<div>
+<h4 class="text-sm font-bold text-on-surface">Fee Statement</h4>
+<p class="text-[10px] text-slate-400">Dues &amp; History</p>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-5 rounded-lg shadow-[0_4px_20px_rgba(48,51,55,0.04)] flex flex-col justify-between h-36 border-l-4 border-purple-500">
+<div class="flex justify-between items-start">
+<span class="material-symbols-outlined text-purple-600">calendar_today</span>
+<span class="text-[10px] font-extrabold text-purple-700">78%</span>
+</div>
+<div>
+<h4 class="text-sm font-bold text-on-surface">Attendance</h4>
+<div class="w-full bg-slate-100 h-1 rounded-full mt-2">
+<div class="bg-purple-500 h-1 rounded-full w-[78%]"></div>
+</div>
+</div>
+</div>
+<!-- Row 3 -->
+<div class="bg-surface-container-lowest p-5 rounded-lg shadow-[0_4px_20px_rgba(48,51,55,0.04)] flex flex-col justify-between h-36">
+<div class="flex justify-between items-start">
+<span class="material-symbols-outlined text-slate-400">assignment</span>
+<span class="px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-bold rounded-full">18</span>
+</div>
+<div>
+<h4 class="text-sm font-bold text-on-surface">Assignment</h4>
+<p class="text-[10px] text-slate-400">Due next week</p>
+</div>
+</div>
+<div class="bg-tertiary-container/10 p-5 rounded-lg flex flex-col justify-between h-36 border border-tertiary-container/30">
+<div class="flex justify-between items-start">
+<span class="material-symbols-outlined text-tertiary">analytics</span>
+<span class="text-sm font-extrabold text-tertiary">8.05</span>
+</div>
+<div>
+<h4 class="text-sm font-bold text-on-surface">Results</h4>
+<p class="text-[10px] text-tertiary font-bold tracking-widest uppercase">GPA</p>
+</div>
+</div>
+<!-- Row 4 -->
+<div class="bg-surface-container-lowest p-5 rounded-lg shadow-[0_4px_20px_rgba(48,51,55,0.04)] flex flex-col justify-between h-36">
+<div class="flex justify-between items-start">
+<span class="material-symbols-outlined text-slate-400">description</span>
+<span class="px-2 py-0.5 bg-error-container/20 text-error text-[10px] font-bold rounded-full">9</span>
+</div>
+<div>
+<h4 class="text-sm font-bold text-on-surface">Exams</h4>
+<p class="text-[10px] text-slate-400">Dates &amp; Seats</p>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-5 rounded-lg shadow-[0_4px_20px_rgba(48,51,55,0.04)] flex flex-col justify-between h-36">
+<span class="material-symbols-outlined text-slate-400">event_note</span>
+<div>
+<h4 class="text-sm font-bold text-on-surface">Timetable</h4>
+<p class="text-[10px] text-slate-400">Full Schedule</p>
+</div>
+</div>
+<!-- Row 5 (Full Width Spanning) -->
+<div class="col-span-2 bg-slate-900 text-white p-5 rounded-lg flex items-center justify-between shadow-lg overflow-hidden relative">
+<div class="absolute right-0 top-0 bottom-0 w-32 opacity-20">
+<img class="w-full h-full object-cover" data-alt="Abstract group of diverse happy people silhouette against a sunset, vibrant and community focused" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBK9EOfSr0-vW1mUu38wUVyD0wvFT-LHTdXOkk7y7DeZlIesXXxHdK1wGQKNlu9e0NzFKXgw5DcYN9LHG9L4HVb_XA-e-fGYmSl6A-wJYKfxDNemCLlzCPmayWZA9ibFFkRXs-34T9Ti5Pb9w2CaZStLwAz2pxL5Mwn4Xy1vW9t1WTjYRwGpON53cRLstxL_1d6eEL36E7FFYVTx9snA1NHZuq9qCwaXxPTaW4hVqLV7NB-judcUmYSUPb9RG57xzG9lmcmOk6Bizk"/>
+</div>
+<div class="relative z-10">
+<h4 class="text-sm font-bold">Clubs / Activities</h4>
+<p class="text-[10px] text-slate-400">Join the community</p>
+</div>
+<span class="material-symbols-outlined text-slate-400 relative z-10">arrow_forward_ios</span>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 bg-white/80 backdrop-blur-2xl border-t border-white/20 rounded-t-[2.5rem] shadow-[0_-4px_20px_rgba(48,51,55,0.04)]">
+<div class="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pt-3 pb-8">
+<!-- Home (Active) -->
+<div class="flex flex-col items-center justify-center bg-purple-100 text-purple-700 rounded-2xl px-6 py-2 transition-all active:scale-90 duration-150">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">home</span>
+<span class="font-manrope text-[10px] font-bold tracking-widest uppercase mt-1">Home</span>
+</div>
+<!-- Happenings -->
+<div class="flex flex-col items-center justify-center text-slate-400 px-6 py-2 hover:text-purple-500 transition-colors active:scale-90 duration-150">
+<span class="material-symbols-outlined">event_note</span>
+<span class="font-manrope text-[10px] font-bold tracking-widest uppercase mt-1">Happenings</span>
+</div>
+<!-- Marks -->
+<div class="flex flex-col items-center justify-center text-slate-400 px-6 py-2 hover:text-purple-500 transition-colors active:scale-90 duration-150">
+<span class="material-symbols-outlined">analytics</span>
+<span class="font-manrope text-[10px] font-bold tracking-widest uppercase mt-1">Marks</span>
+</div>
+</div>
+</nav>
+</body></html>

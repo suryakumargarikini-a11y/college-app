@@ -1,0 +1,145 @@
+{
+  "uid": "security-posture-v1",
+  "title": "Security Posture & Compliance Governance",
+  "tags": ["security", "compliance", "devsecops", "sitam"],
+  "timezone": "browser",
+  "refresh": "1m",
+  "panels": [
+    {
+      "id": 1,
+      "type": "gauge",
+      "title": "Overall Security Posture Score",
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 6 },
+      "targets": [
+        {
+          "expr": "compliance_score{framework=\"INTERNAL_CONTROLS\"}",
+          "legendFormat": "Security Score"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "red" },
+              { "value": 70, "color": "orange" },
+              { "value": 85, "color": "green" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Dependency Vulnerability Counts",
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 6 },
+      "targets": [
+        {
+          "expr": "sum(compliance_controls_gap_total)",
+          "legendFormat": "Gaps/Vulnerabilities"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "green" },
+              { "value": 1, "color": "orange" },
+              { "value": 5, "color": "red" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "type": "gauge",
+      "title": "Secret Health Score",
+      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 6 },
+      "targets": [
+        {
+          "expr": "avg(secret_health_score)",
+          "legendFormat": "Health"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "red" },
+              { "value": 75, "color": "orange" },
+              { "value": 90, "color": "green" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Rotation Compliance Rate",
+      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 6 },
+      "targets": [
+        {
+          "expr": "(count(secret_rotation_pending == 0) / count(secret_rotation_pending)) * 100",
+          "legendFormat": "Compliance %"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "red" },
+              { "value": 80, "color": "orange" },
+              { "value": 95, "color": "green" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "DAST Findings Trend",
+      "gridPos": { "x": 0, "y": 6, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum(remediation_pending_count)",
+          "legendFormat": "Vulnerabilities Over Time"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth"
+          }
+        }
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Secret Health Over Time",
+      "gridPos": { "x": 12, "y": 6, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "secret_health_score",
+          "legendFormat": "{{secret_name}}"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 36,
+  "version": 1
+}

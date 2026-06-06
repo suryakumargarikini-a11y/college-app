@@ -1,0 +1,106 @@
+[
+  {
+    "index": 1,
+    "timestamp": "2026-06-03T00:32:46.566Z",
+    "actionType": "CONSENSUS_PROPOSAL",
+    "payload": "{\"proposalId\":\"proposal-31f200e0\",\"actionType\":\"globalQueuePurge\",\"approved\":true,\"totalVotesFor\":2,\"totalVotesAgainst\":1}",
+    "prevBlockHash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "blockHash": "c8f7355f0262278411bdb2b18ac3eabe63afb6606bfad0d67d689c0cc5044c62"
+  },
+  {
+    "index": 2,
+    "timestamp": "2026-06-03T00:32:52.258Z",
+    "actionType": "REMEDIATION_START",
+    "payload": "{\"actionName\":\"recycleBrowserPool\",\"payload\":{\"labels\":{\"alertname\":\"BrowserPoolExhausted\",\"severity\":\"CRITICAL\"},\"annotations\":{\"summary\":\"Active browsers contexts saturated\"}}}",
+    "prevBlockHash": "c8f7355f0262278411bdb2b18ac3eabe63afb6606bfad0d67d689c0cc5044c62",
+    "blockHash": "48550b2256fda2426d7d7094e7ce4106036ae5ac6fdb48cb446f7c1f5b84e473"
+  },
+  {
+    "index": 3,
+    "timestamp": "2026-06-03T00:33:03.876Z",
+    "actionType": "REMEDIATION_FEEDBACK",
+    "payload": "{\"action\":\"recycleBrowserPool\",\"duration\":11616,\"recoveryScore\":88.384,\"resolved\":true}",
+    "prevBlockHash": "48550b2256fda2426d7d7094e7ce4106036ae5ac6fdb48cb446f7c1f5b84e473",
+    "blockHash": "3eafa0c2c7c74addb031d79bfa2303b66843365e0fbf18c14ad8b860d1a813c8"
+  },
+  {
+    "index": 4,
+    "timestamp": "2026-06-03T00:34:06.323Z",
+    "actionType": "CONSENSUS_PROPOSAL",
+    "payload": "{\"proposalId\":\"proposal-5af013b8\",\"actionType\":\"globalQueuePurge\",\"approved\":true,\"totalVotesFor\":3,\"totalVotesAgainst\":0}",
+    "prevBlockHash": "3eafa0c2c7c74addb031d79bfa2303b66843365e0fbf18c14ad8b860d1a813c8",
+    "blockHash": "480f25ab9d9eb1bed90c2185e5e9f5e5ebbaeed0987dc4046829ac3229a5a289"
+  },
+  {
+    "index": 5,
+    "timestamp": "2026-06-03T00:34:06.468Z",
+    "actionType": "REMEDIATION_START",
+    "payload": "{\"actionName\":\"recycleBrowserPool\",\"payload\":{\"labels\":{\"alertname\":\"BrowserPoolExhausted\",\"severity\":\"CRITICAL\"},\"annotations\":{\"summary\":\"Active browsers contexts saturated\"}}}",
+    "prevBlockHash": "480f25ab9d9eb1bed90c2185e5e9f5e5ebbaeed0987dc4046829ac3229a5a289",
+    "blockHash": "c796b12bdaf27cbec4d9c8ca3c08280313b7605307f277b3afa2aed7c2ab02db"
+  },
+  {
+    "index": 6,
+    "timestamp": "2026-06-03T00:34:09.413Z",
+    "actionType": "REMEDIATION_FEEDBACK",
+    "payload": "{\"action\":\"recycleBrowserPool\",\"duration\":2944,\"recoveryScore\":97.056,\"resolved\":true}",
+    "prevBlockHash": "c796b12bdaf27cbec4d9c8ca3c08280313b7605307f277b3afa2aed7c2ab02db",
+    "blockHash": "e0a620d3e1e1057773d7f48c548a59c379089a0936b4c6438e28e358291957d0"
+  },
+  {
+    "index": 7,
+    "timestamp": "2026-06-03T00:35:10.946Z",
+    "actionType": "CONSENSUS_PROPOSAL",
+    "payload": "{\"proposalId\":\"proposal-c0fb6644\",\"actionType\":\"globalQueuePurge\",\"approved\":true,\"totalVotesFor\":3,\"totalVotesAgainst\":0}",
+    "prevBlockHash": "e0a620d3e1e1057773d7f48c548a59c379089a0936b4c6438e28e358291957d0",
+    "blockHash": "c5bc96c8e3206be50d8ffae70e64489f5fe7e0f02a9eba962cd64cc9dcb3b1a0"
+  },
+  {
+    "index": 8,
+    "timestamp": "2026-06-03T00:35:11.041Z",
+    "actionType": "REMEDIATION_START",
+    "payload": "{\"actionName\":\"recycleBrowserPool\",\"payload\":{\"labels\":{\"alertname\":\"BrowserPoolExhausted\",\"severity\":\"CRITICAL\"},\"annotations\":{\"summary\":\"Active browsers contexts saturated\"}}}",
+    "prevBlockHash": "c5bc96c8e3206be50d8ffae70e64489f5fe7e0f02a9eba962cd64cc9dcb3b1a0",
+    "blockHash": "18e7e0700cc90c46ebe17835d3aff7c071b535260feebfd955e6d319b2589e24"
+  },
+  {
+    "index": 9,
+    "timestamp": "2026-06-03T00:35:14.374Z",
+    "actionType": "REMEDIATION_FEEDBACK",
+    "payload": "{\"action\":\"recycleBrowserPool\",\"duration\":3325,\"recoveryScore\":96.675,\"resolved\":true}",
+    "prevBlockHash": "18e7e0700cc90c46ebe17835d3aff7c071b535260feebfd955e6d319b2589e24",
+    "blockHash": "547dba80d6a809329677e7c7bf1818ad8478f4266efb435b225e093b1c73db98"
+  },
+  {
+    "index": 10,
+    "timestamp": "2026-06-03T00:35:44.459Z",
+    "actionType": "CONSENSUS_PROPOSAL",
+    "payload": "{\"proposalId\":\"proposal-d58ba163\",\"actionType\":\"globalQueuePurge\",\"approved\":true,\"totalVotesFor\":3,\"totalVotesAgainst\":0}",
+    "prevBlockHash": "547dba80d6a809329677e7c7bf1818ad8478f4266efb435b225e093b1c73db98",
+    "blockHash": "56452b5edc3fcfb2feda2a5dd1a3130d84b914f216d8b9f7e0a603e8d67a3dfb"
+  },
+  {
+    "index": 11,
+    "timestamp": "2026-06-03T00:36:35.215Z",
+    "actionType": "CONSENSUS_PROPOSAL",
+    "payload": "{\"proposalId\":\"proposal-1556c9b7\",\"actionType\":\"globalQueuePurge\",\"approved\":true,\"totalVotesFor\":3,\"totalVotesAgainst\":0}",
+    "prevBlockHash": "56452b5edc3fcfb2feda2a5dd1a3130d84b914f216d8b9f7e0a603e8d67a3dfb",
+    "blockHash": "0c1003ca175477da33e94396fe18c68004dbc2b22ae09479122c653d04aae475"
+  },
+  {
+    "index": 12,
+    "timestamp": "2026-06-03T00:36:35.271Z",
+    "actionType": "REMEDIATION_START",
+    "payload": "{\"actionName\":\"recycleBrowserPool\",\"payload\":{\"labels\":{\"alertname\":\"BrowserPoolExhausted\",\"severity\":\"CRITICAL\"},\"annotations\":{\"summary\":\"Active browsers contexts saturated\"}}}",
+    "prevBlockHash": "0c1003ca175477da33e94396fe18c68004dbc2b22ae09479122c653d04aae475",
+    "blockHash": "cdfd755d949a6c0d18b0a453afe6acbab3892374c6cc128a8e68bd605e48ca23"
+  },
+  {
+    "index": 13,
+    "timestamp": "2026-06-03T00:36:38.550Z",
+    "actionType": "REMEDIATION_FEEDBACK",
+    "payload": "{\"action\":\"recycleBrowserPool\",\"duration\":3278,\"recoveryScore\":96.722,\"resolved\":true}",
+    "prevBlockHash": "cdfd755d949a6c0d18b0a453afe6acbab3892374c6cc128a8e68bd605e48ca23",
+    "blockHash": "15a444174e6730e63ab5a14b81b351ec916442c9dc67b56b0e1ade974fd72f7a"
+  }
+]

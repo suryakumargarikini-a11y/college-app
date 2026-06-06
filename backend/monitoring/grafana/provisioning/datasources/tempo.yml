@@ -1,0 +1,36 @@
+apiVersion: 1
+
+datasources:
+  - name: Tempo
+    type: tempo
+    access: proxy
+    url: http://tempo:3200
+    isDefault: false
+    jsonData:
+      httpMethod: GET
+      serviceMap:
+        datasourceUid: Prometheus
+      nodeGraph:
+        enabled: true
+      
+      # Trace-to-Log Correlation Linkage (Tempo -> Loki logs)
+      tracesToLogs:
+        datasourceUid: Loki
+        tags: ['job', 'service', 'environment']
+        mappedTags: [{ key: 'service', value: 'service' }]
+        mapTagHeadersEnabled: true
+        spanStartTimeShift: '-5m'
+        spanEndTimeShift: '5m'
+        filterByTraceId: true
+        filterBySpanId: false
+      
+      # Trace-to-Metrics Correlation Linkage (Tempo -> Prometheus histograms)
+      tracesToMetrics:
+        datasourceUid: Prometheus
+        spanStartTimeShift: '-5m'
+        spanEndTimeShift: '5m'
+        tags: [{ key: 'service', value: 'service' }]
+        queries:
+          - name: 'HTTP Latency (p99)'
+            query: 'histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{service="$__tags"}[5m])) by (le))'
+    editable: false

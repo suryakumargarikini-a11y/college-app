@@ -1,0 +1,123 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Mixed --",
+        "enable": true,
+        "hide": true,
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "id": null,
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "title": "WebSocket Connection Status",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 1
+      },
+      "id": 2,
+      "title": "Active WebSocket Connections",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "websocket_connections_active",
+          "legendFormat": "Connected sessions",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 1
+      },
+      "id": 3,
+      "title": "WebSocket Message Throughput (Messages/Second)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by (direction) (rate(websocket_messages_total[1m]))",
+          "legendFormat": "{{direction}} WS messages/sec",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 7
+      },
+      "id": 4,
+      "title": "Firebase Notification Dispatch Stats",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 24,
+        "x": 0,
+        "y": 8
+      },
+      "id": 5,
+      "title": "Notification Queue Depth (BullMQ)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "bullmq_jobs_waiting{queue=\"notificationQueue\"} or bullmq_jobs_waiting{queue=\"sitam-sync\"}",
+          "legendFormat": "Queue backlogs (estimate)",
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 36,
+  "style": "dark",
+  "tags": ["sitam", "websockets", "firebase"],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "title": "WebSocket & Firebase Services",
+  "uid": "realtime-services",
+  "version": 1
+}

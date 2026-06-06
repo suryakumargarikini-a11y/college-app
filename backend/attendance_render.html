@@ -1,0 +1,437 @@
+
+
+<!-- ===== SHELL (hidden on login) ===== -->
+<div id="app-shell" style="">
+
+  <!-- Top App Bar -->
+  <header class="fixed top-0 w-full z-50 bg-white/70 backdrop-blur-3xl shadow-sm shadow-slate-200/40">
+    <div class="flex justify-between items-center px-6 h-16 w-full max-w-7xl mx-auto">
+      <div class="flex items-center gap-4">
+        <button id="menu-btn" class="p-2 hover:bg-slate-100/50 transition-all active:scale-95 duration-200 rounded-full">
+          <span class="material-symbols-outlined text-purple-600">menu</span>
+        </button>
+        <h1 class="text-xl font-extrabold text-slate-800 tracking-tighter">Ethereal Scholar</h1>
+      </div>
+      <div class="flex items-center gap-3">
+        <button id="sync-btn" class="p-2 hover:bg-slate-100/50 transition-all active:scale-95 duration-200 rounded-full text-slate-500 hover:text-purple-600 relative">
+          <span class="material-symbols-outlined">sync</span>
+        </button>
+        <button class="p-2 hover:bg-slate-100/50 transition-all active:scale-95 duration-200 rounded-full relative">
+          <span class="material-symbols-outlined text-slate-500">notifications</span>
+          <span class="absolute top-2 right-2 w-2 h-2 bg-[#fca3ae] rounded-full"></span>
+        </button>
+        <div class="w-9 h-9 rounded-full overflow-hidden border-2 border-white shadow-sm bg-[#ededf2] flex items-center justify-center cursor-pointer" onclick="router.navigate('/profile')">
+          <span class="material-symbols-outlined text-[#787b80]">person</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Bottom Nav -->
+  <nav class="fixed bottom-0 left-0 w-full z-50 bg-white/80 backdrop-blur-2xl border-t border-white/20 rounded-t-[2.5rem] shadow-[0_-4px_20px_rgba(48,51,55,0.04)]">
+    <div class="flex justify-around items-center px-2 pt-3 pb-6 max-w-lg mx-auto">
+      <a data-nav="dashboard" data-nav-link="dashboard" href="#" class="bottom-nav-item flex flex-col items-center justify-center px-4 py-2 transition-all active:scale-90 duration-150 rounded-2xl text-slate-400">
+        <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1;">home</span>
+        <span class="text-[9px] font-bold tracking-widest uppercase mt-1">Home</span>
+      </a>
+      <a data-nav="attendance" data-nav-link="attendance" href="#" class="bottom-nav-item flex flex-col items-center justify-center px-4 py-2 transition-all active:scale-90 duration-150 rounded-2xl bg-purple-100 text-purple-700">
+        <span class="material-symbols-outlined">calendar_today</span>
+        <span class="text-[9px] font-bold tracking-widest uppercase mt-1">Attend</span>
+      </a>
+      <a data-nav="timetable" data-nav-link="timetable" href="#" class="bottom-nav-item flex flex-col items-center justify-center px-4 py-2 transition-all active:scale-90 duration-150 rounded-2xl text-slate-400">
+        <span class="material-symbols-outlined">schedule</span>
+        <span class="text-[9px] font-bold tracking-widest uppercase mt-1">Schedule</span>
+      </a>
+      <a data-nav="syllabus" data-nav-link="syllabus" href="#" class="bottom-nav-item flex flex-col items-center justify-center px-4 py-2 transition-all active:scale-90 duration-150 rounded-2xl text-slate-400">
+        <span class="material-symbols-outlined">auto_stories</span>
+        <span class="text-[9px] font-bold tracking-widest uppercase mt-1">Syllabus</span>
+      </a>
+      <a data-nav="marks" data-nav-link="marks" href="#" class="bottom-nav-item flex flex-col items-center justify-center px-4 py-2 transition-all active:scale-90 duration-150 rounded-2xl text-slate-400">
+        <span class="material-symbols-outlined">analytics</span>
+        <span class="text-[9px] font-bold tracking-widest uppercase mt-1">Marks</span>
+      </a>
+    </div>
+  </nav>
+
+  <!-- Realtime Syncing Glass Banner -->
+  <div id="sync-banner" class="fixed top-20 left-1/2 transform -translate-x-1/2 z-40 bg-white/80 backdrop-blur-2xl px-6 py-2.5 rounded-full border border-purple-200/50 shadow-xl flex items-center gap-3 transition-all duration-500 pointer-events-none scale-100 opacity-100">
+    <div class="w-4 h-4 border-2 border-purple-500/20 border-t-purple-500 rounded-full animate-spin"></div>
+    <span class="text-xs font-bold text-purple-700 tracking-wider uppercase font-headline">Syncing latest data...</span>
+  </div>
+
+</div><!-- end #app-shell -->
+
+<!-- ===== DRAWER OVERLAY ===== -->
+<div id="drawer-overlay" class="fixed inset-0 bg-black/20 backdrop-blur-sm z-[60] hidden opacity-0 transition-opacity duration-300"></div>
+
+<!-- ===== SIDE NAVIGATION DRAWER ===== -->
+<aside id="nav-drawer" class="fixed left-0 top-0 h-screen z-[70] p-6 flex flex-col gap-4 bg-white/90 backdrop-blur-2xl w-80 rounded-r-[2rem] border-r border-white/20 shadow-2xl transform -translate-x-full transition-transform duration-500">
+  <button id="close-drawer-btn" class="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 transition-colors">
+    <span class="material-symbols-outlined">close</span>
+  </button>
+
+  <!-- Profile Brief in Drawer -->
+  <div class="bg-white/70 backdrop-blur-xl p-5 rounded-2xl border border-white/40 shadow-sm mt-4 cursor-pointer" onclick="closeDrawer(); router.navigate('/profile');">
+    <div class="flex items-center gap-4">
+      <div class="w-14 h-14 rounded-full overflow-hidden border-2 border-[#efdbff] shadow-sm bg-[#ededf2] flex items-center justify-center">
+        <span class="material-symbols-outlined text-[#787b80] text-2xl">person</span>
+      </div>
+      <div class="flex flex-col">
+        <h2 class="text-[16px] font-extrabold text-[#303337] tracking-tight leading-tight" id="drawer-name">PAIDI HARIKA</h2>
+        <span class="text-[11px] font-bold text-[#5c5f64] uppercase tracking-widest mt-0.5" id="drawer-roll">25B61A0596</span>
+      </div>
+    </div>
+  </div>
+
+  <nav class="flex-1 overflow-y-auto space-y-6 pr-2 hide-scrollbar">
+    <div class="space-y-2">
+      <div class="px-3 py-1"><span class="text-[11px] uppercase tracking-widest font-bold text-[#705193]">Academics</span></div>
+      <div class="space-y-1">
+        <a href="#" data-nav="dashboard" data-nav-link="dashboard" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-purple-50 hover:text-purple-700 transition-all duration-300 text-slate-400">
+          <span class="material-symbols-outlined text-[20px]">grid_view</span>
+          <span class="text-[13px] font-bold tracking-wide uppercase">Dashboard</span>
+        </a>
+        <a href="#" data-nav="timetable" data-nav-link="timetable" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-purple-50 hover:text-purple-700 transition-all duration-300 text-slate-400">
+          <span class="material-symbols-outlined text-[20px]">schedule</span>
+          <span class="text-[13px] font-bold tracking-wide uppercase">Weekly Schedule</span>
+        </a>
+        <a href="#" data-nav="syllabus" data-nav-link="syllabus" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-purple-50 hover:text-purple-700 transition-all duration-300 text-slate-400">
+          <span class="material-symbols-outlined text-[20px]">auto_stories</span>
+          <span class="text-[13px] font-bold tracking-wide uppercase">Curriculum &amp; Syllabus</span>
+        </a>
+        <a href="#" data-nav="marks" data-nav-link="marks" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-purple-50 hover:text-purple-700 transition-all duration-300 text-slate-400">
+          <span class="material-symbols-outlined text-[20px]" style="font-variation-settings:'FILL' 1;">grade</span>
+          <span class="text-[13px] font-bold tracking-wide uppercase">Marks &amp; Results</span>
+        </a>
+        <a href="#" data-nav="attendance" data-nav-link="attendance" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-purple-50 hover:text-purple-700 transition-all duration-300 bg-purple-100 text-purple-700">
+          <span class="material-symbols-outlined text-[20px]">calendar_today</span>
+          <span class="text-[13px] font-bold tracking-wide uppercase">Attendance</span>
+        </a>
+        <a href="#" data-nav="assignments" data-nav-link="assignments" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-purple-50 hover:text-purple-700 transition-all duration-300 text-slate-400">
+          <span class="material-symbols-outlined text-[20px]">assignment_turned_in</span>
+          <span class="text-[13px] font-bold tracking-wide uppercase">Assignments</span>
+        </a>
+      </div>
+    </div>
+    <div class="space-y-2">
+      <div class="px-3 py-1"><span class="text-[11px] uppercase tracking-widest font-bold text-[#705193]">Finance</span></div>
+      <div class="space-y-1">
+        <a href="#" data-nav="fees" data-nav-link="fees" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-purple-50 hover:text-purple-700 transition-all duration-300 text-slate-400">
+          <span class="material-symbols-outlined text-[20px]">account_balance_wallet</span>
+          <span class="text-[13px] font-bold tracking-wide uppercase">Fees &amp; Payments</span>
+        </a>
+      </div>
+    </div>
+    <div class="space-y-2">
+      <div class="px-3 py-1"><span class="text-[11px] uppercase tracking-widest font-bold text-[#705193]">Account</span></div>
+      <div class="space-y-1">
+        <a href="#" data-nav="profile" data-nav-link="profile" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-purple-50 hover:text-purple-700 transition-all duration-300 text-slate-400">
+          <span class="material-symbols-outlined text-[20px]">manage_accounts</span>
+          <span class="text-[13px] font-bold tracking-wide uppercase">Profile</span>
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="pt-4 border-t border-black/5">
+    <button id="drawer-logout-btn" class="w-full flex items-center justify-center gap-3 px-4 py-3.5 rounded-xl bg-[#f76a80]/10 text-[#ac3149] border border-[#f76a80]/20 hover:bg-[#ac3149] hover:text-white transition-all duration-300 active:scale-[0.98]">
+      <span class="material-symbols-outlined text-[20px]">logout</span>
+      <span class="text-[13px] font-extrabold tracking-widest uppercase">Logout</span>
+    </button>
+  </div>
+</aside>
+
+<!-- ===== MAIN CONTENT AREA ===== -->
+<div id="app" class="w-full min-h-screen" style="transition: opacity 0.15s; opacity: 1;">
+            <main class="pt-20 pb-28 px-6 max-w-4xl mx-auto">
+                <!-- Page Header -->
+                <section class="mb-6 text-center">
+                    <p class="font-label text-slate-400 uppercase tracking-[0.2em] text-[9px] font-bold mb-1">Academic Presence</p>
+                    <h2 class="text-3xl font-extrabold tracking-tight text-slate-800">Attendance Overview</h2>
+                </section>
+                
+                <!-- Main Momentum Gauge -->
+                <div class="flex justify-center mb-8">
+                    <div class="relative w-48 h-48 flex items-center justify-center">
+                        <div class="absolute inset-0 rounded-full bg-white shadow-lg border border-slate-50"></div>
+                        <div id="att-ring" class="absolute inset-3 rounded-full transition-all duration-1000" style="opacity: 0.15; background: conic-gradient(rgb(16, 185, 129) 88%, rgb(241, 245, 249) 0deg); border-radius: 9999px;"></div>
+                        <!-- Main Circular Indicator -->
+                        <div class="z-10 w-36 h-36 rounded-full bg-white/80 backdrop-blur-md flex flex-col items-center justify-center border border-white shadow-md">
+                            <span id="att-overall" class="text-4xl font-extrabold text-[#10b981] tracking-tighter" style="color: rgb(16, 185, 129);">88%</span>
+                            <span class="text-[9px] uppercase tracking-widest font-bold text-slate-400">Overall</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Subject-wise Breakdown -->
+                <section class="space-y-3">
+                    <div class="flex justify-between items-end mb-2 px-1">
+                        <h3 class="text-base font-bold text-slate-700">Subject Performance</h3>
+                        <span class="text-[10px] font-bold text-purple-600 uppercase tracking-widest">Semester Detail</span>
+                    </div>
+                    <div id="att-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4"><div class="bg-white/70 backdrop-blur-xl border border-white/60 shadow-[0_8px_30px_rgba(48,51,55,0.02)] rounded-2xl p-6 transition-all duration-300 hover:shadow-lg hover:scale-[1.01] flex flex-col justify-between min-h-[160px]">
+                      <div class="flex justify-between items-start">
+                        <div>
+                          <h3 style="font-family:'Plus Jakarta Sans',sans-serif;" class="text-base font-extrabold text-slate-800 tracking-tight mb-1">LAC</h3>
+                          <div class="flex items-center gap-2 mt-2">
+                            <span class="text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center gap-1.5 shadow-sm">
+                              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                              Safe
+                            </span>
+                          </div>
+                        </div>
+                        <div class="text-right">
+                          <p class="text-3xl font-black tracking-tighter text-emerald-600">93%</p>
+                          <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">68 / 73 Classes</p>
+                        </div>
+                      </div>
+                      
+                      <div class="space-y-2 mt-6">
+                        <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div class="h-full rounded-full transition-all duration-1000" style="width:93.15%;background-color:#10b981;"></div>
+                        </div>
+                      </div></div><div class="bg-white/70 backdrop-blur-xl border border-white/60 shadow-[0_8px_30px_rgba(48,51,55,0.02)] rounded-2xl p-6 transition-all duration-300 hover:shadow-lg hover:scale-[1.01] flex flex-col justify-between min-h-[160px]">
+                      <div class="flex justify-between items-start">
+                        <div>
+                          <h3 style="font-family:'Plus Jakarta Sans',sans-serif;" class="text-base font-extrabold text-slate-800 tracking-tight mb-1">EP</h3>
+                          <div class="flex items-center gap-2 mt-2">
+                            <span class="text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center gap-1.5 shadow-sm">
+                              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                              Safe
+                            </span>
+                          </div>
+                        </div>
+                        <div class="text-right">
+                          <p class="text-3xl font-black tracking-tighter text-emerald-600">89%</p>
+                          <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">66 / 74 Classes</p>
+                        </div>
+                      </div>
+                      
+                      <div class="space-y-2 mt-6">
+                        <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div class="h-full rounded-full transition-all duration-1000" style="width:89.19%;background-color:#10b981;"></div>
+                        </div>
+                      </div></div><div class="bg-white/70 backdrop-blur-xl border border-white/60 shadow-[0_8px_30px_rgba(48,51,55,0.02)] rounded-2xl p-6 transition-all duration-300 hover:shadow-lg hover:scale-[1.01] flex flex-col justify-between min-h-[160px]">
+                      <div class="flex justify-between items-start">
+                        <div>
+                          <h3 style="font-family:'Plus Jakarta Sans',sans-serif;" class="text-base font-extrabold text-slate-800 tracking-tight mb-1">CE</h3>
+                          <div class="flex items-center gap-2 mt-2">
+                            <span class="text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center gap-1.5 shadow-sm">
+                              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                              Safe
+                            </span>
+                          </div>
+                        </div>
+                        <div class="text-right">
+                          <p class="text-3xl font-black tracking-tighter text-emerald-600">88%</p>
+                          <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">51 / 58 Classes</p>
+                        </div>
+                      </div>
+                      
+                      <div class="space-y-2 mt-6">
+                        <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div class="h-full rounded-full transition-all duration-1000" style="width:87.93%;background-color:#10b981;"></div>
+                        </div>
+                      </div></div><div class="bg-white/70 backdrop-blur-xl border border-white/60 shadow-[0_8px_30px_rgba(48,51,55,0.02)] rounded-2xl p-6 transition-all duration-300 hover:shadow-lg hover:scale-[1.01] flex flex-col justify-between min-h-[160px]">
+                      <div class="flex justify-between items-start">
+                        <div>
+                          <h3 style="font-family:'Plus Jakarta Sans',sans-serif;" class="text-base font-extrabold text-slate-800 tracking-tight mb-1">BCME</h3>
+                          <div class="flex items-center gap-2 mt-2">
+                            <span class="text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center gap-1.5 shadow-sm">
+                              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                              Safe
+                            </span>
+                          </div>
+                        </div>
+                        <div class="text-right">
+                          <p class="text-3xl font-black tracking-tighter text-emerald-600">84%</p>
+                          <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">58 / 69 Classes</p>
+                        </div>
+                      </div>
+                      
+                      <div class="space-y-2 mt-6">
+                        <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div class="h-full rounded-full transition-all duration-1000" style="width:84.06%;background-color:#10b981;"></div>
+                        </div>
+                      </div></div><div class="bg-white/70 backdrop-blur-xl border border-white/60 shadow-[0_8px_30px_rgba(48,51,55,0.02)] rounded-2xl p-6 transition-all duration-300 hover:shadow-lg hover:scale-[1.01] flex flex-col justify-between min-h-[160px]">
+                      <div class="flex justify-between items-start">
+                        <div>
+                          <h3 style="font-family:'Plus Jakarta Sans',sans-serif;" class="text-base font-extrabold text-slate-800 tracking-tight mb-1">IP</h3>
+                          <div class="flex items-center gap-2 mt-2">
+                            <span class="text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center gap-1.5 shadow-sm">
+                              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                              Safe
+                            </span>
+                          </div>
+                        </div>
+                        <div class="text-right">
+                          <p class="text-3xl font-black tracking-tighter text-emerald-600">85%</p>
+                          <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">64 / 75 Classes</p>
+                        </div>
+                      </div>
+                      
+                      <div class="space-y-2 mt-6">
+                        <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div class="h-full rounded-full transition-all duration-1000" style="width:85.33%;background-color:#10b981;"></div>
+                        </div>
+                      </div></div><div class="bg-white/70 backdrop-blur-xl border border-white/60 shadow-[0_8px_30px_rgba(48,51,55,0.02)] rounded-2xl p-6 transition-all duration-300 hover:shadow-lg hover:scale-[1.01] flex flex-col justify-between min-h-[160px]">
+                      <div class="flex justify-between items-start">
+                        <div>
+                          <h3 style="font-family:'Plus Jakarta Sans',sans-serif;" class="text-base font-extrabold text-slate-800 tracking-tight mb-1">CE LAB</h3>
+                          <div class="flex items-center gap-2 mt-2">
+                            <span class="text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center gap-1.5 shadow-sm">
+                              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                              Safe
+                            </span>
+                          </div>
+                        </div>
+                        <div class="text-right">
+                          <p class="text-3xl font-black tracking-tighter text-emerald-600">80%</p>
+                          <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">36 / 45 Classes</p>
+                        </div>
+                      </div>
+                      
+                      <div class="space-y-2 mt-6">
+                        <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div class="h-full rounded-full transition-all duration-1000" style="width:80%;background-color:#10b981;"></div>
+                        </div>
+                      </div></div><div class="bg-white/70 backdrop-blur-xl border border-white/60 shadow-[0_8px_30px_rgba(48,51,55,0.02)] rounded-2xl p-6 transition-all duration-300 hover:shadow-lg hover:scale-[1.01] flex flex-col justify-between min-h-[160px]">
+                      <div class="flex justify-between items-start">
+                        <div>
+                          <h3 style="font-family:'Plus Jakarta Sans',sans-serif;" class="text-base font-extrabold text-slate-800 tracking-tight mb-1">EP LAB</h3>
+                          <div class="flex items-center gap-2 mt-2">
+                            <span class="text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-100 flex items-center gap-1.5 shadow-sm">
+                              <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
+                              Critical
+                            </span>
+                          </div>
+                        </div>
+                        <div class="text-right">
+                          <p class="text-3xl font-black tracking-tighter text-rose-600">0%</p>
+                          <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">0 / 0 Classes</p>
+                        </div>
+                      </div>
+                      
+                      <div class="space-y-2 mt-6">
+                        <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div class="h-full rounded-full transition-all duration-1000" style="width:0%;background-color:#ef4444;"></div>
+                        </div>
+                      </div></div><div class="bg-white/70 backdrop-blur-xl border border-white/60 shadow-[0_8px_30px_rgba(48,51,55,0.02)] rounded-2xl p-6 transition-all duration-300 hover:shadow-lg hover:scale-[1.01] flex flex-col justify-between min-h-[160px]">
+                      <div class="flex justify-between items-start">
+                        <div>
+                          <h3 style="font-family:'Plus Jakarta Sans',sans-serif;" class="text-base font-extrabold text-slate-800 tracking-tight mb-1">EW LAB</h3>
+                          <div class="flex items-center gap-2 mt-2">
+                            <span class="text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center gap-1.5 shadow-sm">
+                              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                              Safe
+                            </span>
+                          </div>
+                        </div>
+                        <div class="text-right">
+                          <p class="text-3xl font-black tracking-tighter text-emerald-600">94%</p>
+                          <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">45 / 48 Classes</p>
+                        </div>
+                      </div>
+                      
+                      <div class="space-y-2 mt-6">
+                        <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div class="h-full rounded-full transition-all duration-1000" style="width:93.75%;background-color:#10b981;"></div>
+                        </div>
+                      </div></div><div class="bg-white/70 backdrop-blur-xl border border-white/60 shadow-[0_8px_30px_rgba(48,51,55,0.02)] rounded-2xl p-6 transition-all duration-300 hover:shadow-lg hover:scale-[1.01] flex flex-col justify-between min-h-[160px]">
+                      <div class="flex justify-between items-start">
+                        <div>
+                          <h3 style="font-family:'Plus Jakarta Sans',sans-serif;" class="text-base font-extrabold text-slate-800 tracking-tight mb-1">IT LAB</h3>
+                          <div class="flex items-center gap-2 mt-2">
+                            <span class="text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center gap-1.5 shadow-sm">
+                              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                              Safe
+                            </span>
+                          </div>
+                        </div>
+                        <div class="text-right">
+                          <p class="text-3xl font-black tracking-tighter text-emerald-600">93%</p>
+                          <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">81 / 87 Classes</p>
+                        </div>
+                      </div>
+                      
+                      <div class="space-y-2 mt-6">
+                        <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div class="h-full rounded-full transition-all duration-1000" style="width:93.1%;background-color:#10b981;"></div>
+                        </div>
+                      </div></div><div class="bg-white/70 backdrop-blur-xl border border-white/60 shadow-[0_8px_30px_rgba(48,51,55,0.02)] rounded-2xl p-6 transition-all duration-300 hover:shadow-lg hover:scale-[1.01] flex flex-col justify-between min-h-[160px]">
+                      <div class="flex justify-between items-start">
+                        <div>
+                          <h3 style="font-family:'Plus Jakarta Sans',sans-serif;" class="text-base font-extrabold text-slate-800 tracking-tight mb-1">IP LAB</h3>
+                          <div class="flex items-center gap-2 mt-2">
+                            <span class="text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center gap-1.5 shadow-sm">
+                              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                              Safe
+                            </span>
+                          </div>
+                        </div>
+                        <div class="text-right">
+                          <p class="text-3xl font-black tracking-tighter text-emerald-600">85%</p>
+                          <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">33 / 39 Classes</p>
+                        </div>
+                      </div>
+                      
+                      <div class="space-y-2 mt-6">
+                        <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div class="h-full rounded-full transition-all duration-1000" style="width:84.62%;background-color:#10b981;"></div>
+                        </div>
+                      </div></div><div class="bg-white/70 backdrop-blur-xl border border-white/60 shadow-[0_8px_30px_rgba(48,51,55,0.02)] rounded-2xl p-6 transition-all duration-300 hover:shadow-lg hover:scale-[1.01] flex flex-col justify-between min-h-[160px]">
+                      <div class="flex justify-between items-start">
+                        <div>
+                          <h3 style="font-family:'Plus Jakarta Sans',sans-serif;" class="text-base font-extrabold text-slate-800 tracking-tight mb-1">HWYS</h3>
+                          <div class="flex items-center gap-2 mt-2">
+                            <span class="text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center gap-1.5 shadow-sm">
+                              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                              Safe
+                            </span>
+                          </div>
+                        </div>
+                        <div class="text-right">
+                          <p class="text-3xl font-black tracking-tighter text-emerald-600">86%</p>
+                          <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">12 / 14 Classes</p>
+                        </div>
+                      </div>
+                      
+                      <div class="space-y-2 mt-6">
+                        <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div class="h-full rounded-full transition-all duration-1000" style="width:85.71%;background-color:#10b981;"></div>
+                        </div>
+                      </div></div><div class="bg-white/70 backdrop-blur-xl border border-white/60 shadow-[0_8px_30px_rgba(48,51,55,0.02)] rounded-2xl p-6 transition-all duration-300 hover:shadow-lg hover:scale-[1.01] flex flex-col justify-between min-h-[160px]">
+                      <div class="flex justify-between items-start">
+                        <div>
+                          <h3 style="font-family:'Plus Jakarta Sans',sans-serif;" class="text-base font-extrabold text-slate-800 tracking-tight mb-1">LIB/COUN</h3>
+                          <div class="flex items-center gap-2 mt-2">
+                            <span class="text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center gap-1.5 shadow-sm">
+                              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                              Safe
+                            </span>
+                          </div>
+                        </div>
+                        <div class="text-right">
+                          <p class="text-3xl font-black tracking-tighter text-emerald-600">81%</p>
+                          <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">22 / 27 Classes</p>
+                        </div>
+                      </div>
+                      
+                      <div class="space-y-2 mt-6">
+                        <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div class="h-full rounded-full transition-all duration-1000" style="width:81.48%;background-color:#10b981;"></div>
+                        </div>
+                      </div></div></div>
+                </section>
+            </main>
+        </div>
+
+<!-- ===== LOADING OVERLAY ===== -->
+<div id="loading-overlay" class="fixed inset-0 bg-white/60 backdrop-blur-sm z-[100] flex flex-col items-center justify-center transition-opacity duration-300 hidden">
+  <div class="w-16 h-16 border-4 border-[#705193]/20 border-t-[#705193] rounded-full animate-spin"></div>
+  <p class="mt-4 text-[#705193] font-bold tracking-widest uppercase text-sm animate-pulse" id="loading-text">Fetching Attendance...</p>
+</div>
+
+<script src="./app.js"></script>
+
+

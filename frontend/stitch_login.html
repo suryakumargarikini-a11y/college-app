@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Login | Ethereal Scholar</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Manrope:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-variant": "#e1e2e8",
+                    "surface-bright": "#faf9fc",
+                    "primary-container": "#e4e2e1",
+                    "on-secondary": "#fff6ff",
+                    "secondary-fixed-dim": "#e5caff",
+                    "on-secondary-fixed": "#4f3170",
+                    "inverse-primary": "#ffffff",
+                    "on-surface-variant": "#5c5f64",
+                    "surface-dim": "#d8dae0",
+                    "surface": "#faf9fc",
+                    "outline-variant": "#b0b2b7",
+                    "surface-container-high": "#e7e8ed",
+                    "tertiary-fixed-dim": "#ec96a1",
+                    "on-tertiary-fixed-variant": "#6c2d37",
+                    "error-container": "#f76a80",
+                    "on-error-container": "#68001f",
+                    "error": "#ac3149",
+                    "background": "#faf9fc",
+                    "on-primary-fixed": "#3f3f3f",
+                    "surface-container-highest": "#e1e2e8",
+                    "inverse-surface": "#0d0e10",
+                    "on-error": "#fff7f7",
+                    "tertiary-fixed": "#fca3ae",
+                    "surface-container-lowest": "#ffffff",
+                    "secondary-dim": "#644586",
+                    "on-secondary-fixed-variant": "#6c4d8f",
+                    "tertiary-dim": "#823e48",
+                    "on-tertiary": "#fff7f7",
+                    "on-primary-fixed-variant": "#5c5b5b",
+                    "secondary": "#705193",
+                    "primary-fixed": "#e4e2e1",
+                    "surface-tint": "#5f5f5f",
+                    "on-tertiary-fixed": "#450e1a",
+                    "on-background": "#303337",
+                    "surface-container-low": "#f4f3f7",
+                    "primary-dim": "#535353",
+                    "primary-fixed-dim": "#d6d4d3",
+                    "surface-container": "#ededf2",
+                    "on-primary-container": "#525151",
+                    "outline": "#787b80",
+                    "on-secondary-container": "#624384",
+                    "secondary-fixed": "#efdbff",
+                    "primary": "#5f5f5f",
+                    "tertiary-container": "#fca3ae",
+                    "tertiary": "#904954",
+                    "on-primary": "#fbf8f8",
+                    "on-tertiary-container": "#61242f",
+                    "on-surface": "#303337",
+                    "inverse-on-surface": "#9c9d9f",
+                    "secondary-container": "#efdbff",
+                    "error-dim": "#770326"
+            },
+            "borderRadius": {
+                    "DEFAULT": "1rem",
+                    "lg": "2rem",
+                    "xl": "3rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Plus Jakarta Sans"],
+                    "body": ["Manrope"],
+                    "label": ["Manrope"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            font-family: 'Manrope', sans-serif;
+            background: #faf9fc;
+            overflow: hidden;
+        }
+        .headline-font {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        .ethereal-bg {
+            background: radial-gradient(circle at 20% 30%, #efdbff 0%, transparent 40%),
+                        radial-gradient(circle at 80% 70%, #fca3ae 0%, transparent 40%),
+                        radial-gradient(circle at 50% 50%, #ffffff 0%, #faf9fc 100%);
+        }
+        .organic-shape {
+            filter: blur(80px);
+            opacity: 0.4;
+            position: absolute;
+            z-index: 0;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="min-h-screen w-full flex flex-col items-center justify-center ethereal-bg relative">
+<!-- Organic Background Elements -->
+<div class="organic-shape bg-secondary-container w-[500px] h-[500px] rounded-full top-[-10%] left-[-10%]"></div>
+<div class="organic-shape bg-tertiary-container w-[400px] h-[400px] rounded-full bottom-[-5%] right-[-5%]"></div>
+<div class="organic-shape bg-white w-[600px] h-[600px] rounded-full top-[20%] right-[10%]"></div>
+<main class="relative z-10 w-full max-w-md px-6 flex flex-col items-center">
+<!-- Logo Section -->
+<div class="mb-12 text-center">
+<div class="w-20 h-20 bg-white/40 backdrop-blur-xl rounded-2xl flex items-center justify-center shadow-md shadow-secondary/5 mx-auto mb-4 border border-white/40">
+<span class="material-symbols-outlined text-4xl text-secondary" style="font-variation-settings: 'FILL' 1;">auto_stories</span>
+</div>
+<h1 class="headline-font text-3xl font-extrabold tracking-tighter text-on-background">
+                Ethereal Scholar
+            </h1>
+<p class="text-sm font-label uppercase tracking-widest text-secondary/60 mt-1 font-bold">
+                Academy Portal
+            </p>
+</div>
+<!-- Glassmorphic Login Card -->
+<div class="w-full bg-white/50 backdrop-blur-3xl rounded-xl p-8 shadow-md border border-white/60">
+<div class="mb-8">
+<h2 class="headline-font text-xl font-bold text-on-background tracking-tight">Welcome Back</h2>
+<p class="text-on-surface-variant text-sm mt-1">Please enter your academic credentials.</p>
+</div>
+<form class="space-y-6" onsubmit="return false;">
+<!-- Student ID Field -->
+<div class="space-y-2">
+<label class="text-[11px] font-bold uppercase tracking-widest text-secondary ml-1" for="student_id">
+                        Student ID
+                    </label>
+<div class="relative group">
+<div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-outline text-lg">badge</span>
+</div>
+<input class="block w-full pl-11 pr-4 py-3.5 bg-surface-container-lowest/50 border-0 rounded-lg text-on-surface text-sm focus:ring-2 focus:ring-secondary-fixed-dim transition-all placeholder:text-outline-variant" id="student_id" placeholder="e.g. SCH-2024-001" type="text"/>
+</div>
+</div>
+<!-- Password Field -->
+<div class="space-y-2">
+<div class="flex justify-between items-center px-1">
+<label class="text-[11px] font-bold uppercase tracking-widest text-secondary" for="password">
+                            Password
+                        </label>
+</div>
+<div class="relative group">
+<div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-outline text-lg">lock</span>
+</div>
+<input class="block w-full pl-11 pr-12 py-3.5 bg-surface-container-lowest/50 border-0 rounded-lg text-on-surface text-sm focus:ring-2 focus:ring-secondary-fixed-dim transition-all placeholder:text-outline-variant" id="password" placeholder="••••••••" type="password"/>
+<button class="absolute inset-y-0 right-0 pr-4 flex items-center text-outline hover:text-secondary transition-colors" type="button">
+<span class="material-symbols-outlined text-lg">visibility</span>
+</button>
+</div>
+</div>
+<!-- Forgot Password -->
+<div class="flex justify-end">
+<a class="text-[12px] font-bold text-secondary hover:text-secondary-dim transition-colors tracking-tight" href="#">
+                        Forgot Password?
+                    </a>
+</div>
+<!-- Action Button -->
+<button class="w-full bg-secondary text-on-secondary font-headline font-bold py-4 rounded-full shadow-lg shadow-secondary/20 hover:bg-secondary-dim active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 group" type="submit">
+                    Login
+                    <span class="material-symbols-outlined text-lg transition-transform group-hover:translate-x-1">arrow_forward</span>
+</button>
+</form>
+<div class="mt-8 text-center">
+<p class="text-xs text-on-surface-variant font-medium">
+                    New to the academy? 
+                    <a class="text-secondary font-bold hover:underline decoration-secondary/30 ml-1" href="#">Contact Registrar</a>
+</p>
+</div>
+</div>
+<!-- Footer Meta -->
+<div class="mt-12 flex items-center gap-6 opacity-40 grayscale group hover:grayscale-0 hover:opacity-100 transition-all">
+<div class="flex flex-col items-center">
+<span class="text-[10px] font-bold tracking-widest text-on-background uppercase">Encrypted</span>
+<span class="material-symbols-outlined text-sm mt-1">verified_user</span>
+</div>
+<div class="w-px h-6 bg-outline-variant/30"></div>
+<div class="flex flex-col items-center">
+<span class="text-[10px] font-bold tracking-widest text-on-background uppercase">Scholar V2.4</span>
+<span class="material-symbols-outlined text-sm mt-1">school</span>
+</div>
+</div>
+</main>
+<!-- Visual Polish: Decorative Glass Cards -->
+<div class="fixed top-[15%] right-[5%] w-32 h-32 bg-white/20 backdrop-blur-md rounded-lg border border-white/30 -rotate-12 pointer-events-none hidden lg:block"></div>
+<div class="fixed bottom-[15%] left-[5%] w-24 h-24 bg-white/20 backdrop-blur-md rounded-lg border border-white/30 rotate-12 pointer-events-none hidden lg:block"></div>
+</body></html>

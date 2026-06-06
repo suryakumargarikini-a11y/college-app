@@ -1,0 +1,151 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Mixed --",
+        "enable": true,
+        "hide": true,
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "id": null,
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "title": "Service Dependency Topology Map",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "tempo",
+        "uid": "Tempo"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 1
+      },
+      "id": 2,
+      "title": "Interactive Service Map Graph (Realtime Network)",
+      "type": "nodeGraph",
+      "targets": [
+        {
+          "query": "service-graph",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 11
+      },
+      "id": 3,
+      "title": "SLO Latency Tracking & Anomaly Rate Indicators",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 0,
+        "y": 12
+      },
+      "id": 4,
+      "title": "Slow Traces / SLO Violations (>1s threshold)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(rate(http_request_duration_seconds_bucket{le=\"1.0\"}[1m]))",
+          "legendFormat": "Under 1s SLO",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(http_request_duration_seconds_count[1m])) - sum(rate(http_request_duration_seconds_bucket{le=\"1.0\"}[1m]))",
+          "legendFormat": "SLO Violations (>1s)",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 8,
+        "y": 12
+      },
+      "id": 5,
+      "title": "Trace Anomaly Detection Frequency",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(rate(postgres_slow_queries_total[5m]))",
+          "legendFormat": "DB Slow Query Anomalies",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(redis_reconnect_total[5m]))",
+          "legendFormat": "Redis Reconnect Spikes",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "tempo",
+        "uid": "Tempo"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 16,
+        "y": 12
+      },
+      "id": 6,
+      "title": "TraceQL Forensic Search Panel",
+      "type": "text",
+      "options": {
+        "mode": "markdown",
+        "content": "### Forensic Incident Reconstruction\n\nTo find traces related to issues, go to **Explore** in Grafana and choose **Tempo**:\n\n* **Outages/Errors**: `{.error = true}`\n* **Slow Syncs (>15s)**: `{.sync.type = \"full\" && duration > 15s}`\n* **Redis Failures**: `{span.name =~ \"redis.command.*\" && .error = true}`\n* **DB Lock Contentions**: `{.anomaly.type = \"db_lock_contention\"}`\n* **Worker Replays**: `{span.name = \"worker.sync.execute\"}`"
+      }
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 36,
+  "style": "dark",
+  "tags": ["sitam", "tracing", "tempo"],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "title": "Distributed Tracing & Service Map",
+  "uid": "tracing-overview",
+  "version": 1
+}

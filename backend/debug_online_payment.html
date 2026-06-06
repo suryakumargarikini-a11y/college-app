@@ -1,0 +1,400 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link href="../Styles/CssCAP.css" rel="Stylesheet" type="text/css"><link href="../Styles/report.css" rel="Stylesheet" type="text/css"><link href="../Styles/uploadify.css" rel="Stylesheet" type="text/css"><link href="../Styles/jquery-ui-1.8.12.custom.css" rel="Stylesheet" type="text/css">
+    <script language="javascript" src="../JSFiles/Validations.js" type="text/javascript"></script>
+    <script language="javascript" src="../JSFiles/jsGeneralFunctions.js" type="text/javascript"></script>
+    <script language="javascript" src="../JSFiles/AjaxMethods.js?mode=1" type="text/javascript"></script>
+    <script language="javascript" src="../JSFiles/jsPermissions.js" type="text/javascript"></script>
+   
+    <script language="javascript" src="../JSFiles/jquery-1.3.2.js" type="text/javascript"></script>
+    <script language="javascript" src="../JSFiles/jquery-1.3.2.min.js" type="text/javascript"></script>
+   
+    <script language="javascript" src="../JSFiles/jquery.fixedheader.js" type="text/javascript"></script>
+    
+    
+    
+    
+    <script language="javascript" src="../JSFiles/jquery-ui-1.8.12.custom.min.js" type="text/javascript"></script>
+    
+    
+    
+    <script language="javascript" src="../JSFiles/jquery.uploadify.js" type="text/javascript"></script>
+    <script language="javascript" src="../JSFiles/jquery.ui.datepicker-en-GB.js" type="text/javascript"></script>
+    <script language="javascript" src="../JSFiles/jquery-ui-timepicker-addon.js" type="text/javascript"></script>
+    
+     <script language="javascript" src="../JSFiles/jquery.json-2.2.js" type="text/javascript"></script>
+    <script language="javascript" src="../JSFiles/jquery.json-2.2.min.js" type="text/javascript"></script>
+    <script language="javascript" src="../JSFiles/json2.js" type="text/javascript"></script>
+    <script language="javascript" src="../JSFiles/fxHeader_0.6.js" type="text/javascript"></script>
+    <script language="javascript" src="../JSFiles/fxHeader_0.6.min.js" type="text/javascript"></script>
+    <script language="javascript" src="../JSFiles/jquerymethods.js" type="text/javascript"></script>
+    <script language="javascript" src="../JSFiles/canvasjs.min.js" type="text/javascript"></script>
+    <script language="javascript" src="../JSFiles/jqBarGraph.1.1.min.js" type="text/javascript"></script>
+    <script language="javascript" src="../JSFiles/ajaxupload.js" type="text/javascript"></script>
+   <script language="javascript" type="text/javascript">
+       $(document).bind("contextmenu", function () { return false; });
+       $(document.body).keydown(function (key) {
+           if (key.which == 123) { key.preventDefault(); };
+
+       });
+   </script>
+    
+    <title>
+	Engineering College Automation Package
+</title></head>
+<body id="ctl00_MasterBody" style="margin-top:0;margin-left: 0; margin-right: 0; margin-bottom: 0; background-color:#ffffff;">
+    <form name="aspnetForm" method="post" action="./onlinepayment.aspx" id="aspnetForm">
+<div>
+<input type="hidden" name="__EVENTTARGET" id="__EVENTTARGET" value="">
+<input type="hidden" name="__EVENTARGUMENT" id="__EVENTARGUMENT" value="">
+<input type="hidden" name="__VIEWSTATE" id="__VIEWSTATE" value="/wEPDwULLTEwMDUyNjYzMjhkZLh5g9o+igl6oY9M3HzQn/VYkJKwQiaKonGL7Trr21ZQ">
+</div>
+
+<script type="text/javascript">
+//<![CDATA[
+var theForm = document.forms['aspnetForm'];
+if (!theForm) {
+    theForm = document.aspnetForm;
+}
+function __doPostBack(eventTarget, eventArgument) {
+    if (!theForm.onsubmit || (theForm.onsubmit() != false)) {
+        theForm.__EVENTTARGET.value = eventTarget;
+        theForm.__EVENTARGUMENT.value = eventArgument;
+        theForm.submit();
+    }
+}
+//]]>
+</script>
+
+
+<script src="/SATYA/WebResource.axd?d=m5UTWx7s916XQC9V-TdxpxJhs7zJGCilZAay0H1DyPiX3wmFu5hqsWjwXmdS6AVOKp15IdR4CRTiHVXuvDnf8zVAsBAIp_lvQlNhmed1L041&amp;t=636480529623431523" type="text/javascript"></script>
+
+<script type="text/javascript" src="/SATYA/ajax/common.ashx"></script><script type="text/javascript" src="/SATYA/ajax/Feepayments_onlinepayment,App_Web_4jigycfg.ashx"></script>
+<script src="/SATYA/ScriptResource.axd?d=GHS3abIO7_DIbnYccRLi4roZ73z7lNlY4q14i3ZE4WB86DQg8lTQWNeWMNxqqt-VqQp_6-GAnkjO7sc4MzbJmDAacvIvOG9Af3YeT5z7yilH-gaoRN_xgTvPnP2sImqK22uuc3MOueyafCIhNuAZyi8-Ay55T2_hQx-3hyBV1985GjejUVg1wvhlEx4_PHq60&amp;t=ffffffffad4b7194" type="text/javascript"></script>
+<script type="text/javascript">
+//<![CDATA[
+if (typeof(Sys) === 'undefined') throw new Error('ASP.NET Ajax client-side framework failed to load.');
+//]]>
+</script>
+
+<script src="/SATYA/ScriptResource.axd?d=vGlVVmQDQPAU4kiDIBslB3FBpxISWKa5be-nhpLaJerJkihEAJ1x9yFhWRqKzmUanQeJt2IdayOg3jMpETFZTLo0gI5iA8Ez0PQcsX2qSYo2O0wpw8-4mspEsKBcVDVTLrWpABVOBbPV27YuwKfjxKBz-Ujh41jxkaA16H8FhLXyL-gv4I44bfDoBrTBUEcS0&amp;t=ffffffffad4b7194" type="text/javascript"></script>
+<div>
+
+	<input type="hidden" name="__VIEWSTATEGENERATOR" id="__VIEWSTATEGENERATOR" value="1162ED33">
+</div>
+    <div>
+        <script type="text/javascript">
+//<![CDATA[
+Sys.WebForms.PageRequestManager._initialize('ctl00$scripMan', 'aspnetForm', [], [], [], 90, 'ctl00');
+//]]>
+</script>
+
+        
+    <table cellspacing="2" cellpadding="2" width="100%" class="gvStyle">
+        <tbody><tr>
+            <td class="MainHead" align="left" colspan="2">
+                Online Payment
+            </td>
+        </tr>
+       
+        <tr><td align="center" valign="top">
+            <table width="90%" cellpadding="2" cellspacing="0" class="reportTable" id="tblterms" style="display:none">
+                <tbody><tr>
+                    <td align="left" class="reportHeading1">Terms &amp; Conditions</td>
+                </tr>
+                <tr>
+                    <td align="left" style="height:200px">
+                        <ul>
+                            <li>Transaction fee charges would not be refunded/ reversed under any circumstances for any refund/ reversal /chargeback and any other reasons.  </li>
+                            <li>Transaction fees charged would be borne by cardholder for any payment.</li>
+                            <li>Fees once paid which are non-refundable for any reason or any clause of HITAM.</li>
+                            <!--<li>T&C, privacy policy, entity legal name & contact us details are need to be update on website.</li>-->
+                        </ul>
+                    </td>
+                </tr>
+                <tr>
+                    <td align="left" style="font-size:16px"><input type="checkbox" id="chkagree">&nbsp;<b>I Agree for terms &amp; condition and other payments terms before going to the payment page.</b></td>
+                </tr>
+            </tbody></table>
+            </td></tr>
+        <tr><td>&nbsp;</td></tr>
+        <tr>
+            <td align="center">
+                <div id="divfees"><table><tbody><tr><td><b>Fee type groups: </b></td><td>1.Transport  2.Hostel,Hostel Miscellaneous  3:Exam   4:Remainig all</td></tr><tr><td colspan="2"><b>Note:</b> Can't select different group fees in one payment</td></tr></tbody></table><br><table width="85%" align="center" border="0" cellspacing="2" cellpadding="2"><tbody><tr><td align="right"><b>Name</b></td><td>:</td><td align="left"><span id="spnName">PAIDI HARIKA</span></td><td>&nbsp;</td><td align="right"><b>Semester</b></td><td>:</td><td align="left"><span id="spnSem">I/IV B.Tech II Semester</span></td><td valign="middle" rowspan="4"><img src="https://sitamecap.co.in/SATYA/images/imgna.gif" alt="Student Photo" width="100px" height="100px"></td></tr><tr><td align="right"><b>Program</b></td><td> :</td><td align="left"><span id="spnCourse">B.Tech</span></td><td>&nbsp;</td><td align="right"><b>Branch</b></td><td> :</td><td align="left"><span id="spnBranch">CSE</span></td></tr><tr><td align="right"><b>Seat Type</b></td> <td> :</td> <td align="left"><span id="spnseattype">CONVENOR</span></td><td>&nbsp;</td><td align="right"><b>Scholarship</b></td> <td>:</td> <td align="left"><span id="spnsch">Yes</span></td></tr><tr><td colspan="7">&nbsp;</td></tr></tbody></table></div>
+            </td>
+        </tr>
+    </tbody></table>
+    
+    <style>
+        li{
+            line-height:30px;
+            font-size:16px;
+        }
+    </style>
+<script language="javascript" type="text/javascript">
+    $(document).ready(function () {
+                    fillStudentFees();
+        $("#chkagree").click(function () {
+            $("#divfees").html("");
+
+            if ($(this).attr("checked")) {
+                $("#tblterms").hide();
+                fillStudentFees();
+            }
+        })
+    })
+    function fillStudentFees() {
+        showProcessDialog("divprocess", true);
+        setTimeout(function () {
+            try {
+                var response = Feepayments_onlinepayment.ShowStudentFees();
+                if (response.error == null) {
+                    if (response.value != "SE")
+                        $("#divfees").html(response.value);
+                    else Raiserror("SE");
+                }
+                else alert(response.error);
+            }
+            catch (e) {
+                alert(e.error);
+            }
+            showProcessDialog("divprocess", false);
+            ResizeIFrame();
+        })
+    }
+    function changeMe(obj) {
+        var objVal = trim($(obj).val());
+        if (objVal != null && objVal != "") {
+            if (!checkNumeric($(obj).attr("id"), 'Amount', true))
+                return false;
+            $(obj).val(parseFloat(objVal).toFixed(2));
+        }
+        else
+            $(obj).val("0.00");
+        CalculateSum();
+    }
+
+    function trim(str) {
+        if (!str || typeof str != 'string')
+            return null;
+
+        return str.replace(/^[\s]+/, '').replace(/[\s]+$/, '').replace(/[\s]{2,}/, ' ');
+    }
+    function CalculateSum() {
+        try {
+            var totFee = 0;
+            $("#tblFeePayments tr:gt(0)").find("input:checkbox:checked").each(function () {
+                var _row = $(this).parent().parent();
+                var _txtfine = $(_row).find("td:eq(6)").find("input:text");
+                var _fineamt = 0;
+                if ($(_txtfine).length > 0 && $(_txtfine).val() != "") {
+                    if (!checkNumeric($(_txtfine).attr("id"), 'fine amount'))
+                        return false;
+                    _fineamt = $(_txtfine).val();
+                }
+                var _feeamt = parseFloat($(_row).find("td:eq(2)").text().replace(',', ''));
+
+                var _txtfee = $(_row).find("td:eq(9)").find("input:text");
+                var _payingamt = 0;
+                if ($(_txtfee).length > 0 && $(_txtfee).val() != "") {
+                    if (!checkNumeric($(_txtfee).attr("id"), 'fee amount'))
+                        return false
+                    _payingamt = parseFloat($(_txtfee).val());
+                }
+
+                var _paidamt = parseFloat($(_row).find("td:eq(4)").text().replace(',', ''));
+
+                var _amount = _feeamt - _paidamt;
+                _amount = parseFloat(_payingamt) + parseFloat(_fineamt);
+                //_row.cells[6].innerText=_amount.toFixed(2);
+                totFee += parseFloat(_amount);
+
+                 try {
+                    var ctlhdn = $(_row).find("td:eq(9)").find("input:hidden");
+                    ctlhdn.val("");
+                    var response = Feepayments_onlinepayment.GetAmount(_payingamt);
+                    if (response.error == null)
+                        ctlhdn.val(response.value);
+                }
+                catch (e) {}
+
+            });
+            
+            $("#txtTotFee").val(totFee.toFixed(2));
+            
+        }
+        catch (e) {
+            alert(e.error);
+        }
+    }
+
+    function CheckMe(chkBoxObj) {
+        try {
+            var rowId = $(chkBoxObj).attr("name");
+            //rowId++;
+            var elTxt = $("#tblFeePayments tr:eq(" + rowId + ")").find("td:eq(9)").find("input:text");
+            var elFine = $("#tblFeePayments tr:eq(" + rowId + ")").find("td:eq(6)").find("input:text");
+            if ($(chkBoxObj).attr("checked")) {
+                $(elTxt).attr("disabled", false);
+                $(elTxt).val($("#tblFeePayments tr:eq(" + rowId + ")").find("td:eq(7)").text().replace(',', ''));
+                $(elTxt).select();
+
+                if ($(elFine).length > 0)
+                    $(elFine).attr("disabled", false);
+            }
+            else {
+                $(elTxt).val("0.00");
+                $(elTxt).attr("disabled", true);
+                $(elFine).val($(elFine).attr("title"));
+                $(elFine).attr("disabled", true);
+            }
+            CalculateSum();
+        }
+        catch (e) {
+            alert(e.error);
+        }
+    }
+
+    function SelectMe(obj) {
+        $(obj).select();
+    }
+    function onProceedClick() {
+        try {
+            var _prevyearid = -1;
+            var _prevyearname = '';
+            var _flag = true;
+            var _previouschecked = false;
+            /*$("#tblFeePayments tr:gt(0)").find("input:checkbox").each(function () {
+                if (_flag) {
+                    var _row = $(this).parent().parent();
+                    if ($(this).attr("disabled") == false) {
+                        var _presentyearid = $(_row).find("td:eq(12)").text();
+                        var _currentyearname = $(_row).find("td:eq(11)").text();
+                        if (_prevyearid != -1 && $(this).attr("checked") && _prevyearid != _presentyearid && _previouschecked == false) {
+                            //if (!confirm("Student have " + _prevyearname + " dues.\r\nDo you want to generate " + _currentyearname + " receipt ?"))
+                            alert("Please clear previous year due(s)");
+                            _flag = false;
+                        }
+                        _prevyearid = _presentyearid;
+                        _prevyearname = _currentyearname;
+                        _previouschecked = $(this).attr("checked");
+                    }
+                }
+            });*/
+            /*var p = prompt("Please enter password");
+            if (p == "") {
+                alert("Please enter password");
+                _flag = false;
+                return false;
+            }*/
+            if (_flag) {
+                
+                var arrrevenueid = [];
+                var arramount = [];
+                var arrfineamount = [];
+                var arrhdnfineamount = [];
+                var arryearid = [];
+                var arrfeedueslno = [];
+                var arraccname = [];
+                var arrfeedueslno1 = [];
+                var arryearid1 = [];
+                var arrrevenueid1 = [];
+                var arramount1 = [];
+                var _groupid = -1;
+                var bankgroup = "-";
+                $("#tblFeePayments tr:gt(0)").find("input:checkbox:checked").each(function () {
+                    if (_flag) {
+                        var _row = $(this).parent().parent();
+                        var _gid = $(_row).attr("name");
+                        var _bnkgroup = _row.find("input:hidden[name=hdnaccname]").val();
+                        if ( (_groupid != -1 && _gid != _groupid) || (bankgroup != "-" && bankgroup != _bnkgroup)) {
+                            alert("Can't select different group revenuehead(s) in one receipt");
+                            _flag = false;
+                            return false;
+                        }
+                        if (_flag) {
+                            _groupid = _gid;
+                            bankgroup = _bnkgroup;
+                            var eTxt = $(_row).find("td:eq(9)").find("input:text");
+                            var _txtfine = $(_row).find("td:eq(6)").find("input:text");
+                            if ($(eTxt).attr("id").indexOf("txtTotFee") == -1) {
+                                if (isNaN($(eTxt).val())) {
+                                    alert('Invalid Amount');
+                                    _flag = false;
+                                    return false;
+                                }
+                                if (parseFloat($(eTxt).val()) > parseFloat(_row.find("span[name=spnbalance]").text())) {
+                                    alert("Paying amount shouldn't greater thane balance");
+                                    _flag = false;
+                                    $(eTxt).focus();
+                                    return false;
+                                }
+
+                            }
+                            if (parseFloat(trim($(eTxt).val())) > 0) {
+                                arramount.push(trim($(eTxt).val()));
+                                var _fineamount = (parseFloat($(_txtfine).val()) > 0 ? $(_txtfine).val() : '0');
+                                arrfineamount.push(_fineamount);
+                                arrhdnfineamount.push(_fineamount);
+                                arrrevenueid.push($(_row).find("td:eq(10)").text());
+                                arryearid.push($(_row).find("td:eq(12)").text());
+                                arrfeedueslno.push($(this).val());
+                                arraccname.push(_row.find("input:hidden[name=hdnaccname]").val());
+
+                                arrfeedueslno1.push($(this).parent().attr("name"));
+                                arrrevenueid1.push($(_row).find("td:eq(10)").attr("name"));
+                                arryearid1.push($(_row).find("td:eq(12)").attr("name"));
+                                arramount1.push($(_row).find("td:eq(9)").find("input:hidden").val());
+                            }
+                        }
+                    }
+                });
+                if (_flag) {
+
+                    if (arrrevenueid.length == 0) {
+                        alert("Select & enter any fee");
+                        return false;
+                    }
+                    if (confirm("Do you want to proceed ?")) {
+                        try {
+                            showProcessDialog("divprocess", true);
+                            setTimeout(function () {
+                                try {
+                                    //alert($("#hdnstudentid").val()+","+ _groupid+","+ arryearid+","+ arrrevenueid+","+ arramount+","+ arrfeedueslno+","+ arrfineamount +","+ arrhdnfineamount[0]);
+                                    var response = Feepayments_onlinepayment.SaveStudentFees($("#hdnstudentid").val(), _groupid, arryearid, arrrevenueid, arramount, arrfeedueslno, arrfineamount, arrhdnfineamount, arraccname, $("#spnCourse").text(), arrfeedueslno1, arrrevenueid1, arryearid1, arramount1, bankgroup, $("#hdnstudentid").attr("name"));
+                                    if (response.error == null) {
+                                        if (response.value == "") {
+                                            $("#divfees").html("");
+                                            window.open("../bankrequest.aspx", "OPayment", 'width=800,height=500,toolbar=no,scrollbars=yes,titlebar=no,status=no,directories=no,location=no');
+                                            //$(location).attr("href","../bankrequest.aspx");
+                                            //window.open("../sbipayment.aspx", "OPayment", 'width=800,height=500,toolbar=no,scrollbars=yes,titlebar=no,status=no,directories=no,location=no');
+                                            
+                                        }
+                                        else Raiserror(response.value);
+                                    }
+                                    else
+                                        Raiserror(response.error);
+                                }
+                                catch (e) { alert(e.error); }
+                                showProcessDialog("divprocess", false);
+                            }, 500);
+                        }
+                        catch (ex) {
+                            Raiserror(ex.message);
+                        }
+                    }
+                }
+
+            }
+        }
+        catch (e) {
+            alert(e.error);
+        }
+        ResizeIFrame();
+    }
+</script>
+    
+
+    </div>
+    </form>
+
+
+<div id="divprocess" class="" style="width: auto; min-height: 0px; height: 110px; display: none;"></div></body></html>

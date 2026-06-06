@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Academic Editorial - Fees Management</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&amp;family=Manrope:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-fixed-variant": "#5c5b5b",
+                        "surface-container-lowest": "#ffffff",
+                        "inverse-on-surface": "#9c9d9f",
+                        "secondary-dim": "#644586",
+                        "primary-fixed": "#e4e2e1",
+                        "on-primary-fixed": "#3f3f3f",
+                        "on-tertiary-container": "#61242f",
+                        "on-secondary-fixed": "#4f3170",
+                        "secondary-fixed-dim": "#e5caff",
+                        "on-surface-variant": "#5c5f64",
+                        "surface-dim": "#d8dae0",
+                        "on-primary": "#fbf8f8",
+                        "on-background": "#303337",
+                        "tertiary-dim": "#823e48",
+                        "on-secondary": "#fff6ff",
+                        "on-error-container": "#68001f",
+                        "surface-container-low": "#f4f3f7",
+                        "on-primary-container": "#525151",
+                        "background": "#faf9fc",
+                        "tertiary": "#904954",
+                        "surface-bright": "#faf9fc",
+                        "secondary-fixed": "#efdbff",
+                        "secondary-container": "#efdbff",
+                        "surface-container-high": "#e7e8ed",
+                        "surface-container": "#ededf2",
+                        "tertiary-container": "#fca3ae",
+                        "surface": "#faf9fc",
+                        "on-error": "#fff7f7",
+                        "surface-variant": "#e1e2e8",
+                        "on-surface": "#303337",
+                        "on-tertiary-fixed-variant": "#6c2d37",
+                        "on-secondary-fixed-variant": "#6c4d8f",
+                        "tertiary-fixed": "#fca3ae",
+                        "primary-dim": "#535353",
+                        "on-secondary-container": "#624384",
+                        "on-tertiary-fixed": "#450e1a",
+                        "on-tertiary": "#fff7f7",
+                        "primary-container": "#e4e2e1",
+                        "outline-variant": "#b0b2b7",
+                        "error": "#ac3149",
+                        "error-container": "#f76a80",
+                        "primary-fixed-dim": "#d6d4d3",
+                        "error-dim": "#770326",
+                        "surface-container-highest": "#e1e2e8",
+                        "surface-tint": "#5f5f5f",
+                        "inverse-primary": "#ffffff",
+                        "primary": "#5f5f5f",
+                        "secondary": "#705193",
+                        "outline": "#787b80",
+                        "tertiary-fixed-dim": "#ec96a1",
+                        "inverse-surface": "#0d0e10"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "1rem",
+                        "lg": "2rem",
+                        "xl": "3rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Plus Jakarta Sans"],
+                        "body": ["Manrope"],
+                        "label": ["Manrope"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Manrope', sans-serif; }
+        .font-plus-jakarta-sans { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .glass-panel { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(40px); }
+        .ghost-border { outline: 1px solid rgba(176, 178, 183, 0.15); }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-background text-on-surface min-h-screen pb-32">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-white/70 dark:bg-zinc-900/70 backdrop-blur-xl shadow-[0_10px_40px_rgba(48,51,55,0.06)] flex justify-between items-center px-6 py-4 w-full">
+<div class="flex items-center gap-4">
+<button class="p-2 transition-all duration-300 ease-in-out hover:bg-zinc-100/50 dark:hover:bg-zinc-800/50 rounded-full">
+<span class="material-symbols-outlined text-zinc-800 dark:text-zinc-100" data-icon="arrow_back">arrow_back</span>
+</button>
+<h1 class="text-lg font-bold tracking-tighter text-zinc-800 dark:text-zinc-100 font-plus-jakarta-sans">Academic Editorial</h1>
+</div>
+<div class="flex items-center gap-3">
+<span class="text-zinc-500 dark:text-zinc-400 font-plus-jakarta-sans tracking-tight font-bold hidden md:block">Alex Sterling</span>
+<div class="w-10 h-10 rounded-full overflow-hidden shadow-sm">
+<img alt="Student Profile" data-alt="Portrait of a young man with a serene expression, soft natural lighting, minimal studio background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA7CMf5osfkf2RMM6sB3RaDHni8MpL-2myCE_-ikA5SvSJpYW7326pzOkrYY6RmOjBg7wM2TVdVry0Hd2kbSeDsAniTpDz9hFvb64ETUF-T3BBKVidjNlkzm_4xIBQo3PHpjElM5hYrhlzHf7wuVx8fK-oInEDR2F6tv5fVDpRjHOMpV9kQSzsTmXOsJPnHcql38OGSpP_HupN-FQeqBnbyrbmSBcFfouF36SdSoMP3auURaBjnYB_yT8xZczhvPf-4IExzvVpk_u0"/>
+</div>
+</div>
+</header>
+<main class="pt-28 px-6 max-w-7xl mx-auto space-y-12">
+<!-- Hero Metrics Section -->
+<section class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<div class="lg:col-span-2 relative group overflow-hidden bg-secondary-container rounded-xl p-10 flex flex-col justify-between min-h-[320px]">
+<div class="relative z-10">
+<p class="font-label text-on-secondary-container text-sm font-semibold uppercase tracking-widest mb-2">Total Balance Due</p>
+<h2 class="font-headline text-5xl md:text-7xl font-bold tracking-tighter text-on-secondary-container">$2,450.00</h2>
+<p class="mt-4 text-on-secondary-container/70 max-w-md font-medium">Your Semester 2 tuition fees are pending. Ensure payment by the end of the month to avoid late penalties.</p>
+</div>
+<div class="mt-8 flex gap-4 relative z-10">
+<button class="bg-primary px-8 py-4 rounded-full text-on-primary font-bold text-lg shadow-lg hover:scale-[1.02] transition-transform flex items-center gap-2">
+<span>Pay Now</span>
+<span class="material-symbols-outlined" data-icon="arrow_forward">arrow_forward</span>
+</button>
+<button class="bg-white/40 backdrop-blur-md px-8 py-4 rounded-full text-on-surface font-bold text-lg hover:bg-white/60 transition-colors">
+                        View Statement
+                    </button>
+</div>
+<!-- Abstract 3D Shapes -->
+<div class="absolute -right-20 -top-20 w-80 h-80 bg-secondary/20 rounded-full blur-[80px]"></div>
+<div class="absolute right-10 bottom-10 opacity-40">
+<div class="w-48 h-48 bg-gradient-to-br from-secondary to-tertiary rounded-full blur-3xl"></div>
+</div>
+</div>
+<div class="bg-surface-container-lowest rounded-xl p-10 flex flex-col justify-center items-center text-center shadow-[0_10px_40px_rgba(48,51,55,0.06)] ghost-border">
+<div class="relative w-48 h-48 mb-6">
+<svg class="w-full h-full transform -rotate-90">
+<circle class="text-surface-container-high" cx="96" cy="96" fill="transparent" r="88" stroke="currentColor" stroke-width="12"></circle>
+<circle class="text-secondary" cx="96" cy="96" fill="transparent" r="88" stroke="currentColor" stroke-dasharray="552.92" stroke-dashoffset="138.23" stroke-width="12" style="stroke-linecap: round;"></circle>
+</svg>
+<div class="absolute inset-0 flex flex-col items-center justify-center">
+<span class="text-4xl font-bold font-plus-jakarta-sans">75%</span>
+<span class="text-[10px] uppercase tracking-widest font-bold text-zinc-400">Paid to date</span>
+</div>
+</div>
+<h3 class="font-headline text-xl font-bold text-on-surface mb-2">Payment Progress</h3>
+<p class="text-sm text-on-surface-variant">You've successfully cleared $7,350 out of $9,800 for the academic year.</p>
+</div>
+</section>
+<!-- Bento Grid: Details & History -->
+<section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+<!-- Quick Summary Pill Cards -->
+<div class="bg-surface-container-low p-8 rounded-xl flex flex-col gap-6 justify-between">
+<div>
+<div class="w-12 h-12 bg-tertiary-container rounded-full flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-on-tertiary-container" data-icon="upcoming">upcoming</span>
+</div>
+<h4 class="font-headline text-2xl font-bold text-on-surface">Upcoming</h4>
+<p class="text-on-surface-variant text-sm mt-2">Laboratory Fees • Oct 15</p>
+</div>
+<div class="text-3xl font-bold text-tertiary">$450.00</div>
+</div>
+<div class="bg-surface-container-low p-8 rounded-xl flex flex-col gap-6 justify-between">
+<div>
+<div class="w-12 h-12 bg-secondary-container rounded-full flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-on-secondary-container" data-icon="verified">verified</span>
+</div>
+<h4 class="font-headline text-2xl font-bold text-on-surface">Scholarship</h4>
+<p class="text-on-surface-variant text-sm mt-2">Academic Excellence Award</p>
+</div>
+<div class="text-3xl font-bold text-secondary">-$1,200.00</div>
+</div>
+<!-- Transaction History Card -->
+<div class="lg:col-span-3 bg-surface-container-lowest rounded-xl p-8 shadow-[0_10px_40px_rgba(48,51,55,0.06)] ghost-border">
+<div class="flex items-center justify-between mb-8">
+<h4 class="font-headline text-2xl font-bold text-on-surface">Transaction History</h4>
+<button class="text-secondary font-bold text-sm flex items-center gap-1 hover:underline">
+                        Download All Receipts <span class="material-symbols-outlined text-sm" data-icon="download">download</span>
+</button>
+</div>
+<div class="space-y-4">
+<!-- Transaction Item -->
+<div class="flex items-center justify-between p-4 rounded-xl hover:bg-surface-container-low transition-colors group">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-full bg-surface-container-high flex items-center justify-center group-hover:bg-white transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="account_balance">account_balance</span>
+</div>
+<div>
+<p class="font-bold text-on-surface">Tuition Fee - Installment 1</p>
+<p class="text-xs text-on-surface-variant">Sept 12, 2023 • Reference #ETH-9921</p>
+</div>
+</div>
+<div class="text-right">
+<p class="font-bold text-on-surface">$3,500.00</p>
+<span class="text-[10px] px-2 py-0.5 bg-secondary-container text-on-secondary-container rounded-full font-bold uppercase tracking-tighter">Completed</span>
+</div>
+</div>
+<!-- Transaction Item -->
+<div class="flex items-center justify-between p-4 rounded-xl hover:bg-surface-container-low transition-colors group">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-full bg-surface-container-high flex items-center justify-center group-hover:bg-white transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="library_books">library_books</span>
+</div>
+<div>
+<p class="font-bold text-on-surface">Resource Access Fee</p>
+<p class="text-xs text-on-surface-variant">Aug 28, 2023 • Reference #ETH-8451</p>
+</div>
+</div>
+<div class="text-right">
+<p class="font-bold text-on-surface">$200.00</p>
+<span class="text-[10px] px-2 py-0.5 bg-secondary-container text-on-secondary-container rounded-full font-bold uppercase tracking-tighter">Completed</span>
+</div>
+</div>
+<!-- Transaction Item -->
+<div class="flex items-center justify-between p-4 rounded-xl hover:bg-surface-container-low transition-colors group opacity-70">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-full bg-surface-container-high flex items-center justify-center group-hover:bg-white transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="lunch_dining">lunch_dining</span>
+</div>
+<div>
+<p class="font-bold text-on-surface">Meal Plan Top-up</p>
+<p class="text-xs text-on-surface-variant">Aug 15, 2023 • Reference #ETH-1102</p>
+</div>
+</div>
+<div class="text-right">
+<p class="font-bold text-on-surface">$150.00</p>
+<span class="text-[10px] px-2 py-0.5 bg-error-container text-on-error-container rounded-full font-bold uppercase tracking-tighter">Refunded</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Asymmetric Decorative Section -->
+<section class="flex flex-col md:flex-row items-center gap-12 py-12">
+<div class="flex-1 space-y-6">
+<h3 class="font-headline text-4xl font-bold tracking-tight">Financial Literacy &amp; Student Support</h3>
+<p class="text-on-surface-variant leading-relaxed max-w-lg">At Etheric Academy, we believe financial peace is essential for academic excellence. Explore our resources on budgeting, grants, and flexible payment plans designed for your peace of mind.</p>
+<button class="flex items-center gap-2 text-secondary font-bold group">
+                    Schedule a Consultation 
+                    <span class="material-symbols-outlined transition-transform group-hover:translate-x-1" data-icon="north_east">north_east</span>
+</button>
+</div>
+<div class="flex-1 w-full relative">
+<div class="aspect-square rounded-[3rem] overflow-hidden rotate-3 hover:rotate-0 transition-transform duration-700">
+<img alt="Finance Support" class="w-full h-full object-cover" data-alt="Close up of high quality paper, fountain pen, and soft morning shadows on a clean white desk, educational theme" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDzXaHHcnC6QqMYFKMoyloPfhZ_85MlWbxBcRhGon3Y9zY-6lPRV187U3OkfoaXO03AhR4UNGmPnAbWiSCbA2oyAscpWl8wPwlMts6DL5a086Xbt6FzWF6cVIxDWgCAVgHx3o6gO4vQESgOA-AorBh5MxOQyCq5bMj9RHuDMuaMRRmryLSgkruPWT47TRxrYoDPRxZ7CH_ZYIECHst7vCfVJHo1-uSbf1m-RLOPRmzXUZYnPeM1-UBD1kdI3xK6B6XzIgUN1cQRl50"/>
+</div>
+<div class="absolute -bottom-6 -left-6 bg-white p-6 rounded-2xl shadow-xl max-w-[200px]">
+<p class="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-1">Expert Advice</p>
+<p class="text-sm font-semibold">"Plan your semester budget early for a stress-free experience."</p>
+</div>
+</div>
+</section>
+</main>
+<!-- Navigation Components Logic -->
+<!-- BottomNavBar (Mobile) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-3 bg-white/70 dark:bg-zinc-900/70 backdrop-blur-2xl shadow-[0_-10px_40px_rgba(48,51,55,0.06)] rounded-t-[3rem] pb-safe">
+<a class="flex flex-col items-center justify-center text-zinc-400 dark:text-zinc-500 px-6 py-2 scale-95 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="home_app_logo">home_app_logo</span>
+<span class="font-manrope text-[11px] font-semibold uppercase tracking-widest mt-1">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-zinc-400 dark:text-zinc-500 px-6 py-2 scale-95 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="auto_awesome">auto_awesome</span>
+<span class="font-manrope text-[11px] font-semibold uppercase tracking-widest mt-1">Happenings</span>
+</a>
+<a class="flex flex-col items-center justify-center text-zinc-400 dark:text-zinc-500 px-6 py-2 scale-95 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="grade">grade</span>
+<span class="font-manrope text-[11px] font-semibold uppercase tracking-widest mt-1">Marks</span>
+</a>
+</nav>
+<!-- Side Navigation (Desktop/Drawer Context) - Hidden but present for hierarchy -->
+<aside class="hidden md:flex fixed inset-y-0 left-0 z-[60] p-8 flex flex-col gap-4 h-full w-80 rounded-r-[3rem] border-r border-white/20 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-3xl shadow-2xl -translate-x-full lg:translate-x-0 transition-all duration-500 cubic-bezier(0.4, 0, 0.2, 1)">
+<div class="mb-12">
+<h2 class="text-xl font-black text-zinc-800 dark:text-zinc-100 font-plus-jakarta-sans">Academic Editorial</h2>
+<div class="mt-8 flex items-center gap-4">
+<div class="w-14 h-14 rounded-full overflow-hidden bg-surface-container-high">
+<img alt="Student Avatar" data-alt="Student profile portrait" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD-nn7PJQAIgfD5u6ihbn13si_H5pT30JK9fSFwooF4up9KmTB3U8fvYi0QuDyyZ3wZMOw9-3ZJ0X1iPMtMSTUKSC0fQIAQX224TwAZBYwDcjF6UB0rgqI-YZBhLPFc6vRYxZA0FzbDn-M0yDlsAxmCDAF9yQL2ep-ylEGdaw9h-vGfY1MfJj6UzwF_-yli2jtOsSNSBZXifGvQ9gXkEsHOD2c-7oMKxAoQfPeQ3t55ZnU26pWJqkARoMywtIx0xZybCSFSehPT6EQ"/>
+</div>
+<div>
+<h3 class="font-bold text-zinc-800 dark:text-zinc-100 font-plus-jakarta-sans">Alex Sterling</h3>
+<p class="text-xs text-zinc-500">Year 3 • Design Ethos</p>
+<p class="text-xs font-bold text-purple-600 mt-1">GPA 3.9</p>
+</div>
+</div>
+</div>
+<nav class="flex flex-col gap-2">
+<a class="flex items-center gap-4 px-6 py-3 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100/30 dark:hover:bg-zinc-800/30 rounded-full hover:translate-x-1 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="calendar_today">calendar_today</span>
+<span class="font-plus-jakarta-sans font-medium">Schedule</span>
+</a>
+<a class="flex items-center gap-4 px-6 py-3 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100/30 dark:hover:bg-zinc-800/30 rounded-full hover:translate-x-1 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="local_library">local_library</span>
+<span class="font-plus-jakarta-sans font-medium">Library</span>
+</a>
+<a class="flex items-center gap-4 px-6 py-3 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100/30 dark:hover:bg-zinc-800/30 rounded-full hover:translate-x-1 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-plus-jakarta-sans font-medium">Settings</span>
+</a>
+<a class="flex items-center gap-4 px-6 py-3 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100/30 dark:hover:bg-zinc-800/30 rounded-full hover:translate-x-1 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="help_outline">help_outline</span>
+<span class="font-plus-jakarta-sans font-medium">Support</span>
+</a>
+</nav>
+<div class="mt-auto pt-8">
+<div class="bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-200 font-bold rounded-full px-6 py-3 flex items-center gap-4">
+<span class="material-symbols-outlined" data-icon="account_balance_wallet">account_balance_wallet</span>
+<span class="font-plus-jakarta-sans">Fees Management</span>
+</div>
+</div>
+</aside>
+</body></html>

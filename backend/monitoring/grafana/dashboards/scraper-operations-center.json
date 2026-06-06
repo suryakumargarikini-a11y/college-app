@@ -1,0 +1,141 @@
+{
+  "uid": "scraper-ops-center-v1",
+  "title": "ERP Scraper Operations Center",
+  "tags": ["scraper", "erp", "ops", "advanced", "sitam"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1, "title": "🔮 ERP Stability Forecast",
+      "type": "stat",
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+      "targets": [
+        { "expr": "erp_forecast_reliability_score{provider=\"sitam-scraper\"}", "legendFormat": "Reliability Score" }
+      ],
+      "fieldConfig": {
+        "defaults": { "min": 0, "max": 100, "unit": "percent",
+          "thresholds": { "steps": [
+            { "color": "red", "value": 0 }, { "color": "orange", "value": 40 },
+            { "color": "yellow", "value": 60 }, { "color": "green", "value": 80 }
+          ]}
+        }
+      }
+    },
+    {
+      "id": 2, "title": "⚡ Adaptive Load Shedding Mode",
+      "type": "stat",
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+      "targets": [{ "expr": "erp_load_shedding_mode{provider=\"sitam-scraper\"}", "legendFormat": "Mode" }],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "🟢 NORMAL",    "color": "green"  } } },
+            { "type": "value", "options": { "1": { "text": "🟡 DEGRADED",  "color": "yellow" } } },
+            { "type": "value", "options": { "2": { "text": "🟠 PROTECTED", "color": "orange" } } },
+            { "type": "value", "options": { "3": { "text": "🔴 EMERGENCY", "color": "red"    } } }
+          ]
+        }
+      }
+    },
+    {
+      "id": 3, "title": "🛡️ CAPTCHA Trend Forecast",
+      "type": "gauge",
+      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+      "targets": [{ "expr": "erp_forecast_captcha_risk{provider=\"sitam-scraper\"}", "legendFormat": "CAPTCHA Risk" }],
+      "fieldConfig": {
+        "defaults": { "min": 0, "max": 100, "unit": "percent",
+          "thresholds": { "steps": [
+            { "color": "green", "value": 0 }, { "color": "yellow", "value": 30 },
+            { "color": "orange", "value": 60 }, { "color": "red", "value": 80 }
+          ]}
+        }
+      }
+    },
+    {
+      "id": 4, "title": "🔴 ERP Outage Probability",
+      "type": "gauge",
+      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+      "targets": [{ "expr": "erp_forecast_outage_risk{provider=\"sitam-scraper\"}", "legendFormat": "Outage Risk" }],
+      "fieldConfig": {
+        "defaults": { "min": 0, "max": 100, "unit": "percent",
+          "thresholds": { "steps": [
+            { "color": "green", "value": 0 }, { "color": "yellow", "value": 25 },
+            { "color": "orange", "value": 50 }, { "color": "red", "value": 75 }
+          ]}
+        }
+      }
+    },
+    {
+      "id": 5, "title": "🌐 Browser Trust Heatmap",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+      "targets": [
+        { "expr": "erp_browser_reputation_score", "legendFormat": "{{browserId}}" },
+        { "expr": "rate(erp_browser_quarantine_total{provider=\"sitam-scraper\"}[5m]) * 300", "legendFormat": "Quarantine Events" },
+        { "expr": "rate(erp_browser_retirements_total{provider=\"sitam-scraper\"}[5m]) * 300", "legendFormat": "Retirement Events" }
+      ],
+      "fieldConfig": { "defaults": { "min": 0, "max": 100, "unit": "short" } }
+    },
+    {
+      "id": 6, "title": "🧠 Selector Adaptation Timeline",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+      "targets": [
+        { "expr": "rate(erp_selector_promotions_total{provider=\"sitam-scraper\"}[1h]) * 3600", "legendFormat": "Promotions/hr — {{selectorKey}}" },
+        { "expr": "rate(erp_selector_failures_total{provider=\"sitam-scraper\"}[5m])", "legendFormat": "Failures/sec — {{page}}" },
+        { "expr": "histogram_quantile(0.95, rate(erp_selector_fallback_depth_bucket{provider=\"sitam-scraper\"}[5m]))", "legendFormat": "Fallback Depth P95" }
+      ]
+    },
+    {
+      "id": 7, "title": "📐 Visual / DOM Drift Timeline",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
+      "targets": [
+        { "expr": "histogram_quantile(0.95, rate(erp_dom_drift_score_bucket{provider=\"sitam-scraper\"}[5m]))", "legendFormat": "DOM Drift Score P95 — {{page}}" },
+        { "expr": "rate(erp_dom_drift_incidents_total{provider=\"sitam-scraper\"}[5m])", "legendFormat": "Drift Incidents/sec — {{page}}" }
+      ]
+    },
+    {
+      "id": 8, "title": "🔧 Maintenance Mode History",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 12, "w": 12, "h": 8 },
+      "targets": [
+        { "expr": "increase(erp_maintenance_mode_total{provider=\"sitam-scraper\"}[1h])", "legendFormat": "Incidents/hr — {{severity}}" }
+      ]
+    },
+    {
+      "id": 9, "title": "⚖️ Queue Fairness Metrics",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 20, "w": 12, "h": 8 },
+      "targets": [
+        { "expr": "erp_queue_pressure_level{provider=\"sitam-scraper\"}", "legendFormat": "Pressure Level" },
+        { "expr": "rate(erp_sync_dedup_hits_total{provider=\"sitam-scraper\"}[5m])", "legendFormat": "Dedup Hits/sec" }
+      ]
+    },
+    {
+      "id": 10, "title": "📊 Sync Priority Distribution",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 20, "w": 12, "h": 8 },
+      "targets": [
+        { "expr": "rate(erp_sync_success_total{provider=\"sitam-scraper\"}[5m])", "legendFormat": "Sync Success — {{syncType}}" },
+        { "expr": "rate(erp_sync_failure_total{provider=\"sitam-scraper\"}[5m])", "legendFormat": "Sync Failure — {{errorType}}" },
+        { "expr": "rate(erp_partial_sync_recovery_total{provider=\"sitam-scraper\"}[5m])", "legendFormat": "Partial Recovery" }
+      ]
+    },
+    {
+      "id": 11, "title": "🔄 CAPTCHA Rate vs. Load Shedding Mode",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 28, "w": 24, "h": 8 },
+      "targets": [
+        { "expr": "rate(erp_captcha_detections_total{provider=\"sitam-scraper\"}[5m])", "legendFormat": "CAPTCHA/sec" },
+        { "expr": "erp_load_shedding_mode{provider=\"sitam-scraper\"}", "legendFormat": "Shedding Mode (0-3)" },
+        { "expr": "erp_provider_health_score{provider=\"sitam-scraper\"} / 100", "legendFormat": "Health Score (normalized)" },
+        { "expr": "rate(erp_retry_attempts_total{provider=\"sitam-scraper\"}[5m])", "legendFormat": "Retries/sec — {{action}}" }
+      ]
+    }
+  ],
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "schemaVersion": 38,
+  "version": 1
+}

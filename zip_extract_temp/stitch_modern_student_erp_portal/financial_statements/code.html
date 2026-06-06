@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Financial Statements | Ethereal Scholar</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-error-container": "#68001f",
+                    "error": "#ac3149",
+                    "error-container": "#f76a80",
+                    "surface-container-highest": "#e1e2e8",
+                    "background": "#faf9fc",
+                    "on-primary-fixed": "#3f3f3f",
+                    "surface-container-high": "#e7e8ed",
+                    "tertiary-fixed-dim": "#ec96a1",
+                    "on-tertiary-fixed-variant": "#6c2d37",
+                    "outline-variant": "#b0b2b7",
+                    "surface-dim": "#d8dae0",
+                    "surface": "#faf9fc",
+                    "on-surface-variant": "#5c5f64",
+                    "primary-container": "#e4e2e1",
+                    "surface-variant": "#e1e2e8",
+                    "surface-bright": "#faf9fc",
+                    "secondary-fixed-dim": "#e5caff",
+                    "on-secondary-fixed": "#4f3170",
+                    "inverse-primary": "#ffffff",
+                    "on-secondary": "#fff6ff",
+                    "tertiary-dim": "#823e48",
+                    "on-tertiary": "#fff7f7",
+                    "secondary-dim": "#644586",
+                    "on-secondary-fixed-variant": "#6c4d8f",
+                    "inverse-surface": "#0d0e10",
+                    "on-error": "#fff7f7",
+                    "tertiary-fixed": "#fca3ae",
+                    "surface-container-lowest": "#ffffff",
+                    "primary-fixed-dim": "#d6d4d3",
+                    "surface-container": "#ededf2",
+                    "on-background": "#303337",
+                    "surface-container-low": "#f4f3f7",
+                    "primary-dim": "#535353",
+                    "primary-fixed": "#e4e2e1",
+                    "surface-tint": "#5f5f5f",
+                    "on-tertiary-fixed": "#450e1a",
+                    "secondary": "#705193",
+                    "on-primary-fixed-variant": "#5c5b5b",
+                    "secondary-container": "#efdbff",
+                    "error-dim": "#770326",
+                    "on-surface": "#303337",
+                    "inverse-on-surface": "#9c9d9f",
+                    "tertiary-container": "#fca3ae",
+                    "on-primary": "#fbf8f8",
+                    "on-tertiary-container": "#61242f",
+                    "tertiary": "#904954",
+                    "outline": "#787b80",
+                    "on-secondary-container": "#624384",
+                    "on-primary-container": "#525151",
+                    "secondary-fixed": "#efdbff",
+                    "primary": "#5f5f5f"
+            },
+            "borderRadius": {
+                    "DEFAULT": "1rem",
+                    "lg": "2rem",
+                    "xl": "3rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Plus Jakarta Sans"],
+                    "body": ["Manrope"],
+                    "label": ["Manrope"]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        body { font-family: 'Manrope', sans-serif; background-color: #faf9fc; color: #303337; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .glass-panel { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(30px); border: 1px solid rgba(255, 255, 255, 0.4); }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-white/70 dark:bg-zinc-900/70 backdrop-blur-3xl shadow-md shadow-zinc-900/5 flex justify-between items-center px-6 py-4">
+<div class="flex items-center gap-4">
+<button class="flex items-center justify-center p-2 rounded-full hover:bg-purple-50/50 transition-all active:scale-95 duration-200">
+<span class="material-symbols-outlined text-purple-600">arrow_back</span>
+</button>
+<h1 class="font-['Plus_Jakarta_Sans'] font-extrabold tracking-tight text-zinc-800 text-lg">Ethereal Scholar</h1>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-2 rounded-full hover:bg-purple-50/50 transition-all active:scale-95 duration-200">
+<span class="material-symbols-outlined text-purple-600">notifications</span>
+</button>
+</div>
+</header>
+<!-- Side Navigation Drawer -->
+<aside class="fixed left-0 top-0 h-full flex flex-col p-6 z-[60] bg-white/30 backdrop-blur-2xl h-screen w-72 rounded-r-3xl border-r border-white/20 shadow-2xl shadow-purple-500/5 hidden md:flex">
+<div class="mt-20 mb-8 flex flex-col items-start gap-4 px-2">
+<div class="w-16 h-16 rounded-2xl overflow-hidden shadow-lg border-2 border-white/50">
+<img alt="Student Portrait" class="w-full h-full object-cover" data-alt="close-up portrait of a thoughtful young man in a library setting with soft natural morning light" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDaCyRWPo97e3j8LDfYf79dpWknigYtNREaNu5sL4OAztEjPwM6yDN9qoMC2TE2WP5Gi1S298DbPKzQ-gWvvDRVdsSwfe2sJX7pClt1qdxlkTBXtNHWOaYJn-YU1zRGzXG4q1l-Bj8TdiVzXdUSj2etONp0K-Rg1RTnYHgL09h3zOlhWpgfrPbtvI9pwpudMQB9IUDehWzVEGpU4-75og1jM0zlEVQOmLgkUZjc2HyvUgt_C2BQIOIgvhw1guwtovVCitjzdbKKgPc"/>
+</div>
+<div>
+<h3 class="font-headline font-bold text-on-surface">Julian Vance</h3>
+<p class="font-['Manrope'] text-[11px] uppercase tracking-widest font-bold text-purple-600">Computer Science</p>
+<p class="font-['Manrope'] text-[9px] uppercase tracking-widest font-bold text-zinc-500 mt-1">GPA 3.8</p>
+</div>
+</div>
+<nav class="flex flex-col gap-2">
+<a class="flex items-center gap-4 px-4 py-3 font-['Manrope'] text-[13px] uppercase tracking-widest font-bold text-zinc-600 hover:bg-white/40 transition-all rounded-xl" href="#">
+<span class="material-symbols-outlined">calendar_view_week</span>
+<span>Timetable</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 font-['Manrope'] text-[13px] uppercase tracking-widest font-bold text-zinc-600 hover:bg-white/40 transition-all rounded-xl" href="#">
+<span class="material-symbols-outlined">menu_book</span>
+<span>Curriculum</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 font-['Manrope'] text-[13px] uppercase tracking-widest font-bold text-zinc-600 hover:bg-white/40 transition-all rounded-xl" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span>Payments</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 font-['Manrope'] text-[13px] uppercase tracking-widest font-bold bg-white/50 text-purple-700 rounded-xl" href="#">
+<span class="material-symbols-outlined">account_balance_wallet</span>
+<span>Statements</span>
+</a>
+</nav>
+</aside>
+<!-- Main Content Canvas -->
+<main class="pt-24 pb-12 px-6 md:ml-80">
+<div class="max-w-5xl mx-auto">
+<!-- Header Section -->
+<div class="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
+<div>
+<span class="font-['Manrope'] text-[11px] uppercase tracking-[0.2em] font-extrabold text-tertiary">Financial Ledger</span>
+<h2 class="text-3xl font-headline font-extrabold tracking-tight text-on-surface mt-1">Statements</h2>
+</div>
+<div class="flex items-center gap-3">
+<button class="bg-secondary-container text-on-secondary-container px-6 py-3 rounded-full font-bold text-sm hover:opacity-90 transition-all active:scale-95 flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">receipt_long</span>
+                        Request Audit
+                    </button>
+</div>
+</div>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<!-- Summary Card -->
+<div class="md:col-span-2 glass-panel p-8 rounded-xl shadow-md flex flex-col justify-between overflow-hidden relative">
+<div class="absolute top-0 right-0 p-8 opacity-10">
+<span class="material-symbols-outlined text-[120px]">account_balance_wallet</span>
+</div>
+<div>
+<p class="font-label text-[10px] uppercase tracking-widest font-bold text-zinc-500 mb-2">Total Outstanding Balance</p>
+<h3 class="text-5xl font-headline font-extrabold text-on-surface">$1,240.00</h3>
+</div>
+<div class="mt-12 flex flex-wrap gap-8">
+<div>
+<p class="font-label text-[9px] uppercase tracking-widest font-bold text-zinc-400">Next Due Date</p>
+<p class="font-bold text-on-surface">Oct 15, 2023</p>
+</div>
+<div>
+<p class="font-label text-[9px] uppercase tracking-widest font-bold text-zinc-400">Current Semester</p>
+<p class="font-bold text-on-surface">Fall 2023</p>
+</div>
+<div>
+<p class="font-label text-[9px] uppercase tracking-widest font-bold text-zinc-400">Status</p>
+<span class="px-3 py-1 rounded-full bg-tertiary-container/30 text-on-tertiary-container text-[10px] font-bold uppercase tracking-wider">On Track</span>
+</div>
+</div>
+</div>
+<!-- Quick Action Card -->
+<div class="bg-primary-container p-8 rounded-xl flex flex-col justify-center items-center text-center gap-4 group cursor-pointer hover:bg-secondary-container transition-all duration-300">
+<div class="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-secondary text-3xl">add_card</span>
+</div>
+<div>
+<h4 class="font-headline font-bold text-on-primary-container">Make a Payment</h4>
+<p class="text-xs text-on-primary-container/70 mt-1">Settle your outstanding fees securely via portal.</p>
+</div>
+</div>
+<!-- Documents List Section -->
+<div class="md:col-span-3 mt-4">
+<div class="flex items-center justify-between mb-6 px-2">
+<h4 class="font-headline font-bold text-xl">Statement History</h4>
+<div class="flex gap-4">
+<button class="text-[11px] font-bold uppercase tracking-widest text-purple-600 underline underline-offset-4">Recent</button>
+<button class="text-[11px] font-bold uppercase tracking-widest text-zinc-400">All Time</button>
+</div>
+</div>
+<div class="space-y-4">
+<!-- Statement Item -->
+<div class="bg-surface-container-lowest p-5 rounded-lg flex items-center justify-between hover:shadow-lg transition-all group border border-transparent hover:border-purple-100">
+<div class="flex items-center gap-5">
+<div class="w-12 h-12 bg-surface-container-high rounded-xl flex items-center justify-center group-hover:bg-purple-50 transition-colors">
+<span class="material-symbols-outlined text-zinc-400 group-hover:text-purple-400">description</span>
+</div>
+<div>
+<p class="font-headline font-bold text-on-surface">Fall Semester Statement 2023</p>
+<p class="text-[11px] text-zinc-500 font-medium">Consolidated Tuition &amp; Housing • Sep 01, 2023</p>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<div class="text-right hidden sm:block">
+<p class="text-xs font-bold text-zinc-400 uppercase tracking-tighter">Amount</p>
+<p class="font-headline font-bold text-sm">$4,850.00</p>
+</div>
+<button class="flex items-center justify-center w-10 h-10 rounded-full bg-surface-container-low text-on-surface-variant hover:bg-purple-600 hover:text-white transition-all active:scale-90">
+<span class="material-symbols-outlined">download</span>
+</button>
+</div>
+</div>
+<!-- Statement Item -->
+<div class="bg-surface-container-lowest p-5 rounded-lg flex items-center justify-between hover:shadow-lg transition-all group border border-transparent hover:border-purple-100">
+<div class="flex items-center gap-5">
+<div class="w-12 h-12 bg-surface-container-high rounded-xl flex items-center justify-center group-hover:bg-purple-50 transition-colors">
+<span class="material-symbols-outlined text-zinc-400 group-hover:text-purple-400">description</span>
+</div>
+<div>
+<p class="font-headline font-bold text-on-surface">Monthly Installment - August</p>
+<p class="text-[11px] text-zinc-500 font-medium">Lab Fees &amp; Subscription • Aug 12, 2023</p>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<div class="text-right hidden sm:block">
+<p class="text-xs font-bold text-zinc-400 uppercase tracking-tighter">Amount</p>
+<p class="font-headline font-bold text-sm">$320.00</p>
+</div>
+<button class="flex items-center justify-center w-10 h-10 rounded-full bg-surface-container-low text-on-surface-variant hover:bg-purple-600 hover:text-white transition-all active:scale-90">
+<span class="material-symbols-outlined">download</span>
+</button>
+</div>
+</div>
+<!-- Statement Item -->
+<div class="bg-surface-container-lowest p-5 rounded-lg flex items-center justify-between hover:shadow-lg transition-all group border border-transparent hover:border-purple-100">
+<div class="flex items-center gap-5">
+<div class="w-12 h-12 bg-surface-container-high rounded-xl flex items-center justify-center group-hover:bg-purple-50 transition-colors">
+<span class="material-symbols-outlined text-zinc-400 group-hover:text-purple-400">description</span>
+</div>
+<div>
+<p class="font-headline font-bold text-on-surface">Spring Semester 2023 Final</p>
+<p class="text-[11px] text-zinc-500 font-medium">Academic Year Closure • Jun 30, 2023</p>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<div class="text-right hidden sm:block">
+<p class="text-xs font-bold text-zinc-400 uppercase tracking-tighter">Amount</p>
+<p class="font-headline font-bold text-sm">$5,100.00</p>
+</div>
+<button class="flex items-center justify-center w-10 h-10 rounded-full bg-surface-container-low text-on-surface-variant hover:bg-purple-600 hover:text-white transition-all active:scale-90">
+<span class="material-symbols-outlined">download</span>
+</button>
+</div>
+</div>
+<!-- Statement Item -->
+<div class="bg-surface-container-lowest p-5 rounded-lg flex items-center justify-between hover:shadow-lg transition-all group border border-transparent hover:border-purple-100">
+<div class="flex items-center gap-5">
+<div class="w-12 h-12 bg-surface-container-high rounded-xl flex items-center justify-center group-hover:bg-purple-50 transition-colors">
+<span class="material-symbols-outlined text-zinc-400 group-hover:text-purple-400">description</span>
+</div>
+<div>
+<p class="font-headline font-bold text-on-surface">Ancillary Services Report</p>
+<p class="text-[11px] text-zinc-500 font-medium">Library &amp; Sports Center • May 15, 2023</p>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<div class="text-right hidden sm:block">
+<p class="text-xs font-bold text-zinc-400 uppercase tracking-tighter">Amount</p>
+<p class="font-headline font-bold text-sm">$85.00</p>
+</div>
+<button class="flex items-center justify-center w-10 h-10 rounded-full bg-surface-container-low text-on-surface-variant hover:bg-purple-600 hover:text-white transition-all active:scale-90">
+<span class="material-symbols-outlined">download</span>
+</button>
+</div>
+</div>
+</div>
+<div class="mt-8 flex justify-center">
+<button class="font-label text-[12px] uppercase tracking-widest font-bold text-zinc-400 flex items-center gap-2 hover:text-purple-600 transition-colors">
+                            View Older Records
+                            <span class="material-symbols-outlined text-[16px]">expand_more</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Informational Bento Card -->
+<div class="mt-12 p-8 rounded-xl bg-tertiary-container/20 border border-tertiary-container/30 flex flex-col md:flex-row gap-8 items-center">
+<div class="md:w-1/3 flex justify-center">
+<img alt="Financial Planning" class="w-48 h-48 object-cover rounded-xl shadow-xl rotate-3" data-alt="close-up of elegant professional workspace with silver laptop, glasses, and a neatly folded financial document on a minimalist white desk" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBYcrWqTDwzPx4xpOIt743_zb9As2jlMS1nev0I37bVNT18eZ7HrpZkj9Cve7A2LJAfJlMYnMbj-uP2S6B3oK5Kkb01NzbY44o7I41hT09V6iG1XvC5vsL5GYEM8nCwnKxtpam-yN2F2c0Uj9GvzJOXpXcWDy-eepqbrFGeOsueNRgcNTA8Gvjnb1iJ2csz86rav2un5K9DyC0zKkxz08jmMNxPHR4oSx_bsB08grlvIIQbuz6AjP8QH51F5qajzNMNIzQ3FqLup00"/>
+</div>
+<div class="md:w-2/3">
+<h4 class="font-headline font-bold text-2xl text-on-tertiary-container">Scholarship &amp; Grants</h4>
+<p class="mt-4 text-on-tertiary-container/80 leading-relaxed">
+                        Your academic excellence grant of <strong class="text-on-tertiary-container font-bold">$2,000</strong> has been applied to the Fall semester. Remaining balance reflects this reduction. For any discrepancies, please visit the Student Finance office during walk-in hours (Mon-Fri, 9AM-4PM).
+                    </p>
+<div class="mt-6">
+<button class="text-sm font-extrabold uppercase tracking-widest text-on-tertiary-container border-b-2 border-on-tertiary-container/40 pb-1">Review Grant Policy</button>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

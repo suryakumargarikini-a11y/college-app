@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Ethereal Scholar | Digital Curator Portal</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800&amp;family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "inverse-on-surface": "#9c9d9f",
+                    "on-secondary-container": "#624384",
+                    "on-primary-fixed-variant": "#5c5b5b",
+                    "on-primary": "#fbf8f8",
+                    "primary": "#5f5f5f",
+                    "on-secondary": "#fff6ff",
+                    "on-tertiary-container": "#61242f",
+                    "outline": "#787b80",
+                    "tertiary-dim": "#823e48",
+                    "error": "#ac3149",
+                    "surface-tint": "#5f5f5f",
+                    "surface": "#faf9fc",
+                    "on-surface-variant": "#5c5f64",
+                    "error-container": "#f76a80",
+                    "on-error-container": "#68001f",
+                    "surface-container-high": "#e7e8ed",
+                    "background": "#faf9fc",
+                    "on-background": "#303337",
+                    "secondary": "#705193",
+                    "surface-container-lowest": "#ffffff",
+                    "secondary-fixed": "#efdbff",
+                    "error-dim": "#770326",
+                    "on-tertiary-fixed-variant": "#6c2d37",
+                    "surface-dim": "#d8dae0",
+                    "tertiary-fixed-dim": "#ec96a1",
+                    "tertiary-fixed": "#fca3ae",
+                    "primary-container": "#e4e2e1",
+                    "secondary-fixed-dim": "#e5caff",
+                    "on-surface": "#303337",
+                    "primary-dim": "#535353",
+                    "primary-fixed": "#e4e2e1",
+                    "secondary-container": "#efdbff",
+                    "surface-bright": "#faf9fc",
+                    "outline-variant": "#b0b2b7",
+                    "secondary-dim": "#644586",
+                    "on-tertiary": "#fff7f7",
+                    "on-primary-fixed": "#3f3f3f",
+                    "on-error": "#fff7f7",
+                    "tertiary": "#904954",
+                    "on-tertiary-fixed": "#450e1a",
+                    "surface-container-low": "#f4f3f7",
+                    "on-secondary-fixed-variant": "#6c4d8f",
+                    "surface-container-highest": "#e1e2e8",
+                    "inverse-surface": "#0d0e10",
+                    "tertiary-container": "#fca3ae",
+                    "inverse-primary": "#ffffff",
+                    "surface-variant": "#e1e2e8",
+                    "primary-fixed-dim": "#d6d4d3",
+                    "on-primary-container": "#525151",
+                    "surface-container": "#ededf2",
+                    "on-secondary-fixed": "#4f3170"
+            },
+            "borderRadius": {
+                    "DEFAULT": "1rem",
+                    "lg": "2rem",
+                    "xl": "3rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Plus Jakarta Sans"],
+                    "body": ["Manrope"],
+                    "label": ["Manrope"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-background font-body text-on-surface selection:bg-secondary-fixed selection:text-on-secondary-fixed overflow-hidden">
+<!-- Mock Background Dashboard (Blurred) -->
+<div class="fixed inset-0 z-0 blur-xl opacity-60 scale-105 pointer-events-none grid grid-cols-12 gap-6 p-8">
+<div class="col-span-8 bg-surface-container-highest rounded-lg h-64"></div>
+<div class="col-span-4 bg-tertiary-container/20 rounded-lg h-64"></div>
+<div class="col-span-4 bg-secondary-container/20 rounded-lg h-96"></div>
+<div class="col-span-8 bg-surface-container-low rounded-lg h-96"></div>
+</div>
+<!-- Navigation Drawer Shell -->
+<aside class="fixed left-0 top-0 h-screen z-50 p-6 flex flex-col gap-4 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-2xl h-full w-80 rounded-r-3xl border-r border-white/20 shadow-2xl transition-transform duration-500 ease-in-out" id="NavigationDrawer"><button class="absolute top-4 right-4 p-2 text-zinc-400 hover:text-zinc-600 transition-colors md:hidden">
+<span class="material-symbols-outlined">arrow_back_ios</span>
+</button>
+<!-- Header Section: Student Profile Card -->
+<div class="glass-panel p-5 rounded-2xl border border-white/40 shadow-[0_4px_20px_rgba(48,51,55,0.04)] mb-2">
+<div class="flex items-center gap-4">
+<div class="relative w-14 h-14 rounded-full overflow-hidden border-2 border-secondary-fixed shadow-sm">
+<img alt="Julian Casablancas Profile" class="w-full h-full object-cover" data-alt="Close-up portrait of a young male student with dark wavy hair looking thoughtfully at the camera in soft studio lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB_spF-_GGWIL8BKWCclBNGAx-IqvifRksHkuMbTXZTmI1pX17Fp4ZzcA89Sei-IF7TiDy9szm-pl_jAU3X4BYSOLtQ7I6_5lB-s_LUij2GUTymB-gdMFn8hTX7_qcYNZ7LUIplyIOQ_ztItn5jQOA8_37-snbxwz4E-Ks7c_HUyz531hlshwi7-BDfn1owX0tWfcMfNXC9WM-99UwDg1VOFbhty5AiI-DNXekuwz4tulYLnI-4VoTn5N9CxhHWsydFhVrA5WsFfw4"/>
+</div>
+<div class="flex flex-col">
+<h2 class="text-[16px] font-extrabold text-on-surface tracking-tight leading-tight">Julian Casablancas</h2>
+<span class="text-[11px] font-bold text-on-surface-variant uppercase tracking-widest mt-0.5">SCH-2024-001</span>
+</div>
+</div>
+<div class="mt-4 flex justify-between items-center px-1">
+<div class="flex flex-col">
+<span class="text-[9px] font-extrabold uppercase tracking-[0.15em] text-secondary">Academic Year</span>
+<span class="text-[13px] font-bold text-on-surface">2024</span>
+</div>
+<div class="flex flex-col items-end">
+<span class="text-[9px] font-extrabold uppercase tracking-[0.15em] text-tertiary">Current GPA</span>
+<span class="text-[13px] font-extrabold text-on-surface">3.92</span>
+</div>
+</div>
+</div>
+<!-- Scrollable Navigation Area -->
+<nav class="flex-1 overflow-y-auto space-y-6 pr-2 custom-scrollbar">
+<!-- Academics Accordion -->
+<div class="space-y-2">
+<div class="flex items-center justify-between px-3 py-1">
+<span class="font-['Manrope'] text-[11px] uppercase tracking-widest font-bold text-primary">Academics</span>
+<span class="material-symbols-outlined text-[18px] text-outline">expand_more</span>
+</div>
+<div class="space-y-1">
+<a class="group flex items-center gap-3 px-4 py-3 rounded-xl bg-purple-100/50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-200 hover:translate-x-1 transition-transform duration-300" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="grid_view">grid_view</span>
+<span class="text-[13px] font-bold tracking-wide">DASHBOARD</span>
+</a>
+<a class="group flex items-center gap-3 px-4 py-3 rounded-xl text-zinc-500 dark:text-zinc-400 hover:translate-x-1 transition-all duration-300 hover:bg-purple-50/50 active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="calendar_today">calendar_today</span>
+<span class="text-[13px] font-bold tracking-wide uppercase">TIMETABLE</span>
+</a>
+<a class="group flex items-center gap-3 px-4 py-3 rounded-xl text-zinc-500 dark:text-zinc-400 hover:translate-x-1 transition-all duration-300 hover:bg-purple-50/50 active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="auto_stories">auto_stories</span>
+<span class="text-[13px] font-bold tracking-wide uppercase">CURRICULUM</span>
+</a>
+<a class="group flex items-center gap-3 px-4 py-3 rounded-xl text-zinc-500 dark:text-zinc-400 hover:translate-x-1 transition-all duration-300 hover:bg-purple-50/50 active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="assignment_turned_in">assignment_turned_in</span>
+<span class="text-[13px] font-bold tracking-wide uppercase">ASSIGNMENTS</span>
+</a>
+</div>
+</div>
+<!-- Finance Section -->
+<div class="space-y-2">
+<div class="flex items-center justify-between px-3 py-1">
+<span class="font-['Manrope'] text-[11px] uppercase tracking-widest font-bold text-primary">Finance</span>
+<span class="material-symbols-outlined text-[18px] text-outline">expand_more</span>
+</div>
+<div class="space-y-1">
+<a class="group flex items-center gap-3 px-4 py-3 rounded-xl text-zinc-500 dark:text-zinc-400 hover:translate-x-1 transition-all duration-300 hover:bg-purple-50/50 active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="account_balance_wallet">account_balance_wallet</span>
+<span class="text-[13px] font-bold tracking-wide uppercase">PAYMENTS</span>
+</a>
+<a class="group flex items-center gap-3 px-4 py-3 rounded-xl text-zinc-500 dark:text-zinc-400 hover:translate-x-1 transition-all duration-300 hover:bg-purple-50/50 active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="receipt_long">receipt_long</span>
+<span class="text-[13px] font-bold tracking-wide uppercase">STATEMENTS</span>
+</a>
+</div>
+</div>
+<!-- Services Section -->
+<div class="space-y-2">
+<div class="flex items-center justify-between px-3 py-1">
+<span class="font-['Manrope'] text-[11px] uppercase tracking-widest font-bold text-primary">Services</span>
+<span class="material-symbols-outlined text-[18px] text-outline">expand_more</span>
+</div>
+<div class="space-y-1">
+<a class="group flex items-center gap-3 px-4 py-3 rounded-xl text-zinc-500 dark:text-zinc-400 hover:translate-x-1 transition-all duration-300 hover:bg-purple-50/50 active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="campaign">campaign</span>
+<span class="text-[13px] font-bold tracking-wide uppercase">ANNOUNCEMENTS</span>
+</a>
+<a class="group flex items-center gap-3 px-4 py-3 rounded-xl text-zinc-500 dark:text-zinc-400 hover:translate-x-1 transition-all duration-300 hover:bg-purple-50/50 active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="groups">groups</span>
+<span class="text-[13px] font-bold tracking-wide uppercase">CLUBS</span>
+</a>
+</div>
+</div>
+</nav>
+<!-- Footer Section: System Controls -->
+<div class="pt-4 border-t border-white/20 space-y-3">
+<button class="w-full flex items-center gap-3 px-4 py-3 rounded-xl glass-panel text-on-surface-variant hover:bg-white/90 transition-all active:scale-[0.98]">
+<span class="material-symbols-outlined text-[20px]" data-icon="settings">settings</span>
+<span class="text-[13px] font-bold tracking-wide uppercase">SETTINGS</span>
+</button>
+<button class="w-full flex items-center justify-center gap-3 px-4 py-3.5 rounded-xl bg-error/10 text-error border border-error/20 hover:bg-error hover:text-white transition-all duration-300 active:scale-[0.98]">
+<span class="material-symbols-outlined text-[20px]" data-icon="logout">logout</span>
+<span class="text-[13px] font-extrabold tracking-widest uppercase">LOGOUT SYSTEM</span>
+</button>
+</div>
+</aside>
+<!-- Content Area Overlay (To handle the background visuals) -->
+<main class="ml-80 h-full p-10 relative z-10">
+<!-- Brand Header for visual context -->
+<header class="flex justify-between items-center mb-12">
+<div>
+<h1 class="font-headline text-[24px] font-extrabold tracking-tighter text-zinc-800 uppercase">Ethereal Scholar</h1>
+<p class="text-[11px] font-bold uppercase tracking-widest text-primary mt-1 opacity-60">Academic Portfolio Curator</p>
+</div>
+<div class="flex gap-4">
+<div class="glass-panel w-12 h-12 rounded-full flex items-center justify-center border border-white/40 shadow-sm text-on-surface-variant">
+<span class="material-symbols-outlined" data-icon="search">search</span>
+</div>
+<div class="glass-panel w-12 h-12 rounded-full flex items-center justify-center border border-white/40 shadow-sm text-on-surface-variant">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</div>
+</div>
+</header>
+<!-- Bento Grid Preview (Blurred focus) -->
+<div class="grid grid-cols-3 gap-6 opacity-40">
+<div class="col-span-2 glass-panel h-80 rounded-lg p-6 border border-white/40">
+<div class="h-4 w-32 bg-zinc-200 rounded-full mb-4"></div>
+<div class="h-64 w-full bg-surface-container rounded-lg"></div>
+</div>
+<div class="col-span-1 glass-panel h-80 rounded-lg p-6 border border-white/40">
+<div class="h-4 w-24 bg-zinc-200 rounded-full mb-4"></div>
+<div class="space-y-4">
+<div class="h-12 w-full bg-secondary-container/30 rounded-xl"></div>
+<div class="h-12 w-full bg-tertiary-container/30 rounded-xl"></div>
+<div class="h-12 w-full bg-surface-container rounded-xl"></div>
+</div>
+</div>
+</div>
+</main>
+<!-- Floating Pill Navigation (Mobile Fallback UI logic) -->
+</body></html>

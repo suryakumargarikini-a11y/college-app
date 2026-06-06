@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "secondary-fixed": "#efdbff",
+                    "on-surface-variant": "#5c5f64",
+                    "on-tertiary": "#fff7f7",
+                    "on-tertiary-fixed-variant": "#6c2d37",
+                    "tertiary": "#904954",
+                    "primary-fixed": "#e4e2e1",
+                    "on-primary": "#fbf8f8",
+                    "error": "#ac3149",
+                    "inverse-surface": "#0d0e10",
+                    "on-error": "#fff7f7",
+                    "tertiary-fixed-dim": "#ec96a1",
+                    "primary": "#5f5f5f",
+                    "error-dim": "#770326",
+                    "tertiary-fixed": "#fca3ae",
+                    "surface-container-low": "#f4f3f7",
+                    "surface-container-highest": "#e1e2e8",
+                    "on-error-container": "#68001f",
+                    "on-tertiary-container": "#61242f",
+                    "surface-tint": "#5f5f5f",
+                    "on-primary-fixed": "#3f3f3f",
+                    "tertiary-container": "#fca3ae",
+                    "on-background": "#303337",
+                    "on-primary-container": "#525151",
+                    "inverse-on-surface": "#9c9d9f",
+                    "surface": "#faf9fc",
+                    "surface-container-lowest": "#ffffff",
+                    "on-secondary": "#fff6ff",
+                    "on-primary-fixed-variant": "#5c5b5b",
+                    "on-tertiary-fixed": "#450e1a",
+                    "on-secondary-fixed": "#4f3170",
+                    "surface-bright": "#faf9fc",
+                    "secondary-container": "#efdbff",
+                    "surface-container-high": "#e7e8ed",
+                    "secondary": "#705193",
+                    "primary-dim": "#535353",
+                    "secondary-fixed-dim": "#e5caff",
+                    "tertiary-dim": "#823e48",
+                    "surface-variant": "#e1e2e8",
+                    "outline-variant": "#b0b2b7",
+                    "outline": "#787b80",
+                    "on-surface": "#303337",
+                    "error-container": "#f76a80",
+                    "primary-container": "#e4e2e1",
+                    "surface-dim": "#d8dae0",
+                    "on-secondary-container": "#624384",
+                    "primary-fixed-dim": "#d6d4d3",
+                    "inverse-primary": "#ffffff",
+                    "secondary-dim": "#644586",
+                    "background": "#faf9fc",
+                    "on-secondary-fixed-variant": "#6c4d8f",
+                    "surface-container": "#ededf2"
+            },
+            "borderRadius": {
+                    "DEFAULT": "1rem",
+                    "lg": "2rem",
+                    "xl": "3rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Plus Jakarta Sans"],
+                    "body": ["Manrope"],
+                    "label": ["Manrope"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            font-family: 'Manrope', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+        }
+        .notification-gradient {
+            background: radial-gradient(circle at top left, #efdbff 0%, #faf9fc 60%);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-background text-on-surface min-h-screen pb-24 notification-gradient">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-white/70 dark:bg-slate-900/70 backdrop-blur-3xl shadow-[0_4px_20px_rgba(48,51,55,0.04)] h-16">
+<div class="flex items-center px-6 h-full w-full max-w-screen-xl mx-auto justify-between">
+<div class="flex items-center gap-4">
+<button class="active:scale-95 duration-200 text-purple-600 p-2 rounded-full hover:bg-purple-50/50 transition-colors">
+<span class="material-symbols-outlined" data-icon="arrow_back">arrow_back</span>
+</button>
+<h1 class="font-['Plus_Jakarta_Sans'] font-bold tracking-tight text-lg text-purple-900">Notifications</h1>
+</div>
+<div class="flex items-center gap-2">
+<button class="text-on-surface-variant p-2 rounded-full hover:bg-purple-50/50 transition-colors">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="w-8 h-8 rounded-full bg-primary-fixed overflow-hidden border border-white/50 shadow-sm ml-1">
+<div class="w-full h-full flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-lg" data-icon="person">person</span>
+</div>
+</button>
+</div>
+</div>
+</header>
+<main class="pt-20 px-5 space-y-8 max-w-md mx-auto">
+<!-- New Section -->
+<section class="space-y-4">
+<div class="flex items-center justify-between px-2">
+<h2 class="font-headline font-extrabold text-sm uppercase tracking-widest text-secondary">New</h2>
+<span class="bg-tertiary-container text-on-tertiary-container text-[10px] font-bold px-2.5 py-0.5 rounded-full">2 Updates</span>
+</div>
+<div class="grid gap-3">
+<!-- Grade Release Notification -->
+<div class="glass-card p-4 rounded-lg shadow-md flex flex-col gap-3">
+<div class="flex gap-3">
+<div class="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center text-on-secondary-container">
+<span class="material-symbols-outlined" data-icon="auto_awesome">auto_awesome</span>
+</div>
+<div class="flex-1 space-y-0.5">
+<div class="flex justify-between items-start">
+<p class="font-headline font-bold text-[15px]">Grade Release</p>
+<span class="text-[10px] font-bold text-on-surface-variant font-label">2M AGO</span>
+</div>
+<p class="text-on-surface-variant text-sm leading-relaxed">The Semester II Final Results for Advanced Mathematics are now live.</p>
+</div>
+</div>
+<div class="flex justify-end pt-1">
+<button class="bg-secondary text-on-secondary px-5 py-2 rounded-full text-xs font-bold tracking-wide active:scale-95 transition-transform">
+                            View Results
+                        </button>
+</div>
+</div>
+<!-- Assignment Alert -->
+<div class="glass-card p-4 rounded-lg shadow-md flex gap-3">
+<div class="w-10 h-10 rounded-full bg-tertiary-fixed text-on-tertiary-fixed flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="assignment_late" style="font-variation-settings: 'FILL' 1;">assignment_late</span>
+</div>
+<div class="flex-1 space-y-0.5">
+<div class="flex justify-between items-start">
+<p class="font-headline font-bold text-[15px]">Deadline Reminder</p>
+<span class="text-[10px] font-bold text-on-surface-variant font-label">15M AGO</span>
+</div>
+<p class="text-on-surface-variant text-sm leading-relaxed">Thesis draft submission closes in 4 hours. Ensure your portal sync is active.</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Earlier Section -->
+<section class="space-y-4">
+<h2 class="font-headline font-extrabold text-sm uppercase tracking-widest text-on-surface-variant px-2">Earlier</h2>
+<div class="grid gap-2">
+<!-- Fee Receipt -->
+<div class="flex items-center gap-4 p-4 rounded-lg hover:bg-surface-container-low transition-colors group">
+<div class="w-12 h-12 rounded-2xl bg-surface-container-highest flex items-center justify-center text-primary">
+<span class="material-symbols-outlined" data-icon="receipt_long">receipt_long</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex justify-between items-baseline mb-0.5">
+<h3 class="font-headline font-bold text-[14px] truncate">Fee Receipt Generated</h3>
+<span class="text-[9px] font-bold text-outline uppercase font-label shrink-0 ml-2">YESTERDAY</span>
+</div>
+<p class="text-on-surface-variant text-xs line-clamp-1">Transaction ID #49201-B for Hostel Fees processed successfully.</p>
+</div>
+</div>
+<!-- Library Notification -->
+<div class="flex items-center gap-4 p-4 rounded-lg hover:bg-surface-container-low transition-colors group">
+<div class="w-12 h-12 rounded-2xl bg-surface-container-highest flex items-center justify-center text-primary">
+<span class="material-symbols-outlined" data-icon="local_library">local_library</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex justify-between items-baseline mb-0.5">
+<h3 class="font-headline font-bold text-[14px] truncate">Library Overdue</h3>
+<span class="text-[9px] font-bold text-outline uppercase font-label shrink-0 ml-2">2 DAYS AGO</span>
+</div>
+<p class="text-on-surface-variant text-xs line-clamp-1">'Modern Thermodynamics' is overdue by 2 days. Return to avoid fines.</p>
+</div>
+</div>
+<!-- Bento Style Secondary Highlight -->
+<div class="mt-4 p-5 bg-secondary-fixed/40 rounded-xl border border-white/40 flex items-center justify-between">
+<div class="space-y-1">
+<p class="text-[10px] font-bold text-on-secondary-fixed tracking-widest uppercase">Academic Status</p>
+<p class="text-secondary font-headline font-extrabold text-lg">Dean's List 2024</p>
+<p class="text-on-secondary-fixed-variant text-xs font-medium">Your formal invitation has been sent to student mail.</p>
+</div>
+<div class="w-16 h-16 rounded-full bg-white flex items-center justify-center shadow-sm">
+<span class="material-symbols-outlined text-secondary scale-125" data-icon="military_tech">military_tech</span>
+</div>
+</div>
+<!-- Calendar Invite -->
+<div class="flex items-center gap-4 p-4 rounded-lg hover:bg-surface-container-low transition-colors group">
+<div class="w-12 h-12 rounded-2xl bg-surface-container-highest flex items-center justify-center text-primary">
+<span class="material-symbols-outlined" data-icon="event_available">event_available</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex justify-between items-baseline mb-0.5">
+<h3 class="font-headline font-bold text-[14px] truncate">Seminar Confirmation</h3>
+<span class="text-[9px] font-bold text-outline uppercase font-label shrink-0 ml-2">3 DAYS AGO</span>
+</div>
+<p class="text-on-surface-variant text-xs line-clamp-1">Confirmed: Quantum Mechanics Workshop on Friday, 10:00 AM.</p>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full h-20 bg-white/70 backdrop-blur-3xl border-t border-white/20 flex justify-around items-center px-4 pb-safe rounded-t-[2rem] shadow-[0_-4px_20px_rgba(48,51,55,0.04)] z-50">
+<a class="flex flex-col items-center justify-center text-slate-400 px-6 py-2 active:scale-90 transition-transform duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span class="font-['Manrope'] text-[11px] uppercase tracking-wider font-bold">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-400 px-6 py-2 active:scale-90 transition-transform duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="event_note">event_note</span>
+<span class="font-['Manrope'] text-[11px] uppercase tracking-wider font-bold">Happenings</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-400 px-6 py-2 active:scale-90 transition-transform duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="grade">grade</span>
+<span class="font-['Manrope'] text-[11px] uppercase tracking-wider font-bold">Marks</span>
+</a>
+</nav>
+</body></html>

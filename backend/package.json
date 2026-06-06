@@ -1,0 +1,53 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node server.js",
+    "worker": "node worker.js",
+    "db:validate": "node scripts/validate-db.js",
+    "db:migrate": "npx prisma migrate deploy",
+    "db:generate": "npx prisma generate",
+    "load:api": "node scripts/load-test-api.js",
+    "load:ws": "node scripts/load-test-websocket.js",
+    "chaos": "node scripts/chaos-test.js",
+    "validate:isolation": "node scripts/validate-session-isolation.js",
+    "verify:metrics": "node scripts/verify-metrics.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/sdk-node": "^0.52.0",
+    "@opentelemetry/resources": "^1.25.0",
+    "@opentelemetry/semantic-conventions": "^1.27.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.47.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.52.0",
+    "@opentelemetry/sdk-trace-base": "^1.25.0",
+    "axios": "^1.15.1",
+    "bullmq": "^5.8.3",
+    "cheerio": "^1.2.0",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.5.2",
+    "express-session": "^1.19.0",
+    "firebase-admin": "^13.10.0",
+    "helmet": "^8.2.0",
+    "ioredis": "^5.4.1",
+    "prom-client": "^15.1.3",
+    "puppeteer": "^24.41.0",
+    "uuid": "^14.0.0",
+    "winston": "^3.19.0",
+    "winston-daily-rotate-file": "^5.0.0",
+    "ws": "^8.21.0"
+  },
+  "devDependencies": {
+    "@prisma/client": "^5.15.0",
+    "prisma": "^5.15.0"
+  }
+}

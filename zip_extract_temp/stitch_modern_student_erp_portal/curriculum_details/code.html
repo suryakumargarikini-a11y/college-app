@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800&amp;family=Manrope:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-error-container": "#68001f",
+                    "error": "#ac3149",
+                    "error-container": "#f76a80",
+                    "surface-container-highest": "#e1e2e8",
+                    "background": "#faf9fc",
+                    "on-primary-fixed": "#3f3f3f",
+                    "surface-container-high": "#e7e8ed",
+                    "tertiary-fixed-dim": "#ec96a1",
+                    "on-tertiary-fixed-variant": "#6c2d37",
+                    "outline-variant": "#b0b2b7",
+                    "surface-dim": "#d8dae0",
+                    "surface": "#faf9fc",
+                    "on-surface-variant": "#5c5f64",
+                    "primary-container": "#e4e2e1",
+                    "surface-variant": "#e1e2e8",
+                    "surface-bright": "#faf9fc",
+                    "secondary-fixed-dim": "#e5caff",
+                    "on-secondary-fixed": "#4f3170",
+                    "inverse-primary": "#ffffff",
+                    "on-secondary": "#fff6ff",
+                    "tertiary-dim": "#823e48",
+                    "on-tertiary": "#fff7f7",
+                    "secondary-dim": "#644586",
+                    "on-secondary-fixed-variant": "#6c4d8f",
+                    "inverse-surface": "#0d0e10",
+                    "on-error": "#fff7f7",
+                    "tertiary-fixed": "#fca3ae",
+                    "surface-container-lowest": "#ffffff",
+                    "primary-fixed-dim": "#d6d4d3",
+                    "surface-container": "#ededf2",
+                    "on-background": "#303337",
+                    "surface-container-low": "#f4f3f7",
+                    "primary-dim": "#535353",
+                    "primary-fixed": "#e4e2e1",
+                    "surface-tint": "#5f5f5f",
+                    "on-tertiary-fixed": "#450e1a",
+                    "secondary": "#705193",
+                    "on-primary-fixed-variant": "#5c5b5b",
+                    "secondary-container": "#efdbff",
+                    "error-dim": "#770326",
+                    "on-surface": "#303337",
+                    "inverse-on-surface": "#9c9d9f",
+                    "tertiary-container": "#fca3ae",
+                    "on-primary": "#fbf8f8",
+                    "on-tertiary-container": "#61242f",
+                    "tertiary": "#904954",
+                    "outline": "#787b80",
+                    "on-secondary-container": "#624384",
+                    "on-primary-container": "#525151",
+                    "secondary-fixed": "#efdbff",
+                    "primary": "#5f5f5f"
+            },
+            "borderRadius": {
+                    "DEFAULT": "1rem",
+                    "lg": "2rem",
+                    "xl": "3rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Plus Jakarta Sans"],
+                    "body": ["Manrope"],
+                    "label": ["Manrope"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            font-family: 'Manrope', sans-serif;
+            background-color: #faf9fc;
+            color: #303337;
+        }
+        h1, h2, h3 {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background min-h-screen text-on-surface">
+<!-- TopAppBar -->
+<nav class="fixed top-0 w-full z-50 bg-white/70 backdrop-blur-3xl shadow-md shadow-zinc-900/5 flex justify-between items-center px-6 py-4 w-full">
+<div class="flex items-center gap-4">
+<button class="flex items-center justify-center w-10 h-10 rounded-full hover:bg-purple-50/50 active:scale-95 duration-200 text-purple-600 transition-all">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<span class="text-lg font-extrabold tracking-tighter text-zinc-800 font-['Plus_Jakarta_Sans']">Ethereal Scholar</span>
+</div>
+<div class="flex items-center gap-3">
+<button class="flex items-center justify-center w-10 h-10 rounded-full hover:bg-purple-50/50 active:scale-95 duration-200 text-purple-600 transition-all">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+</div>
+</nav>
+<!-- Side Navigation (Drawer) -->
+<aside class="fixed left-0 top-0 h-full flex flex-col p-6 z-[60] h-screen w-72 rounded-r-3xl border-r border-white/20 bg-white/30 backdrop-blur-2xl shadow-2xl shadow-purple-500/5 hidden md:flex">
+<div class="flex flex-col mb-12 mt-20">
+<div class="flex items-center gap-4 mb-4">
+<div class="w-12 h-12 rounded-2xl overflow-hidden shadow-inner">
+<img alt="Student Portrait" class="w-full h-full object-cover" data-alt="Close-up portrait of a young male student with glasses looking thoughtfully at the camera, soft library background lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAgdVV-8GP0UJLxl_OBlsFjQqfTIo-BOnKAIEZw4BliFpwl4RObK0ngqM1-C_ECGX8qwLGaVXWCcnX883vgtc_uCacQIOS2EHoIUAeLZs1RUVODhLnrpgwA7noTlvkT7wOSbwXsgRs6cREIdaEj3FajXx051igx496aGn0-bQ8I7dZwdz236w7aZNs3dc3g_J40J8avJeIodqpHF4QRblCBXgEC7fAAyKtTVHbA5Uw890IsDjdlzaqVE3DjJFxLuW7qLuOgcVQAOxw"/>
+</div>
+<div class="flex flex-col">
+<span class="font-headline font-bold text-on-surface">Julian Vance</span>
+<span class="text-[10px] font-bold tracking-widest uppercase text-zinc-500">Computer Science</span>
+</div>
+</div>
+<div class="inline-flex items-center px-3 py-1 bg-tertiary-container/30 text-on-tertiary-container rounded-full w-fit">
+<span class="text-[9px] font-bold tracking-widest uppercase">GPA 3.8</span>
+</div>
+</div>
+<nav class="flex flex-col gap-2">
+<a class="flex items-center gap-3 px-4 py-3 text-zinc-600 hover:bg-white/40 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">calendar_view_week</span>
+<span class="font-['Manrope'] text-[13px] uppercase tracking-widest font-bold">Timetable</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 bg-white/50 text-purple-700 rounded-xl transition-all duration-300" href="#">
+<span class="material-symbols-outlined">menu_book</span>
+<span class="font-['Manrope'] text-[13px] uppercase tracking-widest font-bold">Curriculum</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-zinc-600 hover:bg-white/40 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span class="font-['Manrope'] text-[13px] uppercase tracking-widest font-bold">Payments</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-zinc-600 hover:bg-white/40 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">account_balance_wallet</span>
+<span class="font-['Manrope'] text-[13px] uppercase tracking-widest font-bold">Statements</span>
+</a>
+</nav>
+</aside>
+<!-- Main Content Canvas -->
+<main class="md:ml-72 pt-24 px-6 pb-12">
+<header class="mb-10">
+<h1 class="text-3xl font-extrabold tracking-tight text-on-surface mb-2">Academic Curriculum</h1>
+<p class="text-on-surface-variant font-medium">Fall Semester 2024 • Year 3</p>
+</header>
+<!-- Bento Grid Layout for Courses -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+<!-- Active Course Hero Card (Asymmetric Emphasis) -->
+<div class="lg:col-span-8 group cursor-pointer">
+<div class="relative overflow-hidden rounded-xl bg-white/70 backdrop-blur-3xl shadow-md shadow-zinc-900/5 h-full p-8 transition-all hover:translate-y-[-4px]">
+<div class="absolute top-0 right-0 w-64 h-64 bg-secondary-container/20 rounded-full blur-3xl -mr-20 -mt-20"></div>
+<div class="relative z-10 flex flex-col h-full">
+<div class="flex justify-between items-start mb-6">
+<span class="px-3 py-1 bg-secondary-container text-on-secondary-container rounded-full text-[10px] font-bold tracking-widest uppercase">Major Core</span>
+<div class="flex items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined text-sm">hourglass_empty</span>
+<span class="text-xs font-bold uppercase tracking-wider">4.0 Credits</span>
+</div>
+</div>
+<h2 class="text-2xl font-extrabold text-on-surface mb-3 leading-tight">Advanced Algorithm Analysis &amp; Complexity</h2>
+<p class="text-on-surface-variant mb-8 max-w-xl">Deep dive into polynomial time reductions, NP-completeness, and approximation algorithms with practical implementation in distributed systems.</p>
+<div class="mt-auto flex items-center justify-between">
+<div class="flex items-center gap-3">
+<img alt="Professor Sarah Jenkins" class="w-10 h-10 rounded-full object-cover grayscale" data-alt="Close-up of a professional woman professor with grey hair and glasses in a brightly lit academic office" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB7GyZERdP0YMoJ5RzpuQ-SuwmFWkVaeqM0C0oOPOeyfmnSFEyN-mU9EXHwJFF2CUsQKJXDAUQiYRS76vDj0eDD8AREYE348L5R1w5HcYJGtFR4yBWIVXXs9sn6Lo_fPeGyXseBEeOMcogs4GjMPFAoyWfkS2auzTJr-lTwHO5zKlMVNkXUBtWcdHZtzhuciXh6fRt4tW-kbxrdo0gEegDMh8jUpXsz23LS-w7ULhKnblNt2UNt1zPxgRcySD69XCDpy2AKxaXV5cU"/>
+<div>
+<p class="text-sm font-bold text-on-surface">Dr. Sarah Jenkins</p>
+<p class="text-[11px] text-on-surface-variant font-medium">Head of CS Department</p>
+</div>
+</div>
+<a class="flex items-center gap-2 px-4 py-2 bg-on-surface text-white rounded-full text-xs font-bold tracking-wider hover:bg-primary-dim transition-colors" href="#">
+                                SYLLABUS
+                                <span class="material-symbols-outlined text-sm">open_in_new</span>
+</a>
+</div>
+</div>
+</div>
+</div>
+<!-- Stats/Progress Bento Tile -->
+<div class="lg:col-span-4 grid grid-rows-2 gap-6">
+<div class="rounded-xl bg-tertiary-container/20 p-6 flex flex-col justify-between border border-tertiary-container/30">
+<div class="flex justify-between items-start">
+<span class="text-[10px] font-bold tracking-widest uppercase text-on-tertiary-container">Semester Progress</span>
+<span class="material-symbols-outlined text-on-tertiary-container">trending_up</span>
+</div>
+<div class="flex items-end gap-4">
+<span class="text-4xl font-extrabold text-on-tertiary-container">64%</span>
+<div class="flex-1 h-2 bg-white/40 rounded-full mb-2 overflow-hidden">
+<div class="h-full bg-tertiary-container w-[64%]"></div>
+</div>
+</div>
+</div>
+<div class="rounded-xl bg-surface-container-high p-6 flex flex-col justify-center items-center text-center">
+<span class="text-[10px] font-bold tracking-widest uppercase text-on-surface-variant mb-2">Current Load</span>
+<span class="text-2xl font-extrabold text-on-surface">18 Credits</span>
+<p class="text-[11px] text-on-surface-variant font-medium mt-1">Full-time Status</p>
+</div>
+</div>
+<!-- Secondary Course Cards -->
+<div class="lg:col-span-4 group">
+<div class="rounded-xl bg-white/70 backdrop-blur-3xl shadow-md shadow-zinc-900/5 p-6 h-full flex flex-col transition-all hover:scale-[1.02] border border-white/40">
+<div class="flex justify-between mb-4">
+<span class="text-[9px] font-bold tracking-widest uppercase text-on-surface-variant">CS-402</span>
+<span class="text-[9px] font-bold tracking-widest uppercase text-secondary">3.0 CR</span>
+</div>
+<h3 class="text-lg font-bold text-on-surface mb-2">Neural Networks</h3>
+<p class="text-sm text-on-surface-variant mb-6 line-clamp-2">Exploration of perceptrons, backpropagation, and CNN architectures.</p>
+<div class="mt-auto pt-4 flex items-center gap-2 border-t border-surface-container">
+<span class="material-symbols-outlined text-sm text-on-surface-variant">person</span>
+<span class="text-xs font-bold">Prof. Alan Turing</span>
+</div>
+</div>
+</div>
+<div class="lg:col-span-4 group">
+<div class="rounded-xl bg-white/70 backdrop-blur-3xl shadow-md shadow-zinc-900/5 p-6 h-full flex flex-col transition-all hover:scale-[1.02] border border-white/40">
+<div class="flex justify-between mb-4">
+<span class="text-[9px] font-bold tracking-widest uppercase text-on-surface-variant">MAT-311</span>
+<span class="text-[9px] font-bold tracking-widest uppercase text-secondary">3.5 CR</span>
+</div>
+<h3 class="text-lg font-bold text-on-surface mb-2">Discrete Mathematics II</h3>
+<p class="text-sm text-on-surface-variant mb-6 line-clamp-2">Advanced combinatorics, graph theory applications and formal logic systems.</p>
+<div class="mt-auto pt-4 flex items-center gap-2 border-t border-surface-container">
+<span class="material-symbols-outlined text-sm text-on-surface-variant">person</span>
+<span class="text-xs font-bold">Dr. Emily Noether</span>
+</div>
+</div>
+</div>
+<div class="lg:col-span-4 group">
+<div class="rounded-xl bg-white/70 backdrop-blur-3xl shadow-md shadow-zinc-900/5 p-6 h-full flex flex-col transition-all hover:scale-[1.02] border border-white/40">
+<div class="flex justify-between mb-4">
+<span class="text-[9px] font-bold tracking-widest uppercase text-on-surface-variant">ENG-205</span>
+<span class="text-[9px] font-bold tracking-widest uppercase text-secondary">3.0 CR</span>
+</div>
+<h3 class="text-lg font-bold text-on-surface mb-2">Technical Writing</h3>
+<p class="text-sm text-on-surface-variant mb-6 line-clamp-2">Effective communication for engineers, including documentation and grant writing.</p>
+<div class="mt-auto pt-4 flex items-center gap-2 border-t border-surface-container">
+<span class="material-symbols-outlined text-sm text-on-surface-variant">person</span>
+<span class="text-xs font-bold">Prof. Mark Twain</span>
+</div>
+</div>
+</div>
+<!-- Elective / Bottom Row Large Card -->
+<div class="lg:col-span-12">
+<div class="rounded-xl bg-surface-container-low p-8 flex flex-col md:flex-row items-center gap-8 border border-white/50">
+<div class="w-full md:w-1/3 aspect-video rounded-lg overflow-hidden relative shadow-lg">
+<img alt="Cybersecurity Lab" class="w-full h-full object-cover" data-alt="Modern dark technology room with multiple glowing computer screens showing matrix-like code and data visualizations" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAtUjQhIl2LRZF7wyRd3SYJE4_JazvvhiXoo6znPiQVDXqIE59TXHwUeSOLvd_b3KBUKE8l2Hf2OsL0WxNgqU9XMtisDPrlCEOreaSBrLEkXv_nGImQwQbvkiMTUUIVeDc4A7Pa6YpI3d0YJSYFnJBjK4eT9NHdAmvin4EuhigW6ACBbilhhasiVEdyLtj9sdvSG8Mnj-Dx8XWF4EXo61YRTzB-y773Tc2RexpRl4ORmtb6nS17OqMKVnopu94e44f9WrCVzfznCcE"/>
+<div class="absolute inset-0 bg-gradient-to-t from-zinc-950/60 to-transparent"></div>
+<div class="absolute bottom-4 left-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-white text-sm">security</span>
+<span class="text-white text-[10px] font-bold tracking-widest uppercase">LAB SESSION</span>
+</div>
+</div>
+<div class="flex-1">
+<div class="flex items-center gap-2 mb-2">
+<span class="px-2 py-0.5 bg-on-surface-variant/10 text-on-surface-variant rounded text-[9px] font-extrabold tracking-widest uppercase">Elective</span>
+</div>
+<h3 class="text-xl font-bold text-on-surface mb-3">Introduction to Cybersecurity &amp; Ethics</h3>
+<p class="text-on-surface-variant text-sm mb-6">A foundational course exploring modern security protocols, encryption methods, and the ethical implications of digital footprint tracking.</p>
+<div class="flex flex-wrap gap-4">
+<div class="flex items-center gap-2 text-xs font-bold">
+<span class="material-symbols-outlined text-secondary text-base">verified_user</span>
+                                4.5 Credits
+                            </div>
+<div class="flex items-center gap-2 text-xs font-bold">
+<span class="material-symbols-outlined text-secondary text-base">alternate_email</span>
+                                Syllabus Available
+                            </div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

@@ -1,0 +1,15 @@
+{
+  "name": "ethereal-scholar-erp",
+  "version": "1.0.0",
+  "description": "Ethereal Scholar - Student ERP Portal",
+  "scripts": {
+    "start": "node start.js",
+    "backend": "cd backend && node server.js",
+    "frontend": "node frontend-server.js"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^6.2.1",
+    "@capacitor/cli": "^6.2.1",
+    "@capacitor/core": "^6.2.1"
+  }
+}

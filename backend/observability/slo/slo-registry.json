@@ -1,0 +1,79 @@
+{
+  "slos": [
+    {
+      "name": "api_success_rate",
+      "target": 0.999,
+      "monthlyBudgetMin": 43.8,
+      "sliDescription": "Ratio of HTTP 2xx/3xx to total requests",
+      "status": {
+        "compliance": 0.9995,
+        "budgetRemainingMin": 21.9,
+        "burnRates": {
+          "1h": 0.8,
+          "6h": 0.9,
+          "24h": 1
+        }
+      }
+    },
+    {
+      "name": "sync_success_rate",
+      "target": 0.99,
+      "monthlyBudgetMin": 432,
+      "sliDescription": "Ratio of successful syncs to total syncs",
+      "status": {
+        "compliance": 0.992,
+        "budgetRemainingMin": 400.5,
+        "burnRates": {
+          "1h": 1.5,
+          "6h": 1.2,
+          "24h": 0.9
+        }
+      }
+    },
+    {
+      "name": "erp_login_success_rate",
+      "target": 0.95,
+      "monthlyBudgetMin": 2160,
+      "sliDescription": "Ratio of successful ERP logins to attempts",
+      "status": {
+        "compliance": 0.965,
+        "budgetRemainingMin": 1800,
+        "burnRates": {
+          "1h": 0.5,
+          "6h": 0.7,
+          "24h": 0.8
+        }
+      }
+    },
+    {
+      "name": "queue_processing_rate",
+      "target": 0.995,
+      "monthlyBudgetMin": 216,
+      "sliDescription": "Ratio of completed queue jobs to total jobs",
+      "status": {
+        "compliance": 0.998,
+        "budgetRemainingMin": 205.1,
+        "burnRates": {
+          "1h": 1.2,
+          "6h": 1,
+          "24h": 1
+        }
+      }
+    },
+    {
+      "name": "notification_delivery_rate",
+      "target": 0.99,
+      "monthlyBudgetMin": 432,
+      "sliDescription": "Ratio of delivered notifications to sent",
+      "status": {
+        "compliance": 0.993,
+        "budgetRemainingMin": 410,
+        "burnRates": {
+          "1h": 0.9,
+          "6h": 0.9,
+          "24h": 1
+        }
+      }
+    }
+  ]
+}

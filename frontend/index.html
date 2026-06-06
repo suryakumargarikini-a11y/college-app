@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/>
+<title>SITAM Smart ERP</title>
+<meta name="description" content="SITAM Campus Academic ERP Portal — access marks, attendance, fees, and assignments."/>
+
+<!-- Tailwind -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+            "surface-variant":"#e1e2e8","surface-bright":"#faf9fc","primary-container":"#e4e2e1",
+            "on-secondary":"#fff6ff","secondary-fixed-dim":"#e5caff","on-secondary-fixed":"#4f3170",
+            "inverse-primary":"#ffffff","on-surface-variant":"#5c5f64","surface-dim":"#d8dae0",
+            "surface":"#faf9fc","outline-variant":"#b0b2b7","surface-container-high":"#e7e8ed",
+            "tertiary-fixed-dim":"#ec96a1","on-tertiary-fixed-variant":"#6c2d37","error-container":"#f76a80",
+            "on-error-container":"#68001f","error":"#ac3149","background":"#faf9fc",
+            "on-primary-fixed":"#3f3f3f","surface-container-highest":"#e1e2e8","inverse-surface":"#0d0e10",
+            "on-error":"#fff7f7","tertiary-fixed":"#fca3ae","surface-container-lowest":"#ffffff",
+            "secondary-dim":"#644586","on-secondary-fixed-variant":"#6c4d8f","tertiary-dim":"#823e48",
+            "on-tertiary":"#fff7f7","on-primary-fixed-variant":"#5c5b5b","secondary":"#705193",
+            "primary-fixed":"#e4e2e1","surface-tint":"#5f5f5f","on-tertiary-fixed":"#450e1a",
+            "on-background":"#303337","surface-container-low":"#f4f3f7","primary-dim":"#535353",
+            "primary-fixed-dim":"#d6d4d3","surface-container":"#ededf2","on-primary-container":"#525151",
+            "outline":"#787b80","on-secondary-container":"#624384","secondary-fixed":"#efdbff",
+            "primary":"#5f5f5f","tertiary-container":"#fca3ae","tertiary":"#904954","on-primary":"#fbf8f8",
+            "on-tertiary-container":"#61242f","on-surface":"#303337","inverse-on-surface":"#9c9d9f",
+            "secondary-container":"#efdbff","error-dim":"#770326"
+        },
+        "borderRadius":{"DEFAULT":"1rem","lg":"2rem","xl":"3rem","full":"9999px"},
+        "fontFamily":{"headline":["Plus Jakarta Sans"],"body":["Manrope"],"label":["Manrope"]}
+      }
+    }
+}
+</script>
+
+<!-- Fonts, Icons & Firebase Web SDK -->
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging-compat.js"></script>
+
+<style>
+/* Prevent tap highlight delay and callouts for Capacitor Android app shell */
+* {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Manrope', sans-serif;
+  background-color: #faf9fc;
+  color: #303337;
+  min-height: 100vh;
+  min-height: 100dvh;
+  /* Viewport safe area padding for notch and bezel-less Android screens */
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  overflow-x: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  overscroll-behavior-y: contain; /* Prevents webview pull-reload rubberbanding */
+}
+
+h1, h2, h3, h4, h5 {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+/* Premium glassmorphic layer saturate boost */
+.glass-card {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+}
+
+/* Momentum scrolling for native view feel */
+.scroll-momentum {
+  -webkit-overflow-scrolling: touch;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Shimmer animation loading skeletons */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.shimmer-loading {
+  background: linear-gradient(90deg, #f1f0f4 25%, #ededf2 50%, #f1f0f4 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite linear;
+}
+
+/* Android Navigation Bar Safe Area Adaptations */
+header {
+  padding-top: calc(env(safe-area-inset-top, 0px) + 2px);
+}
+
+nav {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
+}
+
+#nav-drawer {
+  padding-top: calc(env(safe-area-inset-top, 0px) + 24px) !important;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 24px) !important;
+}
+
+/* Momentum scrolling for horizontal and vertical scrolling views */
+.momentum-scroll {
+  -webkit-overflow-scrolling: touch;
+  overflow-x: auto;
+}
+
+/* Touch friendly min size */
+.touch-min {
+  min-height: 44px;
+}
+
+/* Active tap target animation scale */
+.active-scale:active {
+  transform: scale(0.96) !important;
+  opacity: 0.9;
+  transition: transform 0.08s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Disable selection and callouts globally */
+body, button, a, div, span, h1, h2, h3, h4, p {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+input, textarea {
+  -webkit-user-select: auto;
+  user-select: auto;
+}
+</style>
+</head>
+<body class="bg-[#faf9fc]">
+
+<!-- ===== SHELL (hidden on login) ===== -->
+<div id="app-shell">
+
+  <!-- Top App Bar -->
+  <header class="fixed top-0 w-full z-50 bg-white/70 backdrop-blur-3xl shadow-sm shadow-slate-200/40">
+    <div class="flex justify-between items-center px-6 h-16 w-full max-w-7xl mx-auto">
+      <div class="flex items-center gap-4">
+        <button id="menu-btn" class="p-2 hover:bg-slate-100/50 transition-all active:scale-95 duration-200 rounded-full">
+          <span class="material-symbols-outlined text-purple-600">menu</span>
+        </button>
+        <h1 class="text-xl font-extrabold text-slate-800 tracking-tighter">SITAM Campus</h1>
+      </div>
+      <div class="flex items-center gap-3">
+        <!-- Pulsing Real-time Live Status Indicator -->
+        <div id="live-indicator" class="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 text-emerald-600 rounded-full border border-emerald-500/20 text-[9px] font-headline font-extrabold uppercase tracking-widest transition-all duration-500 scale-0 opacity-0 select-none">
+           <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping"></span>
+           <span>Live</span>
+        </div>
+        <button id="sync-btn" class="p-2 hover:bg-slate-100/50 transition-all active:scale-95 duration-200 rounded-full text-slate-500 hover:text-purple-600 relative" title="Sync Data">
+          <span class="material-symbols-outlined">sync</span>
+        </button>
+        <button class="p-2 hover:bg-slate-100/50 transition-all active:scale-95 duration-200 rounded-full relative" onclick="router.navigate('/notifications')" title="Notifications">
+          <span class="material-symbols-outlined text-slate-500">notifications</span>
+          <span class="absolute top-2 right-2 w-2 h-2 bg-[#fca3ae] rounded-full" id="notif-dot"></span>
+        </button>
+        <div class="w-9 h-9 rounded-full overflow-hidden border-2 border-white shadow-sm bg-[#ededf2] flex items-center justify-center cursor-pointer" onclick="router.navigate('/profile')" title="Profile">
+          <span class="material-symbols-outlined text-[#787b80]">person</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Bottom Nav -->
+  <nav class="fixed bottom-0 left-0 w-full z-50 bg-white/80 backdrop-blur-2xl border-t border-white/20 rounded-t-[2.5rem] shadow-[0_-4px_20px_rgba(48,51,55,0.04)]">
+    <div class="flex justify-around items-center px-2 pt-3 pb-6 max-w-lg mx-auto">
+      <a data-nav="dashboard" data-nav-link="dashboard" href="#" class="bottom-nav-item flex flex-col items-center justify-center px-4 py-2 transition-all active-scale rounded-2xl text-slate-400">
+        <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1;">home</span>
+        <span class="text-[9px] font-bold tracking-widest uppercase mt-1">Home</span>
+      </a>
+      <a data-nav="attendance" data-nav-link="attendance" href="#" class="bottom-nav-item flex flex-col items-center justify-center px-4 py-2 transition-all active-scale rounded-2xl text-slate-400">
+        <span class="material-symbols-outlined">calendar_today</span>
+        <span class="text-[9px] font-bold tracking-widest uppercase mt-1">Attend</span>
+      </a>
+      <a data-nav="timetable" data-nav-link="timetable" href="#" class="bottom-nav-item flex flex-col items-center justify-center px-4 py-2 transition-all active-scale rounded-2xl text-slate-400">
+        <span class="material-symbols-outlined">schedule</span>
+        <span class="text-[9px] font-bold tracking-widest uppercase mt-1">Schedule</span>
+      </a>
+      <a data-nav="syllabus" data-nav-link="syllabus" href="#" class="bottom-nav-item flex flex-col items-center justify-center px-4 py-2 transition-all active-scale rounded-2xl text-slate-400">
+        <span class="material-symbols-outlined">auto_stories</span>
+        <span class="text-[9px] font-bold tracking-widest uppercase mt-1">Syllabus</span>
+      </a>
+      <a data-nav="marks" data-nav-link="marks" href="#" class="bottom-nav-item flex flex-col items-center justify-center px-4 py-2 transition-all active-scale rounded-2xl text-slate-400">
+        <span class="material-symbols-outlined">analytics</span>
+        <span class="text-[9px] font-bold tracking-widest uppercase mt-1">Marks</span>
+      </a>
+    </div>
+  </nav>
+
+  <!-- Realtime Syncing Glass Banner -->
+  <div id="sync-banner" class="fixed top-20 left-1/2 transform -translate-x-1/2 z-40 bg-white/80 backdrop-blur-2xl px-6 py-2.5 rounded-full border border-purple-200/50 shadow-xl flex items-center gap-3 transition-all duration-500 scale-0 opacity-0 pointer-events-none">
+    <div class="w-4 h-4 border-2 border-purple-500/20 border-t-purple-500 rounded-full animate-spin"></div>
+    <span class="text-xs font-bold text-purple-700 tracking-wider uppercase font-headline">Syncing latest data...</span>
+  </div>
+
+</div><!-- end #app-shell -->
+
+<!-- ===== DRAWER OVERLAY ===== -->
+<div id="drawer-overlay" class="fixed inset-0 bg-black/20 backdrop-blur-sm z-[60] hidden opacity-0 transition-opacity duration-300"></div>
+
+<!-- ===== SIDE NAVIGATION DRAWER ===== -->
+<aside id="nav-drawer" class="fixed left-0 top-0 h-screen z-[70] p-6 flex flex-col gap-4 bg-white/90 backdrop-blur-2xl w-80 rounded-r-[2rem] border-r border-white/20 shadow-2xl transform -translate-x-full transition-transform duration-500">
+  <button id="close-drawer-btn" class="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 transition-colors">
+    <span class="material-symbols-outlined">close</span>
+  </button>
+
+  <!-- Profile Brief in Drawer -->
+  <div class="bg-white/70 backdrop-blur-xl p-5 rounded-2xl border border-white/40 shadow-sm mt-4 cursor-pointer" onclick="closeDrawer(); router.navigate('/profile');">
+    <div class="flex items-center gap-4">
+      <div class="w-14 h-14 rounded-full overflow-hidden border-2 border-[#efdbff] shadow-sm bg-[#ededf2] flex items-center justify-center">
+        <span class="material-symbols-outlined text-[#787b80] text-2xl">person</span>
+      </div>
+      <div class="flex flex-col">
+        <h2 class="text-[16px] font-extrabold text-[#303337] tracking-tight leading-tight" id="drawer-name">Student</h2>
+        <span class="text-[11px] font-bold text-[#5c5f64] uppercase tracking-widest mt-0.5" id="drawer-roll">--</span>
+      </div>
+    </div>
+  </div>
+
+  <nav class="flex-1 overflow-y-auto space-y-6 pr-2 hide-scrollbar">
+    <div class="space-y-2">
+      <div class="px-3 py-1"><span class="text-[11px] uppercase tracking-widest font-bold text-[#705193]">Academics</span></div>
+      <div class="space-y-1">
+        <a href="#" data-nav="dashboard" data-nav-link="dashboard" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-purple-50 hover:text-purple-700 transition-all duration-300">
+          <span class="material-symbols-outlined text-[20px]">grid_view</span>
+          <span class="text-[13px] font-bold tracking-wide uppercase">Dashboard</span>
+        </a>
+        <a href="#" data-nav="timetable" data-nav-link="timetable" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-purple-50 hover:text-purple-700 transition-all duration-300">
+          <span class="material-symbols-outlined text-[20px]">schedule</span>
+          <span class="text-[13px] font-bold tracking-wide uppercase">Weekly Schedule</span>
+        </a>
+        <a href="#" data-nav="syllabus" data-nav-link="syllabus" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-purple-50 hover:text-purple-700 transition-all duration-300">
+          <span class="material-symbols-outlined text-[20px]">auto_stories</span>
+          <span class="text-[13px] font-bold tracking-wide uppercase">Curriculum &amp; Syllabus</span>
+        </a>
+        <a href="#" data-nav="marks" data-nav-link="marks" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-purple-50 hover:text-purple-700 transition-all duration-300">
+          <span class="material-symbols-outlined text-[20px]" style="font-variation-settings:'FILL' 1;">grade</span>
+          <span class="text-[13px] font-bold tracking-wide uppercase">Marks &amp; Results</span>
+        </a>
+        <a href="#" data-nav="attendance" data-nav-link="attendance" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-purple-50 hover:text-purple-700 transition-all duration-300">
+          <span class="material-symbols-outlined text-[20px]">calendar_today</span>
+          <span class="text-[13px] font-bold tracking-wide uppercase">Attendance</span>
+        </a>
+        <a href="#" data-nav="assignments" data-nav-link="assignments" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-purple-50 hover:text-purple-700 transition-all duration-300">
+          <span class="material-symbols-outlined text-[20px]">assignment_turned_in</span>
+          <span class="text-[13px] font-bold tracking-wide uppercase">Assignments</span>
+        </a>
+        <a href="#" data-nav="notifications" data-nav-link="notifications" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-purple-50 hover:text-purple-700 transition-all duration-300">
+          <span class="material-symbols-outlined text-[20px]">notifications</span>
+          <span class="text-[13px] font-bold tracking-wide uppercase">Announcements</span>
+        </a>
+      </div>
+    </div>
+    <div class="space-y-2">
+      <div class="px-3 py-1"><span class="text-[11px] uppercase tracking-widest font-bold text-[#705193]">Finance</span></div>
+      <div class="space-y-1">
+        <a href="#" data-nav="fees" data-nav-link="fees" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-purple-50 hover:text-purple-700 transition-all duration-300">
+          <span class="material-symbols-outlined text-[20px]">account_balance_wallet</span>
+          <span class="text-[13px] font-bold tracking-wide uppercase">Fees &amp; Payments</span>
+        </a>
+      </div>
+    </div>
+    <div class="space-y-2">
+      <div class="px-3 py-1"><span class="text-[11px] uppercase tracking-widest font-bold text-[#705193]">Account</span></div>
+      <div class="space-y-1">
+        <a href="#" data-nav="profile" data-nav-link="profile" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-purple-50 hover:text-purple-700 transition-all duration-300">
+          <span class="material-symbols-outlined text-[20px]">manage_accounts</span>
+          <span class="text-[13px] font-bold tracking-wide uppercase">Profile</span>
+        </a>
+      </div>
+    </div>
+    <div class="space-y-2">
+      <div class="px-3 py-1"><span class="text-[11px] uppercase tracking-widest font-bold text-[#705193]">Legal</span></div>
+      <div class="space-y-1">
+        <a href="#" onclick="closeDrawer(); router.navigate('/privacy'); return false;" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-purple-50 hover:text-purple-700 transition-all duration-300">
+          <span class="material-symbols-outlined text-[20px]">policy</span>
+          <span class="text-[13px] font-bold tracking-wide uppercase">Privacy Policy</span>
+        </a>
+        <a href="#" onclick="closeDrawer(); router.navigate('/terms'); return false;" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-purple-50 hover:text-purple-700 transition-all duration-300">
+          <span class="material-symbols-outlined text-[20px]">gavel</span>
+          <span class="text-[13px] font-bold tracking-wide uppercase">Terms of Service</span>
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="pt-4 border-t border-black/5">
+    <button id="drawer-logout-btn" class="w-full flex items-center justify-center gap-3 px-4 py-3.5 rounded-xl bg-[#f76a80]/10 text-[#ac3149] border border-[#f76a80]/20 hover:bg-[#ac3149] hover:text-white transition-all duration-300 active:scale-[0.98]">
+      <span class="material-symbols-outlined text-[20px]">logout</span>
+      <span class="text-[13px] font-extrabold tracking-widest uppercase">Logout</span>
+    </button>
+  </div>
+</aside>
+
+<!-- ===== MAIN CONTENT AREA ===== -->
+<div id="app" class="w-full min-h-screen"></div>
+
+<!-- ===== SITAM SPLASH SCREEN ===== -->
+<div id="sitam-splash" class="fixed inset-0 bg-[#faf9fc] z-[120] flex flex-col items-center justify-center transition-all duration-700 ease-in-out opacity-100">
+  <!-- Organic Blurred Orbs Background -->
+  <div style="filter:blur(100px);opacity:0.35;position:absolute;z-index:0;" class="bg-secondary-container w-[400px] h-[400px] rounded-full top-[15%] left-[10%] animate-pulse"></div>
+  <div style="filter:blur(100px);opacity:0.35;position:absolute;z-index:0;" class="bg-tertiary-container w-[350px] h-[350px] rounded-full bottom-[15%] right-[10%]"></div>
+  
+  <div class="relative z-10 flex flex-col items-center text-center">
+    <!-- Pulsing Crest Logo Wrapper -->
+    <div class="w-28 h-28 bg-white/60 backdrop-blur-3xl rounded-[2rem] flex items-center justify-center shadow-xl border border-white/80 mb-6 scale-95 animate-bounce" style="animation-duration: 2s;">
+      <svg class="w-16 h-16" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="100" height="100" rx="30" fill="url(#splashGrad)" />
+        <path d="M50 18L22 32L50 46L78 32L50 18Z" fill="#fff" />
+        <path d="M22 36.5V56C22 66.5 50 78 50 78C50 78 78 66.5 78 56V36.5L50 51.5L22 36.5Z" fill="#ffffff" fill-opacity="0.85" />
+        <circle cx="50" cy="51.5" r="5" fill="#705193" />
+        <defs>
+          <linearGradient id="splashGrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#705193"/>
+            <stop offset="100%" stop-color="#644586"/>
+          </linearGradient>
+        </defs>
+      </svg>
+    </div>
+    
+    <h1 class="text-3xl font-black tracking-tighter text-slate-800 bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-purple-900 leading-tight">SITAM Smart ERP</h1>
+    <p class="text-xs uppercase tracking-[0.25em] text-purple-600/70 mt-2 font-extrabold">Official Student Campus App</p>
+    
+    <!-- Shimmer Loader Line -->
+    <div class="w-32 bg-slate-200/80 h-1 rounded-full mt-10 overflow-hidden border border-white">
+      <div class="h-full bg-secondary w-0 rounded-full transition-all duration-1000 ease-out" id="splash-progress-bar"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== OFFLINE ALERT BANNER ===== -->
+<div id="offline-banner" class="fixed top-0 left-0 w-full z-[110] bg-error/95 backdrop-blur-xl text-white px-4 py-2 text-center text-xs font-bold tracking-wide transition-all duration-300 transform -translate-y-full shadow-md flex items-center justify-center gap-2">
+  <span class="material-symbols-outlined text-base animate-pulse">cloud_off</span>
+  <span>SITAM Campus is currently Offline. Operating on secure cached record.</span>
+</div>
+
+<!-- ===== LOADING OVERLAY ===== -->
+<div id="loading-overlay" class="fixed inset-0 bg-white/60 backdrop-blur-sm z-[100] flex flex-col items-center justify-center hidden opacity-0 transition-opacity duration-300">
+  <div class="w-16 h-16 border-4 border-[#705193]/20 border-t-[#705193] rounded-full animate-spin"></div>
+  <p class="mt-4 text-[#705193] font-bold tracking-widest uppercase text-sm animate-pulse" id="loading-text">Loading...</p>
+</div>
+
+<!-- ===== FLOATING TOAST NOTIFICATIONS ===== -->
+<div id="toast-container" class="fixed bottom-24 right-6 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none"></div>
+
+<script src="./app.js"></script>
+</body>
+</html>

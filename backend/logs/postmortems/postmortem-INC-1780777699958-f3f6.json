@@ -1,0 +1,10 @@
+{
+  "incidentId": "INC-1780777699958-f3f6",
+  "title": "Queue Stall",
+  "severity": "SEV1",
+  "durationSec": null,
+  "rootCause": "",
+  "impactStatement": "Evaluating system impact...",
+  "resolution": "",
+  "actionItemsCount": 2
+}

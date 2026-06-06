@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Attendance - The Ethereal Scholar</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary-dim": "#535353",
+                        "on-secondary-fixed-variant": "#6c4d8f",
+                        "on-secondary-fixed": "#4f3170",
+                        "on-tertiary-container": "#61242f",
+                        "on-tertiary-fixed": "#450e1a",
+                        "error": "#ac3149",
+                        "background": "#faf9fc",
+                        "surface-container-lowest": "#ffffff",
+                        "primary": "#5f5f5f",
+                        "secondary-container": "#efdbff",
+                        "on-primary-container": "#525151",
+                        "surface-container": "#ededf2",
+                        "surface-bright": "#faf9fc",
+                        "error-dim": "#770326",
+                        "surface-variant": "#e1e2e8",
+                        "secondary": "#705193",
+                        "on-background": "#303337",
+                        "on-secondary-container": "#624384",
+                        "surface-container-low": "#f4f3f7",
+                        "tertiary-fixed": "#fca3ae",
+                        "primary-fixed": "#e4e2e1",
+                        "on-primary-fixed": "#3f3f3f",
+                        "surface-dim": "#d8dae0",
+                        "surface-tint": "#5f5f5f",
+                        "inverse-primary": "#ffffff",
+                        "on-secondary": "#fff6ff",
+                        "on-error": "#fff7f7",
+                        "surface-container-high": "#e7e8ed",
+                        "primary-container": "#e4e2e1",
+                        "on-surface": "#303337",
+                        "tertiary-fixed-dim": "#ec96a1",
+                        "on-tertiary": "#fff7f7",
+                        "inverse-surface": "#0d0e10",
+                        "on-error-container": "#68001f",
+                        "secondary-dim": "#644586",
+                        "primary-fixed-dim": "#d6d4d3",
+                        "tertiary": "#904954",
+                        "secondary-fixed": "#efdbff",
+                        "on-primary": "#fbf8f8",
+                        "outline-variant": "#b0b2b7",
+                        "on-tertiary-fixed-variant": "#6c2d37",
+                        "inverse-on-surface": "#9c9d9f",
+                        "on-surface-variant": "#5c5f64",
+                        "secondary-fixed-dim": "#e5caff",
+                        "outline": "#787b80",
+                        "tertiary-dim": "#823e48",
+                        "tertiary-container": "#fca3ae",
+                        "surface": "#faf9fc",
+                        "on-primary-fixed-variant": "#5c5b5b",
+                        "error-container": "#f76a80",
+                        "surface-container-highest": "#e1e2e8"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "1rem",
+                        "lg": "2rem",
+                        "xl": "3rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Plus Jakarta Sans"],
+                        "body": ["Manrope"],
+                        "label": ["Manrope"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .attendance-ring {
+            background: conic-gradient(#10b981 88%, transparent 0);
+        }
+        .glass-panel {
+            backdrop-filter: blur(24px);
+            background: rgba(255, 255, 255, 0.7);
+        }
+        body {
+            min-height: max(884px, 100dvh);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body selection:bg-secondary-container">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-[#faf9fc]/70 dark:bg-[#1a1a1c]/70 backdrop-blur-3xl shadow-[0_10px_40px_rgba(48,51,55,0.06)]">
+<div class="flex justify-between items-center px-6 h-14 w-full">
+<div class="flex items-center gap-3">
+<button class="p-1.5 text-[#5f5f5f] hover:bg-[#efdbff]/50 transition-colors rounded-full">
+<span class="material-symbols-outlined text-xl">arrow_back</span>
+</button>
+<h1 class="font-plus-jakarta-sans text-lg font-bold tracking-tighter text-[#5f5f5f]">The Ethereal Scholar</h1>
+</div>
+<button class="p-1.5 text-[#5f5f5f] hover:bg-[#efdbff]/50 transition-colors rounded-full mr-2"><span class="material-symbols-outlined text-xl">notifications</span></button><div class="w-8 h-8 rounded-full overflow-hidden border-2 border-white shadow-sm">
+<img alt="Student Profile Avatar" data-alt="Close-up portrait of a young student with a warm smile, wearing a modern knit sweater, soft studio lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDTDEvF2I6cmGrxbcSpq-gDSKuMFymxJEyY-a2SoZsvRXE_L7v_dtCp1S6xaw4EUF3j5mSEpR_HaUf3ZxXPH-qF_tOFzJaXeMIctUkWGiVDDuZY6Nh6RRe5E9AuUIXknUchpTa8cVACtHsR7ezZqJbpo-rSA0qz-KdktAjzpUiiLAu3BXfhe5toqVwR5-pzS70RdGKirU-JtP0ly0WimFEPYOxH8UJ3zY2_9zsSp0Ox_l36sDvD7478A9D8JNe0PJ4sfa4DxUGBZlI"/>
+</div>
+</div>
+</header>
+<main class="pt-20 pb-28 px-6 max-w-4xl mx-auto">
+<!-- Page Header -->
+<section class="mb-6 text-center">
+<p class="font-label text-on-surface-variant uppercase tracking-[0.2em] text-[9px] font-bold mb-1">Academic Presence</p>
+<h2 class="font-headline text-3xl font-extrabold tracking-tight text-on-surface">Attendance Overview</h2>
+</section>
+<!-- Main Momentum Gauge -->
+<div class="flex justify-center mb-8">
+<div class="relative w-48 h-48 flex items-center justify-center">
+<!-- Outer Glow and Ring -->
+<div class="absolute inset-0 rounded-full bg-surface-container-lowest shadow-[0_15px_40px_rgba(48,51,55,0.08)]"></div>
+<div class="absolute inset-3 rounded-full attendance-ring opacity-20"></div>
+<!-- Main Circular Indicator -->
+<div class="z-10 w-36 h-36 rounded-full glass-panel flex flex-col items-center justify-center border border-white/40 shadow-lg">
+<span class="font-headline text-4xl font-extrabold text-[#10b981] tracking-tighter">88%</span>
+<span class="font-label text-[10px] uppercase tracking-widest font-bold text-on-surface-variant">Overall</span>
+</div>
+<!-- Floating Decor Spheres (Smaller) -->
+<div class="absolute -top-2 -right-2 w-8 h-8 bg-secondary-container/60 rounded-full blur-lg"></div>
+<div class="absolute -bottom-3 -left-3 w-10 h-10 bg-tertiary-container/40 rounded-full blur-xl"></div>
+</div>
+</div>
+<!-- Subject-wise Breakdown -->
+<section class="space-y-3">
+<div class="flex justify-between items-end mb-2 px-1">
+<h3 class="font-headline text-lg font-bold">Subject Performance</h3>
+<span class="text-[10px] font-bold text-secondary uppercase tracking-widest">Semester II</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<!-- Subject Card: Advanced Calculus -->
+<div class="bg-surface-container-low p-4 rounded-xl hover:bg-surface-container-lowest transition-all duration-300 group">
+<div class="flex justify-between items-start mb-2">
+<div>
+<h4 class="font-headline font-bold text-sm text-on-surface">Advanced Calculus</h4>
+<p class="text-[11px] text-on-surface-variant">Professor Alistair Thorne</p>
+</div>
+<span class="text-base font-extrabold text-[#10b981]">94%</span>
+</div>
+<div class="w-full h-1.5 bg-surface-variant rounded-full overflow-hidden">
+<div class="h-full bg-[#10b981] rounded-full w-[94%]"></div>
+</div>
+<div class="flex justify-between mt-2 text-[9px] font-bold uppercase tracking-wider text-on-surface-variant/60">
+<span>32 / 34 Classes</span>
+<span>Excellent</span>
+</div>
+</div>
+<!-- Subject Card: Quantum Ethics -->
+<div class="bg-surface-container-low p-4 rounded-xl hover:bg-surface-container-lowest transition-all duration-300">
+<div class="flex justify-between items-start mb-2">
+<div>
+<h4 class="font-headline font-bold text-sm text-on-surface">Quantum Ethics</h4>
+<p class="text-[11px] text-on-surface-variant">Dr. Elena Vance</p>
+</div>
+<span class="text-base font-extrabold text-[#10b981]">82%</span>
+</div>
+<div class="w-full h-1.5 bg-surface-variant rounded-full overflow-hidden">
+<div class="h-full bg-[#10b981] rounded-full w-[82%]"></div>
+</div>
+<div class="flex justify-between mt-2 text-[9px] font-bold uppercase tracking-wider text-on-surface-variant/60">
+<span>23 / 28 Classes</span>
+<span>Good Standing</span>
+</div>
+</div>
+<!-- Subject Card: Mythological Structures -->
+<div class="bg-surface-container-low p-4 rounded-xl hover:bg-surface-container-lowest transition-all duration-300">
+<div class="flex justify-between items-start mb-2">
+<div>
+<h4 class="font-headline font-bold text-sm text-on-surface">Mythological Structures</h4>
+<p class="text-[11px] text-on-surface-variant">Archivist Julian</p>
+</div>
+<span class="text-base font-extrabold text-[#eab308]">68%</span>
+</div>
+<div class="w-full h-1.5 bg-surface-variant rounded-full overflow-hidden">
+<div class="h-full bg-[#eab308] rounded-full w-[68%]"></div>
+</div>
+<div class="flex justify-between mt-2 text-[9px] font-bold uppercase tracking-wider text-on-surface-variant/60">
+<span>19 / 28 Classes</span>
+<span>Warning</span>
+</div>
+</div>
+<!-- Subject Card: Neural Architecture -->
+<div class="bg-surface-container-low p-4 rounded-xl hover:bg-surface-container-lowest transition-all duration-300">
+<div class="flex justify-between items-start mb-2">
+<div>
+<h4 class="font-headline font-bold text-sm text-on-surface">Neural Architecture</h4>
+<p class="text-[11px] text-on-surface-variant">Dean Sofia Sterling</p>
+</div>
+<span class="text-base font-extrabold text-[#10b981]">89%</span>
+</div>
+<div class="w-full h-1.5 bg-surface-variant rounded-full overflow-hidden">
+<div class="h-full bg-[#10b981] rounded-full w-[89%]"></div>
+</div>
+<div class="flex justify-between mt-2 text-[9px] font-bold uppercase tracking-wider text-on-surface-variant/60">
+<span>25 / 28 Classes</span>
+<span>Consistent</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Insights Bento Block -->
+<section class="mt-8">
+<div class="bg-secondary-container/30 p-6 rounded-[2rem] relative overflow-hidden">
+<div class="relative z-10">
+<h3 class="font-headline text-base font-bold text-on-secondary-container mb-1">Ethereal Insight</h3>
+<p class="text-xs text-on-secondary-container/80 leading-relaxed max-w-md">
+                        Your attendance has increased by 4% since last month. Consistent presence in <span class="font-bold">Advanced Calculus</span> is reflecting in your recent quiz results.
+                    </p>
+</div>
+<!-- Abstract 3D Shapes (Sized down) -->
+<div class="absolute top-0 right-0 w-24 h-24 bg-secondary opacity-10 rounded-full -mr-8 -mt-8 blur-2xl"></div>
+<div class="absolute bottom-0 left-0 w-16 h-16 bg-tertiary opacity-10 rounded-full -ml-8 -mb-8 blur-xl"></div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 w-full z-50 bg-[#faf9fc]/70 dark:bg-[#1a1a1c]/70 backdrop-blur-3xl rounded-t-[2.5rem] shadow-[0_-10px_40px_rgba(48,51,55,0.04)]">
+<div class="flex justify-around items-center h-16 px-4 pb-1">
+<!-- Home -->
+<a class="flex flex-col items-center justify-center text-[#5f5f5f] dark:text-[#a0a0a0] px-4 py-1 hover:bg-[#ffffff]/40 transition-all scale-95 active:scale-90 duration-300" href="#">
+<span class="material-symbols-outlined text-xl" data-icon="home">home</span>
+<span class="font-manrope text-[9px] uppercase tracking-widest font-semibold mt-0.5">Home</span>
+</a>
+<!-- Happenings -->
+<a class="flex flex-col items-center justify-center text-[#5f5f5f] dark:text-[#a0a0a0] px-4 py-1 hover:bg-[#ffffff]/40 transition-all scale-95 active:scale-90 duration-300" href="#">
+<span class="material-symbols-outlined text-xl" data-icon="auto_awesome">auto_awesome</span>
+<span class="font-manrope text-[9px] uppercase tracking-widest font-semibold mt-0.5">Happenings</span>
+</a>
+<!-- Marks (Active) -->
+<a class="flex flex-col items-center justify-center bg-[#efdbff] dark:bg-[#705193]/30 text-[#705193] dark:text-[#efdbff] rounded-full px-5 py-1.5 transition-all scale-95 active:scale-90 duration-300" href="#">
+<span class="material-symbols-outlined text-xl" data-icon="grade" style="font-variation-settings: 'FILL' 1;">grade</span>
+<span class="font-manrope text-[9px] uppercase tracking-widest font-semibold mt-0.5">Marks</span>
+</a>
+</div>
+</nav>
+</body></html>

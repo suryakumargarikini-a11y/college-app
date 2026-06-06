@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Marks &amp; Results | The Ethereal Scholar</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Manrope:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "primary-dim": "#535353",
+                    "on-secondary-fixed-variant": "#6c4d8f",
+                    "on-secondary-fixed": "#4f3170",
+                    "on-tertiary-container": "#61242f",
+                    "on-tertiary-fixed": "#450e1a",
+                    "error": "#ac3149",
+                    "background": "#faf9fc",
+                    "surface-container-lowest": "#ffffff",
+                    "primary": "#5f5f5f",
+                    "secondary-container": "#efdbff",
+                    "on-primary-container": "#525151",
+                    "surface-container": "#ededf2",
+                    "surface-bright": "#faf9fc",
+                    "error-dim": "#770326",
+                    "surface-variant": "#e1e2e8",
+                    "secondary": "#705193",
+                    "on-background": "#303337",
+                    "on-secondary-container": "#624384",
+                    "surface-container-low": "#f4f3f7",
+                    "tertiary-fixed": "#fca3ae",
+                    "primary-fixed": "#e4e2e1",
+                    "on-primary-fixed": "#3f3f3f",
+                    "surface-dim": "#d8dae0",
+                    "surface-tint": "#5f5f5f",
+                    "inverse-primary": "#ffffff",
+                    "on-secondary": "#fff6ff",
+                    "on-error": "#fff7f7",
+                    "surface-container-high": "#e7e8ed",
+                    "primary-container": "#e4e2e1",
+                    "on-surface": "#303337",
+                    "tertiary-fixed-dim": "#ec96a1",
+                    "on-tertiary": "#fff7f7",
+                    "inverse-surface": "#0d0e10",
+                    "on-error-container": "#68001f",
+                    "secondary-dim": "#644586",
+                    "primary-fixed-dim": "#d6d4d3",
+                    "tertiary": "#904954",
+                    "secondary-fixed": "#efdbff",
+                    "on-primary": "#fbf8f8",
+                    "outline-variant": "#b0b2b7",
+                    "on-tertiary-fixed-variant": "#6c2d37",
+                    "inverse-on-surface": "#9c9d9f",
+                    "on-surface-variant": "#5c5f64",
+                    "secondary-fixed-dim": "#e5caff",
+                    "outline": "#787b80",
+                    "tertiary-dim": "#823e48",
+                    "tertiary-container": "#fca3ae",
+                    "surface": "#faf9fc",
+                    "on-primary-fixed-variant": "#5c5b5b",
+                    "error-container": "#f76a80",
+                    "surface-container-highest": "#e1e2e8"
+            },
+            "borderRadius": {
+                    "DEFAULT": "1rem",
+                    "lg": "2rem",
+                    "xl": "3rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Plus Jakarta Sans"],
+                    "body": ["Manrope"],
+                    "label": ["Manrope"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Manrope', sans-serif; }
+        h1, h2, h3 { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .glass-panel {
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-background text-on-background min-h-screen pb-32">
+<!-- Top App Bar -->
+<header class="fixed top-0 w-full z-50 bg-[#faf9fc]/70 dark:bg-[#1a1a1c]/70 backdrop-blur-3xl shadow-[0_10px_40px_rgba(48,51,55,0.06)] flex justify-between items-center px-6 h-16 w-full">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-[#5f5f5f] dark:text-[#e1e2e8] cursor-pointer" data-icon="arrow_back">arrow_back</span>
+<span class="font-plus-jakarta-sans text-xl font-bold tracking-tighter text-[#5f5f5f] dark:text-[#ffffff]">The Ethereal Scholar</span>
+</div>
+<div class="h-10 w-10 rounded-full bg-secondary-container flex items-center justify-center overflow-hidden">
+<img alt="Student Profile Avatar" class="h-full w-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBTir5uicUksAYt3EEJ1aNI27-gmIjBiUNk5QKBBrhZDcu6hkKcHOAavvw5lQdrYNS9XDzKm8EP4OUCcmc1OMxys5P9WItdanRoWBAbIKgmZ3-xV8NlWNQel6Q4JS-OuiEgw1d_l2xKWdoXjnqn0TDfgxDpPixLexsKlz_u-oslxXk6oKD7FWtE42AMMJas_8ogZjF3blsaZ_15A-cQnFj32Z3SN-CvLWgeb4Acobx78XZeFCn_kuc6IW9KO9d-w4MlKhCxzJB851U"/>
+</div>
+</header>
+<main class="pt-24 px-6 max-w-4xl mx-auto space-y-8">
+<!-- Hero GPA Section - Streamlined -->
+<section class="relative">
+<div class="absolute -top-12 -right-8 w-48 h-48 bg-secondary-container/30 rounded-full blur-3xl -z-10"></div>
+<div class="flex flex-col gap-4">
+<div>
+<p class="font-label text-xs uppercase tracking-[0.2em] text-on-surface-variant mb-1">Academic Standing</p>
+<h1 class="text-4xl font-extrabold tracking-tight text-on-surface">Marks &amp; Results</h1>
+</div>
+<div class="bg-surface-container-lowest p-5 rounded-xl shadow-[0_10px_40px_rgba(48,51,55,0.04)] flex items-center gap-5 border-outline-variant/10 border w-full max-w-sm">
+<div class="relative flex items-center justify-center flex-shrink-0">
+<svg class="w-16 h-16 transform -rotate-90">
+<circle class="text-surface-container-high" cx="32" cy="32" fill="transparent" r="28" stroke="currentColor" stroke-width="6"></circle>
+<circle class="text-secondary" cx="32" cy="32" fill="transparent" r="28" stroke="currentColor" stroke-dasharray="175.84" stroke-dashoffset="17.58" stroke-linecap="round" stroke-width="6"></circle>
+</svg>
+<span class="absolute text-lg font-bold text-on-surface">3.92</span>
+</div>
+<div class="space-y-0.5">
+<p class="text-on-surface-variant font-medium text-xs">Cumulative GPA</p>
+<p class="text-secondary font-bold text-base leading-tight">Dean's List Status</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Subjects Grid - Streamlined Cards -->
+<section class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<!-- Subject Card 1 -->
+<div class="bg-surface-container-low p-5 rounded-lg space-y-3 hover:bg-surface-container-lowest transition-colors duration-300">
+<div class="flex justify-between items-start">
+<div>
+<span class="text-[10px] font-bold uppercase tracking-widest text-on-secondary-fixed-variant bg-secondary-container px-2.5 py-0.5 rounded-full">Core</span>
+<h3 class="text-lg font-bold text-on-surface mt-2">Quantum Ethics</h3>
+</div>
+<div class="text-right">
+<p class="text-2xl font-black text-secondary">A+</p>
+<p class="text-[10px] text-on-surface-variant font-bold">96/100</p>
+</div>
+</div>
+<div class="space-y-1.5">
+<div class="flex justify-between text-[10px] font-bold text-on-surface-variant uppercase tracking-tighter">
+<span>Mastery</span>
+<span>96%</span>
+</div>
+<div class="w-full h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-secondary w-[96%] rounded-full"></div>
+</div>
+</div>
+</div>
+<!-- Subject Card 2 -->
+<div class="bg-surface-container-low p-5 rounded-lg space-y-3 hover:bg-surface-container-lowest transition-colors duration-300">
+<div class="flex justify-between items-start">
+<div>
+<span class="text-[10px] font-bold uppercase tracking-widest text-on-tertiary-fixed-variant bg-tertiary-container px-2.5 py-0.5 rounded-full">Elective</span>
+<h3 class="text-lg font-bold text-on-surface mt-2">Ethereal Design</h3>
+</div>
+<div class="text-right">
+<p class="text-2xl font-black text-tertiary">A</p>
+<p class="text-[10px] text-on-surface-variant font-bold">92/100</p>
+</div>
+</div>
+<div class="space-y-1.5">
+<div class="flex justify-between text-[10px] font-bold text-on-surface-variant uppercase tracking-tighter">
+<span>Mastery</span>
+<span>92%</span>
+</div>
+<div class="w-full h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-tertiary w-[92%] rounded-full"></div>
+</div>
+</div>
+</div>
+<!-- Subject Card 3 -->
+<div class="bg-surface-container-low p-5 rounded-lg space-y-3 hover:bg-surface-container-lowest transition-colors duration-300">
+<div class="flex justify-between items-start">
+<div>
+<span class="text-[10px] font-bold uppercase tracking-widest text-on-secondary-fixed-variant bg-secondary-container px-2.5 py-0.5 rounded-full">Core</span>
+<h3 class="text-lg font-bold text-on-surface mt-2">Advanced Linguistics</h3>
+</div>
+<div class="text-right">
+<p class="text-2xl font-black text-secondary">A-</p>
+<p class="text-[10px] text-on-surface-variant font-bold">89/100</p>
+</div>
+</div>
+<div class="space-y-1.5">
+<div class="flex justify-between text-[10px] font-bold text-on-surface-variant uppercase tracking-tighter">
+<span>Mastery</span>
+<span>89%</span>
+</div>
+<div class="w-full h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-secondary w-[89%] rounded-full opacity-80"></div>
+</div>
+</div>
+</div>
+<!-- Excellence Box - Streamlined -->
+<div class="bg-primary text-on-primary p-5 rounded-lg flex flex-col justify-between overflow-hidden relative group">
+<div class="absolute -right-2 -bottom-2 opacity-10 group-hover:scale-110 transition-transform duration-700">
+<span class="material-symbols-outlined text-[80px]" data-icon="auto_awesome">auto_awesome</span>
+</div>
+<div class="relative z-10">
+<h3 class="text-xl font-bold tracking-tight">Academic Excellence</h3>
+<p class="text-on-primary/70 text-xs mt-1 leading-relaxed">Top 5% of cohort. Research flagged for review.</p>
+</div>
+<button class="relative z-10 self-start mt-4 bg-on-primary text-primary px-4 py-2 rounded-full font-bold text-xs tracking-wide hover:bg-surface-container-lowest transition-colors">
+                    View Certificate
+                </button>
+</div>
+</section>
+<!-- Term Progression - Compact Layout -->
+<section class="bg-surface-container-low p-6 rounded-xl">
+<div class="flex items-center justify-between mb-6">
+<h3 class="font-bold text-base">Term Progression</h3>
+<div class="flex items-center gap-2">
+<div class="w-2.5 h-2.5 rounded-full bg-secondary"></div>
+<span class="text-[10px] font-bold text-on-surface-variant uppercase">Your Score</span>
+</div>
+</div>
+<div class="flex items-end justify-between h-32 gap-3 px-2">
+<div class="w-full bg-secondary-container/30 rounded-t-lg h-[60%] relative group">
+<div class="absolute bottom-0 w-full bg-secondary rounded-t-lg h-[80%] group-hover:h-[85%] transition-all duration-500"></div>
+<span class="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[9px] font-bold text-on-surface-variant tracking-widest uppercase">T1</span>
+</div>
+<div class="w-full bg-secondary-container/30 rounded-t-lg h-[75%] relative group">
+<div class="absolute bottom-0 w-full bg-secondary rounded-t-lg h-[90%] group-hover:h-[95%] transition-all duration-500"></div>
+<span class="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[9px] font-bold text-on-surface-variant tracking-widest uppercase">T2</span>
+</div>
+<div class="w-full bg-secondary-container/30 rounded-t-lg h-[90%] relative group">
+<div class="absolute bottom-0 w-full bg-secondary rounded-t-lg h-[95%] group-hover:h-[100%] transition-all duration-500"></div>
+<span class="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[9px] font-bold text-on-surface-variant tracking-widest uppercase">T3</span>
+</div>
+<div class="w-full bg-secondary-container/30 rounded-t-lg h-[85%] relative group">
+<div class="absolute bottom-0 w-full bg-secondary rounded-t-lg h-[88%] group-hover:h-[92%] transition-all duration-500"></div>
+<span class="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[9px] font-bold text-on-surface-variant tracking-widest uppercase">Cur</span>
+</div>
+</div>
+</section>
+</main>
+<!-- Bottom Nav Bar -->
+<nav class="fixed bottom-0 w-full z-50 bg-[#faf9fc]/70 dark:bg-[#1a1a1c]/70 backdrop-blur-3xl rounded-t-[2.5rem] shadow-[0_-10px_40px_rgba(48,51,55,0.04)] h-16 px-4 flex justify-around items-center">
+<a class="flex flex-col items-center justify-center text-[#5f5f5f] dark:text-[#a0a0a0] px-4 py-1 hover:bg-[#ffffff]/40 transition-all scale-95 active:scale-90 duration-300" href="#">
+<span class="material-symbols-outlined text-xl" data-icon="home">home</span>
+<span class="font-manrope text-[9px] uppercase tracking-widest font-semibold mt-0.5">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#5f5f5f] dark:text-[#a0a0a0] px-4 py-1 hover:bg-[#ffffff]/40 transition-all scale-95 active:scale-90 duration-300" href="#">
+<span class="material-symbols-outlined text-xl" data-icon="auto_awesome">auto_awesome</span>
+<span class="font-manrope text-[9px] uppercase tracking-widest font-semibold mt-0.5">Events</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-[#efdbff] dark:bg-[#705193]/30 text-[#705193] dark:text-[#efdbff] rounded-full px-5 py-1.5 transition-all scale-95 active:scale-90 duration-300" href="#">
+<span class="material-symbols-outlined text-xl" data-icon="grade" style="font-variation-settings: 'FILL' 1;">grade</span>
+<span class="font-manrope text-[9px] uppercase tracking-widest font-semibold mt-0.5">Marks</span>
+</a>
+</nav>
+</body></html>

@@ -1,0 +1,192 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Mixed --",
+        "enable": true,
+        "hide": true,
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "id": null,
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "title": "BullMQ Queue Activity Metrics",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 1
+      },
+      "id": 2,
+      "title": "Jobs Waiting & Active",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "bullmq_jobs_waiting",
+          "legendFormat": "{{queue}} Waiting",
+          "refId": "A"
+        },
+        {
+          "expr": "bullmq_jobs_active",
+          "legendFormat": "{{queue}} Active",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 1
+      },
+      "id": 3,
+      "title": "Queue Job Lifecycles (Completed vs Failed)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by (queue) (rate(bullmq_jobs_completed_total[5m]))",
+          "legendFormat": "{{queue}} Completed/sec",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (queue) (rate(bullmq_jobs_failed_total[5m]))",
+          "legendFormat": "{{queue}} Failed/sec",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 24,
+        "x": 0,
+        "y": 7
+      },
+      "id": 4,
+      "title": "BullMQ Queue Wait Time (Seconds)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "bullmq_queue_latency_seconds{quantile=\"0.95\"}",
+          "legendFormat": "{{queue}} p95 Latency",
+          "refId": "A"
+        },
+        {
+          "expr": "bullmq_queue_latency_seconds{quantile=\"0.5\"}",
+          "legendFormat": "{{queue}} p50 Latency",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 13
+      },
+      "id": 5,
+      "title": "Redis Server Telemetry",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 14
+      },
+      "id": 6,
+      "title": "Redis Command Execution Latency (seconds)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "redis_command_duration_seconds{quantile=\"0.95\"}",
+          "legendFormat": "Redis command p95",
+          "refId": "A"
+        },
+        {
+          "expr": "redis_command_duration_seconds{quantile=\"0.5\"}",
+          "legendFormat": "Redis command p50",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 14
+      },
+      "id": 7,
+      "title": "Redis Connection & Reconnect Actions",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "redis_reconnect_total",
+          "legendFormat": "Reconnect Attempts",
+          "refId": "A"
+        },
+        {
+          "expr": "redis_connected",
+          "legendFormat": "Connected State (1/0)",
+          "refId": "B"
+        }
+      ]
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 36,
+  "style": "dark",
+  "tags": ["sitam", "redis", "queues"],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "title": "Redis & BullMQ Queues",
+  "uid": "redis-queues",
+  "version": 1
+}

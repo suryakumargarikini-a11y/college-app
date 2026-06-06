@@ -1,0 +1,54 @@
+{
+  "provenance": {
+    "_type": "https://in-toto.io/Statement/v0.1",
+    "subject": [
+      {
+        "name": "test-asset",
+        "digest": {
+          "sha256": "dummyhash"
+        }
+      }
+    ],
+    "predicateType": "https://slsa.dev/provenance/v0.2",
+    "predicate": {
+      "builder": {
+        "id": "https://github.com/sitam-smart-erp/build-worker"
+      },
+      "buildType": "https://slsa.dev/conan/v1",
+      "invocation": {
+        "configSource": {
+          "uri": "https://github.com/sitam-smart-erp/backend",
+          "digest": {
+            "sha256": "dummyhash"
+          },
+          "entryPoint": "build.js"
+        },
+        "parameters": {},
+        "environment": {
+          "node_version": "v20.11.1",
+          "platform": "win32"
+        }
+      },
+      "metadata": {
+        "buildStartedOn": "2026-06-06T20:28:05.988Z",
+        "completeness": {
+          "parameters": true,
+          "environment": true,
+          "materials": false
+        },
+        "reproducible": true
+      },
+      "materials": [
+        {
+          "uri": "git+https://github.com/sitam-smart-erp/backend.git",
+          "digest": {
+            "sha256": "dummyhash"
+          }
+        }
+      ]
+    }
+  },
+  "signature": "e2ef50f71ff6290a756e466fedbc0680d4dfc348dfde19d43d8bdf7c9d2f0f47",
+  "algorithm": "HMAC-SHA256",
+  "timestamp": "2026-06-06T20:28:05.989Z"
+}

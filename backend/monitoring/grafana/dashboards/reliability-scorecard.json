@@ -1,0 +1,121 @@
+{
+  "uid": "reliability-scorecards-v1",
+  "title": "Platform Reliability Scorecards & Incident Metrics",
+  "tags": ["sre", "reliability", "incidents", "scorecard", "sitam"],
+  "timezone": "browser",
+  "refresh": "1m",
+  "panels": [
+    {
+      "id": 1,
+      "type": "gauge",
+      "title": "Platform Score",
+      "gridPos": { "x": 0, "y": 0, "w": 4, "h": 6 },
+      "targets": [
+        {
+          "expr": "reliability_scorecard_value{scorecard_type=\"platform\"}",
+          "legendFormat": "Platform Score"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "red" },
+              { "value": 75, "color": "orange" },
+              { "value": 90, "color": "green" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "type": "gauge",
+      "title": "ERP Scraper Score",
+      "gridPos": { "x": 4, "y": 0, "w": 4, "h": 6 },
+      "targets": [
+        {
+          "expr": "reliability_scorecard_value{scorecard_type=\"erp\"}",
+          "legendFormat": "Scraper Score"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "gauge",
+      "title": "Browser Pool Score",
+      "gridPos": { "x": 8, "y": 0, "w": 4, "h": 6 },
+      "targets": [
+        {
+          "expr": "reliability_scorecard_value{scorecard_type=\"browser\"}",
+          "legendFormat": "Browser Score"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "gauge",
+      "title": "Queue Health Score",
+      "gridPos": { "x": 12, "y": 0, "w": 4, "h": 6 },
+      "targets": [
+        {
+          "expr": "reliability_scorecard_value{scorecard_type=\"queue\"}",
+          "legendFormat": "Queue Score"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "gauge",
+      "title": "Worker Task Score",
+      "gridPos": { "x": 16, "y": 0, "w": 4, "h": 6 },
+      "targets": [
+        {
+          "expr": "reliability_scorecard_value{scorecard_type=\"worker\"}",
+          "legendFormat": "Worker Score"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "gauge",
+      "title": "Data Sync Score",
+      "gridPos": { "x": 20, "y": 0, "w": 4, "h": 6 },
+      "targets": [
+        {
+          "expr": "reliability_scorecard_value{scorecard_type=\"sync\"}",
+          "legendFormat": "Sync Score"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "MTTR & MTBF Trends (Rolling)",
+      "gridPos": { "x": 0, "y": 6, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum(incident_duration_seconds) / count(incident_resolved_total)",
+          "legendFormat": "MTTR (Sec)"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Incident Frequency by Severity",
+      "gridPos": { "x": 12, "y": 6, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "incident_active_count",
+          "legendFormat": "{{severity}}"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 36,
+  "version": 1
+}

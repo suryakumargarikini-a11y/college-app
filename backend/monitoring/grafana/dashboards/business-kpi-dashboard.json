@@ -1,0 +1,76 @@
+{
+  "uid": "business-kpis-v1",
+  "title": "Business KPIs & Product Engagement",
+  "tags": ["business", "kpis", "engagement", "sitam"],
+  "timezone": "browser",
+  "refresh": "1m",
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Daily Active Users (DAU)",
+      "gridPos": { "x": 0, "y": 0, "w": 8, "h": 6 },
+      "targets": [
+        {
+          "expr": "active_users{period=\"daily\"}",
+          "legendFormat": "DAU"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Monthly Active Users (MAU)",
+      "gridPos": { "x": 8, "y": 0, "w": 8, "h": 6 },
+      "targets": [
+        {
+          "expr": "active_users{period=\"monthly\"}",
+          "legendFormat": "MAU"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Overall DAU/MAU Ratio",
+      "gridPos": { "x": 16, "y": 0, "w": 8, "h": 6 },
+      "targets": [
+        {
+          "expr": "active_users{period=\"daily\"} / active_users{period=\"monthly\"}",
+          "legendFormat": "Ratio"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Sync Volume by Module",
+      "gridPos": { "x": 0, "y": 6, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "rate(syncs_completed_total[5m])",
+          "legendFormat": "{{module}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Feature Adoption",
+      "gridPos": { "x": 12, "y": 6, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "rate(feature_adoption_total[5m])",
+          "legendFormat": "{{feature_name}}"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 36,
+  "version": 1
+}

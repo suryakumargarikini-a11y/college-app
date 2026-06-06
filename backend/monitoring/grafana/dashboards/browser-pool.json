@@ -1,0 +1,143 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Mixed --",
+        "enable": true,
+        "hide": true,
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "id": null,
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "title": "Browser Pool Utilization & Health",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 1
+      },
+      "id": 2,
+      "title": "Active Spawns vs incognito Contexts",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "browser_pool_active_browsers",
+          "legendFormat": "Active Chromium Instances",
+          "refId": "A"
+        },
+        {
+          "expr": "browser_pool_active_contexts",
+          "legendFormat": "Active incognito Contexts",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 1
+      },
+      "id": 3,
+      "title": "Browser Failures & System Timeouts",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(increase(browser_crashes_total[5m]))",
+          "legendFormat": "Chromium Process Crashes",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(increase(browser_pool_timeouts_total[5m]))",
+          "legendFormat": "Acquisition Timeouts",
+          "refId": "B"
+        },
+        {
+          "expr": "sum(increase(browser_pool_recycle_total[5m]))",
+          "legendFormat": "Idle recycles",
+          "refId": "C"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 7
+      },
+      "id": 4,
+      "title": "Sync Operation Durations",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 24,
+        "x": 0,
+        "y": 8
+      },
+      "id": 5,
+      "title": "Puppeteer Sync Execution Times (Seconds)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sync_duration_seconds{quantile=\"0.95\"}",
+          "legendFormat": "{{syncType}} p95 sync time",
+          "refId": "A"
+        },
+        {
+          "expr": "sync_duration_seconds{quantile=\"0.5\"}",
+          "legendFormat": "{{syncType}} p50 sync time",
+          "refId": "B"
+        }
+      ]
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 36,
+  "style": "dark",
+  "tags": ["sitam", "puppeteer", "browserpool"],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "title": "Puppeteer Browser Pool",
+  "uid": "browser-pool",
+  "version": 1
+}

@@ -1,0 +1,87 @@
+groups:
+  - name: sitam-erp-alerts
+    rules:
+      # API Metrics Alerts
+      - alert: APIHighLatency
+        expr: http_request_duration_seconds_bucket{le="1"} < 0.90
+        for: 1m
+        labels:
+          severity: WARNING
+          category: API
+        annotations:
+          summary: "API High Latency detected"
+          description: "More than 10% of HTTP requests on route {{ $labels.route }} are taking longer than 1s."
+
+      - alert: APIExcessive5xxErrors
+        expr: rate(http_requests_total{status=~"5.."}[1m]) > 0.05
+        for: 1m
+        labels:
+          severity: CRITICAL
+          category: API
+        annotations:
+          summary: "API 5xx error rate is elevated"
+          description: "API is returning 5xx status codes for route {{ $labels.route }} at rate {{ $value }}/s."
+
+      # Queue Saturation Alerts
+      - alert: QueueSaturationRatioHigh
+        expr: bullmq_jobs_waiting{queue="sitam-sync"} > 10
+        for: 2m
+        labels:
+          severity: WARNING
+          category: Queue
+        annotations:
+          summary: "Queue Saturation approaching limits"
+          description: "SyncQueue has {{ $value }} waiting jobs."
+
+      - alert: QueueDriftBuildup
+        expr: bullmq_queue_latency_seconds_sum / bullmq_queue_latency_seconds_count > 10
+        for: 2m
+        labels:
+          severity: CRITICAL
+          category: Queue
+        annotations:
+          summary: "Queue Drift wait time is critical"
+          description: "Average job drift in queue before pickup is {{ $value }} seconds."
+
+      # Browser Pool Alerts
+      - alert: BrowserPoolExhausted
+        expr: browser_pool_active_contexts / browser_pool_active_browsers >= 0.90
+        for: 1m
+        labels:
+          severity: CRITICAL
+          category: BrowserPool
+        annotations:
+          summary: "Browser Pool active contexts are saturated"
+          description: "Active checked-out incognito browser contexts have saturated 90% of current browser capacity."
+
+      - alert: ChromiumCrashSpike
+        expr: rate(browser_crashes_total[5m]) > 0.01
+        for: 1m
+        labels:
+          severity: CRITICAL
+          category: BrowserPool
+        annotations:
+          summary: "Chromium processes are crashing frequently"
+          description: "Chromium process crash rate is {{ $value }} per second."
+
+      # Redis Alerts
+      - alert: RedisDisconnectAlert
+        expr: redis_connected == 0
+        for: 30s
+        labels:
+          severity: CRITICAL
+          category: Redis
+        annotations:
+          summary: "Redis Cache server connection offline"
+          description: "ERP backend connection to Redis cluster has dropped."
+
+      # PostgreSQL Database Alerts
+      - alert: PostgreSQLConnectionPoolFull
+        expr: postgres_pool_active_connections > 18
+        for: 1m
+        labels:
+          severity: CRITICAL
+          category: Database
+        annotations:
+          summary: "Postgres Connection Pool Saturation"
+          description: "Active DB connections count is {{ $value }}, approaching pool limit (20)."

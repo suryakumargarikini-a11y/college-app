@@ -1,0 +1,111 @@
+{
+  "uid": "platform-command-center-v1",
+  "title": "Platform Unified Command Center",
+  "tags": ["command-center", "observability", "sitam"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "type": "gauge",
+      "title": "Platform Maturity Index",
+      "gridPos": { "x": 0, "y": 0, "w": 4, "h": 6 },
+      "targets": [
+        { "expr": "platform_maturity_score" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "red" },
+              { "value": 75, "color": "orange" },
+              { "value": 90, "color": "green" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "type": "gauge",
+      "title": "Security Compliance Level",
+      "gridPos": { "x": 4, "y": 0, "w": 4, "h": 6 },
+      "targets": [
+        { "expr": "avg(compliance_score)" }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "gauge",
+      "title": "Operational Reliability Index",
+      "gridPos": { "x": 8, "y": 0, "w": 4, "h": 6 },
+      "targets": [
+        { "expr": "reliability_scorecard_value{scorecard_type=\"platform\"}" }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Active SRE Incidents",
+      "gridPos": { "x": 12, "y": 0, "w": 4, "h": 6 },
+      "targets": [
+        { "expr": "sum(incident_active_count)" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "green" },
+              { "value": 1, "color": "orange" },
+              { "value": 3, "color": "red" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "type": "gauge",
+      "title": "Deployment Gate Status",
+      "gridPos": { "x": 16, "y": 0, "w": 4, "h": 6 },
+      "targets": [
+        { "expr": "deployment_safety_status" }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Daily Active Users (DAU)",
+      "gridPos": { "x": 20, "y": 0, "w": 4, "h": 6 },
+      "targets": [
+        { "expr": "active_users{period=\"daily\"}" }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "System Active Users & Traffic",
+      "gridPos": { "x": 0, "y": 6, "w": 12, "h": 8 },
+      "targets": [
+        { "expr": "active_users{period=\"daily\"}", "legendFormat": "DAU" },
+        { "expr": "active_users{period=\"monthly\"}", "legendFormat": "MAU" }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Reliability Metrics Trend",
+      "gridPos": { "x": 12, "y": 6, "w": 12, "h": 8 },
+      "targets": [
+        { "expr": "reliability_scorecard_value{scorecard_type=\"platform\"}", "legendFormat": "Reliability Score" },
+        { "expr": "platform_maturity_score", "legendFormat": "Maturity Index" }
+      ]
+    }
+  ],
+  "schemaVersion": 36,
+  "version": 1
+}

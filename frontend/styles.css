@@ -1,0 +1,60 @@
+/* Shared Design System Styles extracted from HTML files */
+body {
+    font-family: 'Manrope', sans-serif;
+    color: #303337;
+    background-color: #faf9fc;
+    min-height: max(884px, 100dvh);
+}
+
+h1, h2, h3, h4, h5, h6, .font-headline {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+.material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+/* Glass UI Elements */
+.glass-panel, .glass-card {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+}
+
+.ghost-border {
+    outline: 1px solid rgba(176, 178, 183, 0.15);
+}
+
+.editorial-shadow {
+    box-shadow: 0 10px 40px rgba(48, 51, 55, 0.06);
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+.hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+.attendance-ring {
+    background: conic-gradient(#10b981 88%, transparent 0);
+}
+
+/* Page Transitions */
+.page-enter {
+    opacity: 0;
+    transform: translateY(10px);
+}
+.page-enter-active {
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity 300ms ease-out, transform 300ms ease-out;
+}
+.page-exit {
+    opacity: 1;
+}
+.page-exit-active {
+    opacity: 0;
+    transition: opacity 200ms ease-in;
+}

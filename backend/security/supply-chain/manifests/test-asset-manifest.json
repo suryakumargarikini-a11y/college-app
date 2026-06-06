@@ -1,0 +1,9 @@
+{
+  "artifactName": "test-asset",
+  "artifactHash": "4de5fd0255db8b55b2d7148a5e5bff2a2666a0cc93bbd874754b7d890af2ad07",
+  "signature": "c9a09c631ee3b5914acd431c5bd931841e35110f22e4518a430ea9c368a1ff5a",
+  "algorithm": "HMAC-SHA256",
+  "signingKeyId": "default-hmac-key",
+  "timestamp": "2026-06-06T20:28:05.950Z",
+  "provenanceId": "6068b43d-8391-490b-a33c-c7b5654b7ceb"
+}

@@ -1,0 +1,227 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sitam-erp
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sitam-config
+  namespace: sitam-erp
+data:
+  NODE_ENV: "production"
+  PORT: "3001"
+  ERP_BASE_URL: "https://sitamecap.co.in/SATYA"
+  REDIS_URL: "redis://sitam-redis:6379"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sitam-secrets
+  namespace: sitam-erp
+type: Opaque
+data:
+  # Base64 encoded secrets
+  DATABASE_URL: "cG9zdGdyZXNxbDovL3Bvc3RncmVzOnBvc3RncmVzQHNpdGFtLXBvc3RncmVzOjU0MzIvc2l0YW1fZXJwP3NjaGVtYT1wdWJsaWM="
+  METRICS_BEARER_TOKEN: "c2VjcmV0LW1ldHJpY3MtdG9rZW4="
+---
+# Ingress Controller Config
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sitam-ingress
+  namespace: sitam-erp
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  rules:
+    - host: sitam-erp.co.in
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: sitam-backend-svc
+                port:
+                  number: 3001
+---
+# Service Definitions
+apiVersion: v1
+kind: Service
+metadata:
+  name: sitam-backend-svc
+  namespace: sitam-erp
+spec:
+  selector:
+    app: sitam-backend
+  ports:
+    - protocol: TCP
+      port: 3001
+      targetPort: 3001
+---
+# Backend App Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sitam-backend
+  namespace: sitam-erp
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: sitam-backend
+  template:
+    metadata:
+      labels:
+        app: sitam-backend
+    spec:
+      containers:
+        - name: sitam-backend
+          image: sitam/backend:latest
+          ports:
+            - containerPort: 3001
+          envFrom:
+            - configMapRef:
+                name: sitam-config
+            - secretRef:
+                name: sitam-secrets
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "500m"
+              memory: "1Gi"
+          livenessProbe:
+            httpGet:
+              path: /api/health/liveness
+              port: 3001
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /api/health/readiness
+              port: 3001
+            initialDelaySeconds: 20
+            periodSeconds: 10
+---
+# Worker Daemon Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sitam-worker
+  namespace: sitam-erp
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: sitam-worker
+  template:
+    metadata:
+      labels:
+        app: sitam-worker
+    spec:
+      containers:
+        - name: sitam-worker
+          image: sitam/backend:latest
+          command: ["npm", "run", "worker"]
+          envFrom:
+            - configMapRef:
+                name: sitam-config
+            - secretRef:
+                name: sitam-secrets
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "1000m"
+              memory: "2Gi"
+          livenessProbe:
+            exec:
+              command:
+                - cat
+                - /tmp/healthy
+            initialDelaySeconds: 30
+            periodSeconds: 10
+---
+# Horizontal Pod Autoscaler (HPA)
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: sitam-backend-hpa
+  namespace: sitam-erp
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: sitam-backend
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 75
+---
+# Pod Disruption Budget (PDB)
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: sitam-backend-pdb
+  namespace: sitam-erp
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: sitam-backend
+---
+# Redis Cluster StatefulSet
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: sitam-redis
+  namespace: sitam-erp
+spec:
+  serviceName: "sitam-redis-svc"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sitam-redis
+  template:
+    metadata:
+      labels:
+        app: sitam-redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7.2-alpine
+          ports:
+            - containerPort: 6379
+              name: redis
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: redis-data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: 5Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sitam-redis
+  namespace: sitam-erp
+spec:
+  ports:
+    - port: 6379
+  selector:
+    app: sitam-redis

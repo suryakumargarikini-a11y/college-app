@@ -1,0 +1,133 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Mixed --",
+        "enable": true,
+        "hide": true,
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "id": null,
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "title": "PostgreSQL Query Latency & Load",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 1
+      },
+      "id": 2,
+      "title": "Query Latency Percentiles (Seconds)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "postgres_query_duration_seconds{quantile=\"0.99\"}",
+          "legendFormat": "SQL p99 duration",
+          "refId": "A"
+        },
+        {
+          "expr": "postgres_query_duration_seconds{quantile=\"0.95\"}",
+          "legendFormat": "SQL p95 duration",
+          "refId": "B"
+        },
+        {
+          "expr": "postgres_query_duration_seconds{quantile=\"0.5\"}",
+          "legendFormat": "SQL p50 duration",
+          "refId": "C"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 1
+      },
+      "id": 3,
+      "title": "Slow Query Event Rate (Queries >200ms)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(rate(postgres_slow_queries_total[5m]))",
+          "legendFormat": "Slow Query Rate/sec",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 7
+      },
+      "id": 4,
+      "title": "PostgreSQL Pool Saturation",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 24,
+        "x": 0,
+        "y": 8
+      },
+      "id": 5,
+      "title": "Prisma Active Connections (Simultaneous SQL Execution)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "postgres_pool_active_connections",
+          "legendFormat": "Active Connection pool usage",
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 36,
+  "style": "dark",
+  "tags": ["sitam", "postgres", "database"],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "title": "PostgreSQL Performance",
+  "uid": "postgres",
+  "version": 1
+}

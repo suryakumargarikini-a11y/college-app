@@ -1,0 +1,252 @@
+
+
+<!-- ===== SHELL (hidden on login) ===== -->
+<div id="app-shell" style="">
+
+  <!-- Top App Bar -->
+  <header class="fixed top-0 w-full z-50 bg-white/70 backdrop-blur-3xl shadow-sm shadow-slate-200/40">
+    <div class="flex justify-between items-center px-6 h-16 w-full max-w-7xl mx-auto">
+      <div class="flex items-center gap-4">
+        <button id="menu-btn" class="p-2 hover:bg-slate-100/50 transition-all active:scale-95 duration-200 rounded-full">
+          <span class="material-symbols-outlined text-purple-600">menu</span>
+        </button>
+        <h1 class="text-xl font-extrabold text-slate-800 tracking-tighter">Ethereal Scholar</h1>
+      </div>
+      <div class="flex items-center gap-3">
+        <button id="sync-btn" class="p-2 hover:bg-slate-100/50 transition-all active:scale-95 duration-200 rounded-full text-slate-500 hover:text-purple-600 relative">
+          <span class="material-symbols-outlined">sync</span>
+        </button>
+        <button class="p-2 hover:bg-slate-100/50 transition-all active:scale-95 duration-200 rounded-full relative">
+          <span class="material-symbols-outlined text-slate-500">notifications</span>
+          <span class="absolute top-2 right-2 w-2 h-2 bg-[#fca3ae] rounded-full"></span>
+        </button>
+        <div class="w-9 h-9 rounded-full overflow-hidden border-2 border-white shadow-sm bg-[#ededf2] flex items-center justify-center cursor-pointer" onclick="router.navigate('/profile')">
+          <span class="material-symbols-outlined text-[#787b80]">person</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Bottom Nav -->
+  <nav class="fixed bottom-0 left-0 w-full z-50 bg-white/80 backdrop-blur-2xl border-t border-white/20 rounded-t-[2.5rem] shadow-[0_-4px_20px_rgba(48,51,55,0.04)]">
+    <div class="flex justify-around items-center px-2 pt-3 pb-6 max-w-lg mx-auto">
+      <a data-nav="dashboard" data-nav-link="dashboard" href="#" class="bottom-nav-item flex flex-col items-center justify-center px-4 py-2 transition-all active:scale-90 duration-150 rounded-2xl text-slate-400">
+        <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1;">home</span>
+        <span class="text-[9px] font-bold tracking-widest uppercase mt-1">Home</span>
+      </a>
+      <a data-nav="attendance" data-nav-link="attendance" href="#" class="bottom-nav-item flex flex-col items-center justify-center px-4 py-2 transition-all active:scale-90 duration-150 rounded-2xl text-slate-400">
+        <span class="material-symbols-outlined">calendar_today</span>
+        <span class="text-[9px] font-bold tracking-widest uppercase mt-1">Attend</span>
+      </a>
+      <a data-nav="timetable" data-nav-link="timetable" href="#" class="bottom-nav-item flex flex-col items-center justify-center px-4 py-2 transition-all active:scale-90 duration-150 rounded-2xl text-slate-400">
+        <span class="material-symbols-outlined">schedule</span>
+        <span class="text-[9px] font-bold tracking-widest uppercase mt-1">Schedule</span>
+      </a>
+      <a data-nav="syllabus" data-nav-link="syllabus" href="#" class="bottom-nav-item flex flex-col items-center justify-center px-4 py-2 transition-all active:scale-90 duration-150 rounded-2xl text-slate-400">
+        <span class="material-symbols-outlined">auto_stories</span>
+        <span class="text-[9px] font-bold tracking-widest uppercase mt-1">Syllabus</span>
+      </a>
+      <a data-nav="marks" data-nav-link="marks" href="#" class="bottom-nav-item flex flex-col items-center justify-center px-4 py-2 transition-all active:scale-90 duration-150 rounded-2xl text-slate-400">
+        <span class="material-symbols-outlined">analytics</span>
+        <span class="text-[9px] font-bold tracking-widest uppercase mt-1">Marks</span>
+      </a>
+    </div>
+  </nav>
+
+  <!-- Realtime Syncing Glass Banner -->
+  <div id="sync-banner" class="fixed top-20 left-1/2 transform -translate-x-1/2 z-40 bg-white/80 backdrop-blur-2xl px-6 py-2.5 rounded-full border border-purple-200/50 shadow-xl flex items-center gap-3 transition-all duration-500 pointer-events-none scale-100 opacity-100">
+    <div class="w-4 h-4 border-2 border-purple-500/20 border-t-purple-500 rounded-full animate-spin"></div>
+    <span class="text-xs font-bold text-purple-700 tracking-wider uppercase font-headline">Syncing latest data...</span>
+  </div>
+
+</div><!-- end #app-shell -->
+
+<!-- ===== DRAWER OVERLAY ===== -->
+<div id="drawer-overlay" class="fixed inset-0 bg-black/20 backdrop-blur-sm z-[60] hidden opacity-0 transition-opacity duration-300"></div>
+
+<!-- ===== SIDE NAVIGATION DRAWER ===== -->
+<aside id="nav-drawer" class="fixed left-0 top-0 h-screen z-[70] p-6 flex flex-col gap-4 bg-white/90 backdrop-blur-2xl w-80 rounded-r-[2rem] border-r border-white/20 shadow-2xl transform -translate-x-full transition-transform duration-500">
+  <button id="close-drawer-btn" class="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 transition-colors">
+    <span class="material-symbols-outlined">close</span>
+  </button>
+
+  <!-- Profile Brief in Drawer -->
+  <div class="bg-white/70 backdrop-blur-xl p-5 rounded-2xl border border-white/40 shadow-sm mt-4 cursor-pointer" onclick="closeDrawer(); router.navigate('/profile');">
+    <div class="flex items-center gap-4">
+      <div class="w-14 h-14 rounded-full overflow-hidden border-2 border-[#efdbff] shadow-sm bg-[#ededf2] flex items-center justify-center">
+        <span class="material-symbols-outlined text-[#787b80] text-2xl">person</span>
+      </div>
+      <div class="flex flex-col">
+        <h2 class="text-[16px] font-extrabold text-[#303337] tracking-tight leading-tight" id="drawer-name">PAIDI HARIKA</h2>
+        <span class="text-[11px] font-bold text-[#5c5f64] uppercase tracking-widest mt-0.5" id="drawer-roll">25B61A0596</span>
+      </div>
+    </div>
+  </div>
+
+  <nav class="flex-1 overflow-y-auto space-y-6 pr-2 hide-scrollbar">
+    <div class="space-y-2">
+      <div class="px-3 py-1"><span class="text-[11px] uppercase tracking-widest font-bold text-[#705193]">Academics</span></div>
+      <div class="space-y-1">
+        <a href="#" data-nav="dashboard" data-nav-link="dashboard" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-purple-50 hover:text-purple-700 transition-all duration-300 text-slate-400">
+          <span class="material-symbols-outlined text-[20px]">grid_view</span>
+          <span class="text-[13px] font-bold tracking-wide uppercase">Dashboard</span>
+        </a>
+        <a href="#" data-nav="timetable" data-nav-link="timetable" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-purple-50 hover:text-purple-700 transition-all duration-300 text-slate-400">
+          <span class="material-symbols-outlined text-[20px]">schedule</span>
+          <span class="text-[13px] font-bold tracking-wide uppercase">Weekly Schedule</span>
+        </a>
+        <a href="#" data-nav="syllabus" data-nav-link="syllabus" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-purple-50 hover:text-purple-700 transition-all duration-300 text-slate-400">
+          <span class="material-symbols-outlined text-[20px]">auto_stories</span>
+          <span class="text-[13px] font-bold tracking-wide uppercase">Curriculum &amp; Syllabus</span>
+        </a>
+        <a href="#" data-nav="marks" data-nav-link="marks" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-purple-50 hover:text-purple-700 transition-all duration-300 text-slate-400">
+          <span class="material-symbols-outlined text-[20px]" style="font-variation-settings:'FILL' 1;">grade</span>
+          <span class="text-[13px] font-bold tracking-wide uppercase">Marks &amp; Results</span>
+        </a>
+        <a href="#" data-nav="attendance" data-nav-link="attendance" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-purple-50 hover:text-purple-700 transition-all duration-300 text-slate-400">
+          <span class="material-symbols-outlined text-[20px]">calendar_today</span>
+          <span class="text-[13px] font-bold tracking-wide uppercase">Attendance</span>
+        </a>
+        <a href="#" data-nav="assignments" data-nav-link="assignments" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-purple-50 hover:text-purple-700 transition-all duration-300 text-slate-400">
+          <span class="material-symbols-outlined text-[20px]">assignment_turned_in</span>
+          <span class="text-[13px] font-bold tracking-wide uppercase">Assignments</span>
+        </a>
+      </div>
+    </div>
+    <div class="space-y-2">
+      <div class="px-3 py-1"><span class="text-[11px] uppercase tracking-widest font-bold text-[#705193]">Finance</span></div>
+      <div class="space-y-1">
+        <a href="#" data-nav="fees" data-nav-link="fees" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-purple-50 hover:text-purple-700 transition-all duration-300 bg-purple-100 text-purple-700">
+          <span class="material-symbols-outlined text-[20px]">account_balance_wallet</span>
+          <span class="text-[13px] font-bold tracking-wide uppercase">Fees &amp; Payments</span>
+        </a>
+      </div>
+    </div>
+    <div class="space-y-2">
+      <div class="px-3 py-1"><span class="text-[11px] uppercase tracking-widest font-bold text-[#705193]">Account</span></div>
+      <div class="space-y-1">
+        <a href="#" data-nav="profile" data-nav-link="profile" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-purple-50 hover:text-purple-700 transition-all duration-300 text-slate-400">
+          <span class="material-symbols-outlined text-[20px]">manage_accounts</span>
+          <span class="text-[13px] font-bold tracking-wide uppercase">Profile</span>
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="pt-4 border-t border-black/5">
+    <button id="drawer-logout-btn" class="w-full flex items-center justify-center gap-3 px-4 py-3.5 rounded-xl bg-[#f76a80]/10 text-[#ac3149] border border-[#f76a80]/20 hover:bg-[#ac3149] hover:text-white transition-all duration-300 active:scale-[0.98]">
+      <span class="material-symbols-outlined text-[20px]">logout</span>
+      <span class="text-[13px] font-extrabold tracking-widest uppercase">Logout</span>
+    </button>
+  </div>
+</aside>
+
+<!-- ===== MAIN CONTENT AREA ===== -->
+<div id="app" class="w-full min-h-screen" style="transition: opacity 0.15s; opacity: 1;">
+            <main class="pt-28 px-6 max-w-7xl mx-auto space-y-12">
+                <!-- Hero Metrics Section -->
+                <section class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div class="lg:col-span-2 relative group overflow-hidden bg-purple-50 rounded-xl p-10 flex flex-col justify-between min-h-[280px] border border-purple-100/50">
+                        <div class="relative z-10">
+                            <p class="font-label text-purple-700 text-xs font-bold uppercase tracking-widest mb-2">Total Balance Due</p>
+                            <h2 id="fee-due" class="text-4xl md:text-5xl font-extrabold tracking-tighter text-purple-900">₹40,000</h2>
+                            <p class="mt-4 text-purple-900/70 max-w-md text-xs font-semibold leading-relaxed">Your Semester tuition and resource access fees are securely persistent. Clear dues early to ensure smooth registration.</p>
+                        </div>
+                        <div class="mt-6 flex gap-4 relative z-10">
+                            <button class="bg-purple-600 hover:bg-purple-700 px-6 py-3 rounded-full text-white font-bold text-sm shadow-md transition-transform hover:scale-[1.02] flex items-center gap-2">
+                                <span>Pay Now</span>
+                                <span class="material-symbols-outlined text-sm">arrow_forward</span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl p-8 flex flex-col justify-center items-center text-center shadow-[0_10px_40px_rgba(48,51,55,0.02)] border border-slate-100">
+                        <div class="relative w-40 h-40 mb-6">
+                            <svg class="w-full h-full transform -rotate-90">
+                                <circle class="text-slate-100" cx="80" cy="80" fill="transparent" r="72" stroke="currentColor" stroke-width="10"></circle>
+                                <circle id="fee-progress-ring" class="text-purple-600 transition-all duration-1000" cx="80" cy="80" fill="transparent" r="72" stroke="currentColor" stroke-dasharray="452.39" stroke-dashoffset="452.39" stroke-width="10" style="stroke-linecap: round; stroke-dashoffset: 294.053;"></circle>
+                            </svg>
+                            <div class="absolute inset-0 flex flex-col items-center justify-center">
+                                <span id="fee-progress-pct" class="text-3xl font-bold text-slate-800">35%</span>
+                                <span class="text-[9px] uppercase tracking-widest font-bold text-slate-400">Paid to date</span>
+                            </div>
+                        </div>
+                        <h3 class="text-base font-bold text-slate-800 mb-1">Payment Progress</h3>
+                        <p id="fee-progress-text" class="text-xs text-slate-400 leading-normal">You've successfully cleared ₹42,700 out of ₹1,22,700 for the academic term.</p>
+                    </div>
+                </section>
+                
+                <!-- Details & History -->
+                <section class="grid grid-cols-1 gap-6">
+                    <div class="bg-white rounded-xl p-8 shadow-[0_10px_40px_rgba(48,51,55,0.02)] border border-slate-100">
+                        <h4 class="text-lg font-bold text-slate-800 mb-6 border-b border-slate-50 pb-4">Transaction History</h4>
+                        <div id="txn-list" class="space-y-4"><div class="flex items-center justify-between p-4 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-100 transition-all">
+                      <div class="flex items-center gap-4">
+                        <div class="w-11 h-11 rounded-full bg-slate-100 flex items-center justify-center"><span class="material-symbols-outlined text-slate-500 text-lg">terminal</span></div>
+                        <div>
+                          <p class="font-bold text-slate-800 text-sm">CRT Fee</p>
+                          <p class="text-[10px] text-slate-400 mt-0.5">05/05/2026 • Ref DE4F8F00</p>
+                        </div>
+                      </div>
+                      <div class="text-right">
+                        <p class="font-bold text-slate-800 text-sm">₹5,500</p>
+                        <span class="text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-tighter mt-1 inline-block bg-purple-50 text-purple-700 border border-purple-100">Paid</span>
+                      </div></div><div class="flex items-center justify-between p-4 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-100 transition-all">
+                      <div class="flex items-center gap-4">
+                        <div class="w-11 h-11 rounded-full bg-slate-100 flex items-center justify-center"><span class="material-symbols-outlined text-slate-500 text-lg">hotel</span></div>
+                        <div>
+                          <p class="font-bold text-slate-800 text-sm">Hostel</p>
+                          <p class="text-[10px] text-slate-400 mt-0.5">21/08/2025 • Ref 476B3E46</p>
+                        </div>
+                      </div>
+                      <div class="text-right">
+                        <p class="font-bold text-slate-800 text-sm">₹70,000</p>
+                        <span class="text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-tighter mt-1 inline-block bg-purple-50 text-purple-700 border border-purple-100">Paid</span>
+                      </div></div><div class="flex items-center justify-between p-4 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-100 transition-all">
+                      <div class="flex items-center gap-4">
+                        <div class="w-11 h-11 rounded-full bg-slate-100 flex items-center justify-center"><span class="material-symbols-outlined text-slate-500 text-lg">receipt_long</span></div>
+                        <div>
+                          <p class="font-bold text-slate-800 text-sm">I D CARD</p>
+                          <p class="text-[10px] text-slate-400 mt-0.5">01/12/2025 • Ref F21460D6</p>
+                        </div>
+                      </div>
+                      <div class="text-right">
+                        <p class="font-bold text-slate-800 text-sm">₹200</p>
+                        <span class="text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-tighter mt-1 inline-block bg-purple-50 text-purple-700 border border-purple-100">Paid</span>
+                      </div></div><div class="flex items-center justify-between p-4 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-100 transition-all">
+                      <div class="flex items-center gap-4">
+                        <div class="w-11 h-11 rounded-full bg-slate-100 flex items-center justify-center"><span class="material-symbols-outlined text-slate-500 text-lg">receipt_long</span></div>
+                        <div>
+                          <p class="font-bold text-slate-800 text-sm">Special Fee</p>
+                          <p class="text-[10px] text-slate-400 mt-0.5">21/08/2025 • Ref 7AF2026F</p>
+                        </div>
+                      </div>
+                      <div class="text-right">
+                        <p class="font-bold text-slate-800 text-sm">₹7,000</p>
+                        <span class="text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-tighter mt-1 inline-block bg-purple-50 text-purple-700 border border-purple-100">Paid</span>
+                      </div></div><div class="flex items-center justify-between p-4 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-100 transition-all">
+                      <div class="flex items-center gap-4">
+                        <div class="w-11 h-11 rounded-full bg-slate-100 flex items-center justify-center"><span class="material-symbols-outlined text-slate-500 text-lg">school</span></div>
+                        <div>
+                          <p class="font-bold text-slate-800 text-sm">Tuition Fee</p>
+                          <p class="text-[10px] text-slate-400 mt-0.5">-- • Ref 28ABEDBD</p>
+                        </div>
+                      </div>
+                      <div class="text-right">
+                        <p class="font-bold text-slate-800 text-sm">₹40,000</p>
+                        <span class="text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-tighter mt-1 inline-block bg-purple-50 text-purple-700 border border-purple-100">Due</span>
+                      </div></div></div>
+                    </div>
+                </section>
+            </main>
+        </div>
+
+<!-- ===== LOADING OVERLAY ===== -->
+<div id="loading-overlay" class="fixed inset-0 bg-white/60 backdrop-blur-sm z-[100] flex flex-col items-center justify-center transition-opacity duration-300 hidden">
+  <div class="w-16 h-16 border-4 border-[#705193]/20 border-t-[#705193] rounded-full animate-spin"></div>
+  <p class="mt-4 text-[#705193] font-bold tracking-widest uppercase text-sm animate-pulse" id="loading-text">Fetching Fees...</p>
+</div>
+
+<script src="./app.js"></script>
+
+

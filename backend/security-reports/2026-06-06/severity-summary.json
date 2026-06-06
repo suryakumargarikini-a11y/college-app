@@ -1,0 +1,12 @@
+{
+  "scannedAt": "2026-06-06T20:28:16.507Z",
+  "vulnerabilities": {
+    "critical": 0,
+    "high": 4,
+    "medium": 15,
+    "low": 0,
+    "info": 0
+  },
+  "totalCount": 19,
+  "status": "FAIL"
+}

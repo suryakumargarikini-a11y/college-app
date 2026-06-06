@@ -1,0 +1,50 @@
+{
+  "aggregatedAt": "2026-06-06T20:28:16.526Z",
+  "date": "2026-06-06",
+  "score": 50,
+  "remediations": [
+    {
+      "target": "@opentelemetry/sdk-node",
+      "severity": "MEDIUM",
+      "action": "Review package @opentelemetry/sdk-node@^0.52.0 findings: Package version ^0.52.0 may be older than 2 years without updates.",
+      "priority": 2
+    },
+    {
+      "target": "@opentelemetry/auto-instrumentations-node",
+      "severity": "MEDIUM",
+      "action": "Review package @opentelemetry/auto-instrumentations-node@^0.47.0 findings: Package version ^0.47.0 may be older than 2 years without updates.",
+      "priority": 2
+    },
+    {
+      "target": "@opentelemetry/exporter-trace-otlp-http",
+      "severity": "MEDIUM",
+      "action": "Review package @opentelemetry/exporter-trace-otlp-http@^0.52.0 findings: Package version ^0.52.0 may be older than 2 years without updates.",
+      "priority": 2
+    },
+    {
+      "target": "firebase-admin",
+      "severity": "MEDIUM",
+      "action": "Review package firebase-admin@^13.10.0 findings: Package version ^13.10.0 may be older than 2 years without updates.",
+      "priority": 2
+    },
+    {
+      "target": "uuid",
+      "severity": "MEDIUM",
+      "action": "Review package uuid@^14.0.0 findings: Package version ^14.0.0 may be older than 2 years without updates.",
+      "priority": 2
+    },
+    {
+      "target": "winston-daily-rotate-file",
+      "severity": "MEDIUM",
+      "action": "Review package winston-daily-rotate-file@^5.0.0 findings: Package version ^5.0.0 may be older than 2 years without updates.",
+      "priority": 2
+    }
+  ],
+  "trends": [
+    {
+      "date": "2026-06-06",
+      "score": 50,
+      "pendingRemediations": 6
+    }
+  ]
+}
