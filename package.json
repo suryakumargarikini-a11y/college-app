@@ -8,7 +8,8 @@
     "backend": "cd backend && node server.js",
     "frontend": "node frontend-server.js",
     "db:setup-pg": "cd backend && npm run db:setup-pg",
-    "db:setup-sqlite": "cd backend && npm run db:setup-sqlite"
+    "db:setup-sqlite": "cd backend && npm run db:setup-sqlite",
+    "postinstall": "npm install --prefix backend --ignore-scripts"
   },
   "devDependencies": {
     "@capacitor/android": "^6.2.1",
@@ -19,6 +20,7 @@
   },
   "dependencies": {
     "@capacitor/browser": "^6.0.0",
-    "@capacitor/push-notifications": "^6.0.0"
+    "@capacitor/push-notifications": "^6.0.0",
+    "dotenv": "^17.4.2"
   }
 }

@@ -12,7 +12,11 @@
  *   - Graceful shutdown with browser pool teardown
  */
 
-require('dotenv').config();
+try {
+    require('dotenv').config();
+} catch (err) {
+    console.warn('[Worker] Note: dotenv module not found. Relying on system environment variables.');
+}
 require('./telemetry/tracing');
 const { Worker } = require('bullmq');
 const redisService = require('./services/redisService');

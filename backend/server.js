@@ -1,4 +1,8 @@
-require('dotenv').config();
+try {
+    require('dotenv').config();
+} catch (err) {
+    console.warn('[Server] Note: dotenv module not found. Relying on system environment variables.');
+}
 require('./telemetry/tracing');
 const express = require('express');
 const cors = require('cors');
