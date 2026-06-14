@@ -1,9 +1,13 @@
 const sessionManager = require('../services/sessionManager');
 const prisma = require('../services/dbService');
-const puppeteerService = require('../services/puppeteerService');
 const syncService = require('../services/syncService');
 const { studentRepository, auditLogRepository } = require('../repositories');
 const logger = require('../services/logger');
+const ProviderSessionManager = require('../providers/session/ProviderSessionManager');
+// Business metrics — lazy via scheduler singleton to avoid circular dep at startup
+const getBusinessCollector = () => {
+    try { return require('../services/ObservabilityScheduler').getBusinessCollector(); } catch (_) { return null; }
+};
 
 const login = async (req, res) => {
     const { userId, password } = req.body;
@@ -25,44 +29,65 @@ const login = async (req, res) => {
         });
 
         // 2. If student exists and password matches, log in INSTANTLY (0.2s instead of 15s!)
-        if (cachedStudent && cachedStudent.password === password) {
-            logger.info(`[AuthController] Instant login! Student credentials verified locally for: ${userId}`);
+        if (cachedStudent) {
+            const cryptoHelper = require('../services/cryptoHelper');
+            const decryptedPassword = cryptoHelper.decrypt(cachedStudent.password);
             
-            // Create a session token using existing cached data
-            // We simulate scrapedData structure from database
-            const mockScrapedData = {
-                studentName: cachedStudent.name,
-                profileHtml: cachedStudent.address ? 'Cached' : '' // Trigger sync check if profile empty
-            };
+            if (decryptedPassword === password) {
+                logger.info(`[AuthController] Instant login! Student credentials verified locally for: ${userId}`);
+                
+                // Create a session token using existing cached data
+                // We simulate scrapedData structure from database
+                const mockScrapedData = {
+                    studentName: cachedStudent.name,
+                    profileHtml: cachedStudent.address ? 'Cached' : '' // Trigger sync check if profile empty
+                };
 
-            const token = sessionManager.createSession(userId, password, 'cached_cookie', mockScrapedData);
+                const token = sessionManager.createSession(userId, password, 'cached_cookie', mockScrapedData);
 
-            // Log successful event
-            await auditLogRepository.log(cachedStudent.id, 'LOGIN_INSTANT', `Student logged in instantly via cached credentials`);
+                // Log successful event
+                await auditLogRepository.log(cachedStudent.id, 'LOGIN_INSTANT', `Student logged in instantly via cached credentials`);
 
-            // Trigger a background synchronization in the background!
-            syncService.triggerBackgroundSync(userId, password);
+                // Track business metrics
+                const bc = getBusinessCollector();
+                if (bc) {
+                    bc.trackActiveUser(userId).catch(() => {});
+                    bc.trackFeatureAccess('login').catch(() => {});
+                }
 
-            return res.json({
-                success: true,
-                token,
-                message: 'Login successful (instant cached)',
-                studentName: cachedStudent.name,
-                timestamp: new Date().toISOString()
-            });
+                // Trigger a background synchronization in the background!
+                syncService.triggerProviderSync(userId, password);
+
+                return res.json({
+                    success: true,
+                    token,
+                    message: 'Login successful (instant cached)',
+                    studentName: cachedStudent.name,
+                    timestamp: new Date().toISOString()
+                });
+            }
         }
 
-        // 3. First time login or password mismatch: run Puppeteer verification against real ERP
-        logger.info(`[AuthController] Credentials not cached or mismatch. Authenticating via Puppeteer against Satya ERP for: ${userId}`);
+        // 3. First time login or password mismatch: run provider sync
+        logger.info(`[AuthController] Credentials not cached or mismatch. Authenticating via provider layer for: ${userId}`);
         
-        const { cookieString, scrapedData } = await puppeteerService.login(userId, password);
+        const student = await syncService.runProviderSync(userId, password, true);
         
-        // 4. Synchronously sync initial data on first login to ensure db has data
-        const student = await syncService.syncStudentData(null, userId, password, scrapedData);
+        const providerSession = await ProviderSessionManager.acquire(userId);
+        const cookies = providerSession ? providerSession.cookies : '';
 
-        const token = sessionManager.createSession(userId, password, cookieString, scrapedData);
+        const token = sessionManager.createSession(userId, password, cookies, {
+            studentName: student.name
+        });
 
-        await auditLogRepository.log(student.id, 'LOGIN_EXTERNAL', `Student successfully verified credentials and synced from Satya ERP`);
+        await auditLogRepository.log(student.id, 'LOGIN_EXTERNAL', `Student successfully verified credentials and synced via Provider`);
+
+        // Track business metrics
+        const bc = getBusinessCollector();
+        if (bc) {
+            bc.trackActiveUser(userId).catch(() => {});
+            bc.trackFeatureAccess('login').catch(() => {});
+        }
 
         return res.json({
             success: true,

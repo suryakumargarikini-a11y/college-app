@@ -8,6 +8,9 @@
  * cross-site scripting (XSS), null bytes, JWT manipulation (algorithm confusion,
  * expired tokens), rate limiting compliance (burst tests), and length overflows.
  * Logs vulnerability findings to JSON reports.
+ *
+ * Phase 2: Prometheus metrics injection + severity normalization so
+ * SecurityReportAggregator can bucket DAST findings by severity.
  */
 
 const fs = require('fs');
@@ -17,8 +20,26 @@ const logger = require('../../services/logger');
 
 class APIFuzzer {
   constructor(options = {}) {
-    this.baseUrl = options.baseUrl || 'http://localhost:3000';
+    // Correct backend port is 3001; callers may override for staging targets.
+    this.baseUrl = options.baseUrl || 'http://localhost:3001';
     this.reportsDir = options.reportsDir || path.resolve(__dirname, '../../security-reports');
+    this.metrics = options.metrics || null;
+    this._initMetrics();
+  }
+
+  _initMetrics() {
+    if (!this.metrics) return;
+    try {
+      const { Gauge } = require('prom-client');
+      this.dastVulnerabilityFindingsTotal = new Gauge({
+        name: 'dast_vulnerability_findings_total',
+        help: 'Total DAST vulnerability findings from the last fuzzing run',
+        labelNames: ['severity'],
+        registers: [this.metrics]
+      });
+    } catch (err) {
+      logger.warn(`[APIFuzzer] Failed to initialize metrics: ${err.message}`);
+    }
   }
 
   async runFuzzing() {
@@ -140,12 +161,27 @@ class APIFuzzer {
       logger.warn(`[APIFuzzer] Input overflow fuzzing skipped or failed: ${err.message}`);
     }
 
+    // ── Severity bucket counts ──────────────────────────────────────────────
+    const severityCounts = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
+    for (const f of findings) {
+      const s = (f.severity || 'LOW').toUpperCase();
+      severityCounts[s] = (severityCounts[s] || 0) + 1;
+    }
+
+    // ── Emit Prometheus metrics ─────────────────────────────────────────────
+    if (this.dastVulnerabilityFindingsTotal) {
+      for (const [severity, count] of Object.entries(severityCounts)) {
+        this.dastVulnerabilityFindingsTotal.set({ severity }, count);
+      }
+    }
+
     const dastReport = {
       timestamp: new Date().toISOString(),
       baseUrl: this.baseUrl,
       endpointsTestedCount: endpointsTested.length,
       endpointsTested,
       findingsCount: findings.length,
+      severityCounts,
       findings
     };
 

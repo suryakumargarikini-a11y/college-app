@@ -38,7 +38,7 @@ class PlatformMaturityEngine {
     logger.info('[PlatformMaturityEngine] Evaluating overall platform maturity index...');
     
     const complianceSummary = await this.complianceEngine.assessAll();
-    const scorecards = this.scorecardEngine.computeScorecards();
+    const scorecards = await this.scorecardEngine.computeScorecards();
 
     const complianceScore = complianceSummary.overallScore;
     const reliabilityScore = scorecards.platform.score;

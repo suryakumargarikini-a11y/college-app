@@ -3,7 +3,14 @@ backend/node_modules/
 frontend/node_modules/
 backend/prisma/dev.db
 backend/prisma/dev.db-journal
+frontend/config.js
 .env
 dist/
 *.log
 .gemini/
+backend/logs/
+backend/security-reports/
+backend/security/sbom/snapshots/
+backend/data/
+*.zip
+node/

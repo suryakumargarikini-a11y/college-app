@@ -107,6 +107,13 @@ console.log(`${BOLD}${GREEN}  ║   Starting all services...       ║${RESET}`)
 console.log(`${BOLD}${GREEN}  ╚══════════════════════════════════╝${RESET}`);
 console.log('');
 
+// Compile dynamic config before startup
+try {
+    require('./scripts/generate-config');
+} catch (err) {
+    console.error('Failed to compile config:', err);
+}
+
 startBackend();
 startFrontend();
 

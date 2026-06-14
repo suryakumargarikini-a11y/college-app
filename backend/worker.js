@@ -17,13 +17,22 @@ require('./telemetry/tracing');
 const { Worker } = require('bullmq');
 const redisService = require('./services/redisService');
 const syncService = require('./services/syncService');
-const syncQueue = require('./services/syncQueue');
-const sessionManager = require('./services/sessionManager');
 const workerService = require('./services/workerService');
 const browserPool = require('./services/browserPool');
 const { logger, runWithContext } = require('./services/logger');
+const qpm = require('./providers/scraper/throttle/QueuePressureManager');
+const shedder = require('./providers/scraper/throttle/AdaptiveLoadShedding');
+const forecaster = require('./providers/scraper/forecasting/ScraperReliabilityForecaster');
+const classifier = require('./providers/scraper/retry/AdaptiveRetryClassifier');
 
 const WORKER_ID = `worker-${process.pid}-${Date.now()}`;
+
+// Lazy helpers to avoid circular dependency at module load time
+const getObs = () => {
+    try { return require('./services/ObservabilityScheduler'); } catch (_) { return null; }
+};
+const getBC  = () => { const s = getObs(); return s ? s.getBusinessCollector() : null; };
+const getAR  = () => { const s = getObs(); return s ? s.getAlertRouter() : null; };
 
 logger.info(`[SyncWorker] Bootstrapping worker daemon... ID: ${WORKER_ID}`);
 console.log(`[SyncWorker] Bootstrapping worker daemon... ID: ${WORKER_ID}`);
@@ -33,7 +42,10 @@ redisService.connect();
 
 // Initialize browser pool
 browserPool.init()
-    .then(() => logger.info(`[SyncWorker] Browser pool ready.`))
+    .then(() => {
+        logger.info(`[SyncWorker] Browser pool ready.`);
+        forecaster.startPeriodicForecasting();
+    })
     .catch(err => logger.error(`[SyncWorker] Browser pool init failed: ${err.message}`));
 
 // Wait briefly for Redis to establish connection
@@ -117,28 +129,117 @@ setTimeout(async () => {
             return context.with(trace.setSpan(parentContext, span), async () => {
                 logger.info(`[SyncWorker] Processing job ${job.id} for ${userId} (forceFullSync: ${forceFullSync})`);
 
-                let cookies = null;
+                // 1. Record queue depth in forecaster
                 try {
-                    const session = sessionManager.sessions.get(userId);
-                    cookies = session ? session.cookies : null;
-
-                    if (forceFullSync || !cookies) {
-                        logger.info(`[SyncWorker] Full Puppeteer sync for ${userId}`);
-                        await syncService.runFullSync(userId, password);
-                    } else {
-                        logger.info(`[SyncWorker] Incremental cookie sync for ${userId}`);
-                        await syncQueue.syncStudentIncrementally(userId, password, cookies);
+                    const depth = await connection.llen('bull:sitam-sync:wait');
+                    if (typeof depth === 'number') {
+                        forecaster.recordQueueDepth(depth);
                     }
+                } catch (_) {}
+
+                const basePriority = forceFullSync ? 'high' : 'low';
+                qpm.registerWaiting(userId, basePriority);
+                const priority = qpm.getEffectivePriority(userId, basePriority);
+
+                // Track queue wait time for business metrics
+                try {
+                    const bc = getBC();
+                    if (bc && bc.queueWaitHistogram) {
+                        bc.queueWaitHistogram.labels(basePriority).observe(queueDriftTimeMs / 1000);
+                    }
+                    if (bc && bc.syncStartedCounter) {
+                        bc.syncStartedCounter.labels(forceFullSync ? 'full' : 'incremental').inc();
+                    }
+                } catch (_) {}
+
+                // Upgrade 5: Never throttle manual/user-triggered syncs; throttle only background syncs
+                const isBackground = !forceFullSync;
+                
+                if (isBackground) {
+                    // Consult QueuePressureManager
+                    const throttleResult = qpm.shouldThrottle(userId, priority);
+                    if (throttleResult.throttle) {
+                        if (throttleResult.delayMs === -1) {
+                            logger.warn(`[SyncWorker] Dropping background job for ${userId} due to queue pressure: ${throttleResult.reason}`);
+                            qpm.releaseActive(userId); // ensure waiting is cleared
+                            return { success: false, reason: throttleResult.reason };
+                        } else {
+                            logger.warn(`[SyncWorker] Throttling background job for ${userId} by ${throttleResult.delayMs}ms: ${throttleResult.reason}`);
+                            await new Promise(r => setTimeout(r, throttleResult.delayMs));
+                        }
+                    }
+
+                    // Consult AdaptiveLoadShedding
+                    const admission = shedder.admitSync({ priority, triggeredByUser: false });
+                    if (!admission.admitted) {
+                        logger.warn(`[SyncWorker] Shedding background job for ${userId} in ${admission.mode} mode: ${admission.reason}`);
+                        qpm.releaseActive(userId);
+                        return { success: false, reason: admission.reason };
+                    }
+                } else {
+                    logger.info(`[SyncWorker] Bypassing queue pressure and load shedding throttling for manual sync for user ${userId}`);
+                }
+
+                // Register active slot in QueuePressureManager
+                qpm.registerActive(userId);
+
+                try {
+                    await syncService.runProviderSync(userId, password, forceFullSync);
 
                     logger.info(`[SyncWorker] Job ${job.id} completed for ${userId}`);
                     span.setStatus({ code: 1 }); // 1 = Ok
+
+                    // Track sync completion
+                    try {
+                        const bc = getBC();
+                        if (bc) {
+                            bc.trackSyncCompleted(forceFullSync ? 'full' : 'incremental').catch(() => {});
+                            if (bc.syncDurationHistogram) {
+                                bc.syncDurationHistogram.labels(forceFullSync ? 'full' : 'incremental').observe((Date.now() - startTime) / 1000);
+                            }
+                        }
+                    } catch (_) {}
+
                     return { success: true, userId, jobId: job.id, timestamp: new Date().toISOString() };
 
                 } catch (err) {
                     span.recordException(err);
                     span.setStatus({ code: 2, message: err.message }); // 2 = Error
+
+                    // Track sync failure + retry info
+                    try {
+                        const bc = getBC();
+                        if (bc) {
+                            if (bc.syncFailedCounter) bc.syncFailedCounter.labels(forceFullSync ? 'full' : 'incremental').inc();
+                            const retryCount = job.attemptsMade || 0;
+                            if (retryCount > 0 && bc.syncRetryCounter) {
+                                bc.syncRetryCounter.labels(err.name || 'unknown').inc();
+                            }
+                        }
+                    } catch (_) {}
+
+                    // Route scraping failure alert
+                    try {
+                        const ar = getAR();
+                        if (ar) ar.routeAlert({
+                            service: 'SyncWorker',
+                            type:    'scraping_failure',
+                            severity: (job.attemptsMade || 0) >= 2 ? 'P1' : 'P2',
+                            message: `Sync job ${job.id} failed for ${userId}: ${err.message}`,
+                            description: err.stack || err.message
+                        });
+                    } catch (_) {}
+
+                    // Upgrade 4: Retry classification & Captcha escalation
+                    const strategy = classifier.classify(err, { attempt: (job.attemptsMade || 0) + 1, userId });
+                    if (!strategy.retry || classifier.shouldSuppressQueue(strategy.errorType)) {
+                        logger.warn(`[SyncWorker] Non-retryable error classified. Discarding job retries for ${userId}: ${err.message}`);
+                        await job.discard();
+                    }
                     throw err;
                 } finally {
+                    // Release active slot
+                    qpm.releaseActive(userId);
                     span.end();
                     // Always release the distributed sync lock so future syncs can proceed
                     await workerService.releaseLock(userId);
@@ -148,7 +249,7 @@ setTimeout(async () => {
                         const durationSec = (Date.now() - startTime) / 1000;
                         const metricsService = require('./services/metricsService');
                         metricsService.metrics.workerJobDuration.observe({ jobType: forceFullSync ? 'full' : 'incremental' }, durationSec);
-                        metricsService.metrics.syncDurationSeconds.observe({ syncType: (forceFullSync || !cookies) ? 'full' : 'incremental' }, durationSec);
+                        metricsService.metrics.syncDurationSeconds.observe({ syncType: forceFullSync ? 'full' : 'incremental' }, durationSec);
                     } catch (_) {}
                 }
             });

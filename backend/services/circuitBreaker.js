@@ -151,6 +151,12 @@ class CircuitBreaker {
                 cooldownMs: this.cooldownMs
             });
             try { require('./metricsService').increment('circuit_breaker_open_total'); } catch (_) {}
+            // Route critical alert
+            try {
+                const sched = require('./ObservabilityScheduler');
+                const ar = sched.getAlertRouter();
+                if (ar) ar.routeAlert({ service: `CircuitBreaker:${this.name}`, type: 'db_error', severity: 'P1', message: `Circuit breaker ${this.name} OPEN after probe failure`, description: err.message });
+            } catch (_) {}
             return;
         }
 
@@ -167,6 +173,12 @@ class CircuitBreaker {
                 cooldownMs: this.cooldownMs
             });
             try { require('./metricsService').increment('circuit_breaker_open_total'); } catch (_) {}
+            // Route critical alert via shared AlertRouter
+            try {
+                const sched = require('./ObservabilityScheduler');
+                const ar = sched.getAlertRouter();
+                if (ar) ar.routeAlert({ service: `CircuitBreaker:${this.name}`, type: 'db_error', severity: 'P1', message: `Circuit breaker ${this.name} OPENED after ${FAILURE_THRESHOLD} failures`, description: err.message });
+            } catch (_) {}
         }
     }
 }

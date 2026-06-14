@@ -51,6 +51,14 @@ const SELECTORS = {
 // ─── Provider Implementation ──────────────────────────────────────────────────
 
 class SITAMScraperProvider extends ERPProvider {
+    constructor() {
+        super();
+        const forecaster = require('./forecasting/ScraperReliabilityForecaster');
+        forecaster.startPeriodicForecasting();
+        const healthScorer = require('./health/ERPHealthScorer');
+        healthScorer.startPeriodicScoring();
+    }
+
     get providerName() {
         return 'sitam-scraper';
     }
@@ -60,7 +68,7 @@ class SITAMScraperProvider extends ERPProvider {
      * Wraps PuppeteerService.login() and translates outcomes to provider errors.
      */
     async login(credentials) {
-        const { userId, password } = credentials;
+        const { userId, password, recoveryPlan } = credentials;
         const startMs = Date.now();
 
         try {
@@ -68,7 +76,7 @@ class SITAMScraperProvider extends ERPProvider {
 
             // Lazy-load to avoid circular dependencies at module load time
             const puppeteerService = require('../../services/puppeteerService');
-            const { cookieString, scrapedData } = await puppeteerService.login(userId, password);
+            const { cookieString, scrapedData } = await puppeteerService.login(userId, password, 'unknown', recoveryPlan);
 
             const durationMs = Date.now() - startMs;
             providerMetrics.recordOperation(this.providerName, 'login', 'success', durationMs);
@@ -109,7 +117,8 @@ class SITAMScraperProvider extends ERPProvider {
     async refreshSession(session) {
         try {
             const axios = require('axios');
-            const resp = await axios.get('https://sitams.org/erp/', {
+            const erpBaseUrl = (process.env.ERP_BASE_URL || 'https://sitamecap.co.in/SATYA').replace(/\/$/, '');
+            const resp = await axios.get(`${erpBaseUrl}/Default.aspx`, {
                 headers: { Cookie: session.cookies },
                 maxRedirects: 5,
                 timeout: 8000
@@ -198,6 +207,15 @@ class SITAMScraperProvider extends ERPProvider {
     async syncStudent(userId, password) {
         const startMs = Date.now();
         const { traceSpan } = require('../../telemetry/tracing');
+        const recovery = require('./recovery/PartialSyncRecovery');
+        const driftDetector = require('./drift/DOMDriftDetector');
+        const forecaster = require('./forecasting/ScraperReliabilityForecaster');
+        const healthScorer = require('./health/ERPHealthScorer');
+        const qpm = require('./throttle/QueuePressureManager');
+        const shedder = require('./throttle/AdaptiveLoadShedding');
+
+        // Record sync attempt in forecaster
+        forecaster.recordSyncAttempt();
 
         return traceSpan('provider.scraper.sync_student', {
             'provider.name':   this.providerName,
@@ -207,9 +225,58 @@ class SITAMScraperProvider extends ERPProvider {
             try {
                 logger.info(`[SITAMScraper] Starting full sync for ${userId}`);
 
-                // 1. Login and get raw scraped data
-                const loginResult = await this.login({ userId, password });
+                // Load recovery plan
+                const recoveryPlan = await recovery.getRecoveryPlan(userId);
+
+                // 1. Login and get raw scraped data (passing the recovery plan to only scrape what is missing)
+                const loginResult = await this.login({ userId, password, recoveryPlan });
                 const { cookies, scrapedData } = loginResult;
+
+                // Merge in cached HTML from previous runs for modules that were skipped in this run
+                for (const moduleName of ['profile', 'marks', 'fees', 'assignments']) {
+                    if (!recoveryPlan.includes(moduleName)) {
+                        const cachedHtml = recovery.getCachedData(userId, moduleName);
+                        if (cachedHtml) {
+                            scrapedData[`${moduleName}Html`] = cachedHtml;
+                        }
+                    }
+                }
+
+                // Analyze DOM drift for successfully scraped modules in this run
+                for (const moduleName of ['profile', 'marks', 'fees', 'assignments']) {
+                    const htmlKey = `${moduleName}Html`;
+                    if (scrapedData[htmlKey] && recoveryPlan.includes(moduleName)) {
+                        const currentFp = driftDetector.fingerprint(scrapedData[htmlKey], moduleName);
+                        const baselineFp = await driftDetector._loadBaseline(moduleName);
+                        if (!baselineFp) {
+                            await driftDetector._saveBaseline(moduleName, currentFp);
+                            logger.info(`[SITAMScraper] Stored initial baseline for page "${moduleName}"`);
+                        } else {
+                            const { score, changes } = driftDetector.computeDriftScore(currentFp, baselineFp);
+                            
+                            // Upgrade 3: Protect Against False Positives (DOM drift thresholds)
+                            if (score >= 80) {
+                                // Critical: fail sync
+                                providerMetrics.recordDOMDrift('sitam-scraper', moduleName, score);
+                                throw new SelectorDriftError(
+                                    `Critical DOM drift detected on page "${moduleName}" (score: ${score}/100). ERP may have redesigned.`,
+                                    {
+                                        providerName: 'sitam-scraper',
+                                        operationName: `scrape:${moduleName}`,
+                                        selectorAttempts: changes
+                                    }
+                                );
+                            } else if (score >= 50) {
+                                // Warning: emit telemetry/log only, do NOT fail sync
+                                logger.warn(`[SITAMScraper] Warning DOM drift on "${moduleName}" (score: ${score}/100). Changes: ${changes.join('; ')}`);
+                                providerMetrics.recordDOMDrift('sitam-scraper', moduleName, score);
+                            } else {
+                                // Healthy: continue normally
+                                logger.info(`[SITAMScraper] DOM structure healthy for "${moduleName}" (score: ${score}/100)`);
+                            }
+                        }
+                    }
+                }
 
                 // 2. Store session for potential incremental reuse
                 await providerSession.store(userId, {
@@ -221,10 +288,34 @@ class SITAMScraperProvider extends ERPProvider {
                 // 3. Normalize all scraped data into model objects
                 const syncResult = this._normalizeScrapedData(scrapedData, userId);
 
+                // Save checkpoints for successfully completed modules
+                let hasFailure = false;
+                for (const moduleName of ['profile', 'marks', 'fees', 'assignments']) {
+                    const html = scrapedData[`${moduleName}Html`];
+                    if (html && html.trim().length > 0) {
+                        await recovery.saveCheckpoint(userId, moduleName, 'done', html);
+                    } else {
+                        await recovery.saveCheckpoint(userId, moduleName, 'failed', null);
+                        hasFailure = true;
+                    }
+                }
+
+                if (!hasFailure) {
+                    await recovery.clearCheckpoint(userId);
+                }
+
                 const durationMs = Date.now() - startMs;
                 providerMetrics.recordOperation(this.providerName, 'syncStudent', 'success', durationMs);
                 providerMetrics.recordSyncSuccess(this.providerName, 'full');
-                providerMetrics.setHealthScore(this.providerName, 95);
+                
+                // Record telemetry and update health score
+                healthScorer.recordLoginAttempt(true);
+                healthScorer.recordSyncCompletion(true, durationMs);
+                
+                const score = await healthScorer.getHealthScore();
+                providerMetrics.setHealthScore(this.providerName, score);
+                qpm.updateFromHealthScore(score);
+                shedder.updateFromHealthScore(score);
 
                 if (span) {
                     span.setAttribute('sync.subjects_count', syncResult.marks?.subjects?.length || 0);
@@ -239,7 +330,22 @@ class SITAMScraperProvider extends ERPProvider {
                 const durationMs = Date.now() - startMs;
                 providerMetrics.recordOperation(this.providerName, 'syncStudent', 'error', durationMs);
                 providerMetrics.recordSyncFailure(this.providerName, 'full', err.constructor.name);
-                providerMetrics.setHealthScore(this.providerName, 40);
+
+                // Record failure details in forecaster and health scorer
+                forecaster.recordSyncFailure();
+                if (err.constructor.name === 'CaptchaDetectedError') {
+                    forecaster.recordCaptchaHit();
+                    healthScorer.recordCaptchaDetection();
+                } else if (err.constructor.name === 'AuthenticationError') {
+                    healthScorer.recordLoginAttempt(false);
+                } else {
+                    healthScorer.recordSyncCompletion(false, durationMs);
+                }
+
+                const score = await healthScorer.getHealthScore();
+                providerMetrics.setHealthScore(this.providerName, score);
+                qpm.updateFromHealthScore(score);
+                shedder.updateFromHealthScore(score);
 
                 if (span) {
                     span.setAttribute('sync.success', false);
@@ -314,6 +420,58 @@ class SITAMScraperProvider extends ERPProvider {
         }
     }
 
+    /**
+     * Open a headed browser that logs the student into the real ERP and redirects straight to payments page.
+     */
+    async openPaymentWindow(userId, password) {
+        logger.info(`[SITAMScraperProvider] Initiating headed payment browser auto-login for user: ${userId}`);
+
+        const puppeteer = require('puppeteer');
+
+        // Launch browser in HEADED mode (headless: false)
+        const browser = await puppeteer.launch({
+            headless: false,
+            defaultViewport: null,
+            args: ['--no-sandbox', '--disable-setuid-sandbox']
+        });
+
+        const page = await browser.newPage();
+        
+        const baseUrl = (process.env.ERP_BASE_URL || 'https://sitamecap.co.in/SATYA').replace(/\/$/, '');
+
+        try {
+            // 1. Go to ERP Login
+            await page.goto(`${baseUrl}/Default.aspx`, { waitUntil: 'networkidle2', timeout: 35000 });
+
+            // 2. Type credentials and authenticate
+            await page.waitForSelector('#txtId2', { timeout: 10000 });
+            await page.click('#txtId2');
+            await page.type('#txtId2', userId, { delay: 30 });
+            await page.click('#txtPwd2');
+            await page.type('#txtPwd2', password, { delay: 30 });
+            await page.evaluate(() => document.getElementById('txtPwd2').blur());
+            await new Promise(resolve => setTimeout(resolve, 400));
+
+            await Promise.all([
+                page.click('#imgBtn2'),
+                page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 25000 })
+            ]);
+
+            logger.info(`[SITAMScraperProvider] Authenticated successfully in headed browser for ${userId}. Navigating to online payment page...`);
+
+            // 3. Direct redirect to online payment page
+            await page.goto(`${baseUrl}/FeePayments/onlinepayment.aspx`, { waitUntil: 'networkidle2', timeout: 25000 });
+
+            logger.info(`[SITAMScraperProvider] Redirected to payments successfully. Headed browser left active.`);
+        } catch (err) {
+            logger.error(`[SITAMScraperProvider] Error during headed payment window flow: ${err.message}`);
+            try {
+                await browser.close();
+            } catch (_) {}
+            throw err;
+        }
+    }
+
     // ─── Health & Diagnostics ───────────────────────────────────────────────────
 
     /**
@@ -323,7 +481,8 @@ class SITAMScraperProvider extends ERPProvider {
         const startMs = Date.now();
         try {
             const axios = require('axios');
-            const resp  = await axios.head('https://sitams.org/erp/', { timeout: 8000, maxRedirects: 3 });
+            const erpBaseUrl = (process.env.ERP_BASE_URL || 'https://sitamecap.co.in/SATYA').replace(/\/$/, '');
+            const resp  = await axios.head(`${erpBaseUrl}/Default.aspx`, { timeout: 8000, maxRedirects: 3 });
             const ms    = Date.now() - startMs;
 
             const healthy = resp.status >= 200 && resp.status < 500;

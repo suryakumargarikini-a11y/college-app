@@ -273,9 +273,9 @@ testSuite.add('Postmortem: Build markdown summary', async () => {
 });
 
 // ─── 15. RELIABILITY SCORECARD TESTS ──────────────────────────────────────────
-testSuite.add('Scorecard: Assess component performance score', () => {
+testSuite.add('Scorecard: Assess component performance score', async () => {
   const engine = new ReliabilityScorecardEngine();
-  const scorecards = engine.computeScorecards({
+  const scorecards = await engine.computeScorecards({
     erpScore: 92,
     browserScore: 95
   });

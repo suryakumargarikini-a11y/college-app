@@ -4,6 +4,7 @@
   "webDir": "frontend",
   "bundledWebRuntime": false,
   "server": {
+    "androidScheme": "http",
     "allowNavigation": [
       "localhost:3000",
       "localhost:3001"

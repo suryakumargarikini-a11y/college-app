@@ -234,7 +234,7 @@ const transports = [
 // ─── Logger Instantiation ───────────────────────────────────────────────────
 const logger = winston.createLogger({
     levels: customLevels.levels,
-    level: IS_PRODUCTION ? 'info' : 'debug',
+    level: process.env.LOG_LEVEL || (IS_PRODUCTION ? 'info' : 'debug'),
     format: jsonFormat,
     transports,
     exceptionHandlers: [

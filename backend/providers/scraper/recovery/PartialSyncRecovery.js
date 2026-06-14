@@ -49,21 +49,38 @@ class PartialSyncRecovery {
         const key = `${REDIS_PREFIX}${userId}`;
         let checkpoint = await this._load(userId) || { userId, modules: {}, startedAt: new Date().toISOString() };
 
+        let checksum = null;
+        if (data) {
+            const crypto = require('crypto');
+            const dataStr = typeof data === 'string' ? data : JSON.stringify(data);
+            checksum = crypto.createHash('md5').update(dataStr).digest('hex');
+        }
+
         checkpoint.modules[module] = {
             status,
             updatedAt: new Date().toISOString(),
-            hasData:   data !== null
+            hasData:   data !== null,
+            checksum:  checksum
         };
         checkpoint.lastUpdated = new Date().toISOString();
 
         // Store data reference in memory (not persisted to Redis — too large)
         if (data) {
             const memKey = `${userId}:${module}`;
-            this._localCache.set(memKey, { data, storedAt: Date.now() });
+            this._localCache.set(memKey, {
+                userId,
+                module,
+                timestamp: new Date().toISOString(),
+                checksum,
+                status,
+                data,
+                storedAt: Date.now()
+            });
         }
 
         await this._save(userId, checkpoint);
         logger.debug(`[PartialRecovery] ${userId}/${module}: ${status}`);
+        this._recordMetrics('checkpoint_created', userId);
     }
 
     /**
@@ -86,6 +103,20 @@ class PartialSyncRecovery {
     async getRecoveryPlan(userId) {
         const checkpoint = await this._load(userId);
         if (!checkpoint) return [...ALL_MODULES];
+
+        // Checksum verification gate upfront
+        for (const module of ALL_MODULES) {
+            if (checkpoint.modules[module]?.status === 'done') {
+                const cachedHtml = this.getCachedData(userId, module);
+                if (cachedHtml === null) {
+                    // Checksum mismatch or cache missing/expired!
+                    logger.warn(`[PartialRecovery] Completed module ${module} is missing or corrupted in cache. Discarding checkpoint.`);
+                    await this.clearCheckpoint(userId);
+                    this._recordMetrics('recovery_corruption', userId);
+                    return [...ALL_MODULES]; // re-scrape all modules
+                }
+            }
+        }
 
         const remaining = ALL_MODULES.filter(module => {
             const status = checkpoint.modules[module]?.status;
@@ -117,6 +148,16 @@ class PartialSyncRecovery {
         // Cache expires after 30 minutes
         if (Date.now() - entry.storedAt > 30 * 60 * 1000) {
             this._localCache.delete(key);
+            return null;
+        }
+
+        // Verify checksum
+        const crypto = require('crypto');
+        const dataStr = typeof entry.data === 'string' ? entry.data : JSON.stringify(entry.data);
+        const computed = crypto.createHash('md5').update(dataStr).digest('hex');
+        if (computed !== entry.checksum) {
+            logger.error(`[PartialRecovery] Checksum mismatch for ${userId}/${module}! Discarding checkpoint.`);
+            // Note: clearCheckpoint handles cleanup
             return null;
         }
 

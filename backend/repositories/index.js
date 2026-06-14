@@ -3,7 +3,7 @@ const logger = require('../services/logger');
 
 const studentRepository = {
     async findByUserId(userId) {
-        return prisma.student.findUnique({
+        const student = await prisma.student.findUnique({
             where: { userId },
             include: {
                 marks: { include: { subject: true } },
@@ -14,16 +14,24 @@ const studentRepository = {
                 fees: true
             }
         });
+        if (student && student.password) {
+            const cryptoHelper = require('../services/cryptoHelper');
+            student.password = cryptoHelper.decrypt(student.password);
+        }
+        return student;
     },
 
     async upsertStudent(userId, data) {
         logger.info(`Repository: Upserting student ${userId}`);
         const rollNum = data.roll || '';
         const sec = data.section || 'A';
+        const cryptoHelper = require('../services/cryptoHelper');
+        const encryptedPassword = cryptoHelper.encrypt(data.password);
+        
         return prisma.student.upsert({
             where: { userId },
             update: {
-                password: data.password,
+                password: encryptedPassword,
                 name: data.name,
                 roll: data.roll,
                 roll_number: rollNum,
@@ -47,7 +55,7 @@ const studentRepository = {
             },
             create: {
                 userId,
-                password: data.password,
+                password: encryptedPassword,
                 name: data.name,
                 roll: data.roll,
                 roll_number: rollNum,

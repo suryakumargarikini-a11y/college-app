@@ -7,6 +7,9 @@
  * Routes alerts to on-call teams, supports deduplication within windows,
  * controls fatigue limits (burst threshold suppression), and auto-creates SRE incidents
  * for critical P1/P2 alerts.
+ *
+ * AlertEscalationRules are injected by ObservabilityScheduler and are ACTIVELY
+ * consumed by routeAlert() to resolve team ownership and log escalation stages.
  */
 
 const logger = require('../../services/logger');
@@ -18,6 +21,16 @@ const SEVERITIES = Object.freeze({
   P4: 'P4'
 });
 
+// Default team mapping used when no escalationRules are injected
+const DEFAULT_TEAM_MAP = {
+  'db_error':         'database-team',
+  'redis_error':      'infra-team',
+  'scraping_failure': 'scraper-team',
+  'network_timeout':  'network-team',
+  'api_latency':      'backend-team',
+  'auth_failure':     'security-team'
+};
+
 class AlertRouter {
   constructor(options = {}) {
     this.dedupWindowMs = options.dedupWindowMs || 10 * 60 * 1000;
@@ -26,6 +39,8 @@ class AlertRouter {
     this._recentAlerts = new Map();
     this._alertsHistory = [];
     this.incidentManager = options.incidentManager || null;
+    // Populated by ObservabilityScheduler after construction
+    this.escalationRules = null;
   }
 
   routeAlert(alert) {
@@ -49,8 +64,21 @@ class AlertRouter {
 
     this._alertsHistory.push({ timestamp: now, severity });
 
-    const team = this._mapToTeam(type);
-    logger.error(`[AlertRouter] [${severity}] Routed alert for ${service}/${type} to team: ${team}. Message: ${message}`);
+    // ── Resolve team from injected escalation rules (ownershipMatrix) ──────────
+    const { team, onCall } = this._mapToTeam(type);
+    logger.error(`[AlertRouter] [${severity}] Routed alert for ${service}/${type} to team: ${team}. On-call: ${onCall}. Message: ${message}`);
+
+    // ── Log escalation stages from injected AlertEscalationRules ─────────────
+    // This is the only place escalationRules is actively consumed at runtime.
+    if (this.escalationRules && this.escalationRules.escalationRules) {
+      const rule = this.escalationRules.escalationRules.find(r => r.severity === severity);
+      if (rule) {
+        for (const stage of rule.stages) {
+          const delayLabel = stage.timeoutMs === 0 ? 'immediate' : `+${stage.timeoutMs / 60000}min`;
+          logger.info(`[AlertRouter] Escalation stage [${delayLabel}]: notify ${stage.notify} for ${dedupKey}`);
+        }
+      }
+    }
 
     if ((severity === SEVERITIES.P1 || severity === SEVERITIES.P2) && this.incidentManager) {
       try {
@@ -61,25 +89,33 @@ class AlertRouter {
       }
     }
 
-    if (severity === SEVERITIES.P1) {
-      setTimeout(() => {
-        logger.warn(`[AlertRouter] [Escalation] Checking P1 acknowledgement status for: ${dedupKey}`);
-      }, 5000);
-    }
-
     return { status: 'ROUTED', team };
   }
 
+  /**
+   * Resolve team and on-call contact for a given alert type.
+   * Reads from this.escalationRules.ownershipMatrix when injected by the scheduler;
+   * falls back to the hardcoded DEFAULT_TEAM_MAP otherwise.
+   */
   _mapToTeam(type) {
-    const mappings = {
-      'db_error': 'database-team',
-      'redis_error': 'infra-team',
-      'scraping_failure': 'scraper-team',
-      'network_timeout': 'network-team',
-      'api_latency': 'backend-team',
-      'auth_failure': 'security-team'
+    const domainMap = {
+      'db_error':         'database',
+      'redis_error':      'redis',
+      'scraping_failure': 'scraper',
+      'network_timeout':  'api',
+      'api_latency':      'api',
+      'auth_failure':     'api'
     };
-    return mappings[type] || 'ops-oncall';
+
+    if (this.escalationRules && this.escalationRules.ownershipMatrix) {
+      const domain = domainMap[type] || 'api';
+      const entry  = this.escalationRules.ownershipMatrix[domain];
+      if (entry) {
+        return { team: entry.team, onCall: entry.onCall };
+      }
+    }
+
+    return { team: DEFAULT_TEAM_MAP[type] || 'ops-oncall', onCall: 'ops-oncall@sitams.org' };
   }
 }
 

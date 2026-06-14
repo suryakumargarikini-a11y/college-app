@@ -201,6 +201,8 @@ class SecretGovernanceManager {
     this._saveRegistry();
     return secret;
   }
+  /** Scheduler alias — calls assessSecrets() */
+  assessHealth() { return this.assessSecrets(); }
 }
 
 module.exports = SecretGovernanceManager;

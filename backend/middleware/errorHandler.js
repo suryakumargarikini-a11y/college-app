@@ -1,5 +1,5 @@
 const logger = require('../services/logger');
-const { SessionExpiredError } = require('../services/erpScraper');
+const { SessionExpiredError } = require('../providers/errors');
 
 // Add standardized response helpers to the response object
 const responseStandardizer = (req, res, next) => {
@@ -50,6 +50,25 @@ const errorHandler = (err, req, res, next) => {
 
     const statusCode = err.statusCode || 500;
     const clientMessage = statusCode === 500 ? 'Internal Server Error' : err.message;
+
+    // ── Alert routing for 500-level errors ────────────────────────────────────
+    // Route through the shared ObservabilityScheduler AlertRouter so alerts are
+    // deduplicated and escalated consistently. Non-blocking — never delays response.
+    if (statusCode >= 500) {
+        try {
+            const scheduler = require('../services/ObservabilityScheduler');
+            const alertRouter = scheduler.getAlertRouter();
+            if (alertRouter) {
+                alertRouter.routeAlert({
+                    service: 'API',
+                    type:    err.code === 'ECONNREFUSED' ? 'db_error' : 'api_latency',
+                    severity: 'P2',
+                    message: `500-level error: ${err.message}`,
+                    description: `Route: ${req.method} ${req.path} — ${err.stack || err.message}`
+                });
+            }
+        } catch (_) { /* never block the error response */ }
+    }
 
     return res.status(statusCode).json({
         success: false,

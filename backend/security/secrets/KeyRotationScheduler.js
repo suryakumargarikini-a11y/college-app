@@ -60,6 +60,8 @@ class KeyRotationScheduler {
     logger.info(`[KeyRotationScheduler] Schedule check complete. ${actionItems.length} rotation action items generated.`);
     return actionItems;
   }
+  /** Scheduler alias — calls checkRotationSchedules() */
+  generateRotationPlan() { return this.checkRotationSchedules(); }
 }
 
 module.exports = KeyRotationScheduler;

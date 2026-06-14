@@ -306,6 +306,9 @@ class SBOMGenerator {
     const latestFile = path.join(this.snapshotsDir, files[0]);
     return JSON.parse(fs.readFileSync(latestFile, 'utf8'));
   }
+
+  /** Scheduler alias — calls generate() */
+  generateSnapshot() { return this.generate(); }
 }
 
 module.exports = SBOMGenerator;

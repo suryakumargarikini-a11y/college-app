@@ -7,7 +7,7 @@
 <meta name="description" content="SITAM Campus Academic ERP Portal — access marks, attendance, fees, and assignments."/>
 
 <!-- Tailwind -->
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script src="./tailwind.js"></script>
 <script>
 tailwind.config = {
     darkMode: "class",
@@ -39,11 +39,9 @@ tailwind.config = {
 }
 </script>
 
-<!-- Fonts, Icons & Firebase Web SDK -->
+<!-- Fonts, Icons & Local / Native Platform Configuration -->
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging-compat.js"></script>
 
 <style>
 /* Prevent tap highlight delay and callouts for Capacitor Android app shell */
@@ -372,6 +370,7 @@ input, textarea {
 <!-- ===== FLOATING TOAST NOTIFICATIONS ===== -->
 <div id="toast-container" class="fixed bottom-24 right-6 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none"></div>
 
+<script src="./config.js"></script>
 <script src="./app.js"></script>
 </body>
 </html>

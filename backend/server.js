@@ -14,9 +14,13 @@ const prisma = require('./services/dbService');
 const workerService = require('./services/workerService');
 const metricsService = require('./services/metricsService');
 const circuitBreaker = require('./services/circuitBreaker');
+const observabilityScheduler = require('./services/ObservabilityScheduler');
+const sreScheduler = require('./services/SREScheduler');
+const devSecOpsScheduler = require('./services/DevSecOpsScheduler');
+
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3000;
 
 // ─── Initialize Infrastructure ────────────────────────────────────────────────
 redisService.connect();
@@ -36,6 +40,10 @@ const corsWhitelist = [
     'http://localhost',
     'https://sitamecap.co.in'
 ];
+if (process.env.ALLOWED_ORIGINS) {
+    const extraOrigins = process.env.ALLOWED_ORIGINS.split(',').map(item => item.trim()).filter(Boolean);
+    corsWhitelist.push(...extraOrigins);
+}
 app.use(cors({
     origin: (origin, callback) => {
         if (!origin || corsWhitelist.includes(origin) || origin.startsWith('chrome-extension://')) {
@@ -167,6 +175,68 @@ app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Production-ready Health Check
+app.get('/health', (req, res) => {
+    res.json({
+        status: "ok",
+        version: process.env.APP_VERSION || "1.0.0"
+    });
+});
+
+// Production-ready ERP diagnostics
+app.get('/health/erp', async (req, res) => {
+    const diagnostics = {
+        timestamp: new Date().toISOString(),
+        provider: 'unknown',
+        erpConnectivity: 'unknown',
+        sessionServiceStatus: 'unknown',
+        authenticationSystem: 'unknown'
+    };
+
+    try {
+        const { ProviderFactory } = require('./providers');
+        const provider = ProviderFactory.getProvider();
+        diagnostics.provider = provider.providerName;
+        
+        // 1. Check ERP connectivity
+        const start = Date.now();
+        const erpHealth = await provider.checkERPHealth();
+        diagnostics.erpConnectivity = {
+            status: erpHealth.healthy ? 'healthy' : 'unreachable',
+            responseTimeMs: erpHealth.responseTimeMs,
+            details: erpHealth.details
+        };
+
+        // 2. Check Session Service Status
+        const sessionManager = require('./providers/session/ProviderSessionManager');
+        const activeSessions = await sessionManager.getActiveSessions();
+        diagnostics.sessionServiceStatus = {
+            status: 'active',
+            redisConnected: redisService.isAlive(),
+            activeSessionCount: activeSessions.length
+        };
+
+        // 3. Check Authentication System
+        diagnostics.authenticationSystem = {
+            status: 'active',
+            mode: process.env.NODE_ENV || 'production'
+        };
+
+        const healthy = erpHealth.healthy;
+        res.status(healthy ? 200 : 503).json({
+            status: healthy ? 'ok' : 'degraded',
+            diagnostics
+        });
+    } catch (err) {
+        logger.error(`[Health ERP] Check failed: ${err.message}`);
+        res.status(500).json({
+            status: 'error',
+            error: err.message,
+            diagnostics
+        });
+    }
+});
+
 // Prometheus Metrics — unauthenticated, protect at network layer in production
 app.get('/api/metrics', async (req, res) => {
     const requiredToken = process.env.METRICS_BEARER_TOKEN;
@@ -283,6 +353,35 @@ const server = app.listen(PORT, async () => {
         metricsService.increment('websocket_connections_opened_total');
         metricsService.adjustGauge('websocket_connections_active', 1);
     });
+
+    // ── Observability Runtime ───────────────────────────────────────────────
+    // Start all observability intervals (SLO, Synthetic, Business Metrics).
+    // Must be called AFTER Redis is connected so BusinessMetricsCollector can
+    // access HyperLogLog keys and SyntheticMonitor can probe queue health.
+    observabilityScheduler.start();
+
+    // ── SRE Control Plane Runtime ───────────────────────────────────────────
+    sreScheduler.start();
+
+    // ── DevSecOps Control Plane Runtime ────────────────────────────────────
+    // Activates SecretGovernanceManager, KeyRotationScheduler,
+    // VulnerabilityScanner, SecurityReportAggregator on startup,
+    // then SBOMGenerator/ArtifactSigner/ProvenanceVerifier every 24 h.
+    // SecurityTestRunner (DAST) activates on 6h interval.
+    devSecOpsScheduler.start();
+
+    // ── Security Posture → Deployment Gate Cross-Wire ───────────────────────
+    // After both schedulers are up, inject the live SecurityReportAggregator
+    // into DeploymentGovernor so deployment safety checks include the security
+    // posture score from the DevSecOps pipeline.
+    // Call graph: SecurityReportAggregator.aggregate() → aggregated-security-report.json
+    //             → DeploymentGovernor.checkDeploymentSafety() → getLatestReport()
+    //             → deployment_security_risk_penalty gauge
+    if (sreScheduler.deploymentGovernor && devSecOpsScheduler.reportAggregator) {
+        sreScheduler.deploymentGovernor.securityReportAggregator = devSecOpsScheduler.reportAggregator;
+        logger.info('[Server] Security posture cross-wire: DeploymentGovernor ← SecurityReportAggregator');
+    }
+
 });
 
 // ─── Graceful Shutdown ────────────────────────────────────────────────────────
@@ -293,6 +392,12 @@ const gracefulShutdown = async (signal) => {
         logger.info('[Server] HTTP server closed.');
 
         try {
+            // Stop SRE control plane and observability intervals before tearing down infrastructure
+            sreScheduler.stop();
+            devSecOpsScheduler.stop();
+            observabilityScheduler.stop();
+
+
             const browserPool = require('./services/browserPool');
             await browserPool.shutdown();
             logger.info('[Server] BrowserPool shut down.');

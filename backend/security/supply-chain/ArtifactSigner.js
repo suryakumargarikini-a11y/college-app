@@ -162,6 +162,21 @@ class ArtifactSigner {
     const content = fs.readFileSync(dockerfilePath, 'utf8');
     return this.signArtifact('docker-image', content);
   }
+  /**
+   * Scheduler alias — reads the most-recent SBOM snapshot and signs it.
+   * @param {SBOMGenerator} sbomGenerator - instance to read getLatest() from
+   */
+  signLatestSnapshot(sbomGenerator) {
+    const latest = sbomGenerator && typeof sbomGenerator.getLatest === 'function'
+      ? sbomGenerator.getLatest()
+      : null;
+    if (!latest) {
+      logger.warn('[ArtifactSigner] signLatestSnapshot: no SBOM snapshot found — skipping.');
+      return null;
+    }
+    const content = JSON.stringify(latest);
+    return this.signArtifact('sbom-latest', content);
+  }
 }
 
 module.exports = ArtifactSigner;

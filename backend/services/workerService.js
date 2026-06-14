@@ -227,8 +227,6 @@ class WorkerService {
      */
     _runLocalFallback(userId, password, forceFullSync, requestId, traceId, correlationId) {
         const syncService = require('./syncService');
-        const sessionManager = require('./sessionManager');
-        const syncQueue = require('./syncQueue');
 
         setTimeout(() => {
             const context = {
@@ -240,17 +238,7 @@ class WorkerService {
 
             logger.runWithContext(context, async () => {
                 try {
-                    if (forceFullSync) {
-                        await syncService.runFullSync(userId, password);
-                    } else {
-                        const session = sessionManager.sessions.get(userId);
-                        const cookies = session ? session.cookies : '';
-                        if (cookies) {
-                            await syncQueue.syncStudentIncrementally(userId, password, cookies);
-                        } else {
-                            await syncService.runFullSync(userId, password);
-                        }
-                    }
+                    await syncService.runProviderSync(userId, password, forceFullSync);
                 } catch (err) {
                     logger.error(`[WorkerService] Local fallback sync failed for ${userId}: ${err.message}`);
                 }

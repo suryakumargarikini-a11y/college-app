@@ -207,6 +207,17 @@ class ERPProvider {
         throw new Error(`[${this.providerName}] syncIncremental() not implemented`);
     }
 
+    /**
+     * Open a headed browser that logs the student into the real ERP and redirects straight to payments page.
+     *
+     * @param {string} userId
+     * @param {string} password
+     * @returns {Promise<void>}
+     */
+    async openPaymentWindow(userId, password) {
+        throw new Error(`[${this.providerName}] openPaymentWindow() not supported`);
+    }
+
     // ─── Health & Diagnostics ────────────────────────────────────────────────────
 
     /**

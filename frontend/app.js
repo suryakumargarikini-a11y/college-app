@@ -3,9 +3,12 @@
 // Matches Stitch UI design exactly, all modules functional
 // ============================================================
 
-const API_BASE = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1')
-    ? 'http://localhost:3001/api'
-    : window.location.origin + '/api';
+const isMobileNative = window.Capacitor && window.Capacitor.platform !== 'web';
+const API_BASE = window.API_BASE_URL || (isMobileNative
+    ? 'http://10.230.100.99:3001/api'
+    : (window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1')
+        ? 'http://localhost:3001/api'
+        : window.location.origin + '/api'));
 
 let _decryptedToken = null;
 
@@ -208,11 +211,15 @@ const firebaseConfig = {
 
 let messaging = null;
 try {
-    if (firebase.apps.length === 0) {
-        firebase.initializeApp(firebaseConfig);
-    }
-    if (firebase.messaging.isSupported()) {
-        messaging = firebase.messaging();
+    if (typeof firebase !== 'undefined') {
+        if (firebase.apps.length === 0) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        if (firebase.messaging.isSupported()) {
+            messaging = firebase.messaging();
+        }
+    } else {
+        console.log('[Firebase Client] Web Firebase SDK not loaded, bypassing initialization.');
     }
 } catch (err) {
     console.warn('[Firebase Client] Initialization bypassed or unsupported:', err);
@@ -260,6 +267,64 @@ function showPushBanner(title, body, route) {
 
 // Register FCM token with backend API on successful session establishment
 async function registerPush() {
+    if (window.Capacitor?.Plugins?.PushNotifications) {
+        try {
+            const PushNotifications = window.Capacitor.Plugins.PushNotifications;
+            let permStatus = await PushNotifications.checkPermissions();
+            
+            if (permStatus.receive === 'prompt') {
+                permStatus = await PushNotifications.requestPermissions();
+            }
+            
+            if (permStatus.receive !== 'granted') {
+                console.warn('[Push] Native permission denied');
+                return;
+            }
+
+            // Register with FCM
+            await PushNotifications.register();
+
+            // Add listeners
+            if (!window._pushListenersRegistered) {
+                window._pushListenersRegistered = true;
+                PushNotifications.addListener('registration', async (token) => {
+                    console.log('[Push] Native token registration successful:', token.value);
+                    try {
+                        await api.post('/auth/fcm-token', { token: token.value, deviceType: 'android' });
+                    } catch (err) {
+                        console.error('[Push] Failed to register token on backend:', err);
+                    }
+                });
+
+                PushNotifications.addListener('registrationError', (error) => {
+                    console.error('[Push] Native token registration error:', error);
+                });
+
+                PushNotifications.addListener('pushNotificationReceived', (notification) => {
+                    console.log('[Push] Native push notification received:', notification);
+                    const title = notification.title || 'SITAM Smart ERP';
+                    const body = notification.body || '';
+                    const route = notification.data?.sitam_route || notification.data?.route;
+                    showPushBanner(title, body, route);
+                    if (route && route === router.currentRoute) {
+                        router.routes[route]?.afterRender?.();
+                    }
+                });
+
+                PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
+                    console.log('[Push] Native push action performed:', action);
+                    const route = action.notification.data?.sitam_route || action.notification.data?.route;
+                    if (route) {
+                        router.navigate(route);
+                    }
+                });
+            }
+        } catch (err) {
+            console.error('[Push] Error setting up native PushNotifications:', err);
+        }
+        return;
+    }
+
     if (!messaging) return;
     try {
         const permission = await Notification.requestPermission();
@@ -303,7 +368,10 @@ const state = {
     token: secureStorage.getItem('token') || null,
     profile: null,
     _syncPollTimer: null,
-    _isSyncPolling: false
+    _isSyncPolling: false,
+    navHistory: [],
+    paymentTimeout: null,
+    _lastBackPress: 0
 };
 
 // --- Pulsing Real-time Live Status Indicator ---
@@ -361,10 +429,14 @@ const wsService = {
         }
 
         console.log(`[WebSocket] Establishing real-time sync socket for user: ${userId}`);
-        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsHost = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1')
-            ? 'localhost:3001'
-            : window.location.host;
+        const wsProtocol = isMobileNative
+            ? 'ws:'
+            : (window.location.protocol === 'https:' ? 'wss:' : 'ws:');
+        const wsHost = isMobileNative
+            ? '10.230.100.99:3001'
+            : (window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1')
+                ? 'localhost:3001'
+                : window.location.host);
         const wsUrl = `${wsProtocol}//${wsHost}/?userId=${userId}`;
 
         this.socket = new WebSocket(wsUrl);
@@ -500,7 +572,45 @@ const api = {
         
         try {
             const resp = await fetch(API_BASE + endpoint, { ...options, headers: { ...headers, ...(options.headers || {}) } });
-            const data = await resp.json();
+            const text = await resp.text();
+            
+            // Detect if the response is HTML and contains login page elements (ERP session expired)
+            const isHtml = text.trim().startsWith('<') || text.includes('Default.aspx') || text.includes('imgBtn2') || text.includes('txtId2');
+            if (isHtml) {
+                console.warn(`[API] HTML login page detected on endpoint: ${endpoint}`);
+                // Attempt to re-authenticate and retry the request once
+                if (!options._retried) {
+                    options._retried = true;
+                    console.log('[API] Attempting auto-reauthentication and request retry...');
+                    
+                    try {
+                        const refreshRes = await fetch(API_BASE + '/sync', {
+                            method: 'GET',
+                            headers: { 'Authorization': `Bearer ${state.token}` }
+                        });
+                        
+                        if (refreshRes.ok) {
+                            console.log('[API] Session refreshed successfully. Retrying original request...');
+                            return await this.request(endpoint, options);
+                        }
+                    } catch (refreshErr) {
+                        console.error('[API] Auto-reauthentication failed:', refreshErr);
+                    }
+                }
+                
+                // If retry failed or already retried, perform logout
+                api.logout();
+                throw new Error('ERP session expired. Please re-login.');
+            }
+
+            // Parse response body as JSON
+            let data;
+            try {
+                data = JSON.parse(text);
+            } catch (jsonErr) {
+                throw new Error('Invalid server response format.');
+            }
+
             if (!resp.ok) {
                 if (resp.status === 401) { api.logout(); }
                 throw new Error(data.error || data.message || `HTTP ${resp.status}`);
@@ -644,13 +754,15 @@ function checkSyncStatus() {
         if (isSyncing) {
             banner.classList.remove('scale-0', 'opacity-0');
             banner.classList.add('scale-100', 'opacity-100');
-            // Poll until done — but ONLY once
+            // Poll until done — but max 16 seconds (4 ticks)
             if (!state._isSyncPolling) {
                 state._isSyncPolling = true;
+                let ticks = 0;
                 state._syncPollTimer = setInterval(async () => {
+                    ticks++;
                     try {
                         const r = await api.request('/profile');
-                        if (!r.data.isSyncing) {
+                        if (!r.data.isSyncing || ticks >= 4) {
                             clearInterval(state._syncPollTimer);
                             state._isSyncPolling = false;
                             banner.classList.add('scale-0', 'opacity-0');
@@ -659,7 +771,12 @@ function checkSyncStatus() {
                             clearUserCache();
                             router.routes[router.currentRoute]?.afterRender?.();
                         }
-                    } catch { clearInterval(state._syncPollTimer); state._isSyncPolling = false; }
+                    } catch { 
+                        clearInterval(state._syncPollTimer); 
+                        state._isSyncPolling = false; 
+                        banner.classList.add('scale-0', 'opacity-0');
+                        banner.classList.remove('scale-100', 'opacity-100');
+                    }
                 }, 4000);
             }
         } else {
@@ -964,64 +1081,99 @@ const pages = {
                 </section>
             </main>
         </body>`,
-        afterRender: async () => {
+        afterRender: () => {
             toggleShell(true);
             setActiveNav('dashboard');
             checkSyncStatus();
 
-            // Parallel fetch — all non-blocking
-            try {
-                const [profRes, attRes, marksRes, asnRes, feesRes, notifRes, examsRes] = await Promise.all([
-                    api.get('/profile').catch(() => ({ data: { name: 'Student', roll: '' } })),
-                    api.get('/attendance').catch(() => ({ attendance: [] })),
-                    api.get('/marks').catch(() => ({ data: { cgpa: 'N/A' } })),
-                    api.get('/assignments').catch(() => ({ data: { activeCount: 0 } })),
-                    api.get('/fees').catch(() => ({ data: { dueAmount: '₹0' } })),
-                    api.get('/notifications').catch(() => ({ data: [] })),
-                    api.get('/exams').catch(() => ({ data: { schedules: [] } }))
-                ]);
-
-                // Greeting
+            // 1. Profile / greeting card
+            api.get('/profile').then(profRes => {
                 const name = (profRes.data?.name || 'Student').split(' ')[0];
                 setEl('dash-greeting', 'innerText', `Greetings, ${name}.`);
                 setEl('drawer-name', 'innerText', profRes.data?.name || '');
                 setEl('drawer-roll', 'innerText', profRes.data?.roll || '');
+            }).catch(e => {
+                console.error('[Dashboard] Profile fail:', e);
+                setEl('dash-greeting', 'innerText', 'Greetings, Student.');
+            });
 
-                // Attendance
+            // 2. Attendance card
+            api.get('/attendance').then(attRes => {
                 const attList = attRes.attendance || [];
                 const overall = calcOverallAttendance(attList);
                 setEl('dash-att-val', 'innerText', overall.text);
                 setTimeout(() => setEl('dash-att-bar', 'style.width', overall.text), 100);
+            }).catch(e => {
+                console.error('[Dashboard] Attendance fail:', e);
+                setEl('dash-att-val', 'innerText', '--%');
+                setTimeout(() => setEl('dash-att-bar', 'style.width', '0%'), 100);
+            });
 
-                // Marks
-                setEl('dash-gpa-val', 'innerText', marksRes.data?.cgpa || 'N/A');
+            // 3. Results (CGPA) card
+            api.get('/marks').then(marksRes => {
+                setEl('dash-gpa-val', 'innerText', marksRes.data?.cgpa || '--');
+            }).catch(e => {
+                console.error('[Dashboard] Marks fail:', e);
+                setEl('dash-gpa-val', 'innerText', '--');
+            });
 
-                // Assignments
+            // 4. Assignments card
+            api.get('/assignments').then(asnRes => {
                 const asnCount = asnRes.data?.activeCount ?? 0;
                 setEl('dash-asn-count', 'innerText', asnCount.toString());
+            }).catch(e => {
+                console.error('[Dashboard] Assignments fail:', e);
+                setEl('dash-asn-count', 'innerText', '0');
+            });
 
-                // Fees
+            // 5. Fees card
+            api.get('/fees').then(feesRes => {
                 const due = feesRes.data?.dueAmount || feesRes.data?.totalDue;
-                if (due) setEl('dash-fee-text', 'innerText', `Due: ${due}`);
+                if (due) {
+                    setEl('dash-fee-text', 'innerText', `Due: ${due}`);
+                } else {
+                    setEl('dash-fee-text', 'innerText', 'Dues & History');
+                }
+            }).catch(e => {
+                console.error('[Dashboard] Fees fail:', e);
+                setEl('dash-fee-text', 'innerText', 'Dues & History');
+            });
 
-                // Notifications badge
+            // 6. Notifications notice banner
+            api.get('/notifications').then(notifRes => {
                 const notifList = notifRes.data || [];
                 const unread = Array.isArray(notifList) ? notifList.filter(n => !n.isRead).length : 0;
                 setEl('dash-notif-count', 'innerText', unread.toString());
 
-                // Exams schedule count
+                // Find first notice that is NOT fee-related
+                const nonFeeNotif = notifList.find(n => {
+                    const text = ((n.message || '') + ' ' + (n.title || '')).toLowerCase();
+                    return !text.includes('fee') && !text.includes('pay') && !text.includes('due') && !text.includes('tuition') && !text.includes('statement');
+                });
+                if (nonFeeNotif) {
+                    setEl('notice-text', 'innerText', nonFeeNotif.message || nonFeeNotif.title);
+                } else {
+                    const bannerSec = $('notice-banner-section');
+                    if (bannerSec) bannerSec.classList.add('hidden');
+                }
+            }).catch(e => {
+                console.error('[Dashboard] Notifications fail:', e);
+                setEl('dash-notif-count', 'innerText', '--');
+                const bannerSec = $('notice-banner-section');
+                if (bannerSec) bannerSec.classList.add('hidden');
+            });
+
+            // 7. Exams count card
+            api.get('/exams').then(examsRes => {
                 const examSchedules = examsRes.data?.schedules || [];
                 setEl('dash-exams-count', 'innerText', examSchedules.length.toString());
+            }).catch(e => {
+                console.error('[Dashboard] Exams fail:', e);
+                setEl('dash-exams-count', 'innerText', '0');
+            });
 
-                // Notice banner from notifications
-                if (notifList.length > 0) {
-                    setEl('notice-text', 'innerText', notifList[0].message || notifList[0].title);
-                }
-            } catch(e) { console.error('[Dashboard] Error:', e); }
-
-            // Timetable rendering
-            try {
-                const ttRes = await api.get('/timetable').catch(() => []);
+            // 8. Today's Timetable card
+            api.get('/timetable').then(ttRes => {
                 const slots = Array.isArray(ttRes) ? ttRes : (ttRes.data || []);
                 const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
                 let day = days[new Date().getDay()];
@@ -1061,7 +1213,13 @@ const pages = {
                             </div>
                         </div>`).join('')}</div>`;
                 }
-            } catch(e) { console.error('[Dashboard] Timetable error:', e); }
+            }).catch(e => {
+                console.error('[Dashboard] Timetable fail:', e);
+                const container = $('dash-timetable');
+                if (container) {
+                    container.innerHTML = `<div class="min-w-full flex items-center justify-center h-24 text-slate-400 text-xs font-semibold bg-white/40 border border-white/20 rounded-2xl shadow-sm">No classes today</div>`;
+                }
+            });
         }
     },
 
@@ -1297,7 +1455,7 @@ const pages = {
         }
     },
     fees: {
-        render: () => `<body class="bg-background text-on-surface min-h-screen pb-32">
+        render: () => `<div class="bg-background text-on-surface min-h-screen pb-32">
             <main class="pt-24 px-4 sm:px-6 max-w-7xl mx-auto space-y-8">
                 <!-- Hero Metrics -->
                 <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -1311,7 +1469,6 @@ const pages = {
                             <button id="pay-now-btn" class="bg-white text-[#705193] px-6 py-3.5 rounded-full font-extrabold text-xs shadow-md active-scale transition-transform flex items-center gap-2 hover:bg-slate-50">
                                 Pay Now <span class="material-symbols-outlined text-sm font-black">arrow_forward</span>
                             </button>
-                            <button class="bg-white/15 backdrop-blur-md px-6 py-3.5 rounded-full text-white font-extrabold text-xs active-scale hover:bg-white/25 transition-colors border border-white/20">View Statement</button>
                         </div>
                         <div class="absolute -right-20 -top-20 w-80 h-80 bg-white/10 rounded-full blur-[80px] pointer-events-none"></div>
                         <div class="absolute right-10 bottom-10 opacity-30"><div class="w-48 h-48 bg-gradient-to-br from-white to-purple-300 rounded-full blur-3xl"></div></div>
@@ -1367,7 +1524,43 @@ const pages = {
                     </div>
                 </section>
             </main>
-        </body>`,
+
+            <!-- ===== PAYMENT MODAL OVERLAY ===== -->
+            <div id="payment-overlay" class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center hidden opacity-0 transition-opacity duration-300">
+                <div class="bg-white rounded-3xl p-8 max-w-md w-[90%] text-center shadow-2xl border border-white/20">
+                    <div id="payment-loading-state" class="space-y-6">
+                        <div class="relative w-16 h-16 mx-auto">
+                            <div class="absolute inset-0 border-4 border-purple-500/20 rounded-full"></div>
+                            <div class="absolute inset-0 border-4 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+                        </div>
+                        <div class="space-y-2">
+                            <h3 class="text-lg font-black text-on-surface font-headline">Processing Payment</h3>
+                            <p class="text-xs text-[#705193] font-extrabold uppercase tracking-widest" id="payment-step-text">Step 1: Authenticating...</p>
+                            <p class="text-xs text-slate-400">Please do not close the app or press back.</p>
+                        </div>
+                    </div>
+                    <div id="payment-error-state" class="hidden space-y-6">
+                        <span class="material-symbols-outlined text-rose-500 text-5xl">error</span>
+                        <div class="space-y-2">
+                            <h3 class="text-lg font-black text-on-surface font-headline">Payment Failed</h3>
+                            <p class="text-sm text-slate-500" id="payment-error-text">Unable to connect to the payment gateway.</p>
+                        </div>
+                        <div class="flex gap-3 justify-center">
+                            <button id="payment-retry-btn" class="bg-[#705193] text-white px-6 py-2.5 rounded-full font-bold text-xs shadow-md active-scale transition-transform">Retry</button>
+                            <button id="payment-close-btn" class="bg-slate-100 text-slate-600 px-6 py-2.5 rounded-full font-bold text-xs active-scale transition-transform">Cancel</button>
+                        </div>
+                    </div>
+                    <div id="payment-success-state" class="hidden space-y-6">
+                        <span class="material-symbols-outlined text-emerald-500 text-5xl animate-bounce">check_circle</span>
+                        <div class="space-y-2">
+                            <h3 class="text-lg font-black text-on-surface font-headline">Payment Success!</h3>
+                            <p class="text-sm text-slate-500">Your fees have been successfully updated.</p>
+                        </div>
+                        <button id="payment-success-done-btn" class="bg-emerald-600 text-white px-8 py-2.5 rounded-full font-bold text-xs shadow-md active-scale transition-transform">Done</button>
+                    </div>
+                </div>
+            </div>
+        </div>`,
         afterRender: async () => {
             toggleShell(true);
             setActiveNav('fees');
@@ -1375,12 +1568,13 @@ const pages = {
             try {
                 const res = await api.get('/fees');
                 const d = res.data || {};
-                setEl('fee-due', 'innerText', d.dueAmount || d.totalDue || '₹0');
+                const dueAmount = d.dueAmount || d.totalDue || '₹0';
+                setEl('fee-due', 'innerText', dueAmount);
                 setEl('fee-pct', 'innerText', `${d.paidProgress || 0}%`);
                 setEl('fee-total', 'innerText', d.totalAmount || '--');
                 setEl('fee-paid', 'innerText', d.paidAmount || '--');
                 setEl('fee-progress-text', 'innerText', `You've cleared ${d.paidAmount || '--'} of ${d.totalAmount || '--'} for the semester.`);
-                setEl('fee-hero-sub', 'innerText', `Your semester fee status: ${d.dueAmount || '₹0'} due. Ensure timely payment to avoid penalties.`);
+                setEl('fee-hero-sub', 'innerText', `Your semester fee status: ${dueAmount} due. Ensure timely payment to avoid penalties.`);
  
                 // Ring animation (uses 402.12 radius calculations)
                 setTimeout(() => {
@@ -1393,13 +1587,140 @@ const pages = {
 
                 const payBtn = $('pay-now-btn');
                 if (payBtn) {
-                    payBtn.addEventListener('click', () => {
-                        const redirectUrl = `${API_BASE}/fees/payment-redirect?token=${encodeURIComponent(state.token)}`;
-                        if (window.Capacitor) {
-                            window.open(redirectUrl, '_system');
-                        } else {
-                            window.open(redirectUrl, '_blank');
+                    const overlay = $('payment-overlay');
+                    const loadingState = $('payment-loading-state');
+                    const errorState = $('payment-error-state');
+                    const successState = $('payment-success-state');
+                    const stepText = $('payment-step-text');
+                    const errorText = $('payment-error-text');
+                    const retryBtn = $('payment-retry-btn');
+                    const closeBtn = $('payment-close-btn');
+                    const doneBtn = $('payment-success-done-btn');
+                    
+                    state.paymentTimeout = null;
+                    const oldDueAmount = dueAmount;
+                    
+                    const closeOverlay = () => {
+                        if (state.paymentTimeout) clearTimeout(state.paymentTimeout);
+                        overlay.classList.remove('opacity-100');
+                        setTimeout(() => overlay.classList.add('hidden'), 300);
+                    };
+                    
+                    const showPaymentError = (msg) => {
+                        if (state.paymentTimeout) clearTimeout(state.paymentTimeout);
+                        loadingState.classList.add('hidden');
+                        successState.classList.add('hidden');
+                        errorState.classList.remove('hidden');
+                        errorText.innerText = msg;
+                    };
+                    
+                    const checkPaymentResult = async () => {
+                        try {
+                            loading.show('Verifying payment status...');
+                            const freshRes = await api.get('/fees', { bypassCache: true });
+                            if (freshRes && freshRes.success) {
+                                const newDue = freshRes.data?.dueAmount || freshRes.data?.totalDue || '₹0';
+                                router.routes['/fees']?.afterRender?.();
+                                
+                                if (newDue !== oldDueAmount) {
+                                    // Payment successful!
+                                    loadingState.classList.add('hidden');
+                                    errorState.classList.add('hidden');
+                                    successState.classList.remove('hidden');
+                                } else {
+                                    // Amount unchanged (cancelled or failed)
+                                    closeOverlay();
+                                }
+                            } else {
+                                closeOverlay();
+                            }
+                        } catch (err) {
+                            closeOverlay();
+                        } finally {
+                            loading.hide();
                         }
+                    };
+                    
+                    const startPaymentFlow = async () => {
+                        overlay.classList.remove('hidden');
+                        setTimeout(() => overlay.classList.add('opacity-100'), 10);
+                        loadingState.classList.remove('hidden');
+                        errorState.classList.add('hidden');
+                        successState.classList.add('hidden');
+                        
+                        stepText.innerText = 'Step 1: Authenticating...';
+                        
+                        // 30 second safety timeout
+                        state.paymentTimeout = setTimeout(() => {
+                            showPaymentError('The payment gateway connection timed out. Please check your network and try again.');
+                        }, 30000);
+                        
+                        try {
+                            // Step 1: Validate session (fetch profile)
+                            const profileCheck = await api.get('/profile', { bypassCache: true });
+                            if (!profileCheck || !profileCheck.success) {
+                                throw new Error('Session expired. Please log in again.');
+                            }
+                            
+                            stepText.innerText = 'Step 2: Opening Payment Portal...';
+                            
+                            // Step 2: Fetch latest fee balance
+                            const feesCheck = await api.get('/fees', { bypassCache: true });
+                            if (!feesCheck || !feesCheck.success) {
+                                throw new Error('ERP system is currently unreachable.');
+                            }
+                            
+                            stepText.innerText = 'Step 3: Redirecting to Payment Gateway...';
+                            
+                            const redirectUrl = `${API_BASE}/fees/payment-redirect?token=${encodeURIComponent(state.token)}`;
+                            
+                            if (state.paymentTimeout) clearTimeout(state.paymentTimeout);
+                            
+                            // Step 3: Open gateway
+                            if (window.Capacitor?.Plugins?.Browser) {
+                                await window.Capacitor.Plugins.Browser.open({ url: redirectUrl });
+                                if (!state._browserListenerAdded) {
+                                    state._browserListenerAdded = true;
+                                    window.Capacitor.Plugins.Browser.addListener('browserFinished', () => {
+                                        checkPaymentResult();
+                                    });
+                                }
+                            } else {
+                                window.open(redirectUrl, '_blank');
+                                // Poll in background for web desktop
+                                let pollCount = 0;
+                                const pollInterval = setInterval(async () => {
+                                    pollCount++;
+                                    if (pollCount > 10 || !successState.classList.contains('hidden')) {
+                                        clearInterval(pollInterval);
+                                        return;
+                                    }
+                                    try {
+                                        const r = await api.get('/fees', { bypassCache: true });
+                                        if (r && r.success) {
+                                            const nd = r.data?.dueAmount || r.data?.totalDue || '₹0';
+                                            if (nd !== oldDueAmount) {
+                                                clearInterval(pollInterval);
+                                                router.routes['/fees']?.afterRender?.();
+                                                loadingState.classList.add('hidden');
+                                                errorState.classList.add('hidden');
+                                                successState.classList.remove('hidden');
+                                            }
+                                        }
+                                    } catch {}
+                                }, 3000);
+                            }
+                        } catch (err) {
+                            showPaymentError(err.message || 'Payment authentication failed.');
+                        }
+                    };
+                    
+                    payBtn.addEventListener('click', startPaymentFlow);
+                    retryBtn.addEventListener('click', startPaymentFlow);
+                    closeBtn.addEventListener('click', closeOverlay);
+                    doneBtn.addEventListener('click', () => {
+                        closeOverlay();
+                        router.routes['/fees']?.afterRender?.();
                     });
                 }
  
@@ -1472,6 +1793,9 @@ const pages = {
                         <span class="material-symbols-outlined">logout</span>
                         <span class="uppercase tracking-widest text-sm">Logout</span>
                     </button>
+                    <div class="text-center text-[10px] font-bold text-on-surface-variant/40 mt-4 uppercase tracking-widest" id="about-app-version">
+                        SITAM Campus ERP v1.0.0
+                    </div>
                 </div>
             </main>
         </body>`,
@@ -1490,6 +1814,7 @@ const pages = {
                 setEl('profile-year', 'innerText', d.year || '--');
                 setEl('drawer-name', 'innerText', d.name || '');
                 setEl('drawer-roll', 'innerText', d.roll || '');
+                setEl('about-app-version', 'innerText', `SITAM Campus ERP v${window.APP_VERSION || '1.0.0'}`);
 
                 const detailsEl = $('profile-details');
                 if (!detailsEl) return;
@@ -1959,7 +2284,23 @@ async function toggleUnit(unitId, subIdx, unitIdx, btn) {
 // ============================================================
 const router = {
     app: document.getElementById('app'),
+    scrollPositions: {},
     navigate(hash) { window.location.hash = hash; },
+    get routes() {
+        return {
+            '/login': pages.login,
+            '/dashboard': pages.dashboard,
+            '/attendance': pages.attendance,
+            '/marks': pages.marks,
+            '/fees': pages.fees,
+            '/profile': pages.profile,
+            '/syllabus': pages.syllabus,
+            '/timetable': pages.timetable,
+            '/assignments': pages.assignments,
+            '/notifications': pages.notifications,
+            '/exams': pages.exams
+        };
+    },
     handle() {
         let hash = (window.location.hash || '').replace('#', '') || '/login';
         
@@ -1971,6 +2312,29 @@ const router = {
 
         if (!state.token && hash !== '/login') return this.navigate('/login');
         if (state.token && hash === '/login') return this.navigate('/dashboard');
+
+        // Save scroll position of the route we are LEAVING
+        if (router.currentRoute) {
+            router.scrollPositions[router.currentRoute] = window.scrollY;
+        }
+
+        // Navigation history tracking
+        const currentHash = hash;
+        if (currentHash !== '/login') {
+            if (!state.navHistory) {
+                state.navHistory = [];
+            }
+            const len = state.navHistory.length;
+            if (len > 1 && state.navHistory[len - 2] === currentHash) {
+                state.navHistory.pop();
+            } else {
+                if (state.navHistory[len - 1] !== currentHash) {
+                    state.navHistory.push(currentHash);
+                }
+            }
+        }
+
+        router.currentRoute = hash;
 
         const route = hash.slice(1) || 'dashboard';
         const page = pages[route] || pages.dashboard;
@@ -1989,6 +2353,12 @@ const router = {
             this.app.innerHTML = page.render();
             this.app.style.opacity = '1';
             if (page.afterRender) page.afterRender();
+
+            // Restore scroll position
+            setTimeout(() => {
+                const savedPos = router.scrollPositions[hash] || 0;
+                window.scrollTo(0, savedPos);
+            }, 100);
         }, 150);
     }
 };
@@ -2061,11 +2431,37 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Native Back-Button interceptor
             App.addListener('backButton', () => {
-                const h = window.location.hash;
-                if (h && h !== '#/dashboard' && h !== '#/login') {
-                    router.navigate('/dashboard');
-                } else {
+                // 1. Close drawer if open
+                const drawer = $('nav-drawer');
+                if (drawer && !drawer.classList.contains('-translate-x-full')) {
+                    closeDrawer();
+                    return;
+                }
+
+                // 2. Close payment overlay if open
+                const overlay = $('payment-overlay');
+                if (overlay && !overlay.classList.contains('hidden')) {
+                    if (state.paymentTimeout) clearTimeout(state.paymentTimeout);
+                    overlay.classList.remove('opacity-100');
+                    setTimeout(() => overlay.classList.add('hidden'), 300);
+                    return;
+                }
+
+                // 3. Handle navigation history stack
+                if (state.navHistory && state.navHistory.length > 1) {
+                    state.navHistory.pop();
+                    const prevRoute = state.navHistory[state.navHistory.length - 1];
+                    router.navigate(prevRoute);
+                    return;
+                }
+
+                // 4. Double press back button within 2 seconds to exit
+                const now = Date.now();
+                if (state._lastBackPress && (now - state._lastBackPress < 2000)) {
                     App.exitApp();
+                } else {
+                    state._lastBackPress = now;
+                    showToast('Press back again to exit', 'info', 2000);
                 }
             });
         }

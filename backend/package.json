@@ -9,6 +9,8 @@
     "db:validate": "node scripts/validate-db.js",
     "db:migrate": "npx prisma migrate deploy",
     "db:generate": "npx prisma generate",
+    "db:setup-pg": "node scripts/use-pg.js && npx prisma generate",
+    "db:setup-sqlite": "node scripts/use-sqlite.js && npx prisma generate",
     "load:api": "node scripts/load-test-api.js",
     "load:ws": "node scripts/load-test-websocket.js",
     "chaos": "node scripts/chaos-test.js",

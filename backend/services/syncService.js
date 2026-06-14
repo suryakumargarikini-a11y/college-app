@@ -1,8 +1,7 @@
-const { ERPScraper } = require('./erpScraper');
-const puppeteerService = require('./puppeteerService');
 const logger = require('./logger');
 // Provider abstraction — provider can be swapped via ERP_PROVIDER env var
 const ProviderFactory = require('../providers/ProviderFactory');
+const ProviderSessionManager = require('../providers/session/ProviderSessionManager');
 const cacheService = require('./cacheService');
 const {
     studentRepository,
@@ -41,16 +40,94 @@ class SyncService {
             'dependency.category': 'relational_db',
             'dependency.criticality': 'high'
         }, async (span) => {
-            logger.info(`[SyncService] Starting transactional DB sync for Student: ${userId}`);
-        
-        try {
-            // 1. Parse all data using our robust ERPScraper
-            const profile = ERPScraper.parseProfile(scrapedData);
-            profile.password = password; // Ensure we cache credentials safely for re-login
+            try {
+                logger.info(`[SyncService] Starting transactional DB sync for Student: ${userId}`);
 
-            const marksData = ERPScraper.parseMarks(scrapedData);
-            const feesData = ERPScraper.parseFees(scrapedData);
-            const assignmentsData = ERPScraper.parseAssignments(scrapedData);
+            const prisma = require('./dbService');
+            const studentBefore = await prisma.student.findUnique({
+                where: { userId },
+                include: { fees: true }
+            });
+
+            // 1. Parse all data using our robust ERPScraper or read from normalized provider sync payload
+            let profile, marksData, feesData, assignmentsData;
+
+            if (scrapedData && scrapedData._normalizedSync) {
+                const norm = scrapedData._normalizedSync;
+                profile = {
+                    name: norm.profile?.name || 'Student',
+                    roll: norm.profile?.roll || '',
+                    admissionNo: norm.profile?.admissionNo || '',
+                    program: norm.profile?.program || '',
+                    branch: norm.profile?.branch || '',
+                    semester: norm.profile?.semester || '',
+                    year: norm.profile?.year || '',
+                    section: norm.profile?.section || 'A',
+                    gender: norm.profile?.gender || '',
+                    dob: norm.profile?.dob || '',
+                    email: norm.profile?.email || '',
+                    phone: norm.profile?.phone || '',
+                    fatherName: norm.profile?.fatherName || '',
+                    motherName: norm.profile?.motherName || '',
+                    fatherMobile: norm.profile?.fatherMobile || '',
+                    hostel: norm.profile?.hostel || '',
+                    roomNo: norm.profile?.roomNo || '',
+                    cgpa: norm.profile?.cgpa || '--',
+                    percentage: norm.profile?.percentage || '--',
+                    address: norm.profile?.address || ''
+                };
+                profile.password = password; // Ensure we cache credentials safely for re-login
+
+                marksData = {
+                    subjects: norm.marks?.subjects.map(s => ({
+                        name: s.subjectCode,
+                        grade: s.grade,
+                        credits: s.credits,
+                        type: s.type
+                    })) || [],
+                    attendance: norm.attendance?.records.map(a => ({
+                        name: a.subjectCode,
+                        held: a.held,
+                        attended: a.attended,
+                        total: a.held,
+                        percentage: a.percentage,
+                        status: a.status
+                    })) || [],
+                    overallAttendance: norm.attendance?.overallPercentage || '--'
+                };
+
+                feesData = {
+                    totalAmount: norm.fees?.totalAmount || '--',
+                    paidAmount: norm.fees?.paidAmount || '--',
+                    dueAmount: norm.fees?.dueAmount || '--',
+                    totalDue: norm.fees?.dueAmount || '--',
+                    paidProgress: norm.fees?.paidProgress || 0,
+                    transactions: norm.fees?.transactions.map(t => ({
+                        title: t.title,
+                        amount: t.amount,
+                        paid: t.paid,
+                        due: t.due,
+                        ref: t.ref,
+                        date: t.date,
+                        icon: t.icon,
+                        status: t.status,
+                        isRefund: t.isRefund
+                    })) || []
+                };
+
+                assignmentsData = {
+                    list: norm.assignments?.list.map(a => ({
+                        title: a.title,
+                        subject: a.subject,
+                        status: a.status,
+                        date: a.date,
+                        icon: a.icon,
+                        color: a.color
+                    })) || []
+                };
+            } else {
+                throw new Error('[SyncService] Missing normalized sync payload. All sync operations must route through active provider.');
+            }
 
             // 2. Transactionally update student profile
             const student = await studentRepository.upsertStudent(userId, profile);
@@ -208,6 +285,61 @@ class SyncService {
             // Invalidate attendance cache so that the next request fetches latest synchronized data
             cacheService.invalidate(userId);
 
+            const studentAfter = await prisma.student.findUnique({
+                where: { userId },
+                include: { fees: true }
+            });
+
+            if (studentBefore && studentAfter) {
+                const socketService = require('./socketService');
+                const firebaseService = require('./firebaseService');
+
+                // Check overall attendance changes
+                if (studentBefore.percentage !== studentAfter.percentage) {
+                    socketService.sendToUser(userId, 'attendance_update', {
+                        overall: profile.percentage || '0%',
+                        subjects: marksData.attendance
+                    });
+                    logger.info(`[SyncService] Live Attendance changes detected! Sent WebSocket update for ${userId}`);
+                    firebaseService.sendPushNotification(
+                        userId,
+                        'SITAM Attendance Alert',
+                        `Your overall attendance has updated to ${profile.percentage || '0%'}.`,
+                        { route: '/attendance' }
+                    );
+                }
+
+                // Check marks changes
+                if (studentBefore.cgpa !== studentAfter.cgpa) {
+                    socketService.sendToUser(userId, 'marks_update', {
+                        cgpa: profile.cgpa,
+                        sgpa: marksData.sgpa,
+                        subjects: marksData.subjects
+                    });
+                    logger.info(`[SyncService] Live Marks changes detected! Sent WebSocket update for ${userId}`);
+                    firebaseService.sendPushNotification(
+                        userId,
+                        'SITAM Academic Results Update',
+                        `New academic semester results have been published. Current CGPA: ${profile.cgpa || '--'}`,
+                        { route: '/marks' }
+                    );
+                }
+
+                // Check fees changes
+                const beforeDue = studentBefore.fees.reduce((acc, f) => acc + f.dueAmount, 0);
+                const afterDue = studentAfter.fees.reduce((acc, f) => acc + f.dueAmount, 0);
+                if (beforeDue !== afterDue) {
+                    socketService.sendToUser(userId, 'fees_update', feesData);
+                    logger.info(`[SyncService] Live Fees changes detected! Sent WebSocket update for ${userId}`);
+                    firebaseService.sendPushNotification(
+                        userId,
+                        'SITAM Fee Statement Update',
+                        `Your student balance ledger has been modified. Outstanding due: ${feesData.dueAmount || '₹0'}`,
+                        { route: '/fees' }
+                    );
+                }
+            }
+
             logger.info(`[SyncService] Transaction completed. Data synced successfully for Student: ${userId}`);
             return student;
 
@@ -223,41 +355,7 @@ class SyncService {
 
     // Synchronous execution of full Puppeteer login and scraping sequence (awaits database commits)
     async runFullSync(userId, password) {
-        const { traceSpan } = require('../telemetry/tracing');
-        return traceSpan('sync.full', {
-            'user.id': userId,
-            'sync.type': 'full'
-        }, async (span) => {
-            let student = await studentRepository.findByUserId(userId);
-            if (student && student.isSyncing) {
-                logger.info(`[SyncService] Sync is already active for student ${userId}. Skipping.`);
-                return student;
-            }
-
-            const studentId = student ? student.id : null;
-            logger.info(`[SyncService] Starting full Puppeteer sync process for: ${userId}`);
-
-            if (studentId) {
-                await studentRepository.updateSyncStatus(studentId, true);
-                await auditLogRepository.log(studentId, 'SYNC_START', `Synchronization initiated for student ${userId}`);
-            }
-
-            try {
-                // Run Puppeteer scraping (takes 10-20 seconds)
-                const { cookieString, scrapedData } = await puppeteerService.login(userId, password);
-
-                // Transactional insertion into DB
-                const updatedStudent = await this.syncStudentData(studentId, userId, password, scrapedData);
-                return updatedStudent;
-            } catch (err) {
-                logger.error(`[SyncService] Synchronous sync failed for student ${userId}: ${err.message}`);
-                if (studentId) {
-                    await studentRepository.updateSyncStatus(studentId, false);
-                    await auditLogRepository.log(studentId, 'SYNC_FAILURE', `Sync execution failed: ${err.message}`);
-                }
-                throw err;
-            }
-        });
+        return this.runProviderSync(userId, password, true);
     }
 
     // Asynchronous background runner to fetch latest ERP data and trigger sync transaction
@@ -280,13 +378,14 @@ class SyncService {
      *
      * @param {string} userId
      * @param {string} password
+     * @param {boolean} forceFullSync
      * @returns {Promise<object>} Updated student DB record
      */
-    async runProviderSync(userId, password) {
+    async runProviderSync(userId, password, forceFullSync = false) {
         const { traceSpan } = require('../telemetry/tracing');
         return traceSpan('sync.provider.full', {
             'user.id':       userId,
-            'sync.type':     'provider-full',
+            'sync.type':     forceFullSync ? 'provider-full' : 'provider-incremental',
             'provider.name': ProviderFactory.getProviderName()
         }, async (span) => {
             let student = await studentRepository.findByUserId(userId);
@@ -302,11 +401,29 @@ class SyncService {
             }
 
             try {
-                logger.info(`[SyncService] Running provider sync for ${userId} via ${ProviderFactory.getProviderName()}`);
+                logger.info(`[SyncService] Running provider sync for ${userId} via ${ProviderFactory.getProviderName()} (forceFullSync: ${forceFullSync})`);
 
                 // Ask the provider to do the login + scrape/fetch
                 const provider = this.getProvider();
-                const syncResult = await provider.syncStudent(userId, password);
+                let syncResult;
+
+                let session = null;
+                if (!forceFullSync) {
+                    session = await ProviderSessionManager.acquire(userId);
+                }
+
+                if (session && typeof provider.syncIncremental === 'function') {
+                    logger.info(`[SyncService] Found active session for ${userId}. Attempting incremental sync.`);
+                    try {
+                        syncResult = await provider.syncIncremental(userId, password, session);
+                    } catch (incErr) {
+                        logger.warn(`[SyncService] Incremental sync failed for ${userId}: ${incErr.message}. Falling back to full sync.`);
+                        syncResult = await provider.syncStudent(userId, password);
+                    }
+                } else {
+                    logger.info(`[SyncService] Performing full sync for ${userId}`);
+                    syncResult = await provider.syncStudent(userId, password);
+                }
 
                 // Build a scrapedData-compatible object from normalized result
                 // so we can reuse the existing syncStudentData() persistence logic

@@ -21,6 +21,7 @@ class IncidentManager {
   constructor(options = {}) {
     this.filePath = options.filePath || INCIDENTS_FILE_PATH;
     this.postmortemGenerator = options.postmortemGenerator || null;
+    this.incidentCommandSystem = options.incidentCommandSystem || null;
     this.metrics = options.metrics || null;
     this._loadOrCreateIncidents();
     this._initMetrics();
@@ -29,11 +30,39 @@ class IncidentManager {
   _initMetrics() {
     if (!this.metrics) return;
     try {
-      const { Gauge } = require('prom-client');
+      const { Gauge, Counter } = require('prom-client');
       this.activeIncidentsGauge = new Gauge({
         name: 'incident_active_count',
         help: 'Total number of active (unresolved) incidents',
         labelNames: ['severity'],
+        registers: [this.metrics]
+      });
+
+      this.createdIncidentsCounter = new Counter({
+        name: 'incident_created_total',
+        help: 'Total number of SRE incidents created',
+        labelNames: ['severity'],
+        registers: [this.metrics]
+      });
+
+      this.resolvedIncidentsCounter = new Counter({
+        name: 'incident_resolved_total',
+        help: 'Total number of SRE incidents resolved',
+        labelNames: ['severity'],
+        registers: [this.metrics]
+      });
+
+      this.incidentMttaGauge = new Gauge({
+        name: 'incident_mtta_seconds',
+        help: 'Mean Time to Acknowledge active/recent incidents in seconds',
+        labelNames: ['incident_id'],
+        registers: [this.metrics]
+      });
+
+      this.incidentMttrGauge = new Gauge({
+        name: 'incident_mttr_seconds',
+        help: 'Mean Time to Resolve resolved incidents in seconds',
+        labelNames: ['incident_id'],
         registers: [this.metrics]
       });
     } catch (err) {
@@ -113,7 +142,22 @@ class IncidentManager {
     };
 
     this.incidents.push(incident);
+    
+    if (this.createdIncidentsCounter) {
+      this.createdIncidentsCounter.labels(severity).inc();
+    }
+
     this._saveIncidents();
+
+    if (this.incidentCommandSystem) {
+      try {
+        this.incidentCommandSystem.assignRole(incidentId, 'COMMANDER', 'Auto Commander', 'System');
+        this.incidentCommandSystem.assignRole(incidentId, 'OPS_LEAD', 'Auto Ops Lead', 'System');
+        this.incidentCommandSystem.assignRole(incidentId, 'COMMS_LEAD', 'Auto Comms Lead', 'System');
+      } catch (err) {
+        logger.error(`[IncidentManager] ICS role auto-assignment failed: ${err.message}`);
+      }
+    }
 
     try {
       sreService.captureForensicSnapshot(incidentId);
@@ -136,8 +180,23 @@ class IncidentManager {
       actor
     });
 
+    if (status === 'INVESTIGATING' && !incident.acknowledgedAt) {
+      incident.acknowledgedAt = new Date().toISOString();
+      const mttaSec = (new Date(incident.acknowledgedAt).getTime() - new Date(incident.createdAt).getTime()) / 1000;
+      if (this.incidentMttaGauge) {
+        this.incidentMttaGauge.labels(incidentId).set(mttaSec);
+      }
+    }
+
     if (status === 'RESOLVED') {
       incident.resolvedAt = new Date().toISOString();
+      if (this.resolvedIncidentsCounter) {
+        this.resolvedIncidentsCounter.labels(incident.severity).inc();
+      }
+      const mttrSec = (new Date(incident.resolvedAt).getTime() - new Date(incident.createdAt).getTime()) / 1000;
+      if (this.incidentMttrGauge) {
+        this.incidentMttrGauge.labels(incidentId).set(mttrSec);
+      }
     }
 
     this._saveIncidents();
@@ -205,6 +264,14 @@ class IncidentManager {
       event: `Incident resolved and closed. Resolution: ${resolution}. Root cause: ${rootCause}`,
       actor
     });
+
+    if (this.resolvedIncidentsCounter) {
+      this.resolvedIncidentsCounter.labels(incident.severity).inc();
+    }
+    const mttrSec = (new Date(incident.resolvedAt).getTime() - new Date(incident.createdAt).getTime()) / 1000;
+    if (this.incidentMttrGauge) {
+      this.incidentMttrGauge.labels(incidentId).set(mttrSec);
+    }
 
     this._saveIncidents();
 

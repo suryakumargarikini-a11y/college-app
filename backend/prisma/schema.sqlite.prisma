@@ -1,0 +1,228 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Student {
+  id            String             @id @default(uuid())
+  userId        String             @unique // Roll No / Username (E.g. 25B61A0596)
+  password      String
+  name          String
+  roll          String
+  roll_number   String?            @default("") // Campus schema alignment
+  program       String
+  branch        String
+  semester      String
+  section       String?            @default("A") // Section assignment
+  year          String
+  gender        String
+  dob           String
+  email         String
+  phone         String
+  fatherName    String
+  motherName    String
+  fatherMobile  String
+  hostel        String
+  roomNo        String
+  cgpa          String
+  percentage    String
+  address       String
+  lastSync      DateTime?          // Track when this student was last sync-scraped
+  isSyncing     Boolean            @default(false)
+  marks         MarkRecord[]
+  attendance    AttendanceRecord[]
+  timetable     TimetableSlot[]
+  assignments   Assignment[]
+  notifications Notification[]
+  auditLogs     AuditLog[]
+  fees          Fee[]
+  fcmTokens     FcmToken[]
+}
+
+model Subject {
+  id         String             @id @default(uuid())
+  code       String             @unique // E.g., CS-402, CS-402-LAB
+  name       String
+  credits    String
+  semester   String
+  branch     String?            @default("") // Course mapping alignment
+  marks      MarkRecord[]
+  attendance AttendanceRecord[]
+  timetable  TimetableSlot[]
+  syllabus   SyllabusUnit[]
+}
+
+model MarkRecord {
+  id        String   @id @default(uuid())
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subjectId String
+  subject   Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  grade     String   // A+, B, Absent, Backlog
+  credits   String
+  type      String   // Core / Lab
+  marks     Int      @default(0)
+  maxMarks  Int      @default(100)
+  status    String   // Pass, Fail, Absent, Backlog
+
+  @@index([studentId])
+  @@index([subjectId])
+  @@index([studentId, subjectId])
+}
+
+model AttendanceRecord {
+  id         String   @id @default(uuid())
+  studentId  String
+  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subjectId  String
+  subject    Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  held       Int
+  attended   Int
+  percentage Float    // (attended / held) * 100
+  status     String   // Excellent, Good, Acceptable, Warning (Defaulter < 75%)
+  date       String?  @default("") // Date of mapped record
+
+  @@index([studentId])
+  @@index([subjectId])
+  @@index([studentId, subjectId])
+}
+
+model Fee {
+  id            String   @id @default(uuid())
+  studentId     String
+  student       Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  semester      String
+  feeType       String   // e.g. Tuition Fee, Hostel Fee
+  amount        Float
+  paidAmount    Float
+  dueAmount     Float
+  dueDate       String   // due date string
+  paymentStatus String   // Paid, Unpaid, Partial, Completed, Due
+
+  @@index([studentId])
+  @@index([studentId, semester])
+}
+
+model TimetableSlot {
+  id          String   @id @default(uuid())
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subjectId   String
+  subject     Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  day         String   // Monday, Tuesday, etc.
+  period      String   // 1, 2, 3, etc.
+  room        String
+  section     String
+  facultyName String
+  time        String   // E.g., 09:00 AM
+
+  @@index([studentId])
+  @@index([subjectId])
+  @@index([studentId, day])
+}
+
+model SyllabusUnit {
+  id         String   @id @default(uuid())
+  subjectId  String
+  subject    Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  unitNumber Int
+  title      String
+  content    String   // Unit syllabus text
+  completed  Boolean  @default(false)
+
+  @@index([subjectId])
+}
+
+model Assignment {
+  id        String   @id @default(uuid())
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  title     String
+  subject   String
+  status    String   // Pending, Submitted
+  date      String   // Due date text
+
+  @@index([studentId])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  date      String
+  isRead    Boolean  @default(false)
+
+  @@index([studentId])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  studentId String?
+  student   Student? @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  action    String   // E.g., LOGIN, SYNC_START, SYNC_SUCCESS, SYNC_FAILURE
+  details   String
+  timestamp DateTime @default(now())
+
+  @@index([studentId])
+}
+
+model FcmToken {
+  id         String   @id @default(uuid())
+  studentId  String
+  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  token      String   @unique
+  deviceType String?  @default("android")
+  createdAt  DateTime @default(now())
+
+  @@index([studentId])
+}
+
+model SreAuditChain {
+  id            String   @id @default(uuid())
+  index         Int      @unique
+  timestamp     DateTime @default(now())
+  actionType    String
+  payload       String   // JSON string
+  prevBlockHash String
+  blockHash     String
+}
+
+model SreQuorumVote {
+  id           String   @id @default(uuid())
+  proposalId   String   @unique
+  timestamp    DateTime @default(now())
+  actionType   String
+  payload      String   // JSON string
+  status       String   // PENDING, APPROVED, EXPIRED, REJECTED
+  voters       String   // Comma-separated list of nodes
+  votesFor     Int      @default(0)
+  votesAgainst Int      @default(0)
+}
+
+model SreTenantQuota {
+  id           String   @id @default(uuid())
+  userId       String   @unique
+  riskScore    Float    @default(0.0)
+  activeQuotas Int      @default(0)
+  maxConcur    Int      @default(1)
+  isThrottled  Boolean  @default(false)
+  updatedAt    DateTime @updatedAt
+}
+
+model SreIncident {
+  id           String   @id @default(uuid())
+  level        String   // INFO, WARNING, HIGH, CRITICAL, EMERGENCY
+  category     String   // API, Queue, Worker, DB, etc.
+  status       String   // ACTIVE, RESOLVED, ESCALATED
+  description  String
+  rootCause    String?  @default("")
+  durationMs   Int      @default(0)
+  traceRef     String?  @default("")
+  timestamp    DateTime @default(now())
+}

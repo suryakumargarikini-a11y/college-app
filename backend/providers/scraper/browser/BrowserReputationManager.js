@@ -22,8 +22,10 @@
 
 const logger = require('../../../services/logger');
 
-const QUARANTINE_THRESHOLD = 40;
-const RECYCLE_THRESHOLD    = 60;
+const RETIRE_THRESHOLD     = 0;
+const QUARANTINE_THRESHOLD = 25;
+const DEGRADED_THRESHOLD   = 50;
+const WARNING_THRESHOLD    = 75;
 
 class BrowserReputationManager {
     constructor() {
@@ -74,7 +76,7 @@ class BrowserReputationManager {
     recordCrash(browserId) {
         this._mutate(browserId, r => {
             r.crashEvents++;
-            r.trustScore = Math.max(0, r.trustScore - 20);
+            r.trustScore = Math.max(0, r.trustScore - 35);
         });
         this._evaluate(browserId, 'crash');
     }
@@ -85,7 +87,7 @@ class BrowserReputationManager {
     recordTimeout(browserId) {
         this._mutate(browserId, r => {
             r.timeoutEvents++;
-            r.trustScore = Math.max(0, r.trustScore - 8);
+            r.trustScore = Math.max(0, r.trustScore - 15);
         });
         this._evaluate(browserId, 'timeout');
     }
@@ -149,7 +151,7 @@ class BrowserReputationManager {
      * Is a browser currently quarantined?
      */
     isQuarantined(browserId) {
-        return this._quarantined.has(browserId);
+        return this.getTrustScore(browserId) <= QUARANTINE_THRESHOLD;
     }
 
     /**
@@ -157,7 +159,14 @@ class BrowserReputationManager {
      */
     shouldRecycleAfterJob(browserId) {
         const score = this.getTrustScore(browserId);
-        return score < RECYCLE_THRESHOLD && !this._quarantined.has(browserId);
+        return score <= DEGRADED_THRESHOLD;
+    }
+
+    /**
+     * Is a browser retired?
+     */
+    isRetired(browserId) {
+        return this.getTrustScore(browserId) <= RETIRE_THRESHOLD;
     }
 
     /**
@@ -178,7 +187,7 @@ class BrowserReputationManager {
      * @returns {string|null}
      */
     selectHealthiest(browserIds) {
-        const eligible = browserIds.filter(id => !this.isQuarantined(id));
+        const eligible = browserIds.filter(id => !this.isQuarantined(id) && !this.isRetired(id));
         if (eligible.length === 0) return null;
 
         return eligible.reduce((best, id) => {
@@ -225,16 +234,25 @@ class BrowserReputationManager {
 
         const score = record.trustScore;
 
-        if (score < QUARANTINE_THRESHOLD && !this._quarantined.has(browserId)) {
-            this._quarantined.add(browserId);
+        if (score <= RETIRE_THRESHOLD) {
+            record.state = 'retired';
+            logger.warn(`[BrowserReputation] Browser RETIRED: ${browserId} (trust: ${score}, event: ${event})`);
+        } else if (score <= QUARANTINE_THRESHOLD) {
+            if (!this._quarantined.has(browserId)) {
+                this._quarantined.add(browserId);
+                this._quarantines++;
+                this._recordMetrics('quarantine');
+            }
             record.state = 'quarantined';
-            this._quarantines++;
             logger.warn(`[BrowserReputation] Browser QUARANTINED: ${browserId} (trust: ${score}, event: ${event})`);
-            this._recordMetrics('quarantine');
-
-        } else if (score < RECYCLE_THRESHOLD && record.state === 'healthy') {
+        } else if (score <= DEGRADED_THRESHOLD) {
             record.state = 'degraded';
-            logger.warn(`[BrowserReputation] Browser DEGRADED: ${browserId} (trust: ${score})`);
+            logger.warn(`[BrowserReputation] Browser DEGRADED: ${browserId} (trust: ${score}, event: ${event})`);
+        } else if (score <= WARNING_THRESHOLD) {
+            record.state = 'warning';
+            logger.warn(`[BrowserReputation] Browser WARNING: ${browserId} (trust: ${score}, event: ${event})`);
+        } else {
+            record.state = 'healthy';
         }
 
         this._recordMetrics('score_update', browserId, score);

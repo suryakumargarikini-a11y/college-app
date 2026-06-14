@@ -13,12 +13,48 @@ const path = require('path');
 const browserPool = require('./browserPool');
 const circuitBreaker = require('./circuitBreaker');
 const logger = require('./logger');
+const { traceSpan } = require('../telemetry/tracing');
+const maintDetector = require('../providers/scraper/maintenance/ERPMaintenanceDetector');
+const antiBotDetector = require('../providers/scraper/antibot/AntiBotDetector');
+const selectorOptimizer = require('../providers/scraper/selectors/AdaptiveSelectorOptimizer');
 
 class PuppeteerService {
     constructor() {
         this.baseUrl = process.env.ERP_BASE_URL;
         this.siteBase = this.baseUrl ? this.baseUrl.split('/SATYA')[0] : '';
         this.debugDir = path.join(__dirname, '..');
+    }
+
+    async _resolveAndInteract(page, selectorKey, action = 'wait', actionArgs = [], timeout = 10000) {
+        const chain = await selectorOptimizer.getOptimizedChain(selectorKey);
+        let lastErr = null;
+        for (let i = 0; i < chain.length; i++) {
+            const selector = chain[i];
+            try {
+                // Wait for the selector to be present in the DOM
+                await page.waitForSelector(selector, { timeout: Math.max(1000, Math.floor(timeout / chain.length)) });
+                
+                if (action === 'click') {
+                    await page.click(selector);
+                } else if (action === 'type') {
+                    await page.type(selector, ...actionArgs);
+                }
+                
+                // Record success outcome
+                await selectorOptimizer.recordOutcome(selectorKey, i, true, page.url());
+                return selector;
+            } catch (err) {
+                lastErr = err;
+                // Record failure outcome
+                await selectorOptimizer.recordOutcome(selectorKey, i, false, page.url());
+            }
+        }
+        const { SelectorDriftError } = require('../providers/errors');
+        throw new SelectorDriftError(`Failed to resolve selector for key: ${selectorKey}`, {
+            providerName: 'sitam-scraper',
+            operationName: `resolve:${selectorKey}`,
+            selectorAttempts: chain
+        });
     }
 
     _saveDebug(name, html) {
@@ -47,20 +83,21 @@ class PuppeteerService {
         } catch (_) {}
     }
 
-    async _waitForContent(page, divId, timeout = 15000, requestId = 'unknown') {
+    async _waitForContent(page, selectorKey, timeout = 15000, requestId = 'unknown') {
         try {
+            const selector = await this._resolveAndInteract(page, selectorKey, 'wait', [], timeout);
             await page.waitForFunction(
-                (id) => {
-                    const el = document.getElementById(id);
+                (sel) => {
+                    const el = document.querySelector(sel);
                     return el && el.innerText.trim().length > 20;
                 },
                 { timeout },
-                divId
+                selector
             );
-            logger.info(`[Puppeteer] [${requestId}] Content loaded in #${divId}`);
+            logger.info(`[Puppeteer] [${requestId}] Content loaded in ${selectorKey} (${selector})`);
             return true;
         } catch (e) {
-            logger.warn(`[Puppeteer] [${requestId}] Timeout waiting for #${divId}`);
+            logger.warn(`[Puppeteer] [${requestId}] Timeout waiting for ${selectorKey}`);
             return false;
         }
     }
@@ -69,14 +106,14 @@ class PuppeteerService {
      * Login to the ERP and scrape all academic panels for a student.
      * Uses browser pool for reuse and circuit breaker for outage protection.
      */
-    async login(userId, password, requestId = 'unknown') {
+    async login(userId, password, requestId = 'unknown', recoveryPlan = null) {
         // Circuit breaker guard — fast-fail if ERP is known to be down
         return circuitBreaker.execute(async () => {
-            return this._loginWithPool(userId, password, requestId);
+            return this._loginWithPool(userId, password, requestId, recoveryPlan);
         }, requestId);
     }
 
-    async _loginWithPool(userId, password, requestId) {
+    async _loginWithPool(userId, password, requestId, recoveryPlan = null) {
         const startAcquire = Date.now();
         return traceSpan('puppeteer.erp.sync', {
             'user.id': userId,
@@ -89,8 +126,18 @@ class PuppeteerService {
             let browserId = null;
             let context = null;
             let page = null;
+            let scrapeError = null;
 
             try {
+                // ERPMaintenanceDetector check on cached state before browser launch
+                if (await maintDetector.isInMaintenanceWindow()) {
+                    const { ERPUnavailableError } = require('../providers/errors');
+                    throw new ERPUnavailableError('ERP is undergoing scheduled maintenance.', {
+                        providerName: 'sitam-scraper',
+                        operationName: 'login'
+                    });
+                }
+
                 logger.info(`[Puppeteer] [${requestId}] Acquiring browser from pool for: ${userId}`);
                 parentSpan.addEvent('browser_acquire_started');
 
@@ -121,18 +168,37 @@ class PuppeteerService {
                     const loginUrl = `${this.siteBase}/SATYA/Default.aspx`;
                     logger.info(`[Puppeteer] [${requestId}] Navigating to login: ${loginUrl}`);
                     await page.goto(loginUrl, { waitUntil: 'networkidle2', timeout: 30000 });
-                    await page.waitForSelector('#txtId2', { timeout: 10000 });
+                    
+                    // ERPMaintenanceDetector check on loaded page
+                    const maintResult = await maintDetector.detect(page);
+                    if (maintResult.detected) {
+                        const { ERPUnavailableError } = require('../providers/errors');
+                        throw new ERPUnavailableError(`ERP under maintenance: ${maintResult.message}`, {
+                            providerName: 'sitam-scraper',
+                            operationName: 'login'
+                        });
+                    }
 
-                    await page.click('#txtId2');
-                    await page.type('#txtId2', userId, { delay: 30 });
-                    await page.click('#txtPwd2');
-                    await page.type('#txtPwd2', password, { delay: 30 });
-                    await page.evaluate(() => document.getElementById('txtPwd2').blur());
+                    // AntiBotDetector challenge check
+                    await antiBotDetector.assertNoBotChallenge(page, { pageName: 'login', requestId });
+
+                    // Resolve selectors using AdaptiveSelectorOptimizer
+                    const usernameSel = await this._resolveAndInteract(page, 'LOGIN_USERNAME', 'click');
+                    await page.type(usernameSel, userId, { delay: 30 });
+                    
+                    const passwordSel = await this._resolveAndInteract(page, 'LOGIN_PASSWORD', 'click');
+                    await page.type(passwordSel, password, { delay: 30 });
+                    
+                    await page.evaluate((sel) => {
+                        const el = document.querySelector(sel);
+                        if (el) el.blur();
+                    }, passwordSel);
                     await new Promise(r => setTimeout(r, 500));
 
                     logger.info(`[Puppeteer] [${requestId}] Submitting login...`);
+                    const loginBtnSelector = await this._resolveAndInteract(page, 'LOGIN_BUTTON', 'wait');
                     await Promise.all([
-                        page.click('#imgBtn2'),
+                        page.click(loginBtnSelector),
                         page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 20000 })
                     ]).catch(e => logger.info(`[Puppeteer] [${requestId}] Nav note: ${e.message}`));
 
@@ -140,6 +206,10 @@ class PuppeteerService {
 
                     const pageUrl = page.url();
                     logger.info(`[Puppeteer] [${requestId}] Post-login URL: ${pageUrl}`);
+                    
+                    // Assert no bot challenge after login submit
+                    await antiBotDetector.assertNoBotChallenge(page, { pageName: 'login_post', requestId });
+
                     if (pageUrl.includes('Default.aspx')) {
                         throw new Error('Login failed — still on login page. Check credentials.');
                     }
@@ -159,100 +229,124 @@ class PuppeteerService {
 
                 // 1. Student name
                 try {
-                    const nameText = await page.evaluate(() => {
-                        const el = document.getElementById('lblUser');
+                    const selector = await this._resolveAndInteract(page, 'LOGGED_IN_INDICATOR', 'wait', [], 5000);
+                    const nameText = await page.evaluate((sel) => {
+                        const el = document.querySelector(sel);
                         return el ? el.textContent : '';
-                    });
+                    }, selector);
                     scrapedData.studentName = nameText.replace(/^Hi[\.\s]*/i, '').trim();
                     logger.info(`[Puppeteer] [${requestId}] Name: "${scrapedData.studentName}"`);
                 } catch (e) { scrapedData.studentName = userId; }
 
                 // 2. Profile
-                await traceSpan('puppeteer.erp.scrapeProfile', {
-                    'dependency.type': 'external',
-                    'dependency.name': 'sitam_erp',
-                    'dependency.category': 'academic_platform',
-                    'dependency.criticality': 'high'
-                }, async (profileSpan) => {
-                    try {
-                        logger.info(`[Puppeteer] [${requestId}] -> Profile page`);
-                        await page.goto(`${this.siteBase}/SATYA/Academics/StudentProfile.aspx`, { waitUntil: 'networkidle2', timeout: 30000 });
-                        await this._recordNavigationTimings(page, profileSpan, 'profile');
-                        let loaded = await this._waitForContent(page, 'divProfile', 15000, requestId);
-                        if (!loaded) {
-                            await page.evaluate(() => { if (typeof profileProcess === 'function') profileProcess(); else if (typeof _onShowClick === 'function') _onShowClick(); });
-                            await this._waitForContent(page, 'divProfile', 10000, requestId);
-                        }
-                        await new Promise(r => setTimeout(r, 2000));
-                        scrapedData.profileHtml = await page.evaluate(() => { const el = document.getElementById('divProfile'); return el ? el.innerHTML : ''; });
-                        logger.info(`[Puppeteer] [${requestId}] Profile: ${scrapedData.profileHtml.length} chars`);
-                        this._saveDebug('profile', scrapedData.profileHtml);
-                    } catch (e) { logger.error(`[Puppeteer] [${requestId}] Profile error: ${e.message}`); scrapedData.profileHtml = ''; }
-                });
+                if (!recoveryPlan || recoveryPlan.includes('profile')) {
+                    await traceSpan('puppeteer.erp.scrapeProfile', {
+                        'dependency.type': 'external',
+                        'dependency.name': 'sitam_erp',
+                        'dependency.category': 'academic_platform',
+                        'dependency.criticality': 'high'
+                    }, async (profileSpan) => {
+                        try {
+                            logger.info(`[Puppeteer] [${requestId}] -> Profile page`);
+                            await page.goto(`${this.siteBase}/SATYA/Academics/StudentProfile.aspx`, { waitUntil: 'networkidle2', timeout: 30000 });
+                            await antiBotDetector.assertNoBotChallenge(page, { pageName: 'profile', requestId });
+                            await this._recordNavigationTimings(page, profileSpan, 'profile');
+                            let loaded = await this._waitForContent(page, 'PROFILE_CONTAINER', 15000, requestId);
+                            if (!loaded) {
+                                await page.evaluate(() => { if (typeof profileProcess === 'function') profileProcess(); else if (typeof _onShowClick === 'function') _onShowClick(); });
+                                await this._waitForContent(page, 'PROFILE_CONTAINER', 10000, requestId);
+                            }
+                            await new Promise(r => setTimeout(r, 2000));
+                            const selector = await this._resolveAndInteract(page, 'PROFILE_CONTAINER', 'wait');
+                            scrapedData.profileHtml = await page.evaluate((sel) => { const el = document.querySelector(sel); return el ? el.innerHTML : ''; }, selector);
+                            logger.info(`[Puppeteer] [${requestId}] Profile: ${scrapedData.profileHtml.length} chars`);
+                            this._saveDebug('profile', scrapedData.profileHtml);
+                        } catch (e) { logger.error(`[Puppeteer] [${requestId}] Profile error: ${e.message}`); scrapedData.profileHtml = ''; }
+                    });
+                } else {
+                    logger.info(`[Puppeteer] [${requestId}] Skipping Profile scrape (not in recovery plan)`);
+                }
 
                 // 3. Marks + Attendance
-                await traceSpan('puppeteer.erp.scrapeMarks', {
-                    'dependency.type': 'external',
-                    'dependency.name': 'sitam_erp',
-                    'dependency.category': 'academic_platform',
-                    'dependency.criticality': 'high'
-                }, async (marksSpan) => {
-                    try {
-                        logger.info(`[Puppeteer] [${requestId}] -> Marks page`);
-                        await page.goto(`${this.siteBase}/SATYA/Academics/StudentMarksReport.aspx`, { waitUntil: 'networkidle2', timeout: 30000 });
-                        await this._recordNavigationTimings(page, marksSpan, 'marks');
-                        let loaded = await this._waitForContent(page, 'divMarks', 15000, requestId);
-                        if (!loaded) {
-                            await page.evaluate(() => { if (typeof GetMarksReport === 'function') GetMarksReport(); });
-                            await this._waitForContent(page, 'divMarks', 10000, requestId);
-                        }
-                        await new Promise(r => setTimeout(r, 2000));
-                        scrapedData.marksHtml = await page.evaluate(() => { const el = document.getElementById('divMarks'); return el ? el.innerHTML : ''; });
-                        logger.info(`[Puppeteer] [${requestId}] Marks: ${scrapedData.marksHtml.length} chars`);
-                        this._saveDebug('marks', scrapedData.marksHtml);
-                    } catch (e) { logger.error(`[Puppeteer] [${requestId}] Marks error: ${e.message}`); scrapedData.marksHtml = ''; }
-                });
+                if (!recoveryPlan || recoveryPlan.includes('marks')) {
+                    await traceSpan('puppeteer.erp.scrapeMarks', {
+                        'dependency.type': 'external',
+                        'dependency.name': 'sitam_erp',
+                        'dependency.category': 'academic_platform',
+                        'dependency.criticality': 'high'
+                    }, async (marksSpan) => {
+                        try {
+                            logger.info(`[Puppeteer] [${requestId}] -> Marks page`);
+                            await page.goto(`${this.siteBase}/SATYA/Academics/StudentMarksReport.aspx`, { waitUntil: 'networkidle2', timeout: 30000 });
+                            await antiBotDetector.assertNoBotChallenge(page, { pageName: 'marks', requestId });
+                            await this._recordNavigationTimings(page, marksSpan, 'marks');
+                            let loaded = await this._waitForContent(page, 'MARKS_CONTAINER', 15000, requestId);
+                            if (!loaded) {
+                                await page.evaluate(() => { if (typeof GetMarksReport === 'function') GetMarksReport(); });
+                                await this._waitForContent(page, 'MARKS_CONTAINER', 10000, requestId);
+                            }
+                            await new Promise(r => setTimeout(r, 2000));
+                            const selector = await this._resolveAndInteract(page, 'MARKS_CONTAINER', 'wait');
+                            scrapedData.marksHtml = await page.evaluate((sel) => { const el = document.querySelector(sel); return el ? el.innerHTML : ''; }, selector);
+                            logger.info(`[Puppeteer] [${requestId}] Marks: ${scrapedData.marksHtml.length} chars`);
+                            this._saveDebug('marks', scrapedData.marksHtml);
+                        } catch (e) { logger.error(`[Puppeteer] [${requestId}] Marks error: ${e.message}`); scrapedData.marksHtml = ''; }
+                    });
+                } else {
+                    logger.info(`[Puppeteer] [${requestId}] Skipping Marks scrape (not in recovery plan)`);
+                }
 
                 // 4. Fees
-                await traceSpan('puppeteer.erp.scrapeFees', {
-                    'dependency.type': 'external',
-                    'dependency.name': 'sitam_erp',
-                    'dependency.category': 'academic_platform',
-                    'dependency.criticality': 'high'
-                }, async (feesSpan) => {
-                    try {
-                        logger.info(`[Puppeteer] [${requestId}] -> Fees page`);
-                        await page.goto(`${this.siteBase}/SATYA/FeePayments/studentpayments.aspx`, { waitUntil: 'networkidle2', timeout: 30000 });
-                        await this._recordNavigationTimings(page, feesSpan, 'fees');
-                        let loaded = await this._waitForContent(page, 'divReport', 15000, requestId);
-                        if (!loaded) {
-                            await page.evaluate(() => { if (typeof _showReport === 'function') _showReport(); });
-                            await this._waitForContent(page, 'divReport', 10000, requestId);
-                        }
-                        await new Promise(r => setTimeout(r, 2000));
-                        scrapedData.feesHtml = await page.content();
-                        logger.info(`[Puppeteer] [${requestId}] Fees: ${scrapedData.feesHtml.length} chars`);
-                        this._saveDebug('fees', scrapedData.feesHtml);
-                    } catch (e) { logger.error(`[Puppeteer] [${requestId}] Fees error: ${e.message}`); scrapedData.feesHtml = ''; }
-                });
+                if (!recoveryPlan || recoveryPlan.includes('fees')) {
+                    await traceSpan('puppeteer.erp.scrapeFees', {
+                        'dependency.type': 'external',
+                        'dependency.name': 'sitam_erp',
+                        'dependency.category': 'academic_platform',
+                        'dependency.criticality': 'high'
+                    }, async (feesSpan) => {
+                        try {
+                            logger.info(`[Puppeteer] [${requestId}] -> Fees page`);
+                            await page.goto(`${this.siteBase}/SATYA/FeePayments/studentpayments.aspx`, { waitUntil: 'networkidle2', timeout: 30000 });
+                            await antiBotDetector.assertNoBotChallenge(page, { pageName: 'fees', requestId });
+                            await this._recordNavigationTimings(page, feesSpan, 'fees');
+                            let loaded = await this._waitForContent(page, 'FEES_CONTAINER', 15000, requestId);
+                            if (!loaded) {
+                                await page.evaluate(() => { if (typeof _showReport === 'function') _showReport(); });
+                                await this._waitForContent(page, 'FEES_CONTAINER', 10000, requestId);
+                            }
+                            await new Promise(r => setTimeout(r, 2000));
+                            scrapedData.feesHtml = await page.content();
+                            logger.info(`[Puppeteer] [${requestId}] Fees: ${scrapedData.feesHtml.length} chars`);
+                            this._saveDebug('fees', scrapedData.feesHtml);
+                        } catch (e) { logger.error(`[Puppeteer] [${requestId}] Fees error: ${e.message}`); scrapedData.feesHtml = ''; }
+                    });
+                } else {
+                    logger.info(`[Puppeteer] [${requestId}] Skipping Fees scrape (not in recovery plan)`);
+                }
 
                 // 5. Assignments
-                await traceSpan('puppeteer.erp.scrapeAssignments', {
-                    'dependency.type': 'external',
-                    'dependency.name': 'sitam_erp',
-                    'dependency.category': 'academic_platform',
-                    'dependency.criticality': 'high'
-                }, async (assignmentsSpan) => {
-                    try {
-                        logger.info(`[Puppeteer] [${requestId}] -> Assignments page`);
-                        await page.goto(`${this.siteBase}/SATYA/Academics/StudentAssignmentsReport.aspx`, { waitUntil: 'networkidle2', timeout: 30000 });
-                        await this._recordNavigationTimings(page, assignmentsSpan, 'assignments');
-                        await new Promise(r => setTimeout(r, 3000));
-                        scrapedData.assignmentsHtml = await page.content();
-                        logger.info(`[Puppeteer] [${requestId}] Assignments: ${scrapedData.assignmentsHtml.length} chars`);
-                        this._saveDebug('assignments', scrapedData.assignmentsHtml);
-                    } catch (e) { logger.error(`[Puppeteer] [${requestId}] Assignments error: ${e.message}`); scrapedData.assignmentsHtml = ''; }
-                });
+                if (!recoveryPlan || recoveryPlan.includes('assignments')) {
+                    await traceSpan('puppeteer.erp.scrapeAssignments', {
+                        'dependency.type': 'external',
+                        'dependency.name': 'sitam_erp',
+                        'dependency.category': 'academic_platform',
+                        'dependency.criticality': 'high'
+                    }, async (assignmentsSpan) => {
+                        try {
+                            logger.info(`[Puppeteer] [${requestId}] -> Assignments page`);
+                            await page.goto(`${this.siteBase}/SATYA/Academics/StudentAssignmentsReport.aspx`, { waitUntil: 'networkidle2', timeout: 30000 });
+                            await antiBotDetector.assertNoBotChallenge(page, { pageName: 'assignments', requestId });
+                            await this._recordNavigationTimings(page, assignmentsSpan, 'assignments');
+                            await this._resolveAndInteract(page, 'ASSIGNMENTS_CONTAINER', 'wait', [], 15000);
+                            await new Promise(r => setTimeout(r, 3000));
+                            scrapedData.assignmentsHtml = await page.content();
+                            logger.info(`[Puppeteer] [${requestId}] Assignments: ${scrapedData.assignmentsHtml.length} chars`);
+                            this._saveDebug('assignments', scrapedData.assignmentsHtml);
+                        } catch (e) { logger.error(`[Puppeteer] [${requestId}] Assignments error: ${e.message}`); scrapedData.assignmentsHtml = ''; }
+                    });
+                } else {
+                    logger.info(`[Puppeteer] [${requestId}] Skipping Assignments scrape (not in recovery plan)`);
+                }
 
                 const totalMs = Date.now() - startTime;
                 logger.info(`[Puppeteer] [${requestId}] SCRAPE COMPLETE in ${totalMs}ms — profile=${(scrapedData.profileHtml || '').length} marks=${(scrapedData.marksHtml || '').length} fees=${(scrapedData.feesHtml || '').length} assignments=${(scrapedData.assignmentsHtml || '').length}`);
@@ -260,13 +354,27 @@ class PuppeteerService {
                 return { cookieString, scrapedData };
 
             } catch (error) {
+                scrapeError = error;
+                // Check if the page we failed on is a maintenance page
+                if (page) {
+                    try {
+                        const maintResult = await maintDetector.detect(page);
+                        if (maintResult.detected) {
+                            const { ERPUnavailableError } = require('../providers/errors');
+                            throw new ERPUnavailableError(`ERP Maintenance: ${maintResult.message}`, {
+                                providerName: 'sitam-scraper',
+                                operationName: 'scrape_failure'
+                            });
+                        }
+                    } catch (_) {}
+                }
                 logger.error(`[Puppeteer] [${requestId}] Login/scrape FAILED: ${error.message}`, { stack: error.stack });
                 throw error;
             } finally {
                 // CRITICAL: Always release the browser back to the pool
                 // This destroys the incognito context, wiping all cookies/storage
                 if (browserId !== null) {
-                    await browserPool.release(browserId, context, requestId);
+                    await browserPool.release(browserId, context, requestId, scrapeError);
                 }
             }
         });

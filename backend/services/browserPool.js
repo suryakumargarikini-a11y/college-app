@@ -15,6 +15,8 @@
 const puppeteer = require('puppeteer');
 const logger = require('./logger');
 const { traceSpan } = require('../telemetry/tracing');
+const repMgr = require('../providers/scraper/browser/BrowserReputationManager');
+const classifier = require('../providers/scraper/retry/AdaptiveRetryClassifier');
 
 const MAX_BROWSERS = parseInt(process.env.BROWSER_POOL_SIZE || '3', 10);
 const BROWSER_ACQUIRE_TIMEOUT_MS = parseInt(process.env.BROWSER_ACQUIRE_TIMEOUT_MS || '30000', 10);
@@ -118,11 +120,27 @@ class BrowserPool {
      * Release a browser back to the pool and destroy the used context.
      * Triggers the next waiting request if the queue is non-empty.
      */
-    async release(browserId, context, requestId = 'unknown') {
+    async release(browserId, context, requestId = 'unknown', error = null) {
         const entry = this.pool.find(b => b.id === browserId);
         if (!entry) {
             logger.warn(`[BrowserPool] Release called for unknown browserId: ${browserId}`);
             return;
+        }
+
+        // Record metrics and score in reputation manager
+        if (error) {
+            const strategy = classifier.classify(error);
+            const msg = error.message ? error.message.toLowerCase() : '';
+            const isCrash = msg.includes('target closed') || msg.includes('session closed') || msg.includes('browser closed') || msg.includes('navigating to about:blank');
+            if (strategy.action === 'quarantine' || error.constructor.name === 'CaptchaDetectedError') {
+                repMgr.recordCaptcha(browserId);
+            } else if (isCrash) {
+                repMgr.recordCrash(browserId);
+            } else {
+                repMgr.recordTimeout(browserId);
+            }
+        } else {
+            repMgr.recordSuccess(browserId);
         }
 
         // Destroy the incognito context — wipes all cookies, storage, and cache
@@ -142,22 +160,37 @@ class BrowserPool {
             logger.warn(`[BrowserPool] Context close error (non-fatal): ${err.message}`);
         }
 
-        entry.inUse = false;
-        entry.lastUsed = Date.now();
+        // Check if browser has degraded reputation and needs to be recycled
+        const shouldRecycle = repMgr.isQuarantined(browserId) || repMgr.shouldRecycleAfterJob(browserId) || repMgr.isRetired(browserId);
+        if (shouldRecycle) {
+            logger.warn(`[BrowserPool] Browser ${browserId} has degraded or retired reputation (trust: ${repMgr.getTrustScore(browserId)}). Recycling...`);
+            const idx = this.pool.findIndex(b => b.id === browserId);
+            if (idx >= 0) this.pool.splice(idx, 1);
+            repMgr.retire(browserId);
+            try { await entry.browser.close(); } catch (_) {}
+            
+            // Launch replacement browser to keep the pool size consistent
+            this._launchBrowser().catch(err => logger.error(`[BrowserPool] Replacement launch failed: ${err.message}`));
+        } else {
+            entry.inUse = false;
+            entry.lastUsed = Date.now();
+            logger.info(`[BrowserPool] Browser ${browserId} released back to pool.`);
+        }
         
         try {
             const metricsService = require('./metricsService');
             metricsService.metrics.browserPoolActiveContexts.set(this.getStatus().active);
         } catch (_) {}
 
-        logger.info(`[BrowserPool] Browser ${browserId} released back to pool.`);
-
         // Dequeue the next waiting request
         if (this.waitQueue.length > 0) {
-            const next = this.waitQueue.shift();
-            clearTimeout(next.timer);
-            logger.info(`[BrowserPool] Serving queued request`);
-            this._checkoutContext(entry, next.requestId).then(next.resolve).catch(next.reject);
+            const freeBrowser = this.pool.find(b => !b.inUse);
+            if (freeBrowser) {
+                const next = this.waitQueue.shift();
+                clearTimeout(next.timer);
+                logger.info(`[BrowserPool] Serving queued request`);
+                this._checkoutContext(freeBrowser, next.requestId).then(next.resolve).catch(next.reject);
+            }
         }
     }
 
@@ -241,10 +274,13 @@ class BrowserPool {
             });
 
             const entry = { id, browser, lastUsed: Date.now(), inUse: false };
+            repMgr.registerBrowser(id);
 
             // Detect unexpected browser disconnect — auto-recover
             browser.on('disconnected', async () => {
                 logger.error(`[BrowserPool] Browser ${id} disconnected unexpectedly. Removing from pool.`);
+                repMgr.recordCrash(id);
+                repMgr.retire(id);
                 
                 try {
                     const metricsService = require('./metricsService');
@@ -297,13 +333,14 @@ class BrowserPool {
             entry.inUse = true;
             entry.lastUsed = Date.now();
 
-            // Validate browser is still healthy
-            const healthy = await this._healthCheck(entry);
+            // Validate browser is still healthy and not quarantined or retired
+            const healthy = (await this._healthCheck(entry)) && !repMgr.isQuarantined(entry.id) && !repMgr.isRetired(entry.id);
             if (!healthy) {
-                logger.warn(`[BrowserPool] Browser ${entry.id} failed health check. Replacing...`);
+                logger.warn(`[BrowserPool] Browser ${entry.id} failed health check, is quarantined, or is retired. Replacing...`);
                 span.setAttribute('browser.healthy', false);
                 const idx = this.pool.findIndex(b => b.id === entry.id);
                 if (idx >= 0) this.pool.splice(idx, 1);
+                repMgr.retire(entry.id);
                 try { await entry.browser.close(); } catch (_) {}
                 const newEntry = await this._launchBrowser();
                 newEntry.inUse = true;

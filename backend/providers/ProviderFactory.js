@@ -54,11 +54,9 @@ class ProviderFactory {
         }
 
         if (!PROVIDER_MAP[name]) {
-            logger.warn(`[ProviderFactory] Unknown provider "${name}", falling back to "scraper"`);
-            this._cached = this._loadProvider('scraper');
-        } else {
-            this._cached = this._loadProvider(name);
+            throw new Error(`[ProviderFactory] Unsupported ERP provider: "${name}". Valid options: ${Object.keys(PROVIDER_MAP).join(', ')}`);
         }
+        this._cached = this._loadProvider(name);
 
         logger.info(`[ProviderFactory] Active ERP provider: "${this._cached.providerName}"`);
         return this._cached;

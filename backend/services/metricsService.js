@@ -325,6 +325,56 @@ function recordRequest(method, route, status, durationMs) {
     }
 }
 
+/**
+ * getSloStats — translate live Prometheus counters into SLO compliance data.
+ *
+ * Called every 30s by ObservabilityScheduler to feed real metric values into
+ * SLOFramework.calculateBudgets(). Returns a map keyed by SLO name with
+ * { success, total } pairs. Missing or zero-total SLOs fall back to the
+ * registry's stored historical values (handled inside SLOFramework).
+ *
+ * @returns {Record<string, { success: number, total: number }>}
+ */
+async function getSloStats() {
+    const stats = {};
+    try {
+        const rawMetrics = await register.getMetricsAsJSON();
+        const metricMap = {};
+        for (const m of rawMetrics) {
+            metricMap[m.name] = m;
+        }
+
+        // ── api_success_rate ─────────────────────────────────────────────────
+        const httpMetric = metricMap['http_requests_total'];
+        if (httpMetric) {
+            let success = 0;
+            let total = 0;
+            for (const v of httpMetric.values) {
+                const code = parseInt(v.labels.status, 10);
+                if (!isNaN(code)) {
+                    total += v.value;
+                    if (code < 500) success += v.value;
+                }
+            }
+            if (total > 0) stats['api_success_rate'] = { success, total };
+        }
+
+        // ── sync_success_rate ────────────────────────────────────────────────
+        const completedMetric = metricMap['bullmq_jobs_completed_total'];
+        const failedMetric    = metricMap['bullmq_jobs_failed_total'];
+        const completed = completedMetric ? (completedMetric.values[0] || {}).value || 0 : 0;
+        const failed    = failedMetric    ? (failedMetric.values[0]    || {}).value || 0 : 0;
+        const syncTotal = completed + failed;
+        if (syncTotal > 0) {
+            stats['sync_success_rate'] = { success: completed, total: syncTotal };
+            stats['queue_processing_rate'] = { success: completed, total: syncTotal };
+        }
+    } catch (err) {
+        logger.warn(`[Metrics] getSloStats error: ${err.message}`);
+    }
+    return stats;
+}
+
 module.exports = {
     register,
     snapshot,
@@ -333,6 +383,7 @@ module.exports = {
     adjustGauge,
     observe,
     recordRequest,
+    getSloStats,
     metrics: {
         httpRequestsTotal,
         httpRequestDuration,

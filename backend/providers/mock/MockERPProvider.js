@@ -19,6 +19,7 @@ const {
     ProfileRecord, AttendanceResult, MarksResult, FeeResult,
     AssignmentResult, ExamResult, NotificationRecord, TimetableRecord, SyncResult
 } = require('../../models/normalized');
+const providerMetrics = require('../telemetry/ProviderMetrics');
 
 const MOCK_DELAY_MS = process.env.MOCK_PROVIDER_DELAY ? parseInt(process.env.MOCK_PROVIDER_DELAY) : 200;
 
@@ -32,11 +33,14 @@ class MockERPProvider extends ERPProvider {
     }
 
     async login({ userId, password }) {
+        const startMs = Date.now();
         await delay(MOCK_DELAY_MS);
         if (password === 'wrong' || password === 'invalid') {
+            providerMetrics.recordOperation(this.providerName, 'login', 'error', Date.now() - startMs);
             const { AuthenticationError } = require('../errors');
             throw new AuthenticationError('Mock: Invalid credentials', { providerName: 'mock', operationName: 'login' });
         }
+        providerMetrics.recordOperation(this.providerName, 'login', 'success', Date.now() - startMs);
         return {
             sessionId:   `mock-session-${userId}-${Date.now()}`,
             cookies:     `mock_session=${userId}; Path=/; Secure; HttpOnly`,
@@ -136,42 +140,75 @@ class MockERPProvider extends ERPProvider {
     }
 
     async syncStudent(userId, password) {
-        await delay(MOCK_DELAY_MS * 2);
+        const startMs = Date.now();
+        try {
+            await delay(MOCK_DELAY_MS * 2);
 
-        // Reuse individual getters for DRY mock data
-        const [attendance, marks, fees, assignments, exams, notifications] = await Promise.all([
-            this.getAttendance(userId),
-            this.getMarks(userId),
-            this.getFees(userId),
-            this.getAssignments(userId),
-            this.getExams(userId),
-            this.getNotifications(userId)
-        ]);
+            // Reuse individual getters for DRY mock data
+            const [attendance, marks, fees, assignments, exams, notifications] = await Promise.all([
+                this.getAttendance(userId),
+                this.getMarks(userId),
+                this.getFees(userId),
+                this.getAssignments(userId),
+                this.getExams(userId),
+                this.getNotifications(userId)
+            ]);
 
-        const profile = ProfileRecord.create({
-            name:       'Test Student',
-            roll:       userId,
-            program:    'B.Tech',
-            branch:     'Computer Science & Engineering',
-            semester:   'IV/IV B.Tech II Semester',
-            section:    'A',
-            cgpa:       marks.cgpa,
-            percentage: marks.percentage
-        });
+            const profile = ProfileRecord.create({
+                name:       'Test Student',
+                roll:       userId,
+                program:    'B.Tech',
+                branch:     'Computer Science & Engineering',
+                semester:   'IV/IV B.Tech II Semester',
+                section:    'A',
+                cgpa:       marks.cgpa,
+                percentage: marks.percentage
+            });
 
-        return new SyncResult({
-            profile, marks, attendance, fees, assignments, notifications,
-            timetable:  [],
-            syncType:   'full',
-            provider:   this.providerName,
-            syncedAt:   new Date().toISOString()
-        });
+            const durationMs = Date.now() - startMs;
+            providerMetrics.recordOperation(this.providerName, 'syncStudent', 'success', durationMs);
+            providerMetrics.recordSyncSuccess(this.providerName, 'full');
+            providerMetrics.setHealthScore(this.providerName, 100);
+
+            return new SyncResult({
+                profile, marks, attendance, fees, assignments, notifications,
+                timetable:  [],
+                syncType:   'full',
+                provider:   this.providerName,
+                syncedAt:   new Date().toISOString()
+            });
+        } catch (err) {
+            const durationMs = Date.now() - startMs;
+            providerMetrics.recordOperation(this.providerName, 'syncStudent', 'error', durationMs);
+            providerMetrics.recordSyncFailure(this.providerName, 'full', err.constructor.name);
+            providerMetrics.setHealthScore(this.providerName, 50);
+            throw err;
+        }
     }
 
     async syncIncremental(userId, password, session) {
-        const result = await this.syncStudent(userId, password);
-        result.syncType = 'incremental';
-        return result;
+        const startMs = Date.now();
+        try {
+            const result = await this.syncStudent(userId, password);
+            result.syncType = 'incremental';
+            
+            const durationMs = Date.now() - startMs;
+            providerMetrics.recordOperation(this.providerName, 'syncIncremental', 'success', durationMs);
+            providerMetrics.recordSyncSuccess(this.providerName, 'incremental');
+            return result;
+        } catch (err) {
+            const durationMs = Date.now() - startMs;
+            providerMetrics.recordOperation(this.providerName, 'syncIncremental', 'error', durationMs);
+            providerMetrics.recordSyncFailure(this.providerName, 'incremental', err.constructor.name);
+            throw err;
+        }
+    }
+
+    async openPaymentWindow(userId, password) {
+        // Mock implementation — simulate payment window success
+        const logger = require('../../services/logger');
+        logger.info(`[MockERPProvider] Mocked headed payment window opened successfully for user: ${userId}`);
+        return { success: true, mode: 'mock' };
     }
 
     async checkERPHealth() {
