@@ -71,11 +71,11 @@ RUN chown -R node:node /usr/src/app
 USER node
 
 # Expose API port
-EXPOSE 3001
+EXPOSE 8080
 
 # Health check for container orchestration systems (Kubernetes, Railway, Fly.io)
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-    CMD wget -qO- http://localhost:3001/api/health/liveness || exit 1
+    CMD wget -qO- http://localhost:${PORT:-8080}/api/health/liveness || exit 1
 
 # Start the production API server
 CMD ["node", "server.js"]

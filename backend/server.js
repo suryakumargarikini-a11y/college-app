@@ -24,7 +24,7 @@ const devSecOpsScheduler = require('./services/DevSecOpsScheduler');
 
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 
 // ─── Initialize Infrastructure ────────────────────────────────────────────────
 redisService.connect();
@@ -40,6 +40,7 @@ app.use(helmet({
 const corsWhitelist = [
     'http://localhost:3000',
     'http://localhost:3001',
+    'http://localhost:8080',
     'capacitor://localhost',
     'http://localhost',
     'https://sitamecap.co.in'
@@ -150,7 +151,9 @@ app.get('/api/health/readiness', async (req, res) => {
 
     try {
         await prisma.$queryRaw`SELECT 1`;
-        checks.database = { status: 'ready', provider: 'postgresql' };
+        const rawUrl = process.env.DATABASE_URL || '';
+        const provider = rawUrl.startsWith('postgresql') || rawUrl.startsWith('postgres') ? 'postgresql' : 'sqlite';
+        checks.database = { status: 'ready', provider };
     } catch (err) {
         logger.error(`[Health] DB check failed: ${err.message}`, { requestId: req.requestId });
         checks.database = { status: 'unavailable', error: err.message };
@@ -340,9 +343,9 @@ app.use('/api/exams',         examsRoutes);
 app.use(errorHandler);
 
 // ─── Server Startup ───────────────────────────────────────────────────────────
-const server = app.listen(PORT, async () => {
-    logger.info(`[Server] SITAM Smart ERP Backend running on http://localhost:${PORT}`);
-    console.log(`[Server] SITAM Smart ERP Backend running on http://localhost:${PORT}`);
+const server = app.listen(PORT, '0.0.0.0', async () => {
+    logger.info(`[Server] SITAM Smart ERP Backend running on port ${PORT}`);
+    console.log(`[Server] SITAM Smart ERP Backend running on port ${PORT}`);
 
     // Initialize browser pool (pre-warms 1 Chromium instance)
     const browserPool = require('./services/browserPool');

@@ -1,10 +1,14 @@
-require('dotenv').config();
+try {
+    require('dotenv').config();
+} catch (err) {
+    console.warn('[DB-Validation] Note: dotenv module not found. Relying on system environment variables.');
+}
 const { PrismaClient } = require('@prisma/client');
 const logger = require('../services/logger');
 
 async function validateDatabaseConnection() {
-    logger.info('[DB-Validation] Initializing validation on PostgreSQL database...');
-    console.log('[DB-Validation] Initializing validation on PostgreSQL database...');
+    logger.info('[DB-Validation] Initializing validation on database...');
+    console.log('[DB-Validation] Initializing validation on database...');
     
     const prisma = new PrismaClient({
         datasources: {
@@ -19,13 +23,13 @@ async function validateDatabaseConnection() {
         logger.info('[DB-Validation] Sending ping raw query...');
         await prisma.$queryRaw`SELECT 1`;
         
-        logger.info('[DB-Validation] PostgreSQL Database connection successfully validated!');
-        console.log('[DB-Validation] PostgreSQL Database connection successfully validated! 🚀');
+        logger.info('[DB-Validation] Database connection successfully validated!');
+        console.log('[DB-Validation] Database connection successfully validated! 🚀');
         await prisma.$disconnect();
         process.exit(0);
     } catch (err) {
-        logger.error(`[DB-Validation] Critical: PostgreSQL Database validation failed: ${err.message}`, { stack: err.stack });
-        console.error(`[DB-Validation] Critical: PostgreSQL Database validation failed: ${err.message}`);
+        logger.error(`[DB-Validation] Critical: Database validation failed: ${err.message}`, { stack: err.stack });
+        console.error(`[DB-Validation] Critical: Database validation failed: ${err.message}`);
         await prisma.$disconnect();
         process.exit(1);
     }
