@@ -7,48 +7,32 @@
 # Stage 2: Runtime → Minimal Debian Bookworm image with system Chromium
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# Cache-busting build argument — increment this value to force all layers to
-# rebuild without needing to clear Railway's BuildKit cache manually.
-# Current value: 3  (increment to bust cache on next deploy)
-ARG CACHEBUST=4
+# Cache-busting build argument — increment to force all layers to rebuild.
+# Current value: 5
+ARG CACHEBUST=5
 
 # ─── Stage 1: Build ────────────────────────────────────────────────────────────
 FROM node:20-slim AS builder
 
 ARG CACHEBUST
-RUN echo "Build cache key: $CACHEBUST"
+RUN echo "CACHEBUST=$CACHEBUST"
 
 WORKDIR /build
 
-# Build context = repo root — all COPY sources must be prefixed with backend/
 COPY backend/package.json backend/package-lock.json ./
-
-# Install all dependencies (including devDeps) needed for Prisma codegen
 RUN npm ci
 
-# Copy only the Prisma schema — the only file needed for prisma generate
 COPY backend/prisma ./prisma
-
-# Generate the Prisma client for the linux/amd64 target platform
 RUN npx prisma generate
 
 # ─── Stage 2: Runtime ─────────────────────────────────────────────────────────
 FROM node:20-slim AS runtime
 
 ARG CACHEBUST
-RUN echo "Build cache key: $CACHEBUST"
+RUN echo "CACHEBUST=$CACHEBUST"
 
-# Base: node:20-slim = debian:bookworm-slim (Debian 12)
-#
-# Package audit for Debian Bookworm:
-#   libasound2t64  → DOES NOT EXIST in Bookworm (t64 transition is Trixie/13+)
-#                    correct Bookworm name: libasound2
-#   libgbm-dev     → dev/headers package; runtime needs libgbm1 not libgbm-dev
-#   libxss1        → removed from Bookworm; omitted
-#   libgtk-3-0     → correct in Bookworm (t64 suffix is Trixie only)
-#   fonts-kacst    → replaced by fonts-kacst-one in Bookworm
-#   chromium       → available in Bookworm; installs binary to /usr/bin/chromium
-#
+# node:20-slim = debian:bookworm-slim (Debian 12)
+# All packages verified against Debian Bookworm repos.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     ca-certificates \
@@ -77,45 +61,27 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     fonts-freefont-ttf \
     && rm -rf /var/lib/apt/lists/*
 
-# Tell Puppeteer to use the system Chromium — never download a bundled one.
-# The Debian Bookworm chromium package places the binary at /usr/bin/chromium.
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 ENV NODE_ENV=production
 
-# ─── Application directory ────────────────────────────────────────────────────
 WORKDIR /usr/src/app
 
-# Install production dependencies (layer is cached until package files change)
+# Install production dependencies first
 COPY backend/package.json backend/package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
-# Copy backend application source files (explicit dirs — never copies node_modules)
-COPY --chown=node:node backend/server.js          ./server.js
-COPY --chown=node:node backend/worker.js          ./worker.js
-COPY --chown=node:node backend/controllers        ./controllers
-COPY --chown=node:node backend/middleware         ./middleware
-COPY --chown=node:node backend/models             ./models
-COPY --chown=node:node backend/monitoring         ./monitoring
-COPY --chown=node:node backend/observability      ./observability
-COPY --chown=node:node backend/platform           ./platform
-COPY --chown=node:node backend/providers          ./providers
-COPY --chown=node:node backend/repositories       ./repositories
-COPY --chown=node:node backend/routes             ./routes
-COPY --chown=node:node backend/scripts            ./scripts
-COPY --chown=node:node backend/security           ./security
-COPY --chown=node:node backend/services           ./services
-COPY --chown=node:node backend/sre                ./sre
-COPY --chown=node:node backend/telemetry          ./telemetry
+# ONE single COPY for all backend source — no parallelism, no race conditions.
+# backend/node_modules is gitignored so it is never in the build context.
+# This replaces 17 individual COPY instructions that were failing
+# non-deterministically due to Railway BuildKit parallel execution.
+COPY --chown=node:node backend/ .
 
-# Copy the Prisma schema and generated client from the builder stage.
-# --from=builder reads from the builder container, NOT from the build context,
-# so build-context path resolution issues are completely bypassed.
-COPY --from=builder --chown=node:node /build/prisma             ./prisma
+# Copy the generated Prisma client from the builder stage.
+# Comes AFTER the source COPY so it is never overwritten.
 COPY --from=builder --chown=node:node /build/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder --chown=node:node /build/node_modules/@prisma  ./node_modules/@prisma
 
-# ─── Security: Non-Root User ──────────────────────────────────────────────────
 USER node
 
 EXPOSE 8080
