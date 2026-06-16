@@ -7,8 +7,16 @@
 # Stage 2: Runtime → Minimal Debian Bookworm image with system Chromium
 # ═══════════════════════════════════════════════════════════════════════════════
 
+# Cache-busting build argument — increment this value to force all layers to
+# rebuild without needing to clear Railway's BuildKit cache manually.
+# Current value: 3  (increment to bust cache on next deploy)
+ARG CACHEBUST=3
+
 # ─── Stage 1: Build ────────────────────────────────────────────────────────────
 FROM node:20-slim AS builder
+
+ARG CACHEBUST
+RUN echo "Build cache key: $CACHEBUST"
 
 WORKDIR /build
 
@@ -26,6 +34,9 @@ RUN npx prisma generate
 
 # ─── Stage 2: Runtime ─────────────────────────────────────────────────────────
 FROM node:20-slim AS runtime
+
+ARG CACHEBUST
+RUN echo "Build cache key: $CACHEBUST"
 
 # Base: node:20-slim = debian:bookworm-slim (Debian 12)
 #
@@ -96,9 +107,10 @@ COPY --chown=node:node backend/security           ./security
 COPY --chown=node:node backend/services           ./services
 COPY --chown=node:node backend/sre                ./sre
 COPY --chown=node:node backend/telemetry          ./telemetry
+
 # Copy the Prisma schema and generated client from the builder stage.
-# Using --from=builder avoids any build-context path resolution issues
-# that occur when Dockerfile is at a non-root path (backend/Dockerfile).
+# --from=builder reads from the builder container, NOT from the build context,
+# so build-context path resolution issues are completely bypassed.
 COPY --from=builder --chown=node:node /build/prisma             ./prisma
 COPY --from=builder --chown=node:node /build/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder --chown=node:node /build/node_modules/@prisma  ./node_modules/@prisma
