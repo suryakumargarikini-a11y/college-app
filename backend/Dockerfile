@@ -72,6 +72,10 @@ COPY --chown=node:node . .
 COPY --from=builder --chown=node:node /build/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder --chown=node:node /build/node_modules/@prisma  ./node_modules/@prisma
 
+# Create the logs directory and give the node user full ownership of /usr/src/app
+# before dropping privileges. winston-daily-rotate-file needs to mkdir logs/ at startup.
+RUN mkdir -p /usr/src/app/logs && chown -R node:node /usr/src/app
+
 USER node
 
 EXPOSE 8080
