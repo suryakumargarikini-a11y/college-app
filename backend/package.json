@@ -47,10 +47,9 @@
     "uuid": "^14.0.0",
     "winston": "^3.19.0",
     "winston-daily-rotate-file": "^5.0.0",
-    "ws": "^8.21.0"
-  },
-  "devDependencies": {
+    "ws": "^8.21.0",
     "@prisma/client": "5.15.0",
     "prisma": "5.15.0"
-  }
+  },
+  "devDependencies": {}
 }

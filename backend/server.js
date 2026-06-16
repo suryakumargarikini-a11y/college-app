@@ -338,6 +338,20 @@ app.use('/api/exams',         examsRoutes);
 // ─── Error Handling ───────────────────────────────────────────────────────────
 app.use(errorHandler);
 
+// ─── Database Initialization ──────────────────────────────────────────────────
+try {
+    const { execSync } = require('child_process');
+    logger.info('[DB-Init] Automatically syncing database schema with Prisma...');
+    execSync('npx prisma db push --accept-data-loss --skip-generate', {
+        cwd: __dirname,
+        stdio: 'inherit',
+        env: { ...process.env }
+    });
+    logger.info('[DB-Init] Database schema sync successful.');
+} catch (err) {
+    logger.error(`[DB-Init] Database schema sync failed: ${err.message}`);
+}
+
 // ─── Server Startup ───────────────────────────────────────────────────────────
 const server = app.listen(PORT, '0.0.0.0', async () => {
     logger.info(`[Server] SITAM Smart ERP Backend running on port ${PORT}`);
