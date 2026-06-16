@@ -1,6 +1,6 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 # SITAM Smart ERP — Hardened Multi-Stage Production Dockerfile
-# Build context : repository root  (Railway: Root Directory = /)
+# Build context : backend/  (Railway: Root Directory = backend)
 # Dockerfile    : backend/Dockerfile
 #
 # Stage 1: Build  → Installs all deps & generates Prisma client
@@ -12,16 +12,15 @@ FROM node:20-slim AS builder
 
 WORKDIR /build
 
-# Build context = repo root, so all COPY sources are relative to repo root.
-# backend/package*.json matches both package.json and package-lock.json.
-COPY backend/package.json backend/package-lock.json ./
+# Build context = backend/, so all COPY sources are relative to backend/.
+COPY package.json package-lock.json ./
 
 # Install all dependencies (including devDeps) needed for Prisma codegen.
 # npm ci requires package-lock.json — confirmed present at backend/package-lock.json.
 RUN npm ci
 
 # Copy only the Prisma schema — the only thing needed for prisma generate.
-COPY backend/prisma ./prisma
+COPY prisma ./prisma
 
 # Generate the optimised Prisma client for the linux/amd64 target platform.
 RUN npx prisma generate
@@ -72,7 +71,7 @@ WORKDIR /usr/src/app
 
 # Install production dependencies first (layer cached until package files change).
 # Explicit filenames used instead of glob to guarantee both files are required.
-COPY backend/package.json backend/package-lock.json ./
+COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
 # Copy backend application source BEFORE the Prisma client copy so that the
@@ -82,23 +81,23 @@ RUN npm ci --omit=dev && npm cache clean --force
 # but backend/node_modules is not present in the build context (it is in .gitignore)
 # so this is safe. If a local node_modules exists, add backend/node_modules to
 # .dockerignore at the repo root to prevent it being sent to the daemon.
-COPY --chown=node:node backend/server.js ./server.js
-COPY --chown=node:node backend/controllers ./controllers
-COPY --chown=node:node backend/middleware ./middleware
-COPY --chown=node:node backend/models ./models
-COPY --chown=node:node backend/monitoring ./monitoring
-COPY --chown=node:node backend/observability ./observability
-COPY --chown=node:node backend/platform ./platform
-COPY --chown=node:node backend/providers ./providers
-COPY --chown=node:node backend/repositories ./repositories
-COPY --chown=node:node backend/routes ./routes
-COPY --chown=node:node backend/scripts ./scripts
-COPY --chown=node:node backend/security ./security
-COPY --chown=node:node backend/services ./services
-COPY --chown=node:node backend/sre ./sre
-COPY --chown=node:node backend/telemetry ./telemetry
-COPY --chown=node:node backend/worker.js ./worker.js
-COPY --chown=node:node backend/prisma ./prisma
+COPY --chown=node:node server.js ./server.js
+COPY --chown=node:node controllers ./controllers
+COPY --chown=node:node middleware ./middleware
+COPY --chown=node:node models ./models
+COPY --chown=node:node monitoring ./monitoring
+COPY --chown=node:node observability ./observability
+COPY --chown=node:node platform ./platform
+COPY --chown=node:node providers ./providers
+COPY --chown=node:node repositories ./repositories
+COPY --chown=node:node routes ./routes
+COPY --chown=node:node scripts ./scripts
+COPY --chown=node:node security ./security
+COPY --chown=node:node services ./services
+COPY --chown=node:node sre ./sre
+COPY --chown=node:node telemetry ./telemetry
+COPY --chown=node:node worker.js ./worker.js
+COPY --chown=node:node prisma ./prisma
 
 # Copy the Prisma client generated in the builder stage.
 # This MUST come after the application source COPY so nothing overwrites it.
