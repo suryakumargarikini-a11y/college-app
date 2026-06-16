@@ -1,38 +1,28 @@
 # ═══════════════════════════════════════════════════════════════════════════════
-# SITAM Smart ERP — Hardened Multi-Stage Production Dockerfile
-# Build context : repository root  (Railway: Root Directory = /)
-# Dockerfile    : backend/Dockerfile
+# SITAM Smart ERP — Production Dockerfile
+# Dockerfile path  : /backend/Dockerfile
+# Build context    : backend/  ← Railway uses the Dockerfile's directory
 #
-# Stage 1: Build  → Installs all deps & generates Prisma client
-# Stage 2: Runtime → Minimal Debian Bookworm image with system Chromium
+# All COPY source paths are relative to backend/ — NOT the repo root.
+# Using backend/X would look for backend/backend/X and fail.
 # ═══════════════════════════════════════════════════════════════════════════════
-
-# Cache-busting build argument — increment to force all layers to rebuild.
-# Current value: 5
-ARG CACHEBUST=5
 
 # ─── Stage 1: Build ────────────────────────────────────────────────────────────
 FROM node:20-slim AS builder
 
-ARG CACHEBUST
-RUN echo "CACHEBUST=$CACHEBUST"
-
 WORKDIR /build
 
-COPY backend/package.json backend/package-lock.json ./
+# Paths relative to backend/ (the build context root)
+COPY package.json package-lock.json ./
 RUN npm ci
 
-COPY backend/prisma ./prisma
+COPY prisma ./prisma
 RUN npx prisma generate
 
 # ─── Stage 2: Runtime ─────────────────────────────────────────────────────────
 FROM node:20-slim AS runtime
 
-ARG CACHEBUST
-RUN echo "CACHEBUST=$CACHEBUST"
-
 # node:20-slim = debian:bookworm-slim (Debian 12)
-# All packages verified against Debian Bookworm repos.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     ca-certificates \
@@ -67,18 +57,18 @@ ENV NODE_ENV=production
 
 WORKDIR /usr/src/app
 
-# Install production dependencies first
-COPY backend/package.json backend/package-lock.json ./
+# Install production deps (path relative to backend/)
+COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
-# ONE single COPY for all backend source — no parallelism, no race conditions.
-# backend/node_modules is gitignored so it is never in the build context.
-# This replaces 17 individual COPY instructions that were failing
-# non-deterministically due to Railway BuildKit parallel execution.
-COPY --chown=node:node backend/ .
+# Copy ALL backend source in one atomic COPY.
+# Build context = backend/, so "." is the backend/ directory.
+# backend/node_modules is gitignored — Railway clones from git so it
+# will never be present in the build context.
+COPY --chown=node:node . .
 
-# Copy the generated Prisma client from the builder stage.
-# Comes AFTER the source COPY so it is never overwritten.
+# Overlay the generated Prisma client from the builder stage.
+# Must come AFTER the source COPY so nothing overwrites it.
 COPY --from=builder --chown=node:node /build/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder --chown=node:node /build/node_modules/@prisma  ./node_modules/@prisma
 
