@@ -356,27 +356,24 @@ try {
 async function validateChromiumStartup() {
     const fs = require('fs');
     const puppeteer = require('puppeteer');
+    const browserPool = require('./services/browserPool');
 
-    const pathToCheck = process.platform === 'win32'
-        ? undefined
-        : (process.env.PUPPETEER_EXECUTABLE_PATH || "/usr/bin/chromium");
+    const executablePath = browserPool.findChromiumExecutable();
+    logger.info(`[Puppeteer] Detected executable: ${executablePath || 'default (cached)'}`);
+    console.log(`[Puppeteer] Detected executable: ${executablePath || 'default (cached)'}`);
 
-    if (pathToCheck) {
-        if (fs.existsSync(pathToCheck)) {
-            logger.info(`[Puppeteer] Chromium executable found at: ${pathToCheck}`);
-            console.log(`[Puppeteer] Chromium executable found`);
-        } else {
-            logger.error(`[Puppeteer] Chromium executable missing at: ${pathToCheck}`);
-            console.error(`[Puppeteer] Chromium executable missing`);
-            process.exit(1);
-        }
+    // If path is specified but not found on disk, fail early
+    if (executablePath && !fs.existsSync(executablePath)) {
+        logger.error(`[Puppeteer] Chromium executable missing at: ${executablePath}`);
+        console.error(`[Puppeteer] Chromium executable missing`);
+        process.exit(1);
     }
 
     try {
         logger.info('[Puppeteer] Launching test browser instance...');
         const browser = await puppeteer.launch({
             headless: 'new',
-            executablePath: pathToCheck,
+            executablePath,
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
@@ -385,10 +382,11 @@ async function validateChromiumStartup() {
             ]
         });
         await browser.close();
-        logger.info('[Puppeteer] Test browser launched successfully');
+        logger.info('[Puppeteer] Launch test successful');
+        console.log('[Puppeteer] Launch test successful');
     } catch (err) {
-        logger.error(`[Puppeteer] Critical startup validation failed: ${err.message}`);
-        console.error(`[Puppeteer] Critical startup validation failed: ${err.message}`);
+        logger.error(`[Puppeteer] Launch test failed: ${err.message}`);
+        console.error(`[Puppeteer] Launch test failed`);
         process.exit(1);
     }
 }

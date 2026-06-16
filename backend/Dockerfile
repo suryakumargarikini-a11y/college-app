@@ -32,6 +32,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgtk-3-0 \
     libgbm-dev \
     libnss3 \
+    libnspr4 \
     libxss1 \
     libasound2 \
     libxtst6 \
@@ -46,7 +47,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Configure Puppeteer to use system Chromium (skip bundled download)
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-# ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 ENV NODE_ENV=production
 
 # Create application directory with strict ownership

@@ -1,6 +1,15 @@
 [phases.setup]
 nixPkgs = ["...", "chromium"]
 
+[phases.build]
+cmds = [
+  "echo '=== Build-Time Chromium Diagnostics ==='",
+  "which chromium || echo 'chromium not in PATH'",
+  "which chromium-browser || echo 'chromium-browser not in PATH'",
+  "which google-chrome || echo 'google-chrome not in PATH'",
+  "find /usr /nix -name chromium 2>/dev/null || true",
+  "find /usr /nix -name chrome 2>/dev/null || true"
+]
+
 [variables]
 PUPPETEER_SKIP_CHROMIUM_DOWNLOAD = "true"
-PUPPETEER_EXECUTABLE_PATH = "/usr/bin/chromium"

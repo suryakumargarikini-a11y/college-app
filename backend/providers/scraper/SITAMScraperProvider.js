@@ -427,11 +427,10 @@ class SITAMScraperProvider extends ERPProvider {
         logger.info(`[SITAMScraperProvider] Initiating headed payment browser auto-login for user: ${userId}`);
 
         const puppeteer = require('puppeteer');
+        const browserPool = require('../../services/browserPool');
 
         const isProduction = (process.env.RAILWAY_ENVIRONMENT || process.env.NODE_ENV === 'production') && process.platform !== 'win32';
-        const executablePath = process.platform === 'win32'
-            ? undefined
-            : (process.env.PUPPETEER_EXECUTABLE_PATH || "/usr/bin/chromium");
+        const executablePath = browserPool.findChromiumExecutable();
 
         let browser;
         if (isProduction) {

@@ -18,6 +18,54 @@ const { traceSpan } = require('../telemetry/tracing');
 const repMgr = require('../providers/scraper/browser/BrowserReputationManager');
 const classifier = require('../providers/scraper/retry/AdaptiveRetryClassifier');
 
+function findChromiumExecutable() {
+    // 1. Check environment variables
+    let path = process.env.PUPPETEER_EXECUTABLE_PATH ||
+               process.env.CHROME_BIN ||
+               process.env.CHROMIUM_PATH;
+    if (path) {
+        return path;
+    }
+
+    // 2. On Windows, return undefined to auto-resolve from cache
+    if (process.platform === 'win32') {
+        return undefined;
+    }
+
+    // 3. Try Unix shell command discovery (which)
+    const { execSync } = require('child_process');
+    try {
+        path = execSync('which chromium 2>/dev/null', { stdio: 'pipe' }).toString().trim();
+        if (path) return path;
+    } catch (_) {}
+
+    try {
+        path = execSync('which chromium-browser 2>/dev/null', { stdio: 'pipe' }).toString().trim();
+        if (path) return path;
+    } catch (_) {}
+
+    try {
+        path = execSync('which google-chrome 2>/dev/null', { stdio: 'pipe' }).toString().trim();
+        if (path) return path;
+    } catch (_) {}
+
+    // 4. Default check fallbacks
+    const fs = require('fs');
+    const fallbacks = [
+        '/usr/bin/chromium',
+        '/usr/bin/chromium-browser',
+        '/usr/bin/google-chrome',
+        '/usr/bin/google-chrome-stable'
+    ];
+    for (const fallback of fallbacks) {
+        if (fs.existsSync(fallback)) {
+            return fallback;
+        }
+    }
+
+    return null;
+}
+
 const MAX_BROWSERS = parseInt(process.env.BROWSER_POOL_SIZE || '3', 10);
 const BROWSER_ACQUIRE_TIMEOUT_MS = parseInt(process.env.BROWSER_ACQUIRE_TIMEOUT_MS || '30000', 10);
 const BROWSER_IDLE_RECYCLE_MS = parseInt(process.env.BROWSER_IDLE_RECYCLE_MS || '600000', 10); // 10 min
@@ -268,9 +316,7 @@ class BrowserPool {
             span.addEvent('browser_launched', { browserId: id });
             logger.info(`[BrowserPool] Launching new browser: ${id}`);
 
-            const executablePath = process.platform === 'win32'
-                ? undefined
-                : (process.env.PUPPETEER_EXECUTABLE_PATH || "/usr/bin/chromium");
+            const executablePath = findChromiumExecutable();
 
             const browser = await puppeteer.launch({
                 headless: 'new',
@@ -443,4 +489,6 @@ class BrowserPool {
     }
 }
 
-module.exports = new BrowserPool();
+const instance = new BrowserPool();
+instance.findChromiumExecutable = findChromiumExecutable;
+module.exports = instance;
