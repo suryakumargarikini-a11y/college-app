@@ -8,7 +8,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const apiBaseUrl = process.env.API_BASE_URL || 'http://localhost:8080/api';
+const apiBaseUrl = process.env.API_BASE_URL || 'https://college-app-production-0fd2.up.railway.app/api';
 const appVersion = process.env.APP_VERSION || '1.0.0';
 
 const configContent = `// SITAM Smart ERP — Environment-Driven Configuration

@@ -4,11 +4,7 @@
 // ============================================================
 
 const isMobileNative = window.Capacitor && window.Capacitor.platform !== 'web';
-const API_BASE = window.API_BASE_URL || (isMobileNative
-    ? 'http://10.230.100.99:3001/api'
-    : (window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1')
-        ? 'http://localhost:3001/api'
-        : window.location.origin + '/api'));
+const API_BASE = window.API_BASE_URL || 'https://college-app-production-0fd2.up.railway.app/api';
 
 let _decryptedToken = null;
 
@@ -429,15 +425,7 @@ const wsService = {
         }
 
         console.log(`[WebSocket] Establishing real-time sync socket for user: ${userId}`);
-        const wsProtocol = isMobileNative
-            ? 'ws:'
-            : (window.location.protocol === 'https:' ? 'wss:' : 'ws:');
-        const wsHost = isMobileNative
-            ? '10.230.100.99:3001'
-            : (window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1')
-                ? 'localhost:3001'
-                : window.location.host);
-        const wsUrl = `${wsProtocol}//${wsHost}/?userId=${userId}`;
+        const wsUrl = API_BASE.replace(/^http/, 'ws').replace(/\/api$/, '') + `/?userId=${userId}`;
 
         this.socket = new WebSocket(wsUrl);
 
@@ -970,7 +958,9 @@ const pages = {
                     <div class="w-full bg-tertiary-container/30 text-on-tertiary-container p-4 rounded-2xl flex items-center gap-3.5 relative overflow-hidden border border-tertiary-container/40" id="notice-banner">
                         <div class="absolute right-0 top-0 w-24 h-full bg-gradient-to-l from-white/25 to-transparent"></div>
                         <span class="material-symbols-outlined text-2xl flex-shrink-0 text-tertiary">info</span>
-                        <p class="text-xs font-bold tracking-tight leading-snug" id="notice-text">ERP sync active. Your data is being synchronized.</p>
+                        <div class="min-w-0 flex-1">
+                            <p class="text-xs font-bold tracking-tight leading-snug break-words" id="notice-text">ERP sync active. Your data is being synchronized.</p>
+                        </div>
                     </div>
                 </section>
                 <!-- Workspace Header -->
@@ -1318,18 +1308,18 @@ const pages = {
                     const card = document.createElement('div');
                     card.className = 'glass-card border border-white/40 p-4 rounded-2xl active-scale transition-all duration-300 shadow-sm';
                     card.innerHTML = `
-                        <div class="flex justify-between items-start mb-2">
-                            <div>
-                                <h4 class="font-bold text-sm text-on-surface" style="font-family:'Plus Jakarta Sans',sans-serif">${sub.subject}</h4>
+                        <div class="flex justify-between items-start mb-2 gap-2">
+                            <div class="flex-1 min-w-0">
+                                <h4 class="font-bold text-sm text-on-surface truncate" style="font-family:'Plus Jakarta Sans',sans-serif" title="${sub.subject}">${sub.subject}</h4>
                             </div>
-                            <span class="text-base font-extrabold" style="color:${statusColor}">${Math.round(p)}%</span>
+                            <span class="text-base font-extrabold flex-shrink-0" style="color:${statusColor}">${Math.round(p)}%</span>
                         </div>
                         <div class="w-full h-1.5 bg-surface-variant rounded-full overflow-hidden">
                             <div class="h-full rounded-full transition-all duration-1000" style="width:${p}%;background:${statusColor}"></div>
                         </div>
-                        <div class="flex justify-between mt-2 text-[9px] font-bold uppercase tracking-wider text-on-surface-variant/60">
-                            <span>${sub.present} / ${sub.total} Classes</span>
-                            <span>${statusText}</span>
+                        <div class="flex justify-between mt-2 text-[9px] font-bold uppercase tracking-wider text-on-surface-variant/60 gap-2">
+                            <span class="truncate">${sub.present} / ${sub.total} Classes</span>
+                            <span class="flex-shrink-0">${statusText}</span>
                         </div>`;
                     grid.appendChild(card);
                 });
@@ -1416,12 +1406,12 @@ const pages = {
                         const tb = typeBg[s.type] || 'bg-surface-container text-on-surface-variant';
                         const pct = s.percentage || 0;
                         return `<div class="glass-card border border-white/40 p-5 rounded-2xl space-y-3 active-scale transition-all duration-300 shadow-sm">
-                            <div class="flex justify-between items-start">
-                                <div>
-                                    <span class="text-[10px] font-bold uppercase tracking-widest ${tb} px-2.5 py-0.5 rounded-full">${s.type || 'Core'}</span>
-                                    <h3 class="text-base font-bold text-on-surface mt-2" style="font-family:'Plus Jakarta Sans',sans-serif">${s.name}</h3>
+                            <div class="flex justify-between items-start gap-3">
+                                <div class="flex-1 min-w-0">
+                                    <span class="text-[10px] font-bold uppercase tracking-widest ${tb} px-2.5 py-0.5 rounded-full inline-block">${s.type || 'Core'}</span>
+                                    <h3 class="text-base font-bold text-on-surface mt-2 truncate" style="font-family:'Plus Jakarta Sans',sans-serif" title="${s.name}">${s.name}</h3>
                                 </div>
-                                <div class="text-right">
+                                <div class="text-right flex-shrink-0">
                                     <p class="text-2xl font-black ${gc}">${s.grade}</p>
                                     <p class="text-[10px] text-on-surface-variant font-bold">${s.marks || '--'}</p>
                                 </div>
@@ -1740,17 +1730,17 @@ const pages = {
                 };
                 list.innerHTML = txns.map(txn => {
                     const sc = statusColors[txn.status] || 'bg-surface-container text-on-surface-variant';
-                    return `<div class="flex items-center justify-between p-4 rounded-2xl hover:bg-slate-50/50 active-scale transition-all duration-200 group">
-                        <div class="flex items-center gap-4">
-                            <div class="w-11 h-11 rounded-xl bg-surface-container-high flex items-center justify-center group-hover:bg-white transition-colors">
+                    return `<div class="flex items-center justify-between p-4 rounded-2xl hover:bg-slate-50/50 active-scale transition-all duration-200 group gap-3">
+                        <div class="flex items-center gap-4 min-w-0 flex-1">
+                            <div class="w-11 h-11 rounded-xl bg-surface-container-high flex items-center justify-center group-hover:bg-white transition-colors flex-shrink-0">
                                 <span class="material-symbols-outlined text-on-surface-variant text-lg">${txn.icon || 'receipt_long'}</span>
                             </div>
-                            <div>
-                                <p class="font-bold text-on-surface text-sm leading-tight">${txn.title}</p>
-                                <p class="text-[10px] text-on-surface-variant mt-0.5">${txn.date || '--'} • Ref ${txn.ref || '--'}</p>
+                            <div class="min-w-0 flex-1">
+                                <p class="font-bold text-on-surface text-sm leading-tight truncate" title="${txn.title}">${txn.title}</p>
+                                <p class="text-[10px] text-on-surface-variant mt-0.5 truncate">${txn.date || '--'} • Ref ${txn.ref || '--'}</p>
                             </div>
                         </div>
-                        <div class="text-right">
+                        <div class="text-right flex-shrink-0">
                             <p class="font-extrabold text-on-surface text-sm leading-tight">${txn.amount}</p>
                             <span class="text-[9px] px-2 py-0.5 ${sc} rounded-full font-bold uppercase tracking-tighter mt-1 inline-block">${txn.status}</span>
                         </div>
@@ -1878,15 +1868,17 @@ const pages = {
                     const bg = isPending ? 'bg-surface-container-lowest border border-outline-variant/10' : 'bg-secondary-container/20';
                     const icon = a.icon || (isPending ? 'pending' : 'check_circle');
                     const iconColor = isPending ? 'text-tertiary' : 'text-secondary';
-                    return `<div class="p-5 rounded-xl ${bg} flex items-center gap-4">
-                        <div class="w-12 h-12 rounded-full bg-surface-container-high flex items-center justify-center flex-shrink-0">
-                            <span class="material-symbols-outlined ${iconColor}">${icon}</span>
+                    return `<div class="p-5 rounded-xl ${bg} flex items-center gap-4 justify-between">
+                        <div class="flex items-center gap-4 min-w-0 flex-1">
+                            <div class="w-12 h-12 rounded-full bg-surface-container-high flex items-center justify-center flex-shrink-0">
+                                <span class="material-symbols-outlined ${iconColor}">${icon}</span>
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <p class="font-bold text-on-surface text-sm truncate" title="${a.title}">${a.title}</p>
+                                <p class="text-[11px] text-on-surface-variant mt-0.5 truncate">${a.subject} · Due ${a.date || '--'}</p>
+                            </div>
                         </div>
-                        <div class="flex-1">
-                            <p class="font-bold text-on-surface text-sm">${a.title}</p>
-                            <p class="text-[11px] text-on-surface-variant mt-0.5">${a.subject} · Due ${a.date || '--'}</p>
-                        </div>
-                        <span class="text-[10px] px-2 py-1 rounded-full font-bold uppercase ${isPending ? 'bg-tertiary-container/30 text-on-tertiary-container' : 'bg-secondary-container text-on-secondary-container'}">${a.status}</span>
+                        <span class="text-[10px] px-2 py-1 rounded-full font-bold uppercase flex-shrink-0 ${isPending ? 'bg-tertiary-container/30 text-on-tertiary-container' : 'bg-secondary-container text-on-secondary-container'}">${a.status}</span>
                     </div>`;
                 }).join('');
             } catch(e) { console.error('[Assignments] Error:', e); }
@@ -2023,12 +2015,12 @@ const pages = {
                     const pct = units.length > 0 ? Math.round((done / units.length) * 100) : 0;
                     return `<div class="bg-surface-container-lowest rounded-xl border border-outline-variant/10 overflow-hidden shadow-sm">
                         <button class="w-full flex items-center justify-between p-5 hover:bg-surface-container-low transition-colors" onclick="toggleSyllabus('sub-${si}', this)">
-                            <div class="flex items-center gap-4">
-                                <div class="w-10 h-10 rounded-xl bg-secondary-container flex items-center justify-center">
+                            <div class="flex items-center gap-4 min-w-0 flex-1">
+                                <div class="w-10 h-10 rounded-xl bg-secondary-container flex items-center justify-center flex-shrink-0">
                                     <span class="material-symbols-outlined text-secondary text-sm">auto_stories</span>
                                 </div>
-                                <div class="text-left">
-                                    <h4 class="font-bold text-on-surface text-sm" style="font-family:'Plus Jakarta Sans',sans-serif">${sub.code || sub.name}</h4>
+                                <div class="text-left min-w-0 flex-1">
+                                    <h4 class="font-bold text-on-surface text-sm truncate" style="font-family:'Plus Jakarta Sans',sans-serif" title="${sub.code || sub.name}">${sub.code || sub.name}</h4>
                                     <p class="text-[10px] text-on-surface-variant mt-0.5">${done}/${units.length} Units • <span id="syllabus-pct-${si}">${pct}% Done</span></p>
                                 </div>
                             </div>
@@ -2049,9 +2041,9 @@ const pages = {
                                         onclick="toggleUnit('${u.id}', ${si}, ${units.indexOf(u)}, this)">
                                         <span class="material-symbols-outlined text-sm" style="font-size:14px">check</span>
                                     </button>
-                                    <div>
+                                    <div class="min-w-0 flex-1">
                                         <p class="text-[11px] font-bold text-on-surface-variant uppercase tracking-widest">Unit ${u.unitNumber}</p>
-                                        <p class="text-sm font-semibold text-on-surface">${u.title}</p>
+                                        <p class="text-sm font-semibold text-on-surface break-words">${u.title}</p>
                                     </div>
                                 </div>`).join('')}
                         </div>
@@ -2089,14 +2081,16 @@ const pages = {
                     return;
                 }
                 list.innerHTML = notifs.map(n => `
-                    <div class="p-5 rounded-xl bg-surface-container-lowest border border-outline-variant/10 shadow-sm hover:shadow-md transition-all flex gap-4">
-                        <div class="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center flex-shrink-0 mt-0.5">
-                            <span class="material-symbols-outlined text-secondary text-sm">notifications</span>
-                        </div>
-                        <div>
-                            <p class="font-bold text-on-surface text-sm">${n.title}</p>
-                            <p class="text-xs text-on-surface-variant mt-1 leading-relaxed">${n.message}</p>
-                            <p class="text-[10px] text-on-surface-variant/60 mt-2 font-bold">${n.date || '--'}</p>
+                    <div class="p-5 rounded-xl bg-surface-container-lowest border border-outline-variant/10 shadow-sm hover:shadow-md transition-all flex gap-4 justify-between">
+                        <div class="flex gap-4 min-w-0 flex-1">
+                            <div class="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center flex-shrink-0 mt-0.5">
+                                <span class="material-symbols-outlined text-secondary text-sm">notifications</span>
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <p class="font-bold text-on-surface text-sm truncate" title="${n.title}">${n.title}</p>
+                                <p class="text-xs text-on-surface-variant mt-1 leading-relaxed break-words">${n.message}</p>
+                                <p class="text-[10px] text-on-surface-variant/60 mt-2 font-bold">${n.date || '--'}</p>
+                            </div>
                         </div>
                         ${!n.isRead ? `<div class="w-2.5 h-2.5 bg-secondary rounded-full flex-shrink-0 mt-1"></div>` : ''}
                     </div>`).join('');
@@ -2140,8 +2134,8 @@ const pages = {
                         <div class="w-12 h-12 rounded-full bg-secondary-container flex items-center justify-center flex-shrink-0">
                             <span class="material-symbols-outlined text-secondary text-2xl">description</span>
                         </div>
-                        <div>
-                            <h4 class="font-extrabold text-on-surface text-sm">${data.examName || 'University Examinations'}</h4>
+                        <div class="min-w-0 flex-1">
+                            <h4 class="font-extrabold text-on-surface text-sm truncate" title="${data.examName || 'University Examinations'}">${data.examName || 'University Examinations'}</h4>
                             <p class="text-[10px] text-on-surface-variant mt-0.5">Academic Session: ${data.academicYear || '2025-2026'}</p>
                         </div>
                     </div>

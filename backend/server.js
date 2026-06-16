@@ -36,11 +36,7 @@ app.use(helmet({
     crossOriginEmbedderPolicy: false
 }));
 
-// ─── CORS ─────────────────────────────────────────────────────────────────────
 const corsWhitelist = [
-    'http://localhost:3000',
-    'http://localhost:3001',
-    'http://localhost:8080',
     'capacitor://localhost',
     'http://localhost',
     'https://sitamecap.co.in'
