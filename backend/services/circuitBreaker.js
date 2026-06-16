@@ -71,6 +71,27 @@ class CircuitBreaker {
             this._onSuccess(requestId);
             return result;
         } catch (err) {
+            // Ignore authentication/credential failures (user errors) so they don't trip the circuit breaker.
+            // Since the ERP responded with an authentication failure, the connection itself is working,
+            // so we count it as a SUCCESS for the circuit breaker's availability check.
+            const message = err.message || '';
+            const lower = message.toLowerCase();
+            if (
+                err.name === 'AuthenticationError' ||
+                lower.includes('login failed') ||
+                lower.includes('check credentials') ||
+                lower.includes('invalid credentials') ||
+                lower.includes('incorrect password') ||
+                lower.includes('wrong password')
+            ) {
+                logger.info(`[CircuitBreaker:${this.name}] [${requestId}] Authentication error detected (ERP is up). Treating as connectivity success.`, {
+                    tag: 'CIRCUIT_BREAKER_AUTH_OK',
+                    error: message
+                });
+                this._onSuccess(requestId);
+                throw err;
+            }
+
             this._onFailure(err, requestId);
             throw err;
         }

@@ -36,30 +36,39 @@ class ProviderFactory {
     }
 
     /**
-     * Get the active ERP provider.
-     * Provider is resolved from: runtime override → ERP_PROVIDER env → 'scraper' default.
+     * Get the active ERP provider, or a specific named provider if requested.
+     * Provider is resolved from: requestedName → runtime override → ERP_PROVIDER env → 'scraper' default.
      *
+     * @param {string} [requestedName] - Optional specific provider to load
      * @returns {import('./interfaces/ERPProvider')}
      */
-    getProvider() {
-        if (this._cached) return this._cached;
+    getProvider(requestedName) {
+        if (!requestedName && this._cached) return this._cached;
 
-        const name = this._override || process.env.ERP_PROVIDER || 'scraper';
+        const name = requestedName || this._override || process.env.ERP_PROVIDER || 'scraper';
 
-        // Safety guard — mock provider only allowed outside production
-        if (name === 'mock' && process.env.NODE_ENV === 'production') {
+        // Safety guard — mock provider only allowed outside production, unless explicitly requested (e.g. for synthetic tests)
+        if (name === 'mock' && process.env.NODE_ENV === 'production' && !requestedName) {
             logger.error('[ProviderFactory] CRITICAL: Mock provider cannot be used in production! Falling back to scraper.');
-            this._cached = this._loadProvider('scraper');
-            return this._cached;
+            const fallback = this._loadProvider('scraper');
+            this._cached = fallback;
+            return fallback;
         }
 
         if (!PROVIDER_MAP[name]) {
             throw new Error(`[ProviderFactory] Unsupported ERP provider: "${name}". Valid options: ${Object.keys(PROVIDER_MAP).join(', ')}`);
         }
-        this._cached = this._loadProvider(name);
 
-        logger.info(`[ProviderFactory] Active ERP provider: "${this._cached.providerName}"`);
-        return this._cached;
+        const provider = this._loadProvider(name);
+
+        // Cache the provider only if it was resolved as the default/active provider,
+        // not if a specific one was requested.
+        if (!requestedName) {
+            this._cached = provider;
+            logger.info(`[ProviderFactory] Active ERP provider: "${this._cached.providerName}"`);
+        }
+
+        return provider;
     }
 
     /**
