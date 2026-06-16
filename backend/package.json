@@ -30,7 +30,6 @@
     "@opentelemetry/sdk-trace-base": "^1.25.0",
     "@opentelemetry/semantic-conventions": "^1.27.0",
     "@prisma/client": "5.15.0",
-    "@sparticuz/chromium": "^149.0.0",
     "axios": "^1.15.1",
     "bullmq": "^5.8.3",
     "cheerio": "^1.2.0",

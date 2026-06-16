@@ -8,14 +8,26 @@
 const fs = require('fs');
 const path = require('path');
 
-const apiBaseUrl = process.env.API_BASE_URL || 'https://college-app-production-0fd2.up.railway.app/api';
+const isProduction = process.env.RAILWAY_ENVIRONMENT || process.env.NODE_ENV === 'production';
+const envName = isProduction ? 'production' : 'development';
+
+const apiBaseUrl = isProduction
+    ? 'https://college-app-production-0fd2.up.railway.app/api'
+    : (process.env.API_BASE_URL || 'http://localhost:3001/api');
+
 const appVersion = process.env.APP_VERSION || '1.0.0';
+
+console.log(`[Config] Environment: ${envName}`);
+console.log(`[Config] API Base URL: ${apiBaseUrl}`);
 
 const configContent = `// SITAM Smart ERP — Environment-Driven Configuration
 // AUTO-GENERATED — DO NOT EDIT DIRECTLY OR COMMIT TO GIT
 
 window.API_BASE_URL = "${apiBaseUrl}";
 window.APP_VERSION = "${appVersion}";
+window.APP_CONFIG = {
+  API_BASE_URL: "${apiBaseUrl}"
+};
 console.log("[SITAM Config] Dynamic API base loaded: " + window.API_BASE_URL + " (v" + window.APP_VERSION + ")");
 `;
 
@@ -30,8 +42,6 @@ try {
 
     fs.writeFileSync(targetPath, configContent, 'utf8');
     console.log(`[Config-Compiler] Generated ${targetPath} successfully.`);
-    console.log(`  - API_BASE_URL = "${apiBaseUrl}"`);
-    console.log(`  - APP_VERSION  = "${appVersion}"`);
 } catch (err) {
     console.error(`[Config-Compiler] Error writing config: ${err.message}`);
     process.exit(1);

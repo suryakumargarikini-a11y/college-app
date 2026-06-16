@@ -268,23 +268,15 @@ class BrowserPool {
             span.addEvent('browser_launched', { browserId: id });
             logger.info(`[BrowserPool] Launching new browser: ${id}`);
 
-            const isProduction = (process.env.RAILWAY_ENVIRONMENT || process.env.NODE_ENV === 'production') && process.platform !== 'win32';
-            let browser;
-            if (isProduction) {
-                const chromiumModule = await import('@sparticuz/chromium');
-                const chromium = chromiumModule.default;
-                browser = await puppeteer.launch({
-                    args: [...chromium.args, ...this.launchArgs],
-                    defaultViewport: chromium.defaultViewport,
-                    executablePath: await chromium.executablePath(),
-                    headless: chromium.headless,
-                });
-            } else {
-                browser = await puppeteer.launch({
-                    headless: 'new',
-                    args: this.launchArgs,
-                });
-            }
+            const executablePath = process.platform === 'win32'
+                ? undefined
+                : (process.env.PUPPETEER_EXECUTABLE_PATH || "/usr/bin/chromium");
+
+            const browser = await puppeteer.launch({
+                headless: 'new',
+                executablePath,
+                args: this.launchArgs,
+            });
 
             const entry = { id, browser, lastUsed: Date.now(), inUse: false };
             repMgr.registerBrowser(id);

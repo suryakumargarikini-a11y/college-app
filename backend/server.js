@@ -352,10 +352,54 @@ try {
     logger.error(`[DB-Init] Database schema sync failed: ${err.message}`);
 }
 
+// ─── Startup Puppeteer Validation ────────────────────────────────────────────
+async function validateChromiumStartup() {
+    const fs = require('fs');
+    const puppeteer = require('puppeteer');
+
+    const pathToCheck = process.platform === 'win32'
+        ? undefined
+        : (process.env.PUPPETEER_EXECUTABLE_PATH || "/usr/bin/chromium");
+
+    if (pathToCheck) {
+        if (fs.existsSync(pathToCheck)) {
+            logger.info(`[Puppeteer] Chromium executable found at: ${pathToCheck}`);
+            console.log(`[Puppeteer] Chromium executable found`);
+        } else {
+            logger.error(`[Puppeteer] Chromium executable missing at: ${pathToCheck}`);
+            console.error(`[Puppeteer] Chromium executable missing`);
+            process.exit(1);
+        }
+    }
+
+    try {
+        logger.info('[Puppeteer] Launching test browser instance...');
+        const browser = await puppeteer.launch({
+            headless: 'new',
+            executablePath: pathToCheck,
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-gpu'
+            ]
+        });
+        await browser.close();
+        logger.info('[Puppeteer] Test browser launched successfully');
+    } catch (err) {
+        logger.error(`[Puppeteer] Critical startup validation failed: ${err.message}`);
+        console.error(`[Puppeteer] Critical startup validation failed: ${err.message}`);
+        process.exit(1);
+    }
+}
+
 // ─── Server Startup ───────────────────────────────────────────────────────────
 const server = app.listen(PORT, '0.0.0.0', async () => {
     logger.info(`[Server] SITAM Smart ERP Backend running on port ${PORT}`);
     console.log(`[Server] SITAM Smart ERP Backend running on port ${PORT}`);
+
+    // Perform Chromium validation and fail startup if it fails
+    await validateChromiumStartup();
 
     // Initialize browser pool (pre-warms 1 Chromium instance)
     const browserPool = require('./services/browserPool');

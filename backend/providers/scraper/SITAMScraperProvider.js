@@ -429,15 +429,21 @@ class SITAMScraperProvider extends ERPProvider {
         const puppeteer = require('puppeteer');
 
         const isProduction = (process.env.RAILWAY_ENVIRONMENT || process.env.NODE_ENV === 'production') && process.platform !== 'win32';
+        const executablePath = process.platform === 'win32'
+            ? undefined
+            : (process.env.PUPPETEER_EXECUTABLE_PATH || "/usr/bin/chromium");
+
         let browser;
         if (isProduction) {
-            const chromiumModule = await import('@sparticuz/chromium');
-            const chromium = chromiumModule.default;
             browser = await puppeteer.launch({
-                args: [...chromium.args, '--no-sandbox', '--disable-setuid-sandbox'],
-                defaultViewport: chromium.defaultViewport,
-                executablePath: await chromium.executablePath(),
-                headless: chromium.headless,
+                headless: 'new',
+                executablePath,
+                args: [
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-gpu'
+                ]
             });
         } else {
             // Launch browser in HEADED mode (headless: false) for local dev
