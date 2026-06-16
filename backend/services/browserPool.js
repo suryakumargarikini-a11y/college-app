@@ -19,12 +19,22 @@ const repMgr = require('../providers/scraper/browser/BrowserReputationManager');
 const classifier = require('../providers/scraper/retry/AdaptiveRetryClassifier');
 
 function findChromiumExecutable() {
-    // 1. Check environment variables
-    let path = process.env.PUPPETEER_EXECUTABLE_PATH ||
-               process.env.CHROME_BIN ||
-               process.env.CHROMIUM_PATH;
-    if (path) {
-        return path;
+    const fs = require('fs');
+    
+    // 1. Check environment variables, but verify existence on disk
+    const envPaths = [
+        process.env.PUPPETEER_EXECUTABLE_PATH,
+        process.env.CHROME_BIN,
+        process.env.CHROMIUM_PATH
+    ].filter(Boolean);
+
+    for (const envPath of envPaths) {
+        if (fs.existsSync(envPath)) {
+            logger.info(`[Puppeteer] Environment path verified: ${envPath}`);
+            return envPath;
+        } else {
+            logger.warn(`[Puppeteer] Environment path ignored (not found on disk): ${envPath}`);
+        }
     }
 
     // 2. On Windows, return undefined to auto-resolve from cache
@@ -35,22 +45,30 @@ function findChromiumExecutable() {
     // 3. Try Unix shell command discovery (which)
     const { execSync } = require('child_process');
     try {
-        path = execSync('which chromium 2>/dev/null', { stdio: 'pipe' }).toString().trim();
-        if (path) return path;
+        const path = execSync('which chromium 2>/dev/null', { stdio: 'pipe' }).toString().trim();
+        if (path && fs.existsSync(path)) {
+            logger.info(`[Puppeteer] Discovered Chromium via 'which chromium': ${path}`);
+            return path;
+        }
     } catch (_) {}
 
     try {
-        path = execSync('which chromium-browser 2>/dev/null', { stdio: 'pipe' }).toString().trim();
-        if (path) return path;
+        const path = execSync('which chromium-browser 2>/dev/null', { stdio: 'pipe' }).toString().trim();
+        if (path && fs.existsSync(path)) {
+            logger.info(`[Puppeteer] Discovered Chromium via 'which chromium-browser': ${path}`);
+            return path;
+        }
     } catch (_) {}
 
     try {
-        path = execSync('which google-chrome 2>/dev/null', { stdio: 'pipe' }).toString().trim();
-        if (path) return path;
+        const path = execSync('which google-chrome 2>/dev/null', { stdio: 'pipe' }).toString().trim();
+        if (path && fs.existsSync(path)) {
+            logger.info(`[Puppeteer] Discovered Chrome via 'which google-chrome': ${path}`);
+            return path;
+        }
     } catch (_) {}
 
     // 4. Default check fallbacks
-    const fs = require('fs');
     const fallbacks = [
         '/usr/bin/chromium',
         '/usr/bin/chromium-browser',
@@ -59,10 +77,12 @@ function findChromiumExecutable() {
     ];
     for (const fallback of fallbacks) {
         if (fs.existsSync(fallback)) {
+            logger.info(`[Puppeteer] Discovered Chromium via fallback: ${fallback}`);
             return fallback;
         }
     }
 
+    logger.error('[Puppeteer] No Chromium executable found dynamically.');
     return null;
 }
 

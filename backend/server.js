@@ -359,13 +359,17 @@ async function validateChromiumStartup() {
     const browserPool = require('./services/browserPool');
 
     const executablePath = browserPool.findChromiumExecutable();
-    logger.info(`[Puppeteer] Detected executable: ${executablePath || 'default (cached)'}`);
-    console.log(`[Puppeteer] Detected executable: ${executablePath || 'default (cached)'}`);
+    const resolvedPath = executablePath || 'default (cached)';
+    
+    logger.info(`[Puppeteer] Browser path discovered: ${resolvedPath}`);
+    console.log(`[Puppeteer] Browser path discovered: ${resolvedPath}`);
+    logger.info(`[Puppeteer] Browser detected at: ${resolvedPath}`);
+    console.log(`[Puppeteer] Browser detected at: ${resolvedPath}`);
 
     // If path is specified but not found on disk, fail early
     if (executablePath && !fs.existsSync(executablePath)) {
         logger.error(`[Puppeteer] Chromium executable missing at: ${executablePath}`);
-        console.error(`[Puppeteer] Chromium executable missing`);
+        console.error(`[Puppeteer] Chromium executable missing at: ${executablePath}`);
         process.exit(1);
     }
 
@@ -382,11 +386,13 @@ async function validateChromiumStartup() {
             ]
         });
         await browser.close();
+        logger.info('[Puppeteer] Browser launch successful');
+        console.log('[Puppeteer] Browser launch successful');
         logger.info('[Puppeteer] Launch test successful');
         console.log('[Puppeteer] Launch test successful');
     } catch (err) {
         logger.error(`[Puppeteer] Launch test failed: ${err.message}`);
-        console.error(`[Puppeteer] Launch test failed`);
+        console.error(`[Puppeteer] Launch test failed: ${err.message}`);
         process.exit(1);
     }
 }

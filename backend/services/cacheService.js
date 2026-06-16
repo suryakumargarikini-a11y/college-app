@@ -15,6 +15,19 @@ class CacheService {
      * Gracefully falls back to high-performance local memory Map.
      */
     async initRedis() {
+        const isProduction = process.env.NODE_ENV === 'production';
+        const hasRedisUrl = !!process.env.REDIS_URL;
+        const isLocalhostRedis = hasRedisUrl && (process.env.REDIS_URL.includes('localhost') || process.env.REDIS_URL.includes('127.0.0.1'));
+        const disableRedisEnv = process.env.DISABLE_REDIS === 'true';
+
+        if (disableRedisEnv || (isProduction && (!hasRedisUrl || isLocalhostRedis))) {
+            logger.info('[Cache] Redis is disabled for this environment. Using high-performance in-memory cache engine.');
+            this.redisClient = null;
+            this.isRedisConnected = false;
+            try { require('./metricsService').metrics.redisConnected.set(0); } catch (_) {}
+            return;
+        }
+
         if (process.env.REDIS_URL || process.env.REDIS_HOST) {
             try {
                 // Dynamic import to prevent crash if 'redis' is not installed

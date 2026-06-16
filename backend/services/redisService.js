@@ -5,8 +5,19 @@ class RedisService {
     constructor() {
         this.client = null;
         this.isConnected = false;
-        this.isDisabled = false;
+
+        const isProduction = process.env.NODE_ENV === 'production';
+        const hasRedisUrl = !!process.env.REDIS_URL;
+        const isLocalhostRedis = hasRedisUrl && (process.env.REDIS_URL.includes('localhost') || process.env.REDIS_URL.includes('127.0.0.1'));
+        const disableRedisEnv = process.env.DISABLE_REDIS === 'true';
+
+        // Disable Redis if explicitly disabled, or if in production and no valid external REDIS_URL is provided
+        this.isDisabled = disableRedisEnv || (isProduction && (!hasRedisUrl || isLocalhostRedis));
         this.redisUrl = process.env.REDIS_URL || 'redis://127.0.0.1:6379';
+        
+        if (this.isDisabled) {
+            logger.info('[RedisService] Redis is disabled for this environment. Using in-memory fallback cache and queues.');
+        }
     }
 
     /**
