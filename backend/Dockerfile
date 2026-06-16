@@ -10,7 +10,7 @@
 # Cache-busting build argument — increment this value to force all layers to
 # rebuild without needing to clear Railway's BuildKit cache manually.
 # Current value: 3  (increment to bust cache on next deploy)
-ARG CACHEBUST=3
+ARG CACHEBUST=4
 
 # ─── Stage 1: Build ────────────────────────────────────────────────────────────
 FROM node:20-slim AS builder
