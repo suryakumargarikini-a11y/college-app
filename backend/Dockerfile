@@ -96,10 +96,10 @@ COPY --chown=node:node backend/security           ./security
 COPY --chown=node:node backend/services           ./services
 COPY --chown=node:node backend/sre                ./sre
 COPY --chown=node:node backend/telemetry          ./telemetry
-COPY --chown=node:node backend/prisma             ./prisma
-
-# Copy the Prisma client generated in the builder stage.
-# Must come AFTER all source COPYs so it is never overwritten.
+# Copy the Prisma schema and generated client from the builder stage.
+# Using --from=builder avoids any build-context path resolution issues
+# that occur when Dockerfile is at a non-root path (backend/Dockerfile).
+COPY --from=builder --chown=node:node /build/prisma             ./prisma
 COPY --from=builder --chown=node:node /build/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder --chown=node:node /build/node_modules/@prisma  ./node_modules/@prisma
 
