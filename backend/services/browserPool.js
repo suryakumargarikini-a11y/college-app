@@ -339,8 +339,8 @@ class BrowserPool {
             const executablePath = findChromiumExecutable();
 
             const browser = await puppeteer.launch({
-                headless: 'new',
-                executablePath,
+                headless: true,                          // 'new' was deprecated in v22+, invalid in v24
+                executablePath: executablePath || undefined,
                 args: this.launchArgs,
             });
 

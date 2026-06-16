@@ -1,0 +1,37 @@
+# ── Node modules (never send to Docker daemon) ────────────────────────────────
+node_modules/
+backend/node_modules/
+frontend/node_modules/
+
+# ── Development / local artefacts ─────────────────────────────────────────────
+backend/prisma/dev.db
+backend/prisma/dev.db-journal
+backend/logs/
+backend/security-reports/
+backend/security/sbom/snapshots/
+backend/data/
+backend/scratch/
+backend/*.html
+backend/error_screenshot.png
+backend/profile_texts.txt
+backend/patch1.js
+backend/test_*.js
+
+# ── Frontend (not needed for backend Docker image) ────────────────────────────
+frontend/
+android/
+node/
+node.zip
+*.zip
+zip_extract_temp/
+
+# ── Git / IDE ─────────────────────────────────────────────────────────────────
+.git/
+.github/
+.gemini/
+.env
+*.log
+
+# ── Docs ──────────────────────────────────────────────────────────────────────
+*.md
+docs/

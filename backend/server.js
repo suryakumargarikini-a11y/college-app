@@ -353,6 +353,10 @@ try {
 }
 
 // ─── Startup Puppeteer Validation ────────────────────────────────────────────
+// Returns true if Chromium launched successfully, false if unavailable.
+// IMPORTANT: Never calls process.exit() — the API must stay alive even if
+// Chromium is missing so that Railway health checks pass and the container
+// does not enter an infinite restart loop.
 async function validateChromiumStartup() {
     const fs = require('fs');
     const puppeteer = require('puppeteer');
@@ -360,24 +364,26 @@ async function validateChromiumStartup() {
 
     const executablePath = browserPool.findChromiumExecutable();
     const resolvedPath = executablePath || 'default (cached)';
-    
+
     logger.info(`[Puppeteer] Browser path discovered: ${resolvedPath}`);
     console.log(`[Puppeteer] Browser path discovered: ${resolvedPath}`);
     logger.info(`[Puppeteer] Browser detected at: ${resolvedPath}`);
     console.log(`[Puppeteer] Browser detected at: ${resolvedPath}`);
 
-    // If path is specified but not found on disk, fail early
+    // If an explicit path is set but doesn't exist on disk, log and abort
+    // gracefully — do NOT crash the process.
     if (executablePath && !fs.existsSync(executablePath)) {
         logger.error(`[Puppeteer] Chromium executable missing at: ${executablePath}`);
         console.error(`[Puppeteer] Chromium executable missing at: ${executablePath}`);
-        process.exit(1);
+        logger.warn('[Puppeteer] Scraping features will be disabled. API continues in read-only mode.');
+        return false;
     }
 
     try {
         logger.info('[Puppeteer] Launching test browser instance...');
         const browser = await puppeteer.launch({
-            headless: 'new',
-            executablePath,
+            headless: true,                          // 'new' was removed in Puppeteer v22+
+            executablePath: executablePath || undefined,
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
@@ -390,10 +396,12 @@ async function validateChromiumStartup() {
         console.log('[Puppeteer] Browser launch successful');
         logger.info('[Puppeteer] Launch test successful');
         console.log('[Puppeteer] Launch test successful');
+        return true;
     } catch (err) {
         logger.error(`[Puppeteer] Launch test failed: ${err.message}`);
         console.error(`[Puppeteer] Launch test failed: ${err.message}`);
-        process.exit(1);
+        logger.warn('[Puppeteer] Scraping features will be disabled. API continues in read-only mode.');
+        return false;
     }
 }
 
@@ -402,12 +410,16 @@ const server = app.listen(PORT, '0.0.0.0', async () => {
     logger.info(`[Server] SITAM Smart ERP Backend running on port ${PORT}`);
     console.log(`[Server] SITAM Smart ERP Backend running on port ${PORT}`);
 
-    // Perform Chromium validation and fail startup if it fails
-    await validateChromiumStartup();
+    // Validate Chromium — degraded mode if unavailable (no crash-loop)
+    const browserReady = await validateChromiumStartup();
 
-    // Initialize browser pool (pre-warms 1 Chromium instance)
-    const browserPool = require('./services/browserPool');
-    browserPool.init().catch(err => logger.error(`[Server] BrowserPool pre-warm failed: ${err.message}`));
+    // Initialize browser pool only if Chromium is available
+    if (browserReady) {
+        const browserPool = require('./services/browserPool');
+        browserPool.init().catch(err => logger.error(`[Server] BrowserPool pre-warm failed: ${err.message}`));
+    } else {
+        logger.warn('[Server] BrowserPool skipped — Chromium unavailable. Scraping endpoints will return 503.');
+    }
 
     // Start WebSockets and background sync scheduler
     socketService.init(server);

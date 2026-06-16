@@ -1,8 +1,43 @@
+# backend/nixpacks.toml
+# NOTE: If Railway is configured to use the Dockerfile in backend/, this file
+# is ignored. Keep it as a fallback for Nixpacks-based builds from backend/ root.
+
 [phases.setup]
-nixPkgs = ["...", "chromium"]
+nixPkgs = [
+  "nodejs_20",
+  "chromium",
+  "glib",
+  "nss",
+  "nspr",
+  "atk",
+  "at-spi2-atk",
+  "libdrm",
+  "libgbm",
+  "gtk3",
+  "pango",
+  "cairo",
+  "alsa-lib",
+  "expat",
+  "dbus",
+  "xorg.libX11",
+  "xorg.libxcb",
+  "xorg.libXcomposite",
+  "xorg.libXcursor",
+  "xorg.libXdamage",
+  "xorg.libXext",
+  "xorg.libXfixes",
+  "xorg.libXi",
+  "xorg.libXrandr",
+  "xorg.libXrender",
+  "xorg.libXtst"
+]
+
+[phases.install]
+cmds = ["npm install --ignore-scripts"]
 
 [phases.build]
 cmds = [
+  "npx prisma generate",
   "echo '=== Chromium Discovery ==='",
   "which chromium || true",
   "which chromium-browser || true",
@@ -11,5 +46,12 @@ cmds = [
   "find / -name chrome 2>/dev/null | head -50"
 ]
 
+[start]
+cmd = "node server.js"
+
 [variables]
 PUPPETEER_SKIP_CHROMIUM_DOWNLOAD = "true"
+NODE_ENV = "production"
+# DO NOT hardcode PUPPETEER_EXECUTABLE_PATH here for Nixpacks builds.
+# The findChromiumExecutable() function will call 'which chromium' at runtime
+# and the Nix environment ensures chromium is on PATH.
