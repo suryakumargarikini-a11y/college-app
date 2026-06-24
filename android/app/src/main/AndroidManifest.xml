@@ -17,6 +17,7 @@
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
+            android:enableOnBackInvokedCallback="true"
             android:exported="true">
 
             <intent-filter>
@@ -51,6 +52,18 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
+
+        <!-- FCM Messaging Service -->
+        <service android:name="com.google.firebase.messaging.FirebaseMessagingService"
+                 android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT"/>
+            </intent-filter>
+        </service>
+
+        <!-- Default notification channel -->
+        <meta-data android:name="com.google.firebase.messaging.default_notification_channel_id"
+                   android:value="sitam_exam_alerts"/>
     </application>
 
     <!-- Permissions -->
