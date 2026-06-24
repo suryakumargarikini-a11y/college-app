@@ -1,4 +1,5 @@
 const logger = require('./logger');
+const PerformanceTimer = require('./performanceTimer');
 // Provider abstraction — provider can be swapped via ERP_PROVIDER env var
 const ProviderFactory = require('../providers/ProviderFactory');
 const ProviderSessionManager = require('../providers/session/ProviderSessionManager');
@@ -41,12 +42,21 @@ class SyncService {
             'dependency.criticality': 'high'
         }, async (span) => {
             try {
+                const syncTimer = new PerformanceTimer('db-sync', userId);
+                syncTimer.start('dbSync:total');
                 logger.info(`[SyncService] Starting transactional DB sync for Student: ${userId}`);
+                console.time(`[SyncService] dbSync:${userId}`);
 
             const prisma = require('./dbService');
             const studentBefore = await prisma.student.findUnique({
                 where: { userId },
-                include: { fees: true }
+                include: {
+                    fees: true,
+                    attendance: { include: { subject: true } },
+                    marks: { include: { subject: true } },
+                    assignments: true,
+                    timetable: { include: { subject: true } }
+                }
             });
 
             // 1. Parse all data using our robust ERPScraper or read from normalized provider sync payload
@@ -283,61 +293,30 @@ class SyncService {
             await auditLogRepository.log(student.id, 'SYNC_SUCCESS', `Successfully synced all ERP data modules for ${userId}. CGPA: ${profile.cgpa}`);
             
             // Invalidate attendance cache so that the next request fetches latest synchronized data
-            cacheService.invalidate(userId);
+            // FIX: cacheService.invalidate() requires (namespace, userId) — was previously missing namespace
+            cacheService.invalidate('attendance', userId);
+            cacheService.invalidate('profile', userId);
+            cacheService.invalidate('marks', userId);
+            cacheService.invalidate('fees', userId);
+            cacheService.invalidate('assignments', userId);
+            console.timeEnd(`[SyncService] dbSync:${userId}`);
+            syncTimer.end('dbSync:total');
+            logger.info(`[SyncService] DB sync complete for ${userId} in ${syncTimer.get('dbSync:total')}ms`);
 
             const studentAfter = await prisma.student.findUnique({
                 where: { userId },
-                include: { fees: true }
+                include: {
+                    fees: true,
+                    attendance: { include: { subject: true } },
+                    marks: { include: { subject: true } },
+                    assignments: true,
+                    timetable: { include: { subject: true } }
+                }
             });
 
             if (studentBefore && studentAfter) {
-                const socketService = require('./socketService');
-                const firebaseService = require('./firebaseService');
-
-                // Check overall attendance changes
-                if (studentBefore.percentage !== studentAfter.percentage) {
-                    socketService.sendToUser(userId, 'attendance_update', {
-                        overall: profile.percentage || '0%',
-                        subjects: marksData.attendance
-                    });
-                    logger.info(`[SyncService] Live Attendance changes detected! Sent WebSocket update for ${userId}`);
-                    firebaseService.sendPushNotification(
-                        userId,
-                        'SITAM Attendance Alert',
-                        `Your overall attendance has updated to ${profile.percentage || '0%'}.`,
-                        { route: '/attendance' }
-                    );
-                }
-
-                // Check marks changes
-                if (studentBefore.cgpa !== studentAfter.cgpa) {
-                    socketService.sendToUser(userId, 'marks_update', {
-                        cgpa: profile.cgpa,
-                        sgpa: marksData.sgpa,
-                        subjects: marksData.subjects
-                    });
-                    logger.info(`[SyncService] Live Marks changes detected! Sent WebSocket update for ${userId}`);
-                    firebaseService.sendPushNotification(
-                        userId,
-                        'SITAM Academic Results Update',
-                        `New academic semester results have been published. Current CGPA: ${profile.cgpa || '--'}`,
-                        { route: '/marks' }
-                    );
-                }
-
-                // Check fees changes
-                const beforeDue = studentBefore.fees.reduce((acc, f) => acc + f.dueAmount, 0);
-                const afterDue = studentAfter.fees.reduce((acc, f) => acc + f.dueAmount, 0);
-                if (beforeDue !== afterDue) {
-                    socketService.sendToUser(userId, 'fees_update', feesData);
-                    logger.info(`[SyncService] Live Fees changes detected! Sent WebSocket update for ${userId}`);
-                    firebaseService.sendPushNotification(
-                        userId,
-                        'SITAM Fee Statement Update',
-                        `Your student balance ledger has been modified. Outstanding due: ${feesData.dueAmount || '₹0'}`,
-                        { route: '/fees' }
-                    );
-                }
+                const changeDetectionService = require('./changeDetectionService');
+                await changeDetectionService.detectAndNotify(userId, studentBefore, studentAfter);
             }
 
             logger.info(`[SyncService] Transaction completed. Data synced successfully for Student: ${userId}`);
@@ -345,6 +324,7 @@ class SyncService {
 
         } catch (error) {
             logger.error(`[SyncService] Error in syncStudentData transaction: ${error.message}`, { stack: error.stack });
+            console.timeEnd(`[SyncService] dbSync:${userId}`);
             if (studentDbId) {
                 await studentRepository.updateSyncStatus(studentDbId, false);
             }

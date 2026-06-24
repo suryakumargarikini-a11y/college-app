@@ -21,6 +21,7 @@ const circuitBreaker = require('./services/circuitBreaker');
 const observabilityScheduler = require('./services/ObservabilityScheduler');
 const sreScheduler = require('./services/SREScheduler');
 const devSecOpsScheduler = require('./services/DevSecOpsScheduler');
+const feeReminderScheduler = require('./services/feeReminderScheduler');
 
 
 const app = express();
@@ -39,7 +40,9 @@ app.use(helmet({
 const corsWhitelist = [
     'capacitor://localhost',
     'http://localhost',
-    'https://sitamecap.co.in'
+    'http://localhost:5173',
+    'https://sitamecap.co.in',
+    'https://admin.sitamecap.co.in'
 ];
 if (process.env.ALLOWED_ORIGINS) {
     const extraOrigins = process.env.ALLOWED_ORIGINS.split(',').map(item => item.trim()).filter(Boolean);
@@ -321,6 +324,9 @@ const examsRoutes       = require('./routes/exams');
 
 const socketService = require('./services/socketService');
 const syncQueue     = require('./services/syncQueue');
+const maintenanceMiddleware = require('./middleware/maintenance');
+
+app.use('/api', maintenanceMiddleware);
 
 app.use('/api/auth',          authRoutes);
 app.use('/api/profile',       profileRoutes);
@@ -334,6 +340,21 @@ app.use('/api/sync',          syncRoutes);
 app.use('/api/student',       studentRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/exams',         examsRoutes);
+
+// ─── Admin Portal Routes ──────────────────────────────────────────────────────
+const adminRoutes = require('./routes/admin/index');
+app.use('/api/admin', adminRoutes);
+
+// ─── New Student-Facing Routes (V1.0 Features) ───────────────────────────────
+const announcementsRoutes = require('./routes/announcements');
+const placementsRoutes    = require('./routes/placements');
+const feeNoticesRoutes    = require('./routes/feeNotices');
+const exitPassesRoutes    = require('./routes/exitPasses');
+
+app.use('/api/announcements', announcementsRoutes);
+app.use('/api/placements',    placementsRoutes);
+app.use('/api/fee-notices',   feeNoticesRoutes);
+app.use('/api/exit-passes',   exitPassesRoutes);
 
 // ─── Error Handling ───────────────────────────────────────────────────────────
 app.use(errorHandler);
@@ -447,6 +468,9 @@ const server = app.listen(PORT, '0.0.0.0', async () => {
     // SecurityTestRunner (DAST) activates on 6h interval.
     devSecOpsScheduler.start();
 
+    // ── Fee Reminder Runtime ───────────────────────────────────────────────
+    feeReminderScheduler.start();
+
     // ── Security Posture → Deployment Gate Cross-Wire ───────────────────────
     // After both schedulers are up, inject the live SecurityReportAggregator
     // into DeploymentGovernor so deployment safety checks include the security
@@ -473,6 +497,7 @@ const gracefulShutdown = async (signal) => {
             sreScheduler.stop();
             devSecOpsScheduler.stop();
             observabilityScheduler.stop();
+            feeReminderScheduler.stop();
 
 
             const browserPool = require('./services/browserPool');

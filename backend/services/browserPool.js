@@ -17,6 +17,7 @@ const logger = require('./logger');
 const { traceSpan } = require('../telemetry/tracing');
 const repMgr = require('../providers/scraper/browser/BrowserReputationManager');
 const classifier = require('../providers/scraper/retry/AdaptiveRetryClassifier');
+const PerformanceTimer = require('./performanceTimer');
 
 function findChromiumExecutable() {
     const fs = require('fs');
@@ -86,7 +87,7 @@ function findChromiumExecutable() {
     return null;
 }
 
-const MAX_BROWSERS = parseInt(process.env.BROWSER_POOL_SIZE || '3', 10);
+const MAX_BROWSERS = parseInt(process.env.BROWSER_POOL_SIZE || '5', 10);
 const BROWSER_ACQUIRE_TIMEOUT_MS = parseInt(process.env.BROWSER_ACQUIRE_TIMEOUT_MS || '30000', 10);
 const BROWSER_IDLE_RECYCLE_MS = parseInt(process.env.BROWSER_IDLE_RECYCLE_MS || '600000', 10); // 10 min
 
@@ -96,7 +97,7 @@ class BrowserPool {
         this.waitQueue = []; // Queued resolve functions waiting for a free slot
         this.recycleInterval = null;
         this.isShuttingDown = false;
-        this.maxBrowsers = 3; // Starting max browsers (adaptive scaling up to 5)
+        this.maxBrowsers = 2; // Start at minimum 2 (1-user load), scale up to 5 under load
         this.launchArgs = [
             '--no-sandbox',
             '--disable-setuid-sandbox',
@@ -114,11 +115,19 @@ class BrowserPool {
      */
     async init() {
         logger.info(`[BrowserPool] Initializing pool (MAX_BROWSERS=${MAX_BROWSERS})...`);
+        console.time('[BrowserPool] init:prewarm');
         try {
-            // Pre-warm one browser instance
-            await this._launchBrowser();
-            logger.info('[BrowserPool] Pre-warmed 1 browser. Pool ready.');
+            // Pre-warm 2 browser instances to cut cold-start latency for concurrent first-logins.
+            // Both browsers are launched in parallel so startup cost is ~1 browser launch, not 2.
+            const warmCount = Math.min(2, MAX_BROWSERS);
+            logger.info(`[BrowserPool] Pre-warming ${warmCount} browser(s) in parallel...`);
+            await Promise.all(
+                Array.from({ length: warmCount }, () => this._launchBrowser())
+            );
+            console.timeEnd('[BrowserPool] init:prewarm');
+            logger.info(`[BrowserPool] Pre-warm complete. ${this.pool.length} browser(s) ready.`);
         } catch (err) {
+            console.timeEnd('[BrowserPool] init:prewarm');
             logger.error(`[BrowserPool] Pre-warm failed: ${err.message}. Pool will launch on first acquire.`);
         }
 
@@ -136,7 +145,9 @@ class BrowserPool {
             throw new Error('[BrowserPool] Pool is shutting down. Cannot acquire browser.');
         }
 
-        logger.info(`[BrowserPool] Acquiring browser context...`);
+        const acquireStart = Date.now();
+        logger.info(`[BrowserPool] [${requestId}] Acquiring browser context...`);
+        console.time(`[BrowserPool] acquire:${requestId}`);
 
         return traceSpan('puppeteer.pool.acquire', {
             'maxBrowsers': MAX_BROWSERS,
@@ -151,17 +162,25 @@ class BrowserPool {
             // Find a non-busy browser
             const freeBrowser = this.pool.find(b => !b.inUse);
             if (freeBrowser) {
-                return await this._checkoutContext(freeBrowser, requestId);
+                logger.info(`[BrowserPool] [${requestId}] WARM browser available (${freeBrowser.id}) — no launch needed.`);
+                const result = await this._checkoutContext(freeBrowser, requestId);
+                console.timeEnd(`[BrowserPool] acquire:${requestId}`);
+                logger.info(`[BrowserPool] [${requestId}] Warm acquire complete in ${Date.now() - acquireStart}ms`);
+                return result;
             }
 
             // Pool not yet at capacity — launch a new browser
             if (this.pool.length < this.maxBrowsers) {
+                logger.info(`[BrowserPool] [${requestId}] COLD start — launching new browser (pool: ${this.pool.length}/${this.maxBrowsers})`);
                 const entry = await this._launchBrowser();
-                return await this._checkoutContext(entry, requestId);
+                const result = await this._checkoutContext(entry, requestId);
+                console.timeEnd(`[BrowserPool] acquire:${requestId}`);
+                logger.info(`[BrowserPool] [${requestId}] Cold acquire complete in ${Date.now() - acquireStart}ms`);
+                return result;
             }
 
             // All browsers busy — queue the request with a timeout
-            logger.warn(`[BrowserPool] All ${this.maxBrowsers} browsers busy. Queuing request...`);
+            logger.warn(`[BrowserPool] All ${this.maxBrowsers} browsers busy. Queuing request [${requestId}]...`);
             span.setAttribute('pool.exhausted', true);
             span.addEvent('browser_pool_exhausted', { maxBrowsers: MAX_BROWSERS });
 
@@ -176,6 +195,7 @@ class BrowserPool {
                         metricsService.metrics.browserPoolTimeoutsTotal.inc();
                     } catch (_) {}
 
+                    console.timeEnd(`[BrowserPool] acquire:${requestId}`);
                     reject(new Error(`[BrowserPool] Acquire timeout after ${BROWSER_ACQUIRE_TIMEOUT_MS}ms. All browsers busy.`));
                 }, BROWSER_ACQUIRE_TIMEOUT_MS);
 
@@ -270,7 +290,7 @@ class BrowserPool {
         if (queueDepth > 1 && this.maxBrowsers < 5) {
             this.maxBrowsers++;
             logger.info(`[BrowserPool-Sizing] Scaling UP browser pool capacity to: ${this.maxBrowsers}`);
-        } else if (queueDepth === 0 && this.maxBrowsers > 3) {
+        } else if (queueDepth === 0 && this.maxBrowsers > 2) {
             this.maxBrowsers--;
             logger.info(`[BrowserPool-Sizing] Scaling DOWN browser pool capacity to: ${this.maxBrowsers}`);
         }
@@ -335,11 +355,12 @@ class BrowserPool {
             span.setAttribute('browser.id', id);
             span.addEvent('browser_launched', { browserId: id });
             logger.info(`[BrowserPool] Launching new browser: ${id}`);
+            console.time(`[BrowserPool] launch:${id}`);
 
             const executablePath = findChromiumExecutable();
 
             const browser = await puppeteer.launch({
-                headless: true,                          // 'new' was deprecated in v22+, invalid in v24
+                headless: true,
                 executablePath: executablePath || undefined,
                 args: this.launchArgs,
             });
@@ -383,6 +404,7 @@ class BrowserPool {
             });
 
             this.pool.push(entry);
+            console.timeEnd(`[BrowserPool] launch:${id}`);
             try {
                 const metricsService = require('./metricsService');
                 metricsService.metrics.browserPoolActiveBrowsers.set(this.pool.length);

@@ -364,39 +364,160 @@ const assignmentRepository = {
 
 const notificationRepository = {
     async saveNotifications(studentId, notificationsArray) {
-        logger.info(`Repository: Saving ${notificationsArray.length} notifications for student ${studentId}`);
-        
-        return prisma.$transaction(async (tx) => {
-            await tx.notification.deleteMany({
-                where: { studentId }
-            });
-
-            const createdList = [];
-            for (const notif of notificationsArray) {
-                const newNotif = await tx.notification.create({
-                    data: {
-                        studentId,
-                        title: notif.title,
-                        message: notif.message,
-                        date: notif.date || new Date().toLocaleDateString(),
-                        isRead: notif.isRead || false
-                    }
-                });
-                createdList.push(newNotif);
-            }
-            return createdList;
+        const count = await prisma.notification.count({
+            where: { studentId }
         });
+        if (count > 0) {
+            logger.info(`Repository: Notifications already exist for student ${studentId}. Skipping seed.`);
+            return [];
+        }
+
+        logger.info(`Repository: Seeding ${notificationsArray.length} initial notifications for student ${studentId}`);
+        const createdList = [];
+        for (const notif of notificationsArray) {
+            const newNotif = await prisma.notification.create({
+                data: {
+                    studentId,
+                    title: notif.title,
+                    message: notif.message,
+                    date: notif.date || new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+                    isRead: notif.isRead || false,
+                    type: notif.type || 'general',
+                    category: notif.category || 'info'
+                }
+            });
+            createdList.push(newNotif);
+        }
+        return createdList;
+    },
+
+    async appendNotification(studentId, notifData) {
+        if (notifData.changeHash) {
+            const exists = await prisma.notification.findFirst({
+                where: { changeHash: notifData.changeHash }
+            });
+            if (exists) {
+                logger.info(`Repository: Notification with changeHash ${notifData.changeHash} already exists. Skipping.`);
+                return exists;
+            }
+        }
+
+        return prisma.notification.create({
+            data: {
+                studentId,
+                title: notifData.title,
+                message: notifData.message,
+                type: notifData.type || 'general',
+                category: notifData.category || 'info',
+                metadata: notifData.metadata || null,
+                changeHash: notifData.changeHash || null,
+                date: notifData.date || new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+                isRead: false
+            }
+        });
+    },
+
+    async getNotifications(studentId, { page = 1, limit = 20, type, unreadOnly } = {}) {
+        const whereClause = { studentId };
+        if (type && type !== 'all') {
+            whereClause.type = type;
+        }
+        if (unreadOnly === true || unreadOnly === 'true') {
+            whereClause.isRead = false;
+        }
+
+        const skip = (page - 1) * limit;
+
+        const [notifications, total] = await prisma.$transaction([
+            prisma.notification.findMany({
+                where: whereClause,
+                orderBy: { createdAt: 'desc' },
+                skip,
+                take: limit
+            }),
+            prisma.notification.count({ where: whereClause })
+        ]);
+
+        return {
+            notifications,
+            total,
+            page,
+            totalPages: Math.ceil(total / limit)
+        };
+    },
+
+    async getUnreadCount(studentId) {
+        return prisma.notification.count({
+            where: {
+                studentId,
+                isRead: false
+            }
+        });
+    },
+
+    async markRead(studentId, notificationId) {
+        return prisma.notification.updateMany({
+            where: {
+                id: notificationId,
+                studentId
+            },
+            data: { isRead: true }
+        });
+    },
+
+    async markAllRead(studentId) {
+        return prisma.notification.updateMany({
+            where: {
+                studentId,
+                isRead: false
+            },
+            data: { isRead: true }
+        });
+    },
+
+    async deleteNotification(studentId, notificationId) {
+        return prisma.notification.deleteMany({
+            where: {
+                id: notificationId,
+                studentId
+            }
+        });
+    },
+
+    async saveChangeEvent(data) {
+        return prisma.notificationEvent.upsert({
+            where: { changeHash: data.changeHash },
+            update: {},
+            create: {
+                studentId: data.studentId,
+                eventType: data.eventType,
+                changeHash: data.changeHash,
+                oldValue: data.oldValue || null,
+                newValue: data.newValue || null,
+                metadata: data.metadata || null,
+                notified: data.notified || false
+            }
+        });
+    },
+
+    async hasChangeEvent(changeHash) {
+        const count = await prisma.notificationEvent.count({
+            where: { changeHash }
+        });
+        return count > 0;
     }
 };
 
 const auditLogRepository = {
-    async log(studentId, action, details) {
-        logger.debug(`AuditLog: [${action}] Student: ${studentId || 'None'} - ${details}`);
+    async log(studentId, action, details, adminId = null, severity = 'INFO') {
+        logger.debug(`AuditLog: [${action}] Student: ${studentId || 'None'} | Admin: ${adminId || 'None'} | Severity: ${severity} - ${details}`);
         return prisma.auditLog.create({
             data: {
                 studentId,
+                adminId,
                 action,
-                details
+                details,
+                severity
             }
         });
     }

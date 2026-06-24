@@ -4,7 +4,8 @@ datasource db {
 }
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
 model Student {
@@ -38,9 +39,11 @@ model Student {
   timetable     TimetableSlot[]
   assignments   Assignment[]
   notifications Notification[]
+  notificationEvents NotificationEvent[]
   auditLogs     AuditLog[]
   fees          Fee[]
   fcmTokens     FcmToken[]
+  exitPasses    ExitPass[]
 }
 
 model Subject {
@@ -150,26 +153,57 @@ model Assignment {
 }
 
 model Notification {
-  id        String   @id @default(uuid())
-  studentId String
-  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  title     String
-  message   String
-  date      String
-  isRead    Boolean  @default(false)
+  id         String   @id @default(uuid())
+  studentId  String
+  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  title      String
+  message    String
+  type       String   @default("general")  // attendance, marks, fees, assignments, timetable, exams, announcement
+  category   String   @default("info")     // alert, update, reminder, success
+  metadata   String?  // JSON: route, oldValue, newValue, subject, etc.
+  changeHash String?  // links to NotificationEvent.changeHash for dedup
+  isRead     Boolean  @default(false)
+  date       String
+  createdAt  DateTime @default(now())
 
   @@index([studentId])
+  @@index([studentId, isRead])
+  @@index([studentId, type])
+  @@index([studentId, createdAt])
+  @@index([changeHash])
+}
+
+model NotificationEvent {
+  id            String   @id @default(uuid())
+  studentId     String
+  student       Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  eventType     String   // attendance_dropped, marks_updated, new_assignment, fee_due, etc.
+  changeHash    String   // SHA-256 of (studentId + eventType + key-fields) — dedup key
+  oldValue      String?  // JSON serialized previous value
+  newValue      String?  // JSON serialized new value
+  metadata      String?  // JSON: subject name, amount, etc.
+  notified      Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  @@unique([changeHash])         // Enforces at-DB-level dedup
+  @@index([studentId])
+  @@index([studentId, eventType])
+  @@index([createdAt])
 }
 
 model AuditLog {
-  id        String   @id @default(uuid())
+  id        String    @id @default(uuid())
   studentId String?
-  student   Student? @relation(fields: [studentId], references: [id], onDelete: SetNull)
-  action    String   // E.g., LOGIN, SYNC_START, SYNC_SUCCESS, SYNC_FAILURE
+  student   Student?  @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  adminId   String?
+  admin     Admin?    @relation(fields: [adminId], references: [id], onDelete: SetNull)
+  action    String    // E.g., LOGIN, SYNC_START, SYNC_SUCCESS, SYNC_FAILURE
   details   String
-  timestamp DateTime @default(now())
+  severity  String    @default("INFO") // "INFO", "WARNING", "CRITICAL", "SECURITY"
+  timestamp DateTime  @default(now())
 
   @@index([studentId])
+  @@index([adminId])
 }
 
 model FcmToken {
@@ -225,4 +259,144 @@ model SreIncident {
   durationMs   Int      @default(0)
   traceRef     String?  @default("")
   timestamp    DateTime @default(now())
+}
+
+model Admin {
+  id           String     @id @default(uuid())
+  email        String     @unique
+  passwordHash String
+  name         String
+  role         String     @default("SUPER_ADMIN") // "SUPER_ADMIN", "ACCOUNTS_ADMIN", "PLACEMENT_ADMIN", "SECURITY_GUARD"
+  isActive     Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  auditLogs    AuditLog[]
+}
+
+model Announcement {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  priority    String   @default("NORMAL")
+  link        String?
+  status      String   @default("DRAFT")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Placement {
+  id                  String   @id @default(uuid())
+  companyName         String
+  companyLogoUrl      String?
+  jobRole             String
+  packageLpa          String
+  eligibility         String
+  description         String
+  registrationLink    String
+  driveDate           String
+  status              String   @default("DRAFT")
+  notificationSent    Boolean  @default(false)
+  companyArrivedToday Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([status])
+  @@index([driveDate])
+}
+
+model CompanyVisit {
+  id             String   @id @default(uuid())
+  companyName    String
+  companyLogoUrl String?
+  visitDate      String
+  packageLpa     String
+  eligibility    String
+  jobRoles       String
+  driveRounds    String?
+  venue          String
+  status         String   @default("UPCOMING")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([status])
+  @@index([visitDate])
+}
+
+model FeeNotice {
+  id                     String   @id @default(uuid())
+  title                  String
+  description            String
+  dueDate                String
+  targetBatch            String   @default("ALL")
+  priority               String   @default("NORMAL")
+  popupEnabled           Boolean  @default(true)
+  notificationEnabled    Boolean  @default(true)
+  hallTicketBlockWarning Boolean  @default(false)
+  isActive               Boolean  @default(true)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([dueDate])
+}
+
+model ExitPass {
+  id            String    @id @default(uuid())
+  studentId     String
+  student       Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  reason        String
+  destination   String
+  requestedDate String
+  status        String    @default("PENDING")
+  otpHash       String?
+  otpExpiry     DateTime?
+  qrCode        String?
+  rejectionNote String?
+  approvedAt    DateTime?
+  approvedBy    String?
+  verifiedAt    DateTime?
+  verifiedBy    String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([studentId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model AdminNotification {
+  id             String   @id @default(uuid())
+  title          String
+  message        String
+  targetAudience String   @default("ALL")
+  targetBranches String?  // Stored as stringified JSON array
+  targetYears    String?  // Stored as stringified JSON array
+  targetSections String?  // Stored as stringified JSON array
+  priority       String   @default("NORMAL")
+  sentAt         DateTime @default(now())
+  sentBy         String
+
+  @@index([sentAt])
+}
+
+model SystemSetting {
+  id                 String   @id @default("system")
+  maintenanceMode    Boolean  @default(false)
+  maintenanceMessage String   @default("SITAM Smart ERP is currently undergoing scheduled maintenance. Please try again later.")
+  updatedAt          DateTime @updatedAt
+}
+
+model FeeReminderLog {
+  id            String   @id @default(uuid())
+  studentId     String
+  feeId         String
+  reminderStage String   // "15_DAY", "10_DAY", "7_DAY", "5_DAY", "3_DAY", "1_DAY"
+  sentAt        DateTime @default(now())
+
+  @@unique([studentId, feeId, reminderStage])
+  @@index([studentId])
+  @@index([feeId])
 }

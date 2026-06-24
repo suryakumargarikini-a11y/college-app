@@ -4,10 +4,7 @@ const prisma = require('../services/dbService');
 const logger = require('../services/logger');
 const cacheService = require('../services/cacheService');
 const workerService = require('../services/workerService');
-// Business metrics — lazy via scheduler singleton
-const getBusinessCollector = () => {
-    try { return require('../services/ObservabilityScheduler').getBusinessCollector(); } catch (_) { return null; }
-};
+const PerformanceTimer = require('../services/performanceTimer');
 
 // Helper to map grade string to a realistic numeric percentage and display marks
 const mapGradeToPercentage = (grade) => {
@@ -92,21 +89,25 @@ const getMarks = async (req, res, next) => {
 
 // Attendance controller
 const getAttendance = async (req, res, next) => {
+    const userId = req.session.userId;
+    const timer = new PerformanceTimer(`att-${Date.now()}`, userId);
+    timer.start('getAttendance:total');
+    console.time(`[Controller] getAttendance:${userId}`);
     try {
-        const userId = req.session.userId;
-        
-        // 1. Check in-memory Cache first
-        const cachedData = cacheService.get(userId);
+        // 1. Check in-memory Cache first (FIX: was cacheService.get(userId) — missing namespace)
+        const cachedData = await cacheService.get('attendance', userId);
         if (cachedData) {
+            logger.info(`[DataController] Attendance cache HIT for: ${userId}`);
+            console.timeEnd(`[Controller] getAttendance:${userId}`);
             return res.status(200).json(cachedData);
         }
 
-        // 2. Perform indexed query to look up student DB UUID
         const student = await prisma.student.findUnique({
             where: { userId },
             select: { id: true }
         });
         if (!student) {
+            console.timeEnd(`[Controller] getAttendance:${userId}`);
             return res.status(404).json({
                 success: false,
                 message: 'Student attendance not found in local cache',
@@ -146,11 +147,15 @@ const getAttendance = async (req, res, next) => {
             attendance
         };
 
-        // 5. Store formatted payload in cache
-        cacheService.set(userId, responsePayload);
+        // 5. Store formatted payload in cache (FIX: was cacheService.set(userId, ...) — missing namespace)
+        await cacheService.set('attendance', userId, responsePayload);
 
+        console.timeEnd(`[Controller] getAttendance:${userId}`);
+        timer.end('getAttendance:total');
+        logger.info(`[DataController] Attendance fetched from DB for ${userId} in ${timer.get('getAttendance:total')}ms`);
         res.status(200).json(responsePayload);
     } catch (error) {
+        console.timeEnd(`[Controller] getAttendance:${userId}`);
         next(error);
     }
 };
@@ -375,16 +380,109 @@ const getNotifications = async (req, res, next) => {
     try {
         const student = await studentRepository.findByUserId(req.session.userId);
         if (!student) {
-            return res.ok([], 'No notifications');
+            return res.ok({ notifications: [], total: 0, page: 1, totalPages: 0 }, 'No student profile');
         }
-        const notifs = (student.notifications || []).map(n => ({
-            id: n.id,
-            title: n.title,
-            message: n.message,
-            date: n.date,
-            isRead: n.isRead || false
-        }));
-        res.ok(notifs, 'Notifications fetched');
+        
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const type = req.query.type || 'all';
+        const unreadOnly = req.query.unreadOnly === 'true';
+
+        const result = await notificationRepository.getNotifications(student.id, {
+            page,
+            limit,
+            type,
+            unreadOnly
+        });
+
+        res.ok(result, 'Notifications fetched successfully');
+    } catch (error) {
+        next(error);
+    }
+};
+
+const getUnreadCount = async (req, res, next) => {
+    try {
+        const student = await studentRepository.findByUserId(req.session.userId);
+        if (!student) {
+            return res.ok({ count: 0 });
+        }
+        const count = await notificationRepository.getUnreadCount(student.id);
+        res.ok({ count });
+    } catch (error) {
+        next(error);
+    }
+};
+
+const markRead = async (req, res, next) => {
+    try {
+        const { notificationId } = req.body;
+        if (!notificationId) {
+            return res.fail('notificationId is required');
+        }
+        const student = await studentRepository.findByUserId(req.session.userId);
+        if (!student) {
+            return res.fail('Student not found', null, 404);
+        }
+        await notificationRepository.markRead(student.id, notificationId);
+        res.ok(null, 'Notification marked as read');
+    } catch (error) {
+        next(error);
+    }
+};
+
+const markAllRead = async (req, res, next) => {
+    try {
+        const student = await studentRepository.findByUserId(req.session.userId);
+        if (!student) {
+            return res.fail('Student not found', null, 404);
+        }
+        await notificationRepository.markAllRead(student.id);
+        res.ok(null, 'All notifications marked as read');
+    } catch (error) {
+        next(error);
+    }
+};
+
+const deleteNotification = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        if (!id) {
+            return res.fail('id parameter is required');
+        }
+        const student = await studentRepository.findByUserId(req.session.userId);
+        if (!student) {
+            return res.fail('Student not found', null, 404);
+        }
+        await notificationRepository.deleteNotification(student.id, id);
+        res.ok(null, 'Notification deleted');
+    } catch (error) {
+        next(error);
+    }
+};
+
+const getNotificationDebug = async (req, res, next) => {
+    try {
+        const student = await studentRepository.findByUserId(req.session.userId);
+        if (!student) {
+            return res.fail('Student not found', null, 404);
+        }
+        
+        const prisma = require('../services/dbService');
+        const [eventCount, fcmReady, fcmTokenCount] = await Promise.all([
+            prisma.notificationEvent.count({ where: { studentId: student.id } }),
+            require('../services/firebaseService').isFcmReady(),
+            prisma.fcmToken.count({ where: { studentId: student.id } })
+        ]);
+
+        res.ok({
+            studentId: student.id,
+            roll: student.roll,
+            fcmReady,
+            fcmTokensRegistered: fcmTokenCount,
+            totalChangeEvents: eventCount,
+            lastSyncTime: student.lastSync
+        }, 'Debug statistics retrieved successfully');
     } catch (error) {
         next(error);
     }
@@ -465,7 +563,7 @@ const openPaymentWindow = async (req, res, next) => {
 };
 
 const clearAttendanceCache = (userId) => {
-    cacheService.invalidate(userId);
+    cacheService.invalidate('attendance', userId);
 };
 
 const paymentRedirect = async (req, res, next) => {
@@ -652,6 +750,11 @@ module.exports = {
     toggleSyllabusUnit,
     triggerSync,
     getNotifications,
+    getUnreadCount,
+    markRead,
+    markAllRead,
+    deleteNotification,
+    getNotificationDebug,
     clearAttendanceCache,
     getExams,
     openPaymentWindow,

@@ -14,34 +14,76 @@ tailwind.config = {
     theme: {
       extend: {
         "colors": {
-            "surface-variant":"#e1e2e8","surface-bright":"#faf9fc","primary-container":"#e4e2e1",
-            "on-secondary":"#fff6ff","secondary-fixed-dim":"#e5caff","on-secondary-fixed":"#4f3170",
-            "inverse-primary":"#ffffff","on-surface-variant":"#5c5f64","surface-dim":"#d8dae0",
-            "surface":"#faf9fc","outline-variant":"#b0b2b7","surface-container-high":"#e7e8ed",
-            "tertiary-fixed-dim":"#ec96a1","on-tertiary-fixed-variant":"#6c2d37","error-container":"#f76a80",
-            "on-error-container":"#68001f","error":"#ac3149","background":"#faf9fc",
-            "on-primary-fixed":"#3f3f3f","surface-container-highest":"#e1e2e8","inverse-surface":"#0d0e10",
-            "on-error":"#fff7f7","tertiary-fixed":"#fca3ae","surface-container-lowest":"#ffffff",
-            "secondary-dim":"#644586","on-secondary-fixed-variant":"#6c4d8f","tertiary-dim":"#823e48",
-            "on-tertiary":"#fff7f7","on-primary-fixed-variant":"#5c5b5b","secondary":"#705193",
-            "primary-fixed":"#e4e2e1","surface-tint":"#5f5f5f","on-tertiary-fixed":"#450e1a",
-            "on-background":"#303337","surface-container-low":"#f4f3f7","primary-dim":"#535353",
-            "primary-fixed-dim":"#d6d4d3","surface-container":"#ededf2","on-primary-container":"#525151",
-            "outline":"#787b80","on-secondary-container":"#624384","secondary-fixed":"#efdbff",
-            "primary":"#5f5f5f","tertiary-container":"#fca3ae","tertiary":"#904954","on-primary":"#fbf8f8",
-            "on-tertiary-container":"#61242f","on-surface":"#303337","inverse-on-surface":"#9c9d9f",
-            "secondary-container":"#efdbff","error-dim":"#770326"
+            /* ── New Design System Tokens ── */
+            "primary":         "#2563EB",   /* Accent Blue */
+            "primary-dim":     "#1d4ed8",
+            "primary-container": "#dbeafe",
+            "on-primary":      "#ffffff",
+            "on-primary-container": "#1e3a8a",
+            /* Academic Accent (subtle indigo — replaces old purple) */
+            "secondary":       "#6366F1",
+            "secondary-dim":   "#4f46e5",
+            "secondary-container": "#e0e7ff",
+            "on-secondary":    "#ffffff",
+            "on-secondary-container": "#312e81",
+            "on-secondary-fixed": "#312e81",
+            "secondary-fixed": "#e0e7ff",
+            "secondary-fixed-dim": "#c7d2fe",
+            "on-secondary-fixed-variant": "#4338ca",
+            /* Slate base */
+            "background":      "#F8FAFC",
+            "on-background":   "#0F172A",
+            "surface":         "#F8FAFC",
+            "on-surface":      "#0F172A",
+            "surface-variant": "#e2e8f0",
+            "on-surface-variant": "#64748B",
+            "surface-container":         "#f1f5f9",
+            "surface-container-low":     "#f8fafc",
+            "surface-container-high":    "#e2e8f0",
+            "surface-container-highest": "#cbd5e1",
+            "surface-container-lowest":  "#ffffff",
+            "surface-bright":  "#ffffff",
+            "surface-dim":     "#cbd5e1",
+            "surface-tint":    "#2563EB",
+            /* Neutral */
+            "outline":         "#94a3b8",
+            "outline-variant": "#cbd5e1",
+            "inverse-surface": "#0f172a",
+            "inverse-on-surface": "#94a3b8",
+            "inverse-primary": "#93c5fd",
+            /* Semantic */
+            "error":           "#EF4444",
+            "error-dim":       "#dc2626",
+            "error-container": "#fee2e2",
+            "on-error":        "#ffffff",
+            "on-error-container": "#7f1d1d",
+            /* Tertiary (warm accent for marks/results) */
+            "tertiary":           "#f59e0b",
+            "tertiary-dim":       "#d97706",
+            "tertiary-container": "#fef3c7",
+            "tertiary-fixed":     "#fde68a",
+            "tertiary-fixed-dim": "#fcd34d",
+            "on-tertiary":        "#ffffff",
+            "on-tertiary-container": "#78350f",
+            "on-tertiary-fixed":     "#451a03",
+            "on-tertiary-fixed-variant": "#92400e",
+            /* Misc carry-over (used in JS logic) */
+            "primary-fixed":         "#dbeafe",
+            "primary-fixed-dim":     "#bfdbfe",
+            "on-primary-fixed":      "#1e3a8a",
+            "on-primary-fixed-variant": "#1d4ed8"
         },
         "borderRadius":{"DEFAULT":"1rem","lg":"2rem","xl":"3rem","full":"9999px"},
-        "fontFamily":{"headline":["Plus Jakarta Sans"],"body":["Manrope"],"label":["Manrope"]}
+        "fontFamily":{"headline":["Inter","sans-serif"],"body":["Inter","sans-serif"],"label":["Inter","sans-serif"]}
       }
     }
 }
 </script>
 
 <!-- Fonts, Icons & Local / Native Platform Configuration -->
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="./styles.css"/>
 
 <style>
 /* Prevent tap highlight delay and callouts for Capacitor Android app shell */
@@ -51,10 +93,164 @@ tailwind.config = {
   box-sizing: border-box;
 }
 
+/* ── WOW Hero Card — inlined for instant render ── */
+.hero-card {
+  background: linear-gradient(135deg, #1e3a8a 0%, #2563EB 45%, #6366F1 100%);
+  border-radius: 28px;
+  box-shadow: 0 20px 60px rgba(37, 99, 235, 0.30), 0 4px 16px rgba(37,99,235,0.15);
+  position: relative;
+  overflow: hidden;
+}
+.hero-card::before {
+  content: '';
+  position: absolute;
+  top: -40%;
+  right: -20%;
+  width: 280px;
+  height: 280px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.hero-card::after {
+  content: '';
+  position: absolute;
+  bottom: -30%;
+  left: -10%;
+  width: 200px;
+  height: 200px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+/* ── Digital Student ID Card ── */
+.id-card {
+  background: linear-gradient(145deg, #0f172a 0%, #1e293b 40%, #1e3a8a 100%);
+  border-radius: 28px;
+  box-shadow: 0 30px 80px rgba(15,23,42,0.38), 0 8px 24px rgba(37,99,235,0.18), inset 0 1px 0 rgba(255,255,255,0.08);
+  position: relative;
+  overflow: hidden;
+}
+.id-card::before {
+  content: '';
+  position: absolute;
+  top: -30%; right: -20%;
+  width: 280px; height: 280px;
+  background: radial-gradient(circle, rgba(99,102,241,0.28) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.id-card::after {
+  content: '';
+  position: absolute;
+  bottom: -20%; left: -10%;
+  width: 200px; height: 200px;
+  background: radial-gradient(circle, rgba(37,99,235,0.22) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+/* ── Holographic ID chip ── */
+.id-chip {
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%);
+  border-radius: 8px;
+  width: 44px; height: 32px;
+  position: relative; overflow: hidden;
+  box-shadow: 0 2px 8px rgba(245,158,11,0.4);
+}
+.id-chip::before {
+  content: ''; position: absolute;
+  top: 30%; left: 0; right: 0; height: 1px;
+  background: rgba(255,255,255,0.5);
+}
+.id-chip::after {
+  content: ''; position: absolute;
+  top: 0; bottom: 0; left: 30%; width: 1px;
+  background: rgba(255,255,255,0.3);
+}
+
+/* ── Floating dock base ── */
+.floating-dock {
+  position: fixed;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  background: rgba(255,255,255,0.84);
+  backdrop-filter: blur(32px) saturate(200%);
+  -webkit-backdrop-filter: blur(32px) saturate(200%);
+  border: 1px solid rgba(255,255,255,0.65);
+  border-radius: 32px;
+  box-shadow: 0 20px 60px rgba(15,23,42,0.14), 0 4px 16px rgba(15,23,42,0.08), inset 0 1px 0 rgba(255,255,255,0.9);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  width: max-content;
+  max-width: calc(100vw - 32px);
+}
+.dock-item {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  border-radius: 22px;
+  padding: 8px 12px; min-width: 48px;
+  cursor: pointer;
+  transition: all 0.28s cubic-bezier(0.34,1.56,0.64,1);
+  color: #94a3b8;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.dock-item:active { transform: scale(0.9); }
+.dock-item .dock-icon {
+  font-size: 22px; line-height: 1;
+  transition: all 0.28s cubic-bezier(0.34,1.56,0.64,1);
+}
+.dock-item .dock-label {
+  font-size: 9px; font-weight: 700;
+  letter-spacing: 0.05em; text-transform: uppercase;
+  margin-top: 4px; opacity: 0;
+  max-height: 0; overflow: hidden;
+  transition: all 0.28s ease; white-space: nowrap;
+}
+.dock-item.dock-active {
+  background: linear-gradient(135deg, #dbeafe 0%, #e0e7ff 100%);
+  color: #2563EB; padding-left: 16px; padding-right: 16px;
+  box-shadow: 0 4px 14px rgba(37,99,235,0.18);
+}
+.dock-item.dock-active .dock-icon {
+  font-variation-settings: 'FILL' 1, 'wght' 600, 'GRAD' 0, 'opsz' 24;
+}
+.dock-item.dock-active .dock-label {
+  opacity: 1; max-height: 16px; color: #2563EB;
+}
+
+/* ── Page enter animation ── */
+@keyframes pageSlideIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.page-enter {
+  animation: pageSlideIn 0.28s cubic-bezier(0.22,1,0.36,1) forwards;
+}
+
+/* ── Hero shine sweep ── */
+.hero-shine {
+  position: absolute; top: 0; left: -100%; width: 60%; height: 100%;
+  background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.07) 50%, transparent 60%);
+  pointer-events: none;
+  animation: heroShine 7s ease-in-out infinite 1.5s;
+}
+@keyframes heroShine {
+  0% { left: -100%; }
+  35%, 100% { left: 140%; }
+}
+
+
 body {
-  font-family: 'Manrope', sans-serif;
-  background-color: #faf9fc;
-  color: #303337;
+  font-family: 'Inter', sans-serif;
+  background-color: #F8FAFC;
+  color: #0F172A;
   min-height: 100vh;
   min-height: 100dvh;
   /* Viewport safe area padding for notch and bezel-less Android screens */
@@ -69,7 +265,7 @@ body {
 }
 
 h1, h2, h3, h4, h5 {
-  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-family: 'Inter', sans-serif;
 }
 
 .material-symbols-outlined {
@@ -152,6 +348,93 @@ input, textarea {
   -webkit-user-select: auto;
   user-select: auto;
 }
+
+/* ── GPU-Accelerated Page Transitions ── */
+#app {
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  /* Promote to GPU compositor layer — eliminates paint jank */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+}
+
+/* Forward navigation: enter from right */
+@keyframes slideInRight {
+  from { transform: translate3d(100%, 0, 0); opacity: 0.75; }
+  to   { transform: translate3d(0, 0, 0);   opacity: 1;    }
+}
+/* Back navigation: enter from left */
+@keyframes slideInLeft {
+  from { transform: translate3d(-40%, 0, 0); opacity: 0.75; }
+  to   { transform: translate3d(0, 0, 0);    opacity: 1;    }
+}
+/* keepAlive page swap (no DOM recreation — just unhide) */
+@keyframes pageReveal {
+  from { opacity: 0.6; transform: translate3d(0, 6px, 0); }
+  to   { opacity: 1;   transform: translate3d(0, 0, 0);   }
+}
+
+.page-enter-forward {
+  animation: slideInRight 0.28s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+.page-enter-back {
+  animation: slideInLeft 0.22s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+.page-reveal {
+  animation: pageReveal 0.18s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+/* Pull-to-refresh spinner */
+#ptr-spinner {
+  position: fixed;
+  top: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255,255,255,0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  border-radius: 9999px;
+  padding: 6px 16px 6px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #2563EB;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  box-shadow: 0 4px 20px rgba(15,23,42,0.08);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, top 0.2s ease;
+}
+#ptr-spinner.visible {
+  opacity: 1;
+  top: 80px;
+}
+#ptr-spinner .ptr-ring {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(37,99,235,0.2);
+  border-top-color: #2563EB;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Last-synced chip */
+#last-synced-chip {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #5c5f64;
+  opacity: 0.7;
+  display: none;
+}
 </style>
 </head>
 <body class="bg-[#faf9fc]">
@@ -164,7 +447,7 @@ input, textarea {
     <div class="flex justify-between items-center px-6 h-16 w-full max-w-7xl mx-auto">
       <div class="flex items-center gap-4">
         <button id="menu-btn" class="p-2 hover:bg-slate-100/50 transition-all active:scale-95 duration-200 rounded-full">
-          <span class="material-symbols-outlined text-purple-600">menu</span>
+          <span class="material-symbols-outlined text-blue-600">menu</span>
         </button>
         <h1 class="text-xl font-extrabold text-slate-800 tracking-tighter">SITAM Campus</h1>
       </div>
@@ -174,12 +457,12 @@ input, textarea {
            <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping"></span>
            <span>Live</span>
         </div>
-        <button id="sync-btn" class="p-2 hover:bg-slate-100/50 transition-all active:scale-95 duration-200 rounded-full text-slate-500 hover:text-purple-600 relative" title="Sync Data">
+        <button id="sync-btn" class="p-2 hover:bg-slate-100/50 transition-all active:scale-95 duration-200 rounded-full text-slate-500 hover:text-blue-600 relative" title="Sync Data">
           <span class="material-symbols-outlined">sync</span>
         </button>
         <button class="p-2 hover:bg-slate-100/50 transition-all active:scale-95 duration-200 rounded-full relative" onclick="router.navigate('/notifications')" title="Notifications">
           <span class="material-symbols-outlined text-slate-500">notifications</span>
-          <span class="absolute top-2 right-2 w-2 h-2 bg-[#fca3ae] rounded-full" id="notif-dot"></span>
+          <span class="absolute top-2 right-2 w-2 h-2 bg-[#fca3ae] rounded-full hidden" id="notif-dot"></span>
         </button>
         <div class="w-9 h-9 rounded-full overflow-hidden border-2 border-white shadow-sm bg-[#ededf2] flex items-center justify-center cursor-pointer" onclick="router.navigate('/profile')" title="Profile">
           <span class="material-symbols-outlined text-[#787b80]">person</span>
@@ -188,36 +471,40 @@ input, textarea {
     </div>
   </header>
 
-  <!-- Bottom Nav -->
-  <nav class="fixed bottom-0 left-0 w-full z-50 bg-white/80 backdrop-blur-2xl border-t border-white/20 rounded-t-[2.5rem] shadow-[0_-4px_20px_rgba(48,51,55,0.04)]">
-    <div class="flex justify-around items-center px-2 pt-3 pb-6 max-w-lg mx-auto">
-      <a data-nav="dashboard" data-nav-link="dashboard" href="#" class="bottom-nav-item flex flex-col items-center justify-center px-4 py-2 transition-all active-scale rounded-2xl text-slate-400">
-        <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1;">home</span>
-        <span class="text-[9px] font-bold tracking-widest uppercase mt-1">Home</span>
-      </a>
-      <a data-nav="attendance" data-nav-link="attendance" href="#" class="bottom-nav-item flex flex-col items-center justify-center px-4 py-2 transition-all active-scale rounded-2xl text-slate-400">
-        <span class="material-symbols-outlined">calendar_today</span>
-        <span class="text-[9px] font-bold tracking-widest uppercase mt-1">Attend</span>
-      </a>
-      <a data-nav="timetable" data-nav-link="timetable" href="#" class="bottom-nav-item flex flex-col items-center justify-center px-4 py-2 transition-all active-scale rounded-2xl text-slate-400">
-        <span class="material-symbols-outlined">schedule</span>
-        <span class="text-[9px] font-bold tracking-widest uppercase mt-1">Schedule</span>
-      </a>
-      <a data-nav="syllabus" data-nav-link="syllabus" href="#" class="bottom-nav-item flex flex-col items-center justify-center px-4 py-2 transition-all active-scale rounded-2xl text-slate-400">
-        <span class="material-symbols-outlined">auto_stories</span>
-        <span class="text-[9px] font-bold tracking-widest uppercase mt-1">Syllabus</span>
-      </a>
-      <a data-nav="marks" data-nav-link="marks" href="#" class="bottom-nav-item flex flex-col items-center justify-center px-4 py-2 transition-all active-scale rounded-2xl text-slate-400">
-        <span class="material-symbols-outlined">analytics</span>
-        <span class="text-[9px] font-bold tracking-widest uppercase mt-1">Marks</span>
-      </a>
-    </div>
+  <!-- Floating Glass Dock (Arc / iOS Dock inspired) -->
+  <nav class="floating-dock" id="bottom-dock" aria-label="Main navigation">
+    <a data-nav="dashboard" data-nav-link="dashboard" href="#" id="dock-dashboard"
+       class="dock-item bottom-nav-item" aria-label="Home">
+      <span class="material-symbols-outlined dock-icon">home</span>
+      <span class="dock-label">Home</span>
+    </a>
+    <a data-nav="attendance" data-nav-link="attendance" href="#" id="dock-attendance"
+       class="dock-item bottom-nav-item" aria-label="Attendance">
+      <span class="material-symbols-outlined dock-icon">calendar_today</span>
+      <span class="dock-label">Attend</span>
+    </a>
+    <a data-nav="timetable" data-nav-link="timetable" href="#" id="dock-timetable"
+       class="dock-item bottom-nav-item" aria-label="Timetable">
+      <span class="material-symbols-outlined dock-icon">schedule</span>
+      <span class="dock-label">Schedule</span>
+    </a>
+    <a data-nav="syllabus" data-nav-link="syllabus" href="#" id="dock-syllabus"
+       class="dock-item bottom-nav-item" aria-label="Syllabus">
+      <span class="material-symbols-outlined dock-icon">auto_stories</span>
+      <span class="dock-label">Syllabus</span>
+    </a>
+    <a data-nav="marks" data-nav-link="marks" href="#" id="dock-marks"
+       class="dock-item bottom-nav-item" aria-label="Marks">
+      <span class="material-symbols-outlined dock-icon">analytics</span>
+      <span class="dock-label">Marks</span>
+    </a>
   </nav>
 
+
   <!-- Realtime Syncing Glass Banner -->
-  <div id="sync-banner" class="fixed top-20 left-1/2 transform -translate-x-1/2 z-40 bg-white/80 backdrop-blur-2xl px-6 py-2.5 rounded-full border border-purple-200/50 shadow-xl flex items-center gap-3 transition-all duration-500 scale-0 opacity-0 pointer-events-none">
-    <div class="w-4 h-4 border-2 border-purple-500/20 border-t-purple-500 rounded-full animate-spin"></div>
-    <span class="text-xs font-bold text-purple-700 tracking-wider uppercase font-headline">Syncing latest data...</span>
+  <div id="sync-banner" class="fixed top-20 left-1/2 transform -translate-x-1/2 z-40 bg-white/80 backdrop-blur-2xl px-6 py-2.5 rounded-full border border-blue-200/50 shadow-xl flex items-center gap-3 transition-all duration-500 scale-0 opacity-0 pointer-events-none">
+    <div class="w-4 h-4 border-2 border-blue-500/20 border-t-blue-600 rounded-full animate-spin"></div>
+    <span class="text-xs font-bold text-blue-700 tracking-wider uppercase font-headline">Syncing latest data...</span>
   </div>
 
 </div><!-- end #app-shell -->
@@ -234,7 +521,7 @@ input, textarea {
   <!-- Profile Brief in Drawer -->
   <div class="bg-white/70 backdrop-blur-xl p-5 rounded-2xl border border-white/40 shadow-sm mt-4 cursor-pointer" onclick="closeDrawer(); router.navigate('/profile');">
     <div class="flex items-center gap-4">
-      <div class="w-14 h-14 rounded-full overflow-hidden border-2 border-[#efdbff] shadow-sm bg-[#ededf2] flex items-center justify-center">
+      <div class="w-14 h-14 rounded-full overflow-hidden border-2 border-[#c7d2fe] shadow-sm bg-[#f1f5f9] flex items-center justify-center">
         <span class="material-symbols-outlined text-[#787b80] text-2xl">person</span>
       </div>
       <div class="flex flex-col">
@@ -246,64 +533,64 @@ input, textarea {
 
   <nav class="flex-1 overflow-y-auto space-y-6 pr-2 hide-scrollbar">
     <div class="space-y-2">
-      <div class="px-3 py-1"><span class="text-[11px] uppercase tracking-widest font-bold text-[#705193]">Academics</span></div>
+      <div class="px-3 py-1"><span class="text-[11px] uppercase tracking-widest font-bold text-[#2563EB]">Academics</span></div>
       <div class="space-y-1">
-        <a href="#" data-nav="dashboard" data-nav-link="dashboard" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-purple-50 hover:text-purple-700 transition-all duration-300">
+        <a href="#" data-nav="dashboard" data-nav-link="dashboard" class="flex items-center gap-3 px-4 py-3.5 rounded-xl text-slate-500 hover:bg-blue-50 hover:text-blue-700 transition-all duration-300">
           <span class="material-symbols-outlined text-[20px]">grid_view</span>
           <span class="text-[13px] font-bold tracking-wide uppercase">Dashboard</span>
         </a>
-        <a href="#" data-nav="timetable" data-nav-link="timetable" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-purple-50 hover:text-purple-700 transition-all duration-300">
+        <a href="#" data-nav="timetable" data-nav-link="timetable" class="flex items-center gap-3 px-4 py-3.5 rounded-xl text-slate-500 hover:bg-blue-50 hover:text-blue-700 transition-all duration-300">
           <span class="material-symbols-outlined text-[20px]">schedule</span>
           <span class="text-[13px] font-bold tracking-wide uppercase">Weekly Schedule</span>
         </a>
-        <a href="#" data-nav="syllabus" data-nav-link="syllabus" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-purple-50 hover:text-purple-700 transition-all duration-300">
+        <a href="#" data-nav="syllabus" data-nav-link="syllabus" class="flex items-center gap-3 px-4 py-3.5 rounded-xl text-slate-500 hover:bg-blue-50 hover:text-blue-700 transition-all duration-300">
           <span class="material-symbols-outlined text-[20px]">auto_stories</span>
           <span class="text-[13px] font-bold tracking-wide uppercase">Curriculum &amp; Syllabus</span>
         </a>
-        <a href="#" data-nav="marks" data-nav-link="marks" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-purple-50 hover:text-purple-700 transition-all duration-300">
+        <a href="#" data-nav="marks" data-nav-link="marks" class="flex items-center gap-3 px-4 py-3.5 rounded-xl text-slate-500 hover:bg-blue-50 hover:text-blue-700 transition-all duration-300">
           <span class="material-symbols-outlined text-[20px]" style="font-variation-settings:'FILL' 1;">grade</span>
           <span class="text-[13px] font-bold tracking-wide uppercase">Marks &amp; Results</span>
         </a>
-        <a href="#" data-nav="attendance" data-nav-link="attendance" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-purple-50 hover:text-purple-700 transition-all duration-300">
+        <a href="#" data-nav="attendance" data-nav-link="attendance" class="flex items-center gap-3 px-4 py-3.5 rounded-xl text-slate-500 hover:bg-blue-50 hover:text-blue-700 transition-all duration-300">
           <span class="material-symbols-outlined text-[20px]">calendar_today</span>
           <span class="text-[13px] font-bold tracking-wide uppercase">Attendance</span>
         </a>
-        <a href="#" data-nav="assignments" data-nav-link="assignments" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-purple-50 hover:text-purple-700 transition-all duration-300">
+        <a href="#" data-nav="assignments" data-nav-link="assignments" class="flex items-center gap-3 px-4 py-3.5 rounded-xl text-slate-500 hover:bg-blue-50 hover:text-blue-700 transition-all duration-300">
           <span class="material-symbols-outlined text-[20px]">assignment_turned_in</span>
           <span class="text-[13px] font-bold tracking-wide uppercase">Assignments</span>
         </a>
-        <a href="#" data-nav="notifications" data-nav-link="notifications" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-purple-50 hover:text-purple-700 transition-all duration-300">
+        <a href="#" data-nav="notifications" data-nav-link="notifications" class="flex items-center gap-3 px-4 py-3.5 rounded-xl text-slate-500 hover:bg-blue-50 hover:text-blue-700 transition-all duration-300">
           <span class="material-symbols-outlined text-[20px]">notifications</span>
           <span class="text-[13px] font-bold tracking-wide uppercase">Announcements</span>
         </a>
       </div>
     </div>
     <div class="space-y-2">
-      <div class="px-3 py-1"><span class="text-[11px] uppercase tracking-widest font-bold text-[#705193]">Finance</span></div>
+      <div class="px-3 py-1"><span class="text-[11px] uppercase tracking-widest font-bold text-[#2563EB]">Finance</span></div>
       <div class="space-y-1">
-        <a href="#" data-nav="fees" data-nav-link="fees" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-purple-50 hover:text-purple-700 transition-all duration-300">
+        <a href="#" data-nav="fees" data-nav-link="fees" class="flex items-center gap-3 px-4 py-3.5 rounded-xl text-slate-500 hover:bg-blue-50 hover:text-blue-700 transition-all duration-300">
           <span class="material-symbols-outlined text-[20px]">account_balance_wallet</span>
           <span class="text-[13px] font-bold tracking-wide uppercase">Fees &amp; Payments</span>
         </a>
       </div>
     </div>
     <div class="space-y-2">
-      <div class="px-3 py-1"><span class="text-[11px] uppercase tracking-widest font-bold text-[#705193]">Account</span></div>
+      <div class="px-3 py-1"><span class="text-[11px] uppercase tracking-widest font-bold text-[#2563EB]">Account</span></div>
       <div class="space-y-1">
-        <a href="#" data-nav="profile" data-nav-link="profile" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-purple-50 hover:text-purple-700 transition-all duration-300">
+        <a href="#" data-nav="profile" data-nav-link="profile" class="flex items-center gap-3 px-4 py-3.5 rounded-xl text-slate-500 hover:bg-blue-50 hover:text-blue-700 transition-all duration-300">
           <span class="material-symbols-outlined text-[20px]">manage_accounts</span>
           <span class="text-[13px] font-bold tracking-wide uppercase">Profile</span>
         </a>
       </div>
     </div>
     <div class="space-y-2">
-      <div class="px-3 py-1"><span class="text-[11px] uppercase tracking-widest font-bold text-[#705193]">Legal</span></div>
+      <div class="px-3 py-1"><span class="text-[11px] uppercase tracking-widest font-bold text-[#2563EB]">Legal</span></div>
       <div class="space-y-1">
-        <a href="#" onclick="closeDrawer(); router.navigate('/privacy'); return false;" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-purple-50 hover:text-purple-700 transition-all duration-300">
+        <a href="#" onclick="closeDrawer(); router.navigate('/privacy'); return false;" class="flex items-center gap-3 px-4 py-3.5 rounded-xl text-slate-500 hover:bg-blue-50 hover:text-blue-700 transition-all duration-300">
           <span class="material-symbols-outlined text-[20px]">policy</span>
           <span class="text-[13px] font-bold tracking-wide uppercase">Privacy Policy</span>
         </a>
-        <a href="#" onclick="closeDrawer(); router.navigate('/terms'); return false;" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-purple-50 hover:text-purple-700 transition-all duration-300">
+        <a href="#" onclick="closeDrawer(); router.navigate('/terms'); return false;" class="flex items-center gap-3 px-4 py-3.5 rounded-xl text-slate-500 hover:bg-blue-50 hover:text-blue-700 transition-all duration-300">
           <span class="material-symbols-outlined text-[20px]">gavel</span>
           <span class="text-[13px] font-bold tracking-wide uppercase">Terms of Service</span>
         </a>
@@ -323,34 +610,34 @@ input, textarea {
 <div id="app" class="w-full min-h-screen"></div>
 
 <!-- ===== SITAM SPLASH SCREEN ===== -->
-<div id="sitam-splash" class="fixed inset-0 bg-[#faf9fc] z-[120] flex flex-col items-center justify-center transition-all duration-700 ease-in-out opacity-100">
+<div id="sitam-splash" class="fixed inset-0 bg-[#F8FAFC] z-[120] flex flex-col items-center justify-center transition-all duration-700 ease-in-out opacity-100">
   <!-- Organic Blurred Orbs Background -->
-  <div style="filter:blur(100px);opacity:0.35;position:absolute;z-index:0;" class="bg-secondary-container w-[400px] h-[400px] rounded-full top-[15%] left-[10%] animate-pulse"></div>
-  <div style="filter:blur(100px);opacity:0.35;position:absolute;z-index:0;" class="bg-tertiary-container w-[350px] h-[350px] rounded-full bottom-[15%] right-[10%]"></div>
+  <div style="filter:blur(120px);opacity:0.30;position:absolute;z-index:0;" class="bg-blue-200 w-[400px] h-[400px] rounded-full top-[10%] left-[5%] animate-pulse"></div>
+  <div style="filter:blur(120px);opacity:0.25;position:absolute;z-index:0;" class="bg-indigo-200 w-[350px] h-[350px] rounded-full bottom-[10%] right-[5%]"></div>
   
   <div class="relative z-10 flex flex-col items-center text-center">
     <!-- Pulsing Crest Logo Wrapper -->
-    <div class="w-28 h-28 bg-white/60 backdrop-blur-3xl rounded-[2rem] flex items-center justify-center shadow-xl border border-white/80 mb-6 scale-95 animate-bounce" style="animation-duration: 2s;">
+    <div class="w-28 h-28 bg-white/70 backdrop-blur-3xl rounded-[2rem] flex items-center justify-center shadow-2xl border border-white/90 mb-6 scale-95 animate-bounce" style="animation-duration: 2s;">
       <svg class="w-16 h-16" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
         <rect width="100" height="100" rx="30" fill="url(#splashGrad)" />
         <path d="M50 18L22 32L50 46L78 32L50 18Z" fill="#fff" />
         <path d="M22 36.5V56C22 66.5 50 78 50 78C50 78 78 66.5 78 56V36.5L50 51.5L22 36.5Z" fill="#ffffff" fill-opacity="0.85" />
-        <circle cx="50" cy="51.5" r="5" fill="#705193" />
+        <circle cx="50" cy="51.5" r="5" fill="#6366F1" />
         <defs>
           <linearGradient id="splashGrad" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stop-color="#705193"/>
-            <stop offset="100%" stop-color="#644586"/>
+            <stop offset="0%" stop-color="#2563EB"/>
+            <stop offset="100%" stop-color="#6366F1"/>
           </linearGradient>
         </defs>
       </svg>
     </div>
     
-    <h1 class="text-3xl font-black tracking-tighter text-slate-800 bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-purple-900 leading-tight">SITAM Smart ERP</h1>
-    <p class="text-xs uppercase tracking-[0.25em] text-purple-600/70 mt-2 font-extrabold">Official Student Campus App</p>
+    <h1 class="text-3xl font-black tracking-tighter text-slate-800 bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-indigo-600 leading-tight">SITAM Smart ERP</h1>
+    <p class="text-xs uppercase tracking-[0.25em] text-blue-600/70 mt-2 font-extrabold">Official Student Campus App</p>
     
     <!-- Shimmer Loader Line -->
     <div class="w-32 bg-slate-200/80 h-1 rounded-full mt-10 overflow-hidden border border-white">
-      <div class="h-full bg-secondary w-0 rounded-full transition-all duration-1000 ease-out" id="splash-progress-bar"></div>
+      <div class="h-full bg-primary w-0 rounded-full transition-all duration-1000 ease-out" id="splash-progress-bar"></div>
     </div>
   </div>
 </div>
@@ -363,14 +650,15 @@ input, textarea {
 
 <!-- ===== LOADING OVERLAY ===== -->
 <div id="loading-overlay" class="fixed inset-0 bg-white/60 backdrop-blur-sm z-[100] flex flex-col items-center justify-center hidden opacity-0 transition-opacity duration-300">
-  <div class="w-16 h-16 border-4 border-[#705193]/20 border-t-[#705193] rounded-full animate-spin"></div>
-  <p class="mt-4 text-[#705193] font-bold tracking-widest uppercase text-sm animate-pulse" id="loading-text">Loading...</p>
+  <div class="w-16 h-16 border-4 border-[#2563EB]/20 border-t-[#2563EB] rounded-full animate-spin"></div>
+  <p class="mt-4 text-[#2563EB] font-bold tracking-widest uppercase text-sm animate-pulse" id="loading-text">Loading...</p>
 </div>
 
 <!-- ===== FLOATING TOAST NOTIFICATIONS ===== -->
 <div id="toast-container" class="fixed bottom-24 right-6 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none"></div>
 
 <script src="./config.js"></script>
+<script src="./db.js"></script>
 <script src="./app.js"></script>
 </body>
 </html>

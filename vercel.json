@@ -1,0 +1,26 @@
+{
+  "name": "sitam-erp",
+  "version": 2,
+  "builds": [
+    {
+      "src": "admin-portal/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/assets/(.*)",
+      "dest": "/admin-portal/dist/assets/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/admin-portal/dist/index.html"
+    }
+  ],
+  "env": {
+    "VITE_API_BASE_URL": "@vite_api_base_url"
+  }
+}

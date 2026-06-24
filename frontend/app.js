@@ -227,11 +227,11 @@ function showPushBanner(title, body, route) {
     if (!container) return;
 
     const banner = document.createElement('div');
-    banner.className = 'glass-card px-5 py-4 rounded-2xl shadow-2xl border border-purple-200/50 flex items-center gap-3.5 translate-x-12 opacity-0 transition-all duration-300 pointer-events-auto cursor-pointer hover:scale-[1.02] active-scale w-full';
+    banner.className = 'glass-card px-5 py-4 rounded-2xl shadow-2xl border border-blue-200/50 flex items-center gap-3.5 translate-x-12 opacity-0 transition-all duration-300 pointer-events-auto cursor-pointer hover:scale-[1.02] active-scale w-full';
     banner.style.background = 'rgba(255, 255, 255, 0.9)';
     banner.innerHTML = `
-        <div class="w-9 h-9 rounded-xl bg-purple-100/80 flex items-center justify-center flex-shrink-0">
-            <span class="material-symbols-outlined text-purple-700" style="font-variation-settings:'FILL' 1">campaign</span>
+        <div class="w-9 h-9 rounded-xl bg-blue-100/80 flex items-center justify-center flex-shrink-0">
+            <span class="material-symbols-outlined text-blue-700" style="font-variation-settings:'FILL' 1">campaign</span>
         </div>
         <div class="flex-1 min-w-0">
             <h4 class="text-xs font-black text-slate-800 uppercase tracking-wider">${title}</h4>
@@ -389,7 +389,7 @@ function showToast(message, icon = 'info', duration = 4000) {
     if (!container) return;
 
     const toast = document.createElement('div');
-    toast.className = 'glass-card px-5 py-3.5 rounded-xl shadow-lg border border-purple-200/40 flex items-center gap-3 translate-x-12 opacity-0 transition-all duration-300 pointer-events-auto cursor-pointer hover:scale-[1.02]';
+    toast.className = 'glass-card px-5 py-3.5 rounded-xl shadow-lg border border-blue-200/40 flex items-center gap-3 translate-x-12 opacity-0 transition-all duration-300 pointer-events-auto cursor-pointer hover:scale-[1.02]';
     toast.style.background = 'rgba(255, 255, 255, 0.85)';
     toast.innerHTML = `
         <span class="material-symbols-outlined text-secondary text-lg" style="font-variation-settings:'FILL' 1">${icon}</span>
@@ -413,6 +413,25 @@ function showToast(message, icon = 'info', duration = 4000) {
 
     toast.addEventListener('click', dismiss);
     setTimeout(dismiss, duration);
+}
+
+// --- Unread Badge Updater ---
+async function updateUnreadBadge() {
+    if (!state.token) return;
+    try {
+        const res = await api.get('/notifications/unread');
+        const count = res.data?.count || 0;
+        const dot = $('notif-dot');
+        if (dot) {
+            if (count > 0) {
+                dot.classList.remove('hidden');
+            } else {
+                dot.classList.add('hidden');
+            }
+        }
+    } catch (err) {
+        console.warn('[Badge] Failed to update unread badge:', err);
+    }
 }
 
 // --- Real-time WebSocket Service ---
@@ -459,33 +478,65 @@ const wsService = {
         console.log(`[WebSocket] Event: ${event}`, data);
         
         if (event === 'attendance_update') {
-            setCachedData('/attendance', { success: true, attendance: data.subjects });
-            if (router.currentRoute === '/attendance') {
-                router.routes['/attendance']?.afterRender?.();
+            if (data.message) {
+                showToast(data.message, 'calendar_today');
+                updateUnreadBadge().catch(() => {});
+            } else {
+                setCachedData('/attendance', { success: true, attendance: data.subjects });
+                if (router.currentRoute === '/attendance') {
+                    router.routes['/attendance']?.afterRender?.();
+                }
+                const overallText = data.overall || '0%';
+                setEl('dash-att-val', 'innerText', overallText);
+                const overallPct = parseFloat(overallText.replace('%', '')) || 0;
+                setEl('dash-att-bar', 'style.width', overallPct + '%');
+                showToast('Live Attendance Synchronized!', 'calendar_today');
             }
-            const overallText = data.overall || '0%';
-            setEl('dash-att-val', 'innerText', overallText);
-            const overallPct = parseFloat(overallText.replace('%', '')) || 0;
-            setEl('dash-att-bar', 'style.width', overallPct + '%');
-            showToast('Live Attendance Synchronized!', 'calendar_today');
         }
         
         else if (event === 'marks_update') {
-            setCachedData('/marks', { success: true, cgpa: data.cgpa, sgpa: data.sgpa, subjects: data.subjects });
-            if (router.currentRoute === '/marks') {
-                router.routes['/marks']?.afterRender?.();
+            if (data.message) {
+                showToast(data.message, 'analytics');
+                updateUnreadBadge().catch(() => {});
+            } else {
+                setCachedData('/marks', { success: true, cgpa: data.cgpa, sgpa: data.sgpa, subjects: data.subjects });
+                if (router.currentRoute === '/marks') {
+                    router.routes['/marks']?.afterRender?.();
+                }
+                setEl('dash-gpa-val', 'innerText', data.cgpa || '--');
+                showToast('Live Academic Results Synchronized!', 'analytics');
             }
-            setEl('dash-gpa-val', 'innerText', data.cgpa || '--');
-            showToast('Live Academic Results Synchronized!', 'analytics');
         }
         
         else if (event === 'fees_update') {
-            setCachedData('/fees', { success: true, ...data });
-            if (router.currentRoute === '/fees') {
-                router.routes['/fees']?.afterRender?.();
+            if (data.message) {
+                showToast(data.message, 'account_balance_wallet');
+                updateUnreadBadge().catch(() => {});
+            } else {
+                setCachedData('/fees', { success: true, ...data });
+                if (router.currentRoute === '/fees') {
+                    router.routes['/fees']?.afterRender?.();
+                }
+                setEl('dash-fee-text', 'innerText', `Due: ${data.dueAmount || '--'}`);
+                showToast('Live Fees Statement Synchronized!', 'account_balance_wallet');
             }
-            setEl('dash-fee-text', 'innerText', `Due: ${data.dueAmount || '--'}`);
-            showToast('Live Fees Statement Synchronized!', 'account_balance_wallet');
+        }
+
+        else if (event === 'assignments_update') {
+            showToast(data.message || 'Live Assignment updated!', 'assignment_turned_in');
+            updateUnreadBadge().catch(() => {});
+        }
+
+        else if (event === 'timetable_update') {
+            showToast(data.message || 'Live Timetable updated!', 'schedule');
+            updateUnreadBadge().catch(() => {});
+        }
+
+        else if (event === 'notification_refresh') {
+            updateUnreadBadge().catch(() => {});
+            if (router.currentRoute === '/notifications') {
+                router.routes['/notifications']?.afterRender?.();
+            }
         }
         
         else if (event === 'sync_complete') {
@@ -500,15 +551,18 @@ const wsService = {
     }
 };
 
-// --- Cache Helpers ---
+// --- Cache Helpers (IndexedDB-backed, localStorage fallback) ---
 function getCacheKey(ep) {
     const tok = state.token ? state.token.slice(-10) : 'anon';
     return 'erp_cache_' + ep.replace(/\//g, '_') + '_' + tok;
 }
 function getCachedData(ep) {
+    // Legacy localStorage path — used as synchronous fallback only
     try { return JSON.parse(localStorage.getItem(getCacheKey(ep))); } catch { return null; }
 }
 function setCachedData(ep, data) {
+    // Write to IndexedDB (primary) and localStorage (legacy fallback)
+    SITAMDb.set('erp_cache', ep, data, 10 * 60 * 1000).catch(() => {});
     try {
         localStorage.setItem(getCacheKey(ep), JSON.stringify(data));
         localStorage.setItem(getCacheKey(ep) + '_ts', Date.now().toString());
@@ -519,11 +573,49 @@ function isCacheFresh(ep, maxAgeMs = 5 * 60 * 1000) {
     return ts > 0 && (Date.now() - ts) < maxAgeMs;
 }
 function clearUserCache() {
+    // Wipe IndexedDB entries for this user
+    SITAMDb.clearUser().catch(() => {});
+    // Wipe localStorage cache
     const tok = state.token ? state.token.slice(-10) : 'anon';
     Object.keys(localStorage).forEach(k => {
         if (k.startsWith('erp_cache_') && k.includes(tok)) localStorage.removeItem(k);
     });
 }
+
+// --- Prefetch Engine: fire all 6 primary endpoints in parallel after login ---
+async function prefetchAll() {
+    const endpoints = ['/attendance', '/marks', '/fees', '/assignments', '/timetable', '/notifications', '/profile', '/exams'];
+    console.log('[Prefetch] Warming IndexedDB with all ERP endpoints...');
+    await Promise.allSettled(
+        endpoints.map(ep =>
+            api.request(ep)
+               .then(data => SITAMDb.set('erp_cache', ep, data, 10 * 60 * 1000))
+               .catch(() => {}) // silent — offline or stale is acceptable
+        )
+    );
+    // Record prefetch timestamp → feeds 'last synced' chip
+    SITAMDb.set('session', 'last_synced', Date.now(), 7 * 24 * 60 * 60 * 1000).catch(() => {});
+    _updateLastSyncedChip();
+    console.log('[Prefetch] All endpoints warmed.');
+}
+
+// --- Last-Synced chip updater ---
+function _updateLastSyncedChip() {
+    SITAMDb.get('session', 'last_synced', 7 * 24 * 60 * 60 * 1000).then(ts => {
+        const chip = $('last-synced-chip');
+        if (!chip || !ts) return;
+        chip.style.display = 'inline';
+        const diff = Math.round((Date.now() - ts) / 1000);
+        const label = diff < 60 ? 'Just now'
+            : diff < 3600 ? `${Math.floor(diff / 60)}m ago`
+            : diff < 86400 ? `${Math.floor(diff / 3600)}h ago`
+            : 'Yesterday';
+        chip.innerText = `Synced ${label}`;
+    }).catch(() => {});
+}
+
+// --- Haptic helper (10ms micro-vibration on nav taps) ---
+const haptic = () => { try { navigator.vibrate?.(10); } catch {} };
 
 // --- Attendance Overall Calculator ---
 function calcOverallAttendance(attData) {
@@ -599,6 +691,15 @@ const api = {
                 throw new Error('Invalid server response format.');
             }
 
+            if (resp.status === 503 && data && data.maintenanceMode === true) {
+                state.maintenance = {
+                    active: true,
+                    message: data.message || 'System maintenance in progress.'
+                };
+                window.location.hash = '#/maintenance';
+                throw new Error('MAINTENANCE');
+            }
+
             if (!resp.ok) {
                 if (resp.status === 401) { api.logout(); }
                 throw new Error(data.error || data.message || `HTTP ${resp.status}`);
@@ -616,41 +717,66 @@ const api = {
         return this.request(ep, { method: 'POST', body: JSON.stringify(body) });
     },
 
-    // SWR: returns cached immediately, revalidates in background
+    // SWR: returns IndexedDB cache immediately, revalidates from network in background
     async get(ep, { bypassCache = false, onRevalidate } = {}) {
-        if (!bypassCache && isCacheFresh(ep)) {
-            return getCachedData(ep);
+        // 1. Check IndexedDB first (5-min default TTL)
+        if (!bypassCache) {
+            const idbCached = await SITAMDb.get('erp_cache', ep, 5 * 60 * 1000);
+            if (idbCached) {
+                // Trigger silent background revalidation for next navigation
+                if (navigator.onLine && !_inflight[ep]) {
+                    const bgPromise = this.request(ep).then(fresh => {
+                        setCachedData(ep, fresh);
+                        if (onRevalidate) onRevalidate(fresh);
+                    }).catch(() => {}).finally(() => { delete _inflight[ep]; });
+                    _inflight[ep] = bgPromise;
+                }
+                return idbCached;
+            }
         }
 
+        // 2. Offline fallback: return stale IndexedDB data or localStorage data
         if (!navigator.onLine) {
-            const cached = getCachedData(ep);
-            if (cached) return cached;
+            const idbStale = await SITAMDb.get('erp_cache', ep, 7 * 24 * 60 * 60 * 1000);
+            if (idbStale) return idbStale;
+            const lsStale = getCachedData(ep);
+            if (lsStale) return lsStale;
             throw new Error('OFFLINE');
         }
 
-        // If already fetching, wait for existing promise
+        // 3. If already fetching, wait for in-flight promise
         if (_inflight[ep]) {
-            try { return await _inflight[ep]; } catch { return getCachedData(ep); }
+            try { return await _inflight[ep]; }
+            catch {
+                const idbFallback = await SITAMDb.get('erp_cache', ep, 7 * 24 * 60 * 60 * 1000);
+                return idbFallback || getCachedData(ep);
+            }
         }
 
+        // 4. Network fetch + cache write
         const promise = this.request(ep).then(fresh => {
             setCachedData(ep, fresh);
             if (onRevalidate) onRevalidate(fresh);
             return fresh;
-        }).catch(err => {
-            const cached = getCachedData(ep);
-            if (cached) {
-                console.warn(`[API] Failed to fetch ${ep}, falling back to cache:`, err);
-                return cached;
+        }).catch(async err => {
+            const idbFallback = await SITAMDb.get('erp_cache', ep, 7 * 24 * 60 * 60 * 1000);
+            const lsFallback  = getCachedData(ep);
+            const fallback = idbFallback || lsFallback;
+            if (fallback) {
+                console.warn(`[API] Fell back to cache for ${ep}:`, err.message);
+                return fallback;
             }
             throw err;
         }).finally(() => { delete _inflight[ep]; });
 
         _inflight[ep] = promise;
 
-        // Return stale cache immediately if available
-        const stale = getCachedData(ep);
-        if (stale && !bypassCache) return stale;
+        // Return stale IndexedDB data immediately if available (SWR pattern)
+        if (!bypassCache) {
+            const stale = await SITAMDb.get('erp_cache', ep, 7 * 24 * 60 * 60 * 1000)
+                          .catch(() => null) || getCachedData(ep);
+            if (stale) return stale;
+        }
 
         return promise;
     },
@@ -687,7 +813,7 @@ const loading = {
         if (!bar) {
             bar = document.createElement('div');
             bar.id = 'top-progress-bar';
-            bar.className = 'fixed top-0 left-0 h-1 bg-gradient-to-r from-[#705193] to-[#fca3ae] z-[100] transition-all duration-500 ease-out';
+            bar.className = 'fixed top-0 left-0 h-1 bg-gradient-to-r from-[#2563EB] to-[#6366F1] z-[100] transition-all duration-500 ease-out';
             bar.style.width = '0%';
             document.body.appendChild(bar);
         }
@@ -734,6 +860,7 @@ function checkSyncStatus() {
             
             // Sync and register Firebase Push tokens on startup
             registerPush().catch(() => {});
+            updateUnreadBadge().catch(() => {});
         }
 
         const isSyncing = res && res.data && res.data.isSyncing;
@@ -784,25 +911,34 @@ function toggleShell(show) {
 function setActiveNav(route) {
     document.querySelectorAll('[data-nav]').forEach(el => {
         const active = el.dataset.nav === route;
-        // Bottom nav pill
+
+        // ── Floating Glass Dock items ──
         if (el.classList.contains('bottom-nav-item')) {
             if (active) {
-                el.classList.add('bg-secondary-container', 'text-secondary', 'font-black', 'scale-105');
-                el.classList.remove('text-slate-400', 'font-medium');
+                el.classList.add('dock-active');
             } else {
-                el.classList.remove('bg-secondary-container', 'text-secondary', 'font-black', 'scale-105');
-                el.classList.add('text-slate-400', 'font-medium');
+                el.classList.remove('dock-active');
             }
+            return;
         }
-        // Drawer nav
-        if (el.tagName === 'A' && !el.classList.contains('bottom-nav-item')) {
+
+        // ── Drawer nav links ──
+        if (el.tagName === 'A') {
             if (active) {
-                el.className = "flex items-center gap-3 px-3.5 py-3 rounded-xl bg-purple-100/50 text-purple-800 font-extrabold border-l-4 border-purple-600 transition-all duration-300 shadow-sm active-scale";
+                el.className = "flex items-center gap-3 px-3.5 py-3 rounded-xl bg-blue-100/60 text-blue-800 font-extrabold border-l-4 border-blue-600 transition-all duration-300 shadow-sm active-scale";
             } else {
-                el.className = "flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-purple-50/30 hover:text-purple-700 transition-all duration-300 font-bold active-scale";
+                el.className = "flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-blue-50 hover:text-blue-700 transition-all duration-300 font-bold active-scale";
             }
         }
     });
+
+    // Page enter animation
+    const appEl = document.getElementById('app');
+    if (appEl) {
+        appEl.classList.remove('page-enter');
+        void appEl.offsetWidth; // force reflow
+        appEl.classList.add('page-enter');
+    }
 }
 
 // --- Drawer ---
@@ -820,81 +956,156 @@ function closeDrawer() {
 // ============================================================
 // PAGE DEFINITIONS
 // ============================================================
+function showFeeWarningPopup(title, description) {
+    if (document.getElementById('fee-warning-modal')) return;
+    const modal = document.createElement('div');
+    modal.id = 'fee-warning-modal';
+    modal.className = 'fixed inset-0 z-[120] bg-black/60 backdrop-blur-md flex items-center justify-center p-4 transition-all duration-300 opacity-0';
+    modal.innerHTML = `
+        <div class="bg-white rounded-3xl p-6 max-w-sm w-full border border-red-100 shadow-2xl space-y-4 scale-95 transition-transform duration-300">
+            <div class="flex flex-col items-center text-center">
+                <div class="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mb-3">
+                    <span class="material-symbols-outlined text-2xl font-bold">warning</span>
+                </div>
+                <h3 class="text-base font-extrabold text-slate-900 leading-snug">⚠ \${title || 'Fee Due Warning'}</h3>
+                <p class="text-xs text-slate-500 mt-2 leading-relaxed">
+                    \${description || 'Please clear your pending fee dues immediately.'}
+                </p>
+                <div class="mt-4 p-3 bg-red-50 border border-red-100 text-red-700 rounded-xl text-xs font-bold text-left leading-relaxed">
+                    Pay before Mid Examination. Hall Tickets may not be issued until dues are cleared.
+                </div>
+            </div>
+            <div class="flex gap-2 justify-center">
+                <button id="fee-warning-pay-btn" class="bg-blue-600 text-white px-5 py-2.5 rounded-full font-bold text-xs shadow-md active-scale transition-transform">
+                    Pay Fees
+                </button>
+                <button id="fee-warning-close-btn" class="bg-slate-100 text-slate-600 px-5 py-2.5 rounded-full font-bold text-xs active-scale transition-transform">
+                    Dismiss
+                </button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    setTimeout(() => {
+        modal.classList.remove('opacity-0');
+        modal.querySelector('.bg-white').classList.remove('scale-95');
+    }, 50);
+
+    const closeBtn = modal.querySelector('#fee-warning-close-btn');
+    const payBtn = modal.querySelector('#fee-warning-pay-btn');
+    const closeModal = () => {
+        modal.classList.add('opacity-0');
+        modal.querySelector('.bg-white').classList.add('scale-95');
+        setTimeout(() => modal.remove(), 300);
+    };
+    closeBtn.addEventListener('click', closeModal);
+    payBtn.addEventListener('click', () => {
+        closeModal();
+        router.navigate('/fees');
+    });
+}
+
 const pages = {
+
+    // ---- MAINTENANCE ----
+    maintenance: {
+        render: () => {
+            const msg = state.maintenance?.message || 'We are upgrading our services. Please check back shortly.';
+            return `<div class="min-h-screen w-full flex flex-col items-center justify-center bg-slate-900 text-white p-6 select-none relative overflow-hidden">
+                <div style="filter:blur(100px);opacity:0.15;position:absolute;z-index:0;" class="w-[500px] h-[500px] rounded-full top-[-10%] left-[-10%] bg-blue-500"></div>
+                <div style="filter:blur(100px);opacity:0.15;position:absolute;z-index:0;" class="w-[400px] h-[400px] rounded-full bottom-[-5%] right-[-5%] bg-indigo-500"></div>
+                <main class="relative z-10 w-full max-w-md text-center space-y-6">
+                    <div class="flex flex-col items-center">
+                        <div class="w-20 h-20 bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl flex items-center justify-center shadow-xl mb-4 animate-pulse">
+                            <span class="material-symbols-outlined text-4xl text-amber-500">construction</span>
+                        </div>
+                        <h1 class="text-2xl font-extrabold tracking-tight text-white">🚧 SITAM Smart ERP</h1>
+                        <p class="text-xs uppercase tracking-widest text-slate-400 mt-1 font-bold">System Maintenance In Progress</p>
+                    </div>
+                    <div class="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6 shadow-2xl">
+                        <p class="text-sm text-slate-300 leading-relaxed font-medium">
+                            \${msg}
+                        </p>
+                    </div>
+                    <div class="pt-4 text-[10px] text-slate-500 font-mono">
+                        EXPECTED DOWNTIME: 15 - 30 MINS
+                    </div>
+                </main>
+            </div>`;
+        },
+        afterRender: () => {
+            toggleShell(false);
+        }
+    },
 
     // ---- LOGIN ----
     login: {
-        render: () => `<div class="min-h-screen w-full flex flex-col items-center justify-center relative bg-[#faf9fc] overflow-hidden">
-            <!-- Organic Background -->
-            <div style="filter:blur(80px);opacity:0.4;position:absolute;z-index:0;" class="bg-secondary-container w-[500px] h-[500px] rounded-full top-[-10%] left-[-10%]"></div>
-            <div style="filter:blur(80px);opacity:0.4;position:absolute;z-index:0;" class="bg-tertiary-container w-[400px] h-[400px] rounded-full bottom-[-5%] right-[-5%]"></div>
-            <div style="filter:blur(80px);opacity:0.4;position:absolute;z-index:0;" class="bg-white w-[600px] h-[600px] rounded-full top-[20%] right-[10%]"></div>
+        render: () => `<div class="min-h-screen w-full flex flex-col items-center justify-center relative bg-[#F8FAFC] overflow-hidden">
+            <!-- Organic Background Orbs -->
+            <div style="filter:blur(90px);opacity:0.35;position:absolute;z-index:0;" class="w-[500px] h-[500px] rounded-full top-[-10%] left-[-10%] bg-blue-200"></div>
+            <div style="filter:blur(90px);opacity:0.30;position:absolute;z-index:0;" class="w-[400px] h-[400px] rounded-full bottom-[-5%] right-[-5%] bg-indigo-200"></div>
+            <div style="filter:blur(90px);opacity:0.20;position:absolute;z-index:0;" class="w-[600px] h-[600px] rounded-full top-[20%] right-[10%] bg-white"></div>
             <main class="relative z-10 w-full max-w-md px-6 flex flex-col items-center">
                 <!-- Logo -->
                 <div class="mb-10 text-center">
-                    <div class="w-24 h-24 bg-white/50 backdrop-blur-3xl rounded-3xl flex items-center justify-center shadow-xl mx-auto mb-4 border border-white/60 active-scale hover:scale-105 transition-all">
+                    <div class="w-24 h-24 bg-white/60 backdrop-blur-3xl rounded-3xl flex items-center justify-center shadow-2xl mx-auto mb-5 border border-white/70 active-scale hover:scale-105 transition-all">
                         <svg class="w-16 h-16" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <rect width="100" height="100" rx="30" fill="url(#sitamGrad)" />
                             <path d="M50 18L22 32L50 46L78 32L50 18Z" fill="#fff" />
                             <path d="M22 36.5V56C22 66.5 50 78 50 78C50 78 78 66.5 78 56V36.5L50 51.5L22 36.5Z" fill="#ffffff" fill-opacity="0.85" />
-                            <circle cx="50" cy="51.5" r="5" fill="#705193" />
+                            <circle cx="50" cy="51.5" r="5" fill="#6366F1" />
                             <defs>
                                 <linearGradient id="sitamGrad" x1="0" y1="0" x2="1" y2="1">
-                                    <stop offset="0%" stop-color="#705193"/>
-                                    <stop offset="100%" stop-color="#644586"/>
+                                    <stop offset="0%" stop-color="#2563EB"/>
+                                    <stop offset="100%" stop-color="#6366F1"/>
                                 </linearGradient>
                             </defs>
                         </svg>
                     </div>
-                    <h1 class="text-3xl font-extrabold tracking-tighter text-on-background bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-purple-800" style="font-family:'Plus Jakarta Sans',sans-serif">SITAM Smart ERP</h1>
-                    <p class="text-xs uppercase tracking-widest text-secondary/70 mt-1.5 font-extrabold" style="font-family:'Manrope',sans-serif">SITAM Campus student app</p>
+                    <h1 class="text-3xl font-extrabold tracking-tighter text-slate-900 bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-indigo-600" style="font-family:'Inter',sans-serif">SITAM Smart ERP</h1>
+                    <p class="text-xs uppercase tracking-widest text-blue-600/70 mt-2 font-extrabold" style="font-family:'Inter',sans-serif">Official Student Campus App</p>
                 </div>
                 <!-- Login Card -->
-                <div class="w-full bg-white/50 backdrop-blur-3xl rounded-xl p-8 shadow-md border border-white/60">
-                    <div class="mb-8">
-                        <h2 class="text-xl font-bold text-on-background tracking-tight" style="font-family:'Plus Jakarta Sans',sans-serif">Welcome Back</h2>
-                        <p class="text-on-surface-variant text-sm mt-1">Please enter your academic credentials.</p>
+                <div class="w-full bg-white/55 backdrop-blur-3xl rounded-3xl p-8 shadow-2xl border border-white/65" style="box-shadow:0 20px 60px rgba(37,99,235,0.1),0 4px 20px rgba(15,23,42,0.06)">
+                    <div class="mb-7">
+                        <h2 class="text-xl font-bold text-slate-900 tracking-tight" style="font-family:'Inter',sans-serif">Welcome Back</h2>
+                        <p class="text-slate-500 text-sm mt-1">Enter your academic credentials to continue.</p>
                     </div>
-                    <form class="space-y-6" id="login-form">
-                        <div class="space-y-2">
-                            <label class="text-[11px] font-bold uppercase tracking-widest text-secondary ml-1" for="login-userid">Student ID</label>
+                    <form class="space-y-5" id="login-form">
+                        <div class="space-y-1.5">
+                            <label class="text-[11px] font-bold uppercase tracking-widest text-blue-600 ml-1" for="login-userid">Student ID</label>
                             <div class="relative">
                                 <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                    <span class="material-symbols-outlined text-outline text-lg">badge</span>
+                                    <span class="material-symbols-outlined text-slate-400 text-lg">badge</span>
                                 </div>
-                                <input class="block w-full pl-11 pr-4 py-3.5 bg-surface-container-lowest/50 rounded-lg text-on-surface text-sm focus:outline-none focus:ring-2 focus:ring-secondary/40 transition-all placeholder:text-outline-variant" id="login-userid" placeholder="Enter your Student ID" type="text" autocomplete="username"/>
+                                <input class="block w-full pl-11 pr-4 py-3.5 bg-slate-50/80 border border-slate-200/80 rounded-2xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-400 transition-all placeholder:text-slate-400" id="login-userid" placeholder="Enter your Student ID" type="text" autocomplete="username"/>
                             </div>
                         </div>
-                        <div class="space-y-2">
-                            <label class="text-[11px] font-bold uppercase tracking-widest text-secondary ml-1" for="login-password">Password</label>
+                        <div class="space-y-1.5">
+                            <label class="text-[11px] font-bold uppercase tracking-widest text-blue-600 ml-1" for="login-password">Password</label>
                             <div class="relative">
                                 <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                    <span class="material-symbols-outlined text-outline text-lg">lock</span>
+                                    <span class="material-symbols-outlined text-slate-400 text-lg">lock</span>
                                 </div>
-                                <input class="block w-full pl-11 pr-12 py-3.5 bg-surface-container-lowest/50 rounded-lg text-on-surface text-sm focus:outline-none focus:ring-2 focus:ring-secondary/40 transition-all placeholder:text-outline-variant" id="login-password" placeholder="••••••••" type="password" autocomplete="current-password"/>
+                                <input class="block w-full pl-11 pr-12 py-3.5 bg-slate-50/80 border border-slate-200/80 rounded-2xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-400 transition-all placeholder:text-slate-400" id="login-password" placeholder="••••••••" type="password" autocomplete="current-password"/>
                             </div>
                         </div>
-                        <div id="login-error" class="hidden text-sm text-error font-bold text-center py-2 px-4 bg-error-container/20 rounded-lg"></div>
-                        <button class="w-full bg-secondary text-on-secondary font-bold py-4 rounded-full shadow-lg shadow-secondary/20 hover:bg-secondary-dim active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 group" type="submit" id="login-btn" style="font-family:'Plus Jakarta Sans',sans-serif">
-                            <span id="login-btn-text">Login</span>
+                        <div id="login-error" class="hidden text-sm text-red-600 font-bold text-center py-2.5 px-4 bg-red-50 border border-red-200 rounded-2xl"></div>
+                        <button class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-4 rounded-2xl shadow-lg hover:from-blue-700 hover:to-indigo-700 active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 group mt-2" type="submit" id="login-btn" style="font-family:'Inter',sans-serif;box-shadow:0 8px 30px rgba(37,99,235,0.35)">
+                            <span id="login-btn-text">Sign In</span>
                             <span class="material-symbols-outlined text-lg transition-transform group-hover:translate-x-1">arrow_forward</span>
                         </button>
                     </form>
                 </div>
-                <div class="mt-12 flex flex-col items-center gap-4 opacity-50 text-[10px] font-bold tracking-widest uppercase">
+                <div class="mt-8 flex flex-col items-center gap-3 opacity-50 text-[10px] font-bold tracking-widest uppercase">
                     <div class="flex items-center gap-6">
                         <a href="#" onclick="router.navigate('/privacy');return false;" class="hover:underline text-slate-600">Privacy Policy</a>
-                        <div class="w-px h-3 bg-outline-variant/50"></div>
+                        <div class="w-px h-3 bg-slate-300"></div>
                         <a href="#" onclick="router.navigate('/terms');return false;" class="hover:underline text-slate-600">Terms of Service</a>
                     </div>
-                    <div class="flex items-center gap-6 opacity-80">
-                        <div class="flex flex-col items-center">
-                            <span class="material-symbols-outlined text-xs">verified_user</span>
-                        </div>
-                        <div class="w-px h-6 bg-outline-variant/30"></div>
-                        <div class="flex flex-col items-center">
-                            <span class="material-symbols-outlined text-xs">school</span>
-                        </div>
+                    <div class="flex items-center gap-2 opacity-70">
+                        <span class="material-symbols-outlined text-xs">verified_user</span>
+                        <span class="text-slate-600">Secured · Encrypted</span>
                     </div>
                 </div>
             </main>
@@ -916,9 +1127,15 @@ const pages = {
                     const res = await api.post('/auth/login', { userId: uid, password: pwd });
                     if (res.success && res.token) {
                         state.token = res.token;
-                        secureStorage.setItem('token', res.token);
-                        registerPush().catch(() => {});
+                        await secureStorage.setItem('token', res.token);
+                        // ── DASHBOARD-FIRST: navigate immediately, sync in background ──
                         router.navigate('/dashboard');
+                        // Fire push registration and full prefetch asynchronously
+                        // Dashboard will paint from IndexedDB cache in <300ms
+                        Promise.all([
+                            registerPush().catch(() => {}),
+                            prefetchAll().catch(() => {})
+                        ]);
                     } else {
                         throw new Error(res.message || 'Login failed');
                     }
@@ -933,17 +1150,90 @@ const pages = {
 
     // ---- DASHBOARD ----
     dashboard: {
-        render: () => `<body class="bg-background min-h-screen pb-32">
-            <main class="pt-20 px-4 sm:px-6 max-w-7xl mx-auto">
-                <section class="mb-6">
-                    <p class="text-[9px] font-bold tracking-widest uppercase text-secondary mb-0.5">DASHBOARD</p>
-                    <h2 class="text-2xl font-extrabold tracking-tight text-on-background" id="dash-greeting" style="font-family:'Plus Jakarta Sans',sans-serif">Greetings, Student.</h2>
+        render: () => `<div class="min-h-screen pb-32 bg-[#F8FAFC]">
+            <main class="pt-20 px-4 sm:px-6 max-w-xl mx-auto">
+
+                <!-- ══════════════════════════════════════════ -->
+                <!-- WOW HERO CARD                             -->
+                <!-- ══════════════════════════════════════════ -->
+                <section class="mb-5">
+                    <div class="hero-card p-6 relative overflow-hidden" id="hero-card">
+                        <!-- Glass shine sweep -->
+                        <div class="hero-shine"></div>
+                        <!-- Greeting -->
+                        <div class="relative z-10 flex items-start justify-between mb-5">
+                            <div>
+                                <p class="text-blue-300/80 text-[11px] font-bold uppercase tracking-widest mb-1.5" id="hero-date-label">Today</p>
+                                <h2 class="text-white text-[25px] font-black tracking-tight leading-tight" id="dash-greeting">👋 Good Morning</h2>
+                                <p class="text-blue-200/90 text-sm mt-1.5 font-medium" id="hero-sub">Ready for a productive day?</p>
+                            </div>
+                            <div class="w-12 h-12 bg-white/15 backdrop-blur-sm rounded-2xl flex items-center justify-center border border-white/20 flex-shrink-0 ml-3">
+                                <span class="material-symbols-outlined text-white" style="font-size:24px;font-variation-settings:'FILL' 1">school</span>
+                            </div>
+                        </div>
+                        <!-- Stats Row -->
+                        <div class="relative z-10 grid grid-cols-4 gap-2">
+                            <!-- Attendance -->
+                            <div class="bg-white/10 backdrop-blur-sm rounded-2xl p-2.5 border border-white/15 cursor-pointer active-scale transition-all" onclick="router.navigate('/attendance')">
+                                <div class="flex items-center gap-1 mb-1">
+                                    <span class="material-symbols-outlined text-emerald-300 text-[10px]" style="font-variation-settings:'FILL' 1">check_circle</span>
+                                    <p class="text-blue-200/80 text-[8px] font-bold uppercase tracking-wider">Attend</p>
+                                </div>
+                                <p class="text-white text-lg font-black leading-none" id="hero-att">--%</p>
+                                <div class="mt-2 w-full bg-white/15 rounded-full h-1 overflow-hidden">
+                                    <div class="h-full bg-emerald-400 rounded-full progress-animated" id="hero-att-bar" style="width:0%"></div>
+                                </div>
+                            </div>
+                            <!-- CGPA -->
+                            <div class="bg-white/10 backdrop-blur-sm rounded-2xl p-2.5 border border-white/15 cursor-pointer active-scale transition-all" onclick="router.navigate('/marks')">
+                                <div class="flex items-center gap-1 mb-1">
+                                    <span class="material-symbols-outlined text-amber-300 text-[10px]" style="font-variation-settings:'FILL' 1">stars</span>
+                                    <p class="text-blue-200/80 text-[8px] font-bold uppercase tracking-wider">CGPA</p>
+                                </div>
+                                <p class="text-white text-lg font-black leading-none" id="hero-cgpa">--</p>
+                                <p class="text-blue-200/60 text-[7px] mt-2.5 font-bold uppercase">Current</p>
+                            </div>
+                            <!-- Assignments Due -->
+                            <div class="bg-white/10 backdrop-blur-sm rounded-2xl p-2.5 border border-white/15 cursor-pointer active-scale transition-all" onclick="router.navigate('/assignments')">
+                                <div class="flex items-center gap-1 mb-1">
+                                    <span class="material-symbols-outlined text-rose-300 text-[10px]" style="font-variation-settings:'FILL' 1">assignment_late</span>
+                                    <p class="text-blue-200/80 text-[8px] font-bold uppercase tracking-wider">Due</p>
+                                </div>
+                                <p class="text-white text-lg font-black leading-none" id="hero-asn">--</p>
+                                <p class="text-blue-200/60 text-[7px] mt-2.5 font-bold uppercase">Tasks</p>
+                            </div>
+                            <!-- Academic Health -->
+                            <div class="bg-white/15 backdrop-blur-sm rounded-2xl p-2.5 border border-white/20 cursor-pointer active-scale transition-all animate-pulse" style="animation-duration:3s" onclick="showToast('Academic Health Score is calculated from CGPA and overall attendance.', 'info')">
+                                <div class="flex items-center gap-1 mb-1">
+                                    <span class="material-symbols-outlined text-blue-300 text-[10px]" style="font-variation-settings:'FILL' 1">favorite</span>
+                                    <p class="text-blue-200/80 text-[8px] font-bold uppercase tracking-wider">Health</p>
+                                </div>
+                                <p class="text-white text-lg font-black leading-none" id="dash-health-score">--</p>
+                                <p class="text-blue-200/60 text-[7px] mt-2.5 font-bold uppercase">Rating</p>
+                            </div>
+                        </div>
+                    </div>
                 </section>
+
+                <!-- Live Brief Section: Upcoming Class and Next Exam -->
+                <section class="grid grid-cols-2 gap-3 mb-6">
+                    <div id="dash-upcoming-class-container">
+                        <div class="glass-card p-3 rounded-2xl border border-white/40 shadow-sm text-center bg-white/40 py-5 text-slate-400 text-[10px] font-bold">
+                            Loading schedule...
+                        </div>
+                    </div>
+                    <div id="dash-upcoming-exam-container">
+                        <div class="glass-card p-3 rounded-2xl border border-white/40 shadow-sm text-center bg-white/40 py-5 text-slate-400 text-[10px] font-bold">
+                            Loading exams...
+                        </div>
+                    </div>
+                </section>
+
                 <!-- Today's Timetable -->
-                <section class="mb-8">
+                <section class="mb-7">
                     <div class="flex justify-between items-end mb-3">
                         <h3 class="text-[11px] font-extrabold uppercase tracking-widest text-slate-400">Today's Timetable</h3>
-                        <a href="#" onclick="router.navigate('/timetable');return false;" class="text-[10px] font-bold text-secondary hover:underline uppercase tracking-wider">VIEW FULL</a>
+                        <a href="#" onclick="router.navigate('/timetable');return false;" class="text-[10px] font-bold text-primary hover:underline uppercase tracking-wider">VIEW FULL</a>
                     </div>
                     <div class="flex gap-4 pb-2 -mx-4 px-4 momentum-scroll hide-scrollbar" id="dash-timetable">
                         <div class="flex gap-3">
@@ -953,33 +1243,49 @@ const pages = {
                         </div>
                     </div>
                 </section>
+
                 <!-- Notice Banner -->
-                <section class="mb-8" id="notice-banner-section">
-                    <div class="w-full bg-tertiary-container/30 text-on-tertiary-container p-4 rounded-2xl flex items-center gap-3.5 relative overflow-hidden border border-tertiary-container/40" id="notice-banner">
-                        <div class="absolute right-0 top-0 w-24 h-full bg-gradient-to-l from-white/25 to-transparent"></div>
-                        <span class="material-symbols-outlined text-2xl flex-shrink-0 text-tertiary">info</span>
+                <section class="mb-6" id="notice-banner-section">
+                    <div class="w-full bg-amber-50 text-amber-900 p-4 rounded-2xl flex items-center gap-3.5 relative overflow-hidden border border-amber-200/60" id="notice-banner">
+                        <div class="absolute right-0 top-0 w-20 h-full bg-gradient-to-l from-amber-100/40 to-transparent"></div>
+                        <span class="material-symbols-outlined text-2xl flex-shrink-0 text-amber-500">campaign</span>
                         <div class="min-w-0 flex-1">
                             <p class="text-xs font-bold tracking-tight leading-snug break-words" id="notice-text">ERP sync active. Your data is being synchronized.</p>
                         </div>
                     </div>
                 </section>
+
+                <!-- Companies On Campus Today Section -->
+                <section class="mb-6 hidden" id="companies-today-section">
+                    <div class="glass-card p-5 rounded-[2rem] border border-white/40 shadow-sm bg-white/60">
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="text-xl">🔥</span>
+                            <h3 class="text-xs font-extrabold uppercase tracking-widest text-slate-900">Companies On Campus Today</h3>
+                        </div>
+                        <div class="flex flex-wrap gap-2" id="companies-today-list">
+                            <!-- Company badges go here -->
+                        </div>
+                    </div>
+                </section>
+
                 <!-- Workspace Header -->
-                <div class="flex justify-between items-center mb-5">
+                <div class="flex justify-between items-center mb-4">
                     <div>
                         <h3 class="text-[11px] font-extrabold uppercase tracking-widest text-slate-400">Workspace</h3>
                         <p class="text-[10px] text-slate-400">Your academic quick links</p>
                     </div>
-                    <button class="w-9 h-9 bg-on-surface text-white rounded-full flex items-center justify-center shadow-lg active-scale transition-transform" onclick="showToast('Custom workspaces are managed by academic administration.', 'info')">
+                    <button class="w-9 h-9 bg-slate-900 text-white rounded-full flex items-center justify-center shadow-lg active-scale transition-transform" onclick="showToast('Custom workspaces are managed by academic administration.', 'info')">
                         <span class="material-symbols-outlined text-lg">add</span>
                     </button>
                 </div>
+
                 <!-- Feature Bento Grid -->
                 <section class="grid grid-cols-2 gap-3 sm:gap-4 mb-10">
                     <!-- Announce -->
-                    <div class="glass-card p-4 sm:p-5 rounded-2xl shadow-[0_4px_20px_rgba(48,51,55,0.02)] flex flex-col justify-between h-32 sm:h-36 cursor-pointer hover:scale-[1.01] active-scale transition-all border border-white/45" onclick="router.navigate('/notifications')">
+                    <div class="glass-card p-4 sm:p-5 flex flex-col justify-between h-32 sm:h-36 cursor-pointer hover:scale-[1.02] active-scale transition-all" onclick="router.navigate('/notifications')">
                         <div class="flex justify-between items-start">
                             <span class="material-symbols-outlined text-secondary" style="font-variation-settings:'FILL' 1">campaign</span>
-                            <span class="px-2 py-0.5 bg-purple-100 text-purple-700 text-[9px] font-extrabold rounded-full border border-purple-200/50" id="dash-notif-count">--</span>
+                            <span class="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-[9px] font-extrabold rounded-full border border-indigo-200/50" id="dash-notif-count">--</span>
                         </div>
                         <div>
                             <h4 class="text-sm font-bold text-on-surface">Announce</h4>
@@ -987,18 +1293,18 @@ const pages = {
                         </div>
                     </div>
                     <!-- Curriculum/Syllabus -->
-                    <div class="bg-[#efdbff]/30 p-4 sm:p-5 rounded-2xl flex flex-col justify-between h-32 sm:h-36 cursor-pointer hover:scale-[1.01] active-scale transition-all border border-[#efdbff]/60" onclick="router.navigate('/syllabus')">
+                    <div class="bg-indigo-50/60 p-4 sm:p-5 rounded-3xl flex flex-col justify-between h-32 sm:h-36 cursor-pointer hover:scale-[1.02] active-scale transition-all border border-indigo-100" onclick="router.navigate('/syllabus')">
                         <div class="flex justify-between items-start">
                             <span class="material-symbols-outlined text-secondary" style="font-variation-settings:'FILL' 1">auto_stories</span>
-                            <span class="px-2 py-0.5 bg-white text-secondary text-[9px] font-extrabold rounded-full border border-secondary/20">NEW</span>
+                            <span class="px-2 py-0.5 bg-white text-indigo-600 text-[9px] font-extrabold rounded-full border border-indigo-200">NEW</span>
                         </div>
                         <div>
-                            <h4 class="text-sm font-bold text-on-secondary-container">Curriculum</h4>
-                            <p class="text-[9px] text-secondary/60">Syllabus &amp; Books</p>
+                            <h4 class="text-sm font-bold text-indigo-900">Curriculum</h4>
+                            <p class="text-[9px] text-indigo-500/70">Syllabus &amp; Books</p>
                         </div>
                     </div>
                     <!-- Fee Statement -->
-                    <div class="glass-card p-4 sm:p-5 rounded-2xl shadow-[0_4px_20px_rgba(48,51,55,0.02)] flex flex-col justify-between h-32 sm:h-36 cursor-pointer hover:scale-[1.01] active-scale transition-all border border-white/45" onclick="router.navigate('/fees')">
+                    <div class="glass-card p-4 sm:p-5 flex flex-col justify-between h-32 sm:h-36 cursor-pointer hover:scale-[1.02] active-scale transition-all" onclick="router.navigate('/fees')">
                         <span class="material-symbols-outlined text-slate-400">account_balance_wallet</span>
                         <div>
                             <h4 class="text-sm font-bold text-on-surface">Fee Statement</h4>
@@ -1006,20 +1312,20 @@ const pages = {
                         </div>
                     </div>
                     <!-- Attendance -->
-                    <div class="glass-card p-4 sm:p-5 rounded-2xl shadow-[0_4px_20px_rgba(48,51,55,0.02)] flex flex-col justify-between h-32 sm:h-36 cursor-pointer hover:scale-[1.01] active-scale transition-all border-l-4 border-l-secondary border-y-white border-r-white border-white/45" onclick="router.navigate('/attendance')">
+                    <div class="glass-card p-4 sm:p-5 flex flex-col justify-between h-32 sm:h-36 cursor-pointer hover:scale-[1.02] active-scale transition-all border-l-4 border-l-primary" onclick="router.navigate('/attendance')">
                         <div class="flex justify-between items-start">
-                            <span class="material-symbols-outlined text-secondary">calendar_today</span>
-                            <span class="text-[11px] font-black text-secondary" id="dash-att-val">--%</span>
+                            <span class="material-symbols-outlined text-primary">calendar_today</span>
+                            <span class="text-[11px] font-black text-primary" id="dash-att-val">--%</span>
                         </div>
                         <div>
                             <h4 class="text-sm font-bold text-on-surface">Attendance</h4>
-                            <div class="w-full bg-slate-100/80 h-1.5 rounded-full mt-2 overflow-hidden border border-white/30">
-                                <div class="bg-secondary h-full rounded-full transition-all duration-1000 w-0" id="dash-att-bar"></div>
+                            <div class="w-full bg-slate-100/80 h-1.5 rounded-full mt-2 overflow-hidden">
+                                <div class="bg-primary h-full rounded-full transition-all duration-1000 w-0" id="dash-att-bar"></div>
                             </div>
                         </div>
                     </div>
                     <!-- Assignment -->
-                    <div class="glass-card p-4 sm:p-5 rounded-2xl shadow-[0_4px_20px_rgba(48,51,55,0.02)] flex flex-col justify-between h-32 sm:h-36 cursor-pointer hover:scale-[1.01] active-scale transition-all border border-white/45" onclick="router.navigate('/assignments')">
+                    <div class="glass-card p-4 sm:p-5 flex flex-col justify-between h-32 sm:h-36 cursor-pointer hover:scale-[1.02] active-scale transition-all" onclick="router.navigate('/assignments')">
                         <div class="flex justify-between items-start">
                             <span class="material-symbols-outlined text-slate-400">assignment</span>
                             <span class="px-2 py-0.5 bg-slate-100 text-slate-600 text-[9px] font-extrabold rounded-full border border-slate-200" id="dash-asn-count">--</span>
@@ -1030,21 +1336,21 @@ const pages = {
                         </div>
                     </div>
                     <!-- Results / Marks -->
-                    <div class="bg-[#fca3ae]/10 p-4 sm:p-5 rounded-2xl flex flex-col justify-between h-32 sm:h-36 border border-[#fca3ae]/30 cursor-pointer hover:scale-[1.01] active-scale transition-all" onclick="router.navigate('/marks')">
+                    <div class="bg-amber-50/60 p-4 sm:p-5 rounded-3xl flex flex-col justify-between h-32 sm:h-36 border border-amber-100 cursor-pointer hover:scale-[1.02] active-scale transition-all" onclick="router.navigate('/marks')">
                         <div class="flex justify-between items-start">
-                            <span class="material-symbols-outlined text-tertiary">analytics</span>
-                            <span class="text-sm font-extrabold text-tertiary" id="dash-gpa-val">--</span>
+                            <span class="material-symbols-outlined text-amber-500">analytics</span>
+                            <span class="text-sm font-extrabold text-amber-600" id="dash-gpa-val">--</span>
                         </div>
                         <div>
-                            <h4 class="text-sm font-bold text-on-surface">Results</h4>
-                            <p class="text-[9px] text-tertiary font-bold tracking-widest uppercase">CGPA</p>
+                            <h4 class="text-sm font-bold text-slate-800">Results</h4>
+                            <p class="text-[9px] text-amber-500 font-bold tracking-widest uppercase">CGPA</p>
                         </div>
                     </div>
                     <!-- Exams -->
-                    <div class="glass-card p-4 sm:p-5 rounded-2xl shadow-[0_4px_20px_rgba(48,51,55,0.02)] flex flex-col justify-between h-32 sm:h-36 cursor-pointer hover:scale-[1.01] active-scale transition-all border border-white/45" onclick="router.navigate('/exams')">
+                    <div class="glass-card p-4 sm:p-5 flex flex-col justify-between h-32 sm:h-36 cursor-pointer hover:scale-[1.02] active-scale transition-all" onclick="router.navigate('/exams')">
                         <div class="flex justify-between items-start">
                             <span class="material-symbols-outlined text-slate-400">description</span>
-                            <span class="px-2 py-0.5 bg-rose-100 text-rose-700 text-[9px] font-extrabold rounded-full border border-rose-200/50" id="dash-exams-count">--</span>
+                            <span class="px-2 py-0.5 bg-rose-50 text-rose-600 text-[9px] font-extrabold rounded-full border border-rose-200" id="dash-exams-count">--</span>
                         </div>
                         <div>
                             <h4 class="text-sm font-bold text-on-surface">Exams</h4>
@@ -1052,7 +1358,7 @@ const pages = {
                         </div>
                     </div>
                     <!-- Timetable -->
-                    <div class="glass-card p-4 sm:p-5 rounded-2xl shadow-[0_4px_20px_rgba(48,51,55,0.02)] flex flex-col justify-between h-32 sm:h-36 cursor-pointer hover:scale-[1.01] active-scale transition-all border border-white/45" onclick="router.navigate('/timetable')">
+                    <div class="glass-card p-4 sm:p-5 flex flex-col justify-between h-32 sm:h-36 cursor-pointer hover:scale-[1.02] active-scale transition-all" onclick="router.navigate('/timetable')">
                         <span class="material-symbols-outlined text-slate-400">event_note</span>
                         <div>
                             <h4 class="text-sm font-bold text-on-surface">Timetable</h4>
@@ -1060,67 +1366,136 @@ const pages = {
                         </div>
                     </div>
                     <!-- Clubs — Full Width -->
-                    <div class="col-span-2 bg-slate-900 text-white p-4 sm:p-5 rounded-2xl flex items-center justify-between shadow-lg overflow-hidden relative cursor-pointer active-scale transition-all" onclick="showToast('SITAM Student clubs and activities listings are updating.', 'info')">
-                        <div class="absolute right-0 top-0 bottom-0 w-32 opacity-25 bg-gradient-to-l from-purple-500 to-transparent"></div>
-                        <div class="relative z-10">
-                            <h4 class="text-sm font-bold">Clubs / Activities</h4>
-                            <p class="text-[9px] text-slate-400">Join the campus community</p>
-                        </div>
-                        <span class="material-symbols-outlined text-slate-400 relative z-10 text-lg">arrow_forward_ios</span>
-                    </div>
                 </section>
             </main>
-        </body>`,
+        </div>`,
         afterRender: () => {
             toggleShell(true);
             setActiveNav('dashboard');
             checkSyncStatus();
+            _updateLastSyncedChip();
+
+            // ── Dashboard-First: serve IndexedDB immediately, revalidate in background ──
 
             // 1. Profile / greeting card
+            // Time-based greeting
+            const hour = new Date().getHours();
+            const greeting = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening';
+            const greetEmoji = '\u{1F44B}'; // wave hand emoji
+            // Set the hero date label
+            const heroDateEl = $('hero-date-label');
+            if (heroDateEl) {
+                const now = new Date();
+                const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+                const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                heroDateEl.innerText = `${dayNames[now.getDay()]}, ${now.getDate()} ${monthNames[now.getMonth()]}`;
+            }
             api.get('/profile').then(profRes => {
                 const name = (profRes.data?.name || 'Student').split(' ')[0];
-                setEl('dash-greeting', 'innerText', `Greetings, ${name}.`);
+                setEl('dash-greeting', 'innerText', `${greetEmoji} ${greeting}, ${name}`);
+                setEl('hero-sub', 'innerText', 'Ready for a productive day?');
                 setEl('drawer-name', 'innerText', profRes.data?.name || '');
                 setEl('drawer-roll', 'innerText', profRes.data?.roll || '');
             }).catch(e => {
                 console.error('[Dashboard] Profile fail:', e);
-                setEl('dash-greeting', 'innerText', 'Greetings, Student.');
+                setEl('dash-greeting', 'innerText', `${greetEmoji} ${greeting}`);
+                setEl('hero-sub', 'innerText', 'Ready for a productive day?');
             });
 
-            // 2. Attendance card
+            // Count-up animation utility
+            const animateCount = (elId, targetStr, suffix = '') => {
+                const el = $(elId);
+                if (!el) return;
+                const target = parseFloat(targetStr);
+                if (isNaN(target)) { el.innerText = targetStr; return; }
+                const duration = 800;
+                const start = Date.now();
+                const startVal = 0;
+                const tick = () => {
+                    const elapsed = Date.now() - start;
+                    const progress = Math.min(elapsed / duration, 1);
+                    const ease = 1 - Math.pow(1 - progress, 3);
+                    const current = startVal + (target - startVal) * ease;
+                    el.innerText = (Number.isInteger(target) ? Math.round(current) : current.toFixed(2)) + suffix;
+                    if (progress < 1) requestAnimationFrame(tick);
+                    else el.innerText = targetStr + suffix;
+                };
+                requestAnimationFrame(tick);
+            };
+
+            // Values to track and compute Academic Health Score dynamically
+            let attendancePct = null;
+            let currentCgpa = null;
+            const updateHealthScore = () => {
+                if (attendancePct !== null && currentCgpa !== null) {
+                    const score = Math.round((attendancePct * 0.4) + (currentCgpa * 10 * 0.6));
+                    animateCount('dash-health-score', score.toString(), '%');
+                }
+            };
+
+            // 2. Attendance card + hero card
             api.get('/attendance').then(attRes => {
                 const attList = attRes.attendance || [];
                 const overall = calcOverallAttendance(attList);
                 setEl('dash-att-val', 'innerText', overall.text);
-                setTimeout(() => setEl('dash-att-bar', 'style.width', overall.text), 100);
+                setEl('hero-att', 'innerText', overall.text);
+                
+                attendancePct = overall.pct || 0;
+                updateHealthScore();
+
+                setTimeout(() => {
+                    setEl('dash-att-bar', 'style.width', overall.text);
+                    setEl('hero-att-bar', 'style.width', overall.text);
+                }, 200);
             }).catch(e => {
                 console.error('[Dashboard] Attendance fail:', e);
                 setEl('dash-att-val', 'innerText', '--%');
-                setTimeout(() => setEl('dash-att-bar', 'style.width', '0%'), 100);
+                setEl('hero-att', 'innerText', '--%');
+                setTimeout(() => {
+                    setEl('dash-att-bar', 'style.width', '0%');
+                    setEl('hero-att-bar', 'style.width', '0%');
+                }, 200);
             });
 
-            // 3. Results (CGPA) card
+            // 3. Results (CGPA) card + hero card
             api.get('/marks').then(marksRes => {
-                setEl('dash-gpa-val', 'innerText', marksRes.data?.cgpa || '--');
+                const cgpa = marksRes.data?.cgpa || '--';
+                setEl('dash-gpa-val', 'innerText', cgpa);
+                
+                currentCgpa = parseFloat(cgpa) || 0;
+                updateHealthScore();
+
+                // Count-up for hero CGPA
+                animateCount('hero-cgpa', cgpa);
             }).catch(e => {
                 console.error('[Dashboard] Marks fail:', e);
                 setEl('dash-gpa-val', 'innerText', '--');
+                setEl('hero-cgpa', 'innerText', '--');
             });
 
-            // 4. Assignments card
+            // 4. Assignments card + hero card
             api.get('/assignments').then(asnRes => {
                 const asnCount = asnRes.data?.activeCount ?? 0;
                 setEl('dash-asn-count', 'innerText', asnCount.toString());
+                setEl('hero-asn', 'innerText', asnCount.toString());
             }).catch(e => {
                 console.error('[Dashboard] Assignments fail:', e);
                 setEl('dash-asn-count', 'innerText', '0');
+                setEl('hero-asn', 'innerText', '0');
             });
 
             // 5. Fees card
             api.get('/fees').then(feesRes => {
                 const due = feesRes.data?.dueAmount || feesRes.data?.totalDue;
                 if (due) {
-                    setEl('dash-fee-text', 'innerText', `Due: ${due}`);
+                    setEl('dash-fee-text', 'innerText', `Due: \${due}`);
+                    api.get('/fee-notices').then(noticesRes => {
+                        const notices = noticesRes.notices || [];
+                        const warningNotice = notices.find(n => n.hallTicketBlockWarning === true);
+                        if (warningNotice) {
+                            showFeeWarningPopup(warningNotice.title, warningNotice.description);
+                        }
+                    }).catch(() => {});
                 } else {
                     setEl('dash-fee-text', 'innerText', 'Dues & History');
                 }
@@ -1153,16 +1528,39 @@ const pages = {
                 if (bannerSec) bannerSec.classList.add('hidden');
             });
 
-            // 7. Exams count card
+            // 7. Exams count card & Live Next Exam
             api.get('/exams').then(examsRes => {
                 const examSchedules = examsRes.data?.schedules || [];
                 setEl('dash-exams-count', 'innerText', examSchedules.length.toString());
+
+                const examContainer = $('dash-upcoming-exam-container');
+                if (examContainer && examSchedules.length > 0) {
+                    const nextExam = examSchedules[0];
+                    examContainer.innerHTML = `
+                        <div class="glass-card p-3.5 rounded-2xl border border-white/50 shadow-sm flex items-center gap-3.5 bg-white/70 active-scale transition-transform" onclick="router.navigate('/exams')">
+                            <div class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center flex-shrink-0 border border-indigo-100">
+                                <span class="material-symbols-outlined text-[18px]">event</span>
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <p class="text-[9px] font-extrabold text-indigo-600 uppercase tracking-widest leading-none">Next Exam</p>
+                                <h4 class="text-xs font-black text-slate-800 truncate mt-1.5">${nextExam.subjectName || nextExam.subjectCode || 'Exam'}</h4>
+                                <p class="text-[10px] text-slate-500 mt-1 leading-none">${nextExam.date || ''}</p>
+                            </div>
+                        </div>
+                    `;
+                } else if (examContainer) {
+                    examContainer.innerHTML = `
+                        <div class="glass-card p-3.5 rounded-2xl border border-white/40 shadow-sm text-center bg-white/40 py-5 text-slate-400 text-[10px] font-bold">
+                            No upcoming exams
+                        </div>
+                    `;
+                }
             }).catch(e => {
                 console.error('[Dashboard] Exams fail:', e);
                 setEl('dash-exams-count', 'innerText', '0');
             });
 
-            // 8. Today's Timetable card
+            // 8. Today's Timetable card & Live Next Class
             api.get('/timetable').then(ttRes => {
                 const slots = Array.isArray(ttRes) ? ttRes : (ttRes.data || []);
                 const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
@@ -1172,11 +1570,20 @@ const pages = {
                 const container = $('dash-timetable');
                 if (!container) return;
 
-                const colors = ['bg-secondary-container text-secondary', 'bg-tertiary-container/30 text-tertiary', 'bg-surface-container-highest text-primary'];
+                const colors = ['bg-primary-container text-primary', 'bg-indigo-100 text-indigo-600', 'bg-slate-100 text-slate-600'];
                 const icons = ['terminal','calculate','language','science','menu_book','code'];
 
                 if (todaySlots.length === 0) {
                     container.innerHTML = `<div class="min-w-full flex items-center justify-center h-24 text-slate-400 text-xs font-semibold bg-white/40 border border-white/20 rounded-2xl shadow-sm">No classes today</div>`;
+                    
+                    const classContainer = $('dash-upcoming-class-container');
+                    if (classContainer) {
+                        classContainer.innerHTML = `
+                            <div class="glass-card p-3.5 rounded-2xl border border-white/40 shadow-sm text-center bg-white/40 py-5 text-slate-400 text-[10px] font-bold">
+                                No classes today
+                            </div>
+                        `;
+                    }
                 } else {
                     container.innerHTML = `<div class="flex gap-3">${todaySlots.map((s, i) => `
                         <div class="min-w-[170px] bg-white/75 backdrop-blur-xl border border-white/55 p-4 rounded-2xl flex flex-col gap-2.5 shadow-[0_4px_20px_rgba(48,51,55,0.02)] active-scale transition-all" onclick="router.navigate('/timetable')">
@@ -1209,6 +1616,29 @@ const pages = {
                 if (container) {
                     container.innerHTML = `<div class="min-w-full flex items-center justify-center h-24 text-slate-400 text-xs font-semibold bg-white/40 border border-white/20 rounded-2xl shadow-sm">No classes today</div>`;
                 }
+            });
+
+            // 9. Fetch Companies on Campus Today
+            api.get('/placements').then(placeRes => {
+                const placements = placeRes.placements || [];
+                const arrivedToday = placements.filter(p => p.companyArrivedToday === true || p.companyArrivedToday === 'true');
+                const section = $('companies-today-section');
+                const list = $('companies-today-list');
+                if (section && list) {
+                    if (arrivedToday.length > 0) {
+                        section.classList.remove('hidden');
+                        list.innerHTML = arrivedToday.map(c => `
+                            <span class="px-3.5 py-1.5 bg-blue-50 text-blue-700 text-xs font-bold rounded-full border border-blue-100 uppercase tracking-wide flex items-center gap-1.5 animate-reveal">
+                                <span class="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
+                                \${c.companyName}
+                            </span>
+                        `).join('');
+                    } else {
+                        section.classList.add('hidden');
+                    }
+                }
+            }).catch(e => {
+                console.error('[Dashboard] Placements fetch failed:', e);
             });
         }
     },
@@ -1418,8 +1848,8 @@ const pages = {
                             </div>
                             <div class="space-y-1.5">
                                 <div class="flex justify-between text-[10px] font-bold text-on-surface-variant uppercase tracking-tighter"><span>Mastery</span><span>${pct}%</span></div>
-                                <div class="w-full h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
-                                    <div class="h-full rounded-full transition-all duration-1000" style="width:${pct}%;background:#705193"></div>
+                                <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                    <div class="h-full rounded-full transition-all duration-1000" style="width:${pct}%;background:#2563EB"></div>
                                 </div>
                             </div>
                         </div>`;
@@ -1449,19 +1879,19 @@ const pages = {
             <main class="pt-24 px-4 sm:px-6 max-w-7xl mx-auto space-y-8">
                 <!-- Hero Metrics -->
                 <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <div class="lg:col-span-2 relative group overflow-hidden bg-gradient-to-tr from-[#705193] to-[#8c67b3] rounded-2xl p-6 sm:p-10 flex flex-col justify-between min-h-[220px] sm:min-h-[280px] shadow-lg shadow-purple-900/10">
+                    <div class="lg:col-span-2 relative group overflow-hidden bg-gradient-to-tr from-[#1e3a8a] to-[#2563EB] rounded-2xl p-6 sm:p-10 flex flex-col justify-between min-h-[220px] sm:min-h-[280px] shadow-lg shadow-blue-900/10">
                         <div class="relative z-10">
                             <p class="font-label text-white/80 text-xs font-bold uppercase tracking-widest mb-1.5">Total Balance Due</p>
-                            <h2 class="font-headline text-4xl sm:text-5xl font-extrabold tracking-tighter text-white" id="fee-due" style="font-family:'Plus Jakarta Sans',sans-serif">--</h2>
+                            <h2 class="font-headline text-4xl sm:text-5xl font-extrabold tracking-tighter text-white" id="fee-due" style="font-family:'Inter',sans-serif">--</h2>
                             <p class="mt-2 text-white/70 max-w-md font-medium text-xs leading-relaxed" id="fee-hero-sub">Your semester fees are managed here. Clear dues early to avoid penalties.</p>
                         </div>
                         <div class="mt-6 flex gap-3 relative z-10">
-                            <button id="pay-now-btn" class="bg-white text-[#705193] px-6 py-3.5 rounded-full font-extrabold text-xs shadow-md active-scale transition-transform flex items-center gap-2 hover:bg-slate-50">
+                            <button id="pay-now-btn" class="bg-white text-[#2563EB] px-6 py-3.5 rounded-full font-extrabold text-xs shadow-md active-scale transition-transform flex items-center gap-2 hover:bg-slate-50">
                                 Pay Now <span class="material-symbols-outlined text-sm font-black">arrow_forward</span>
                             </button>
                         </div>
                         <div class="absolute -right-20 -top-20 w-80 h-80 bg-white/10 rounded-full blur-[80px] pointer-events-none"></div>
-                        <div class="absolute right-10 bottom-10 opacity-30"><div class="w-48 h-48 bg-gradient-to-br from-white to-purple-300 rounded-full blur-3xl"></div></div>
+                        <div class="absolute right-10 bottom-10 opacity-30"><div class="w-48 h-48 bg-gradient-to-br from-white to-blue-200 rounded-full blur-3xl"></div></div>
                     </div>
                     <div class="glass-card border border-white/45 rounded-2xl p-6 sm:p-10 flex flex-col justify-center items-center text-center shadow-[0_4px_30px_rgba(48,51,55,0.02)]">
                         <div class="relative w-36 h-36 mb-4 flex items-center justify-center">
@@ -1520,12 +1950,12 @@ const pages = {
                 <div class="bg-white rounded-3xl p-8 max-w-md w-[90%] text-center shadow-2xl border border-white/20">
                     <div id="payment-loading-state" class="space-y-6">
                         <div class="relative w-16 h-16 mx-auto">
-                            <div class="absolute inset-0 border-4 border-purple-500/20 rounded-full"></div>
-                            <div class="absolute inset-0 border-4 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+                            <div class="absolute inset-0 border-4 border-blue-500/20 rounded-full"></div>
+                            <div class="absolute inset-0 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
                         </div>
                         <div class="space-y-2">
                             <h3 class="text-lg font-black text-on-surface font-headline">Processing Payment</h3>
-                            <p class="text-xs text-[#705193] font-extrabold uppercase tracking-widest" id="payment-step-text">Step 1: Authenticating...</p>
+                            <p class="text-xs text-[#2563EB] font-extrabold uppercase tracking-widest" id="payment-step-text">Step 1: Authenticating...</p>
                             <p class="text-xs text-slate-400">Please do not close the app or press back.</p>
                         </div>
                     </div>
@@ -1536,7 +1966,7 @@ const pages = {
                             <p class="text-sm text-slate-500" id="payment-error-text">Unable to connect to the payment gateway.</p>
                         </div>
                         <div class="flex gap-3 justify-center">
-                            <button id="payment-retry-btn" class="bg-[#705193] text-white px-6 py-2.5 rounded-full font-bold text-xs shadow-md active-scale transition-transform">Retry</button>
+                            <button id="payment-retry-btn" class="bg-[#2563EB] text-white px-6 py-2.5 rounded-full font-bold text-xs shadow-md active-scale transition-transform">Retry</button>
                             <button id="payment-close-btn" class="bg-slate-100 text-slate-600 px-6 py-2.5 rounded-full font-bold text-xs active-scale transition-transform">Cancel</button>
                         </div>
                     </div>
@@ -1556,8 +1986,13 @@ const pages = {
             setActiveNav('fees');
             loading.show('Fetching Fees...');
             try {
-                const res = await api.get('/fees');
+                const [res, noticesRes] = await Promise.all([
+                    api.get('/fees'),
+                    api.get('/fee-notices').catch(() => ({ notices: [] }))
+                ]);
                 const d = res.data || {};
+                const activeNotices = noticesRes.notices || [];
+                const hasWarning = activeNotices.some(n => n.hallTicketBlockWarning === true);
                 const dueAmount = d.dueAmount || d.totalDue || '₹0';
                 setEl('fee-due', 'innerText', dueAmount);
                 setEl('fee-pct', 'innerText', `${d.paidProgress || 0}%`);
@@ -1730,20 +2165,29 @@ const pages = {
                 };
                 list.innerHTML = txns.map(txn => {
                     const sc = statusColors[txn.status] || 'bg-surface-container text-on-surface-variant';
-                    return `<div class="flex items-center justify-between p-4 rounded-2xl hover:bg-slate-50/50 active-scale transition-all duration-200 group gap-3">
-                        <div class="flex items-center gap-4 min-w-0 flex-1">
-                            <div class="w-11 h-11 rounded-xl bg-surface-container-high flex items-center justify-center group-hover:bg-white transition-colors flex-shrink-0">
-                                <span class="material-symbols-outlined text-on-surface-variant text-lg">${txn.icon || 'receipt_long'}</span>
+                    const isDue = txn.status === 'Due' || txn.status === 'Partial';
+                    const warningHtml = (isDue && hasWarning) ? `
+                        <div class="mt-2.5 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-bold flex items-center gap-2 animate-reveal">
+                            <span class="material-symbols-outlined text-sm font-bold">warning</span>
+                            <span>⚠ Fee Due. Pay before Mid Examination. Hall Tickets may not be issued until dues are cleared.</span>
+                        </div>
+                    ` : '';
+                    return `<div class="flex flex-col p-4 rounded-2xl bg-white/60 border border-white/20 hover:bg-slate-50/50 active-scale transition-all duration-200 group">
+                        <div class="flex items-center justify-between gap-3">
+                            <div class="flex items-center gap-4 min-w-0 flex-1">
+                                <div class="w-11 h-11 rounded-xl bg-surface-container-high flex items-center justify-center group-hover:bg-white transition-colors flex-shrink-0">
+                                    <span class="material-symbols-outlined text-on-surface-variant text-lg">\${txn.icon || 'receipt_long'}</span>
+                                </div>
+                                <div class="min-w-0 flex-1">
+                                    <p class="font-bold text-on-surface text-sm leading-tight truncate" title="\${txn.title}">\${txn.title}</p>
+                                </div>
                             </div>
-                            <div class="min-w-0 flex-1">
-                                <p class="font-bold text-on-surface text-sm leading-tight truncate" title="${txn.title}">${txn.title}</p>
-                                <p class="text-[10px] text-on-surface-variant mt-0.5 truncate">${txn.date || '--'} • Ref ${txn.ref || '--'}</p>
+                            <div class="text-right flex-shrink-0">
+                                <p class="font-extrabold text-on-surface text-sm leading-tight">\${txn.amount}</p>
+                                <span class="text-[9px] px-2 py-0.5 \${sc} rounded-full font-bold uppercase tracking-tighter mt-1 inline-block">\${txn.status}</span>
                             </div>
                         </div>
-                        <div class="text-right flex-shrink-0">
-                            <p class="font-extrabold text-on-surface text-sm leading-tight">${txn.amount}</p>
-                            <span class="text-[9px] px-2 py-0.5 ${sc} rounded-full font-bold uppercase tracking-tighter mt-1 inline-block">${txn.status}</span>
-                        </div>
+                        \${warningHtml}
                     </div>`;
                 }).join('');
             } catch(e) { console.error('[Fees] Error:', e); }
@@ -1753,42 +2197,91 @@ const pages = {
 
     // ---- PROFILE ----
     profile: {
-        render: () => `<body class="bg-background min-h-screen pb-32">
-            <main class="pt-20 px-6 max-w-2xl mx-auto">
-                <div class="text-center mb-8">
-                    <div class="w-24 h-24 rounded-full bg-secondary-container flex items-center justify-center mx-auto mb-4 border-4 border-white shadow-lg">
-                        <span class="material-symbols-outlined text-4xl text-secondary">person</span>
+        render: () => `<div class="min-h-screen pb-36 bg-[#F8FAFC]">
+            <main class="pt-20 px-4 max-w-lg mx-auto">
+
+                <!-- ════════════════════════════════════ -->
+                <!-- DIGITAL STUDENT ID CARD             -->
+                <!-- ════════════════════════════════════ -->
+                <section class="mb-6">
+                    <div class="id-card p-6 sm:p-8 relative overflow-hidden" id="id-card">
+                        <!-- Card Header: Institution -->
+                        <div class="relative z-10 flex items-center justify-between mb-6">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 bg-white/10 rounded-2xl flex items-center justify-center border border-white/20 backdrop-blur-md">
+                                    <span class="material-symbols-outlined text-white" style="font-size:20px;font-variation-settings:'FILL' 1">school</span>
+                                </div>
+                                <div>
+                                    <p class="text-white font-extrabold text-[12px] tracking-wider uppercase leading-none">SITAM</p>
+                                    <p class="text-blue-300/80 text-[9px] font-black tracking-widest uppercase mt-1">Campus ID Card</p>
+                                </div>
+                            </div>
+                            <!-- Holographic chip -->
+                            <div class="id-chip"></div>
+                        </div>
+
+                        <!-- ID Card Body: Avatar & Core Info -->
+                        <div class="relative z-10 flex flex-col items-center text-center mb-6">
+                            <!-- Large Avatar Box with double borders and glow -->
+                            <div class="relative mb-4 group">
+                                <div class="absolute inset-0 bg-gradient-to-tr from-blue-500 to-indigo-500 rounded-[2.5rem] blur-md opacity-50 group-hover:opacity-75 transition-opacity"></div>
+                                <div class="w-24 h-24 rounded-[2.2rem] bg-slate-900 border-2 border-white/25 flex items-center justify-center shadow-2xl relative overflow-hidden">
+                                    <span class="material-symbols-outlined text-white/95" style="font-size:48px">person</span>
+                                </div>
+                            </div>
+
+                            <h2 class="text-white text-xl font-black leading-tight tracking-tight mb-1" id="profile-name" style="font-family:'Inter',sans-serif">--</h2>
+                            <p class="text-blue-200 font-bold font-mono tracking-widest text-xs" id="profile-roll">--</p>
+                            
+                            <!-- Dynamic Academic Badges Container -->
+                            <div class="flex flex-wrap items-center justify-center gap-1.5 mt-3.5" id="profile-badges">
+                                <span class="px-3 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-200 text-[10px] font-bold tracking-wide" id="profile-branch-badge">--</span>
+                                <span class="px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-200 text-[10px] font-bold tracking-wide" id="profile-sem-badge">Sem --</span>
+                                <span class="px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-200 text-[10px] font-bold tracking-wide hidden" id="scholar-badge">🏆 Elite Scholar</span>
+                                <span class="px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/30 text-amber-200 text-[10px] font-bold tracking-wide hidden" id="att-champion-badge">⚡ Att Champion</span>
+                            </div>
+                            
+                            <!-- Compatibility stubs -->
+                            <span id="profile-branch" class="hidden"></span>
+                            <span id="profile-year" class="hidden"></span>
+                        </div>
+
+                        <!-- Stats strip -->
+                        <div class="relative z-10 grid grid-cols-3 gap-2 pt-4 border-t border-white/10">
+                            <div class="text-center">
+                                <p class="text-blue-300/70 text-[9px] font-bold uppercase tracking-widest mb-1">CGPA</p>
+                                <p class="text-white text-lg font-black" id="profile-cgpa">--</p>
+                            </div>
+                            <div class="text-center border-x border-white/10">
+                                <p class="text-blue-300/70 text-[9px] font-bold uppercase tracking-widest mb-1">Semester</p>
+                                <p class="text-white text-lg font-black" id="profile-semester">--</p>
+                            </div>
+                            <div class="text-center">
+                                <p class="text-blue-300/70 text-[9px] font-bold uppercase tracking-widest mb-1">Attendance</p>
+                                <p class="text-white text-lg font-black" id="profile-att-pct">--%</p>
+                            </div>
+                        </div>
                     </div>
-                    <h2 class="text-2xl font-extrabold text-on-surface" id="profile-name" style="font-family:'Plus Jakarta Sans',sans-serif">--</h2>
-                    <p class="text-secondary font-bold text-sm mt-1" id="profile-roll">--</p>
-                    <p class="text-on-surface-variant text-xs mt-1" id="profile-branch">--</p>
-                </div>
-                <div class="grid grid-cols-3 gap-4 mb-8">
-                    <div class="bg-secondary-container/30 p-4 rounded-xl text-center">
-                        <p class="text-[10px] font-bold uppercase text-secondary tracking-widest mb-1">CGPA</p>
-                        <p class="text-2xl font-extrabold text-secondary" id="profile-cgpa" style="font-family:'Plus Jakarta Sans',sans-serif">--</p>
-                    </div>
-                    <div class="bg-surface-container-low p-4 rounded-xl text-center">
-                        <p class="text-[10px] font-bold uppercase text-on-surface-variant tracking-widest mb-1">Semester</p>
-                        <p class="text-lg font-extrabold text-on-surface" id="profile-semester" style="font-family:'Plus Jakarta Sans',sans-serif">--</p>
-                    </div>
-                    <div class="bg-surface-container-low p-4 rounded-xl text-center">
-                        <p class="text-[10px] font-bold uppercase text-on-surface-variant tracking-widest mb-1">Year</p>
-                        <p class="text-lg font-extrabold text-on-surface" id="profile-year" style="font-family:'Plus Jakarta Sans',sans-serif">--</p>
-                    </div>
-                </div>
-                <div class="space-y-3" id="profile-details"></div>
-                <div class="mt-8 space-y-3">
-                    <button class="w-full flex items-center justify-center gap-3 px-4 py-4 rounded-xl bg-error-container/10 text-error border border-error-container/20 hover:bg-error hover:text-white transition-all duration-300 font-bold" onclick="api.logout()">
+                </section>
+
+                <!-- Detail Fields -->
+                <section>
+                    <p class="text-[11px] font-extrabold uppercase tracking-widest text-slate-400 mb-3">Personal Info</p>
+                    <div class="space-y-2" id="profile-details"></div>
+                </section>
+
+                <!-- Actions -->
+                <div class="mt-6 space-y-3">
+                    <button class="w-full flex items-center justify-center gap-3 px-4 py-4 rounded-2xl bg-red-50 text-red-600 border border-red-100 hover:bg-red-600 hover:text-white transition-all duration-300 font-bold active-scale" onclick="api.logout()">
                         <span class="material-symbols-outlined">logout</span>
-                        <span class="uppercase tracking-widest text-sm">Logout</span>
+                        <span class="uppercase tracking-widest text-sm">Sign Out</span>
                     </button>
-                    <div class="text-center text-[10px] font-bold text-on-surface-variant/40 mt-4 uppercase tracking-widest" id="about-app-version">
+                    <div class="text-center text-[10px] font-bold text-slate-400/60 uppercase tracking-widest" id="about-app-version">
                         SITAM Campus ERP v1.0.0
                     </div>
                 </div>
             </main>
-        </body>`,
+        </div>`,
         afterRender: async () => {
             toggleShell(true);
             setActiveNav('profile');
@@ -1798,13 +2291,35 @@ const pages = {
                 const d = res.data || {};
                 setEl('profile-name', 'innerText', d.name || '--');
                 setEl('profile-roll', 'innerText', d.roll || d.userId || '--');
-                setEl('profile-branch', 'innerText', d.branch || '--');
+                setEl('profile-branch', 'innerText', d.branch || d.program || '--');
                 setEl('profile-cgpa', 'innerText', d.cgpa || '--');
                 setEl('profile-semester', 'innerText', (d.semester || '--').split(' ')[0] || '--');
                 setEl('profile-year', 'innerText', d.year || '--');
                 setEl('drawer-name', 'innerText', d.name || '');
                 setEl('drawer-roll', 'innerText', d.roll || '');
                 setEl('about-app-version', 'innerText', `SITAM Campus ERP v${window.APP_VERSION || '1.0.0'}`);
+
+                // Badges logic
+                const branchText = d.branch || d.program || '--';
+                setEl('profile-branch-badge', 'innerText', branchText);
+                setEl('profile-sem-badge', 'innerText', `Sem ${(d.semester || '--').split(' ')[0]}`);
+
+                const cgpaVal = parseFloat(d.cgpa);
+                if (!isNaN(cgpaVal) && cgpaVal >= 8.5) {
+                    $('scholar-badge')?.classList.remove('hidden');
+                }
+
+                // Fetch attendance for the ID card stat
+                api.get('/attendance').then(attRes => {
+                    const attList = attRes.attendance || [];
+                    const overall = calcOverallAttendance(attList);
+                    setEl('profile-att-pct', 'innerText', overall.text || '--%');
+                    
+                    const attPct = parseFloat(overall.text);
+                    if (!isNaN(attPct) && attPct >= 90) {
+                        $('att-champion-badge')?.classList.remove('hidden');
+                    }
+                }).catch(() => {});
 
                 const detailsEl = $('profile-details');
                 if (!detailsEl) return;
@@ -1820,13 +2335,13 @@ const pages = {
                 ].filter(([, , v]) => v && v !== 'N/A');
 
                 detailsEl.innerHTML = fields.map(([icon, label, val]) => `
-                    <div class="flex items-start gap-4 p-4 bg-surface-container-lowest rounded-xl border border-outline-variant/10">
-                        <div class="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center flex-shrink-0">
-                            <span class="material-symbols-outlined text-secondary text-sm">${icon}</span>
+                    <div class="flex items-center gap-4 p-4 bg-white/60 backdrop-blur-xl rounded-2xl border border-white/50 shadow-sm active-scale transition-all hover:bg-white/80">
+                        <div class="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0 border border-blue-100">
+                            <span class="material-symbols-outlined text-blue-500 text-sm">${icon}</span>
                         </div>
-                        <div>
-                            <p class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">${label}</p>
-                            <p class="text-sm font-semibold text-on-surface mt-0.5">${val || '--'}</p>
+                        <div class="min-w-0 flex-1">
+                            <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400">${label}</p>
+                            <p class="text-sm font-semibold text-slate-800 mt-0.5 truncate">${val || '--'}</p>
                         </div>
                     </div>`).join('');
             } catch(e) { console.error('[Profile] Error:', e); }
@@ -2058,10 +2573,33 @@ const pages = {
     notifications: {
         render: () => `<body class="bg-background min-h-screen pb-32">
             <main class="pt-20 px-6 max-w-2xl mx-auto">
-                <section class="mb-6">
-                    <p class="text-[9px] font-bold uppercase tracking-[0.2em] text-on-surface-variant mb-1">Announcements</p>
-                    <h2 class="text-3xl font-extrabold tracking-tight text-on-surface" style="font-family:'Plus Jakarta Sans',sans-serif">Notifications</h2>
+                <section class="mb-6 flex justify-between items-end">
+                    <div>
+                        <p class="text-[9px] font-bold uppercase tracking-[0.2em] text-on-surface-variant mb-1">Stay Updated</p>
+                        <h2 class="text-3xl font-extrabold tracking-tight text-on-surface" style="font-family:'Plus Jakarta Sans',sans-serif">Notifications</h2>
+                    </div>
+                    <button id="mark-all-read-btn" class="text-xs font-bold text-secondary uppercase hover:underline flex items-center gap-1 active-scale">
+                        <span class="material-symbols-outlined text-sm" style="font-size:14px">done_all</span> Mark All Read
+                    </button>
                 </section>
+
+                <!-- Search Bar -->
+                <div class="mb-5 relative">
+                    <span class="material-symbols-outlined absolute left-3.5 top-2.5 text-on-surface-variant text-sm" style="font-size:16px">search</span>
+                    <input type="text" id="notif-search" placeholder="Search notifications..." class="w-full pl-10 pr-4 py-2 bg-surface-container-low rounded-xl border border-outline-variant/15 text-xs text-on-surface placeholder-on-surface-variant/50 focus:outline-none focus:border-secondary transition-all" />
+                </div>
+
+                <!-- Filter tabs -->
+                <div class="flex gap-2 overflow-x-auto pb-4 mb-4 hide-scrollbar select-none" id="notif-filters">
+                    <button class="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-secondary text-white transition-all whitespace-nowrap active-scale" data-filter="all">All</button>
+                    <button class="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-surface-container-low text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all whitespace-nowrap active-scale" data-filter="attendance">Attendance</button>
+                    <button class="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-surface-container-low text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all whitespace-nowrap active-scale" data-filter="marks">Marks</button>
+                    <button class="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-surface-container-low text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all whitespace-nowrap active-scale" data-filter="fees">Fees</button>
+                    <button class="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-surface-container-low text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all whitespace-nowrap active-scale" data-filter="assignments">Assignments</button>
+                    <button class="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-surface-container-low text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all whitespace-nowrap active-scale" data-filter="timetable">Schedule</button>
+                </div>
+
+                <!-- Notification List -->
                 <div class="space-y-3" id="notif-list">
                     <div class="h-20 bg-surface-container-low rounded-xl animate-pulse"></div>
                 </div>
@@ -2070,32 +2608,230 @@ const pages = {
         afterRender: async () => {
             toggleShell(true);
             setActiveNav('notifications');
-            loading.show('Loading Notifications...');
-            try {
-                const res = await api.get('/notifications');
-                const list = $('notif-list');
+            
+            const list = $('notif-list');
+            const searchInput = $('notif-search');
+            const filterContainer = $('notif-filters');
+            const markAllReadBtn = $('mark-all-read-btn');
+
+            let allNotifications = [];
+            let activeFilter = 'all';
+            let searchQuery = '';
+
+            const getNotifVisuals = (type, category) => {
+                let icon = 'notifications';
+                let bg = 'bg-slate-500/10';
+                let text = 'text-slate-600';
+                switch (type) {
+                    case 'attendance':
+                        icon = 'calendar_today';
+                        bg = category === 'alert' ? 'bg-red-500/10' : 'bg-emerald-500/10';
+                        text = category === 'alert' ? 'text-red-500' : 'text-emerald-600';
+                        break;
+                    case 'marks':
+                        icon = 'analytics';
+                        bg = 'bg-amber-500/10';
+                        text = 'text-amber-600';
+                        break;
+                    case 'fees':
+                        icon = 'account_balance_wallet';
+                        bg = category === 'success' ? 'bg-emerald-500/10' : 'bg-red-500/10';
+                        text = category === 'success' ? 'text-emerald-600' : 'text-red-600';
+                        break;
+                    case 'assignments':
+                        icon = 'assignment_turned_in';
+                        bg = 'bg-blue-500/10';
+                        text = 'text-blue-600';
+                        break;
+                    case 'timetable':
+                        icon = 'schedule';
+                        bg = 'bg-indigo-500/10';
+                        text = 'text-indigo-600';
+                        break;
+                }
+                return { icon, bg, text };
+            };
+
+            const renderNotifications = () => {
                 if (!list) return;
-                const notifs = (Array.isArray(res) ? res : (res.data || []));
-                if (notifs.length === 0) {
-                    list.innerHTML = `<div class="text-center py-16 text-on-surface-variant"><span class="material-symbols-outlined text-5xl mb-4 block">notifications_none</span><p class="font-bold">No notifications</p></div>`;
+                
+                let filtered = allNotifications;
+                
+                // 1. Filter by tab
+                if (activeFilter !== 'all') {
+                    filtered = filtered.filter(n => n.type === activeFilter);
+                }
+                
+                // 2. Filter by search query
+                if (searchQuery) {
+                    const q = searchQuery.toLowerCase();
+                    filtered = filtered.filter(n => 
+                        (n.title && n.title.toLowerCase().includes(q)) || 
+                        (n.message && n.message.toLowerCase().includes(q))
+                    );
+                }
+
+                if (filtered.length === 0) {
+                    list.innerHTML = `
+                        <div class="text-center py-16 text-on-surface-variant animate-reveal">
+                            <span class="material-symbols-outlined text-5xl mb-4 block">notifications_none</span>
+                            <p class="font-bold">No notifications found</p>
+                            <p class="text-xs text-on-surface-variant/70 mt-1">Try changing your filter or search query.</p>
+                        </div>`;
                     return;
                 }
-                list.innerHTML = notifs.map(n => `
-                    <div class="p-5 rounded-xl bg-surface-container-lowest border border-outline-variant/10 shadow-sm hover:shadow-md transition-all flex gap-4 justify-between">
-                        <div class="flex gap-4 min-w-0 flex-1">
-                            <div class="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center flex-shrink-0 mt-0.5">
-                                <span class="material-symbols-outlined text-secondary text-sm">notifications</span>
-                            </div>
-                            <div class="min-w-0 flex-1">
-                                <p class="font-bold text-on-surface text-sm truncate" title="${n.title}">${n.title}</p>
-                                <p class="text-xs text-on-surface-variant mt-1 leading-relaxed break-words">${n.message}</p>
-                                <p class="text-[10px] text-on-surface-variant/60 mt-2 font-bold">${n.date || '--'}</p>
-                            </div>
+
+                list.innerHTML = filtered.map(n => {
+                    const visuals = getNotifVisuals(n.type, n.category);
+                    const route = n.metadata ? (typeof n.metadata === 'string' ? JSON.parse(n.metadata).route : n.metadata.route) : null;
+                    const isRead = n.isRead || false;
+                    let parsedMetadata = null;
+                    try {
+                        parsedMetadata = typeof n.metadata === 'string' ? JSON.parse(n.metadata) : n.metadata;
+                    } catch (_) {}
+                    const isWarning = parsedMetadata?.hallTicketBlockWarning === true || parsedMetadata?.hallTicketBlockWarning === 'true';
+                    const warningBox = isWarning ? `
+                        <div class="mt-2.5 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-bold flex items-center gap-2 animate-reveal">
+                            <span class="material-symbols-outlined text-sm font-bold">warning</span>
+                            <span>⚠ Fee Due. Pay before Mid Examination. Hall Tickets may not be issued until dues are cleared.</span>
                         </div>
-                        ${!n.isRead ? `<div class="w-2.5 h-2.5 bg-secondary rounded-full flex-shrink-0 mt-1"></div>` : ''}
-                    </div>`).join('');
-            } catch(e) { console.error('[Notifications] Error:', e); }
-            finally { loading.hide(); }
+                    ` : '';
+
+                    return `<div class="p-5 rounded-xl bg-surface-container-lowest border border-outline-variant/10 shadow-sm hover:shadow-md transition-all flex gap-4 justify-between items-start animate-reveal relative group cursor-pointer" 
+                             data-id="\${n.id}" data-route="\${route || ''}" data-read="\${isRead}">
+                            <div class="flex gap-4 min-w-0 flex-1 notif-card-click-area">
+                                <div class="w-10 h-10 rounded-full \${visuals.bg} flex items-center justify-center flex-shrink-0 mt-0.5">
+                                    <span class="material-symbols-outlined \${visuals.text} text-sm">\${visuals.icon}</span>
+                                </div>
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex items-center gap-2">
+                                        <p class="font-bold text-on-surface text-sm truncate" title="\${n.title}">\${n.title}</p>
+                                        \${!isRead ? \`<span class="w-2 h-2 bg-secondary rounded-full flex-shrink-0" id="unread-dot-\${n.id}"></span>\` : ''}
+                                    </div>
+                                    <p class="text-xs text-on-surface-variant mt-1 leading-relaxed break-words">\${n.message}</p>
+                                    \${warningBox}
+                                    <p class="text-[10px] text-on-surface-variant/60 mt-2 font-bold">\${n.date || '--'}</p>
+                                </div>
+                            </div>
+                            <button class="delete-notif-btn p-1 text-slate-400 hover:text-red-500 hover:bg-slate-100 rounded-full flex items-center justify-center transition-all active-scale" data-id="\${n.id}">
+                                <span class="material-symbols-outlined text-base">delete</span>
+                            </button>
+                        </div>`;
+                }).join('');
+
+                // Click handler for body click (navigation & read status)
+                list.querySelectorAll('.notif-card-click-area').forEach(el => {
+                    el.addEventListener('click', async (e) => {
+                        const card = e.currentTarget.closest('[data-id]');
+                        const notifId = card.dataset.id;
+                        const route = card.dataset.route;
+                        const read = card.dataset.read === 'true';
+
+                        if (!read) {
+                            card.dataset.read = 'true';
+                            const dot = $('unread-dot-' + notifId);
+                            if (dot) dot.remove();
+                            
+                            api.post('/notifications/read', { notificationId: notifId }).catch(() => {});
+                            
+                            const localNotif = allNotifications.find(n => n.id === notifId);
+                            if (localNotif) localNotif.isRead = true;
+                            SITAMDb.set('erp_cache', '/notifications', { notifications: allNotifications }, 24 * 60 * 60 * 1000).catch(() => {});
+                            
+                            updateUnreadBadge();
+                        }
+
+                        if (route) {
+                            router.navigate(route);
+                        }
+                    });
+                });
+
+                // Delete handlers
+                list.querySelectorAll('.delete-notif-btn').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        const notifId = e.currentTarget.dataset.id;
+                        
+                        const card = e.currentTarget.closest('[data-id]');
+                        if (card) {
+                            card.classList.add('scale-90', 'opacity-0');
+                            setTimeout(() => card.remove(), 200);
+                        }
+
+                        api.delete(`/notifications/${notifId}`).catch(() => {});
+
+                        allNotifications = allNotifications.filter(n => n.id !== notifId);
+                        SITAMDb.set('erp_cache', '/notifications', { notifications: allNotifications }, 24 * 60 * 60 * 1000).catch(() => {});
+
+                        updateUnreadBadge();
+                    });
+                });
+            };
+
+            // 1. Stale-While-Revalidate: load cache first
+            try {
+                const cached = await SITAMDb.get('erp_cache', '/notifications', 24 * 60 * 60 * 1000);
+                if (cached && cached.notifications) {
+                    allNotifications = cached.notifications;
+                    renderNotifications();
+                }
+            } catch (err) {
+                console.warn('[Notifications] Cache read error:', err);
+            }
+
+            // 2. Load from server
+            try {
+                const res = await api.get('/notifications');
+                const data = res.data || {};
+                const notifications = data.notifications || [];
+                
+                allNotifications = notifications;
+                await SITAMDb.set('erp_cache', '/notifications', { notifications }, 24 * 60 * 60 * 1000);
+                renderNotifications();
+            } catch (err) {
+                console.error('[Notifications] Network fetch error:', err);
+                if (allNotifications.length === 0) {
+                    list.innerHTML = `<div class="text-center py-16 text-on-surface-variant font-bold">Failed to load notifications. Connection error.</div>`;
+                }
+            }
+
+            // 3. Bind search input
+            if (searchInput) {
+                searchInput.addEventListener('input', (e) => {
+                    searchQuery = e.target.value;
+                    renderNotifications();
+                });
+            }
+
+            // 4. Bind filters
+            if (filterContainer) {
+                filterContainer.querySelectorAll('[data-filter]').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        filterContainer.querySelectorAll('[data-filter]').forEach(b => {
+                            b.className = "px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-surface-container-low text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all whitespace-nowrap active-scale";
+                        });
+                        e.currentTarget.className = "px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-secondary text-white transition-all whitespace-nowrap active-scale";
+                        activeFilter = e.currentTarget.dataset.filter;
+                        renderNotifications();
+                    });
+                });
+            }
+
+            // 5. Bind mark all read
+            if (markAllReadBtn) {
+                markAllReadBtn.addEventListener('click', async () => {
+                    haptic();
+                    allNotifications.forEach(n => n.isRead = true);
+                    renderNotifications();
+
+                    api.post('/notifications/read-all').catch(() => {});
+
+                    SITAMDb.set('erp_cache', '/notifications', { notifications: allNotifications }, 24 * 60 * 60 * 1000).catch(() => {});
+
+                    updateUnreadBadge();
+                });
+            }
         }
     },
 
@@ -2274,12 +3010,74 @@ async function toggleUnit(unitId, subIdx, unitIdx, btn) {
 }
 
 // ============================================================
-// ROUTER
+// ROUTER  — keepAlive DOM cache + LRU (max 5 pages) + GPU transitions
 // ============================================================
+
+// Pages that are kept alive in the DOM (never destroyed on navigation)
+const KEEP_ALIVE_PAGES = new Set(['dashboard', 'attendance', 'marks', 'fees', 'timetable']);
+const KEEP_ALIVE_MAX   = 5;  // LRU limit — evict oldest if exceeded
+
+// LRU Map: preserves insertion order, oldest first
+// Each entry: { node: HTMLElement, route: string, lastAccess: number }
+const _pageCache = new Map();
+
+function _evictLRUPage() {
+    if (_pageCache.size <= KEEP_ALIVE_MAX) return;
+    // Find the oldest accessed entry
+    let oldestKey = null, oldestTime = Infinity;
+    _pageCache.forEach((entry, key) => {
+        if (entry.lastAccess < oldestTime) { oldestTime = entry.lastAccess; oldestKey = key; }
+    });
+    if (oldestKey) {
+        const evicted = _pageCache.get(oldestKey);
+        if (evicted?.node?.parentNode) evicted.node.parentNode.removeChild(evicted.node);
+        _pageCache.delete(oldestKey);
+        console.log(`[Router] LRU evicted: ${oldestKey}`);
+    }
+}
+
 const router = {
     app: document.getElementById('app'),
     scrollPositions: {},
+    currentRoute: null,
+    _isBackNavigation: false,
+
     navigate(hash) { window.location.hash = hash; },
+
+    // ── Unified goBack: single authority for all back actions ──────────────
+    goBack() {
+        haptic();
+        // 1. Close drawer
+        const drawer = $('nav-drawer');
+        if (drawer && !drawer.classList.contains('-translate-x-full')) {
+            closeDrawer(); return;
+        }
+        // 2. Close payment overlay
+        const overlay = $('payment-overlay');
+        if (overlay && !overlay.classList.contains('hidden')) {
+            if (state.paymentTimeout) clearTimeout(state.paymentTimeout);
+            overlay.classList.remove('opacity-100');
+            setTimeout(() => overlay.classList.add('hidden'), 300);
+            return;
+        }
+        // 3. Navigate history
+        if (state.navHistory && state.navHistory.length > 1) {
+            state.navHistory.pop();
+            const prev = state.navHistory[state.navHistory.length - 1];
+            this._isBackNavigation = true;
+            this.navigate(prev);
+            return;
+        }
+        // 4. Double-press to exit
+        const now = Date.now();
+        if (state._lastBackPress && (now - state._lastBackPress < 2000)) {
+            window.Capacitor?.Plugins?.App?.exitApp();
+        } else {
+            state._lastBackPress = now;
+            showToast('Press back again to exit', 'info', 2000);
+        }
+    },
+
     get routes() {
         return {
             '/login': pages.login,
@@ -2292,68 +3090,126 @@ const router = {
             '/timetable': pages.timetable,
             '/assignments': pages.assignments,
             '/notifications': pages.notifications,
-            '/exams': pages.exams
+            '/exams': pages.exams,
+            '/maintenance': pages.maintenance
         };
     },
+
     handle() {
         let hash = (window.location.hash || '').replace('#', '') || '/login';
-        
-        // Seamlessly strip custom Android deep link schemes
-        if (hash.includes('sitam://')) {
-            hash = hash.replace('sitam://', '');
-        }
+        if (hash.includes('sitam://')) hash = hash.replace('sitam://', '');
         if (!hash.startsWith('/')) hash = '/' + hash;
 
-        if (!state.token && hash !== '/login') return this.navigate('/login');
+        if (state.maintenance?.active && hash !== '/maintenance') {
+            return this.navigate('/maintenance');
+        }
+        if (!state.token && hash !== '/login' && hash !== '/maintenance') return this.navigate('/login');
         if (state.token && hash === '/login') return this.navigate('/dashboard');
 
-        // Save scroll position of the route we are LEAVING
-        if (router.currentRoute) {
-            router.scrollPositions[router.currentRoute] = window.scrollY;
+        // Save scroll position of the route being LEFT
+        if (this.currentRoute) {
+            this.scrollPositions[this.currentRoute] = window.scrollY;
         }
 
-        // Navigation history tracking
-        const currentHash = hash;
-        if (currentHash !== '/login') {
-            if (!state.navHistory) {
-                state.navHistory = [];
-            }
-            const len = state.navHistory.length;
-            if (len > 1 && state.navHistory[len - 2] === currentHash) {
-                state.navHistory.pop();
-            } else {
-                if (state.navHistory[len - 1] !== currentHash) {
-                    state.navHistory.push(currentHash);
-                }
+        // ── Navigation history ─────────────────────────────────────────────
+        if (hash !== '/login' && !this._isBackNavigation) {
+            if (!state.navHistory) state.navHistory = [];
+            if (state.navHistory[state.navHistory.length - 1] !== hash) {
+                state.navHistory.push(hash);
             }
         }
+        const wasBack = this._isBackNavigation;
+        this._isBackNavigation = false;
 
-        router.currentRoute = hash;
-
+        this.currentRoute = hash;
         const route = hash.slice(1) || 'dashboard';
-        const page = pages[route] || pages.dashboard;
+        const page  = pages[route] || pages.dashboard;
         closeDrawer();
         setActiveNav(route);
 
-        // Native Status Bar color control for a premium Android WebView integration
-        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.StatusBar) {
+        // Native StatusBar
+        if (window.Capacitor?.Plugins?.StatusBar) {
             const { StatusBar } = window.Capacitor.Plugins;
             StatusBar.setStyle({ style: 'LIGHT' }).catch(() => {});
             StatusBar.setBackgroundColor({ color: '#faf9fc' }).catch(() => {});
         }
 
-        this.app.style.opacity = '0';
-        setTimeout(() => {
-            this.app.innerHTML = page.render();
-            this.app.style.opacity = '1';
-            if (page.afterRender) page.afterRender();
+        const isKeepAlive = KEEP_ALIVE_PAGES.has(route);
 
-            // Restore scroll position
-            setTimeout(() => {
-                const savedPos = router.scrollPositions[hash] || 0;
-                window.scrollTo(0, savedPos);
-            }, 100);
-        }, 150);
+        if (isKeepAlive) {
+            // ── keepAlive path: swap DOM nodes, no innerHTML destroy ──────────
+            // Hide all cached pages
+            _pageCache.forEach(entry => { if (entry.node) entry.node.style.display = 'none'; });
+
+            if (_pageCache.has(route)) {
+                // ── CACHE HIT: instant restore <5ms ──────────────────────────
+                const cached = _pageCache.get(route);
+                cached.lastAccess = Date.now();
+                cached.node.style.display = '';
+
+                // GPU animation: reveal from cache
+                cached.node.classList.remove('page-enter-forward', 'page-enter-back', 'page-reveal');
+                void cached.node.offsetWidth; // Force reflow before animating
+                cached.node.classList.add('page-reveal');
+                cached.node.addEventListener('animationend', () =>
+                    cached.node.classList.remove('page-reveal'), { once: true });
+
+                setActiveNav(route);
+
+                // Restore scroll
+                const savedPos = this.scrollPositions[hash] || 0;
+                requestAnimationFrame(() => window.scrollTo(0, savedPos));
+
+                // Silent background revalidation — data, not DOM
+                page.revalidate?.();
+            } else {
+                // ── CACHE MISS: first render, create and cache DOM node ───────
+                const node = document.createElement('div');
+                node.className = 'sitam-page-node';
+                node.innerHTML = page.render();
+                this.app.appendChild(node);
+                _pageCache.set(route, { node, lastAccess: Date.now() });
+
+                // GPU transition
+                const animClass = wasBack ? 'page-enter-back' : 'page-enter-forward';
+                node.classList.add(animClass);
+                node.addEventListener('animationend', () =>
+                    node.classList.remove(animClass), { once: true });
+
+                // Evict if over LRU limit
+                _evictLRUPage();
+
+                if (page.afterRender) page.afterRender();
+                const savedPos = this.scrollPositions[hash] || 0;
+                requestAnimationFrame(() => window.scrollTo(0, savedPos));
+            }
+        } else {
+            // ── Non-cached pages: full re-render (login, profile, syllabus, etc.) ──
+            // Clear any keepAlive nodes visibility
+            _pageCache.forEach(entry => { if (entry.node) entry.node.style.display = 'none'; });
+
+            // Create a fresh non-cached container that overlays the app
+            let nonCachedNode = this.app.querySelector('.sitam-page-non-cached');
+            if (!nonCachedNode) {
+                nonCachedNode = document.createElement('div');
+                nonCachedNode.className = 'sitam-page-non-cached';
+                this.app.appendChild(nonCachedNode);
+            }
+            nonCachedNode.style.display = '';
+            nonCachedNode.innerHTML = page.render();
+
+            // GPU transition
+            const animClass = wasBack ? 'page-enter-back' : 'page-enter-forward';
+            nonCachedNode.classList.remove('page-enter-forward', 'page-enter-back');
+            void nonCachedNode.offsetWidth;
+            nonCachedNode.classList.add(animClass);
+            nonCachedNode.addEventListener('animationend', () =>
+                nonCachedNode.classList.remove(animClass), { once: true });
+
+            if (page.afterRender) page.afterRender();
+            const savedPos = this.scrollPositions[hash] || 0;
+            requestAnimationFrame(() => window.scrollTo(0, savedPos));
+        }
     }
 };
 
@@ -2361,12 +3217,12 @@ const router = {
 // SHELL EVENT WIRING
 // ============================================================
 document.addEventListener('DOMContentLoaded', () => {
-    setEl('app', 'style.transition', 'opacity 0.15s ease');
 
-    // Navigation links
+    // ── Navigation links — with haptic feedback ─────────────────────────────
     document.querySelectorAll('[data-nav-link]').forEach(el => {
         el.addEventListener('click', e => {
             e.preventDefault();
+            haptic();
             closeDrawer();
             router.navigate('/' + el.dataset.navLink);
         });
@@ -2378,12 +3234,17 @@ document.addEventListener('DOMContentLoaded', () => {
     $('close-drawer-btn')?.addEventListener('click', closeDrawer);
     $('drawer-logout-btn')?.addEventListener('click', () => api.logout());
 
-    // Sync button
+    // Sync button (manual force-refresh)
     $('sync-btn')?.addEventListener('click', async () => {
         if (!state.token) return;
         try {
             await api.request('/sync', { method: 'GET' });
             clearUserCache();
+            // Evict all keepAlive page caches so they re-render with fresh data
+            _pageCache.forEach(entry => {
+                if (entry.node?.parentNode) entry.node.parentNode.removeChild(entry.node);
+            });
+            _pageCache.clear();
             router.handle();
         } catch(e) { console.error('Sync failed:', e); }
     });
@@ -2400,9 +3261,86 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     window.addEventListener('online', handleConnectivityChange);
     window.addEventListener('offline', handleConnectivityChange);
-    handleConnectivityChange(); // check startup connectivity
+    handleConnectivityChange();
 
-    // Capacitor Native Android Deep Link Interceptor
+    // ── Pull-to-refresh gesture ─────────────────────────────────────────────
+    (() => {
+        let _ptrStartY = 0;
+        let _ptrActive = false;
+        const PTR_THRESHOLD = 72; // px drag before triggering refresh
+
+        // Inject spinner element
+        if (!$('ptr-spinner')) {
+            const spinner = document.createElement('div');
+            spinner.id = 'ptr-spinner';
+            spinner.innerHTML = '<div class="ptr-ring"></div><span>Refreshing</span>';
+            document.body.appendChild(spinner);
+        }
+
+        document.addEventListener('touchstart', (e) => {
+            if (window.scrollY === 0) { _ptrStartY = e.touches[0].clientY; _ptrActive = true; }
+        }, { passive: true });
+
+        document.addEventListener('touchmove', (e) => {
+            if (!_ptrActive) return;
+            const delta = e.touches[0].clientY - _ptrStartY;
+            if (delta > PTR_THRESHOLD) {
+                const chip = $('ptr-spinner');
+                if (chip) chip.classList.add('visible');
+            }
+        }, { passive: true });
+
+        document.addEventListener('touchend', async () => {
+            if (!_ptrActive) return;
+            _ptrActive = false;
+            const chip = $('ptr-spinner');
+            if (chip && chip.classList.contains('visible')) {
+                haptic();
+                // Revalidate current page data
+                const route = (router.currentRoute || '').slice(1) || 'dashboard';
+                const page  = pages[route];
+                if (page) {
+                    // For keepAlive pages: just call revalidate if available, else afterRender
+                    if (KEEP_ALIVE_PAGES.has(route)) {
+                        page.revalidate ? page.revalidate() : page.afterRender?.();
+                    } else {
+                        page.afterRender?.();
+                    }
+                }
+                // Refresh last-synced display after pulling
+                setTimeout(() => {
+                    chip.classList.remove('visible');
+                    _updateLastSyncedChip();
+                }, 1400);
+            }
+        });
+    })();
+
+    // ── Edge swipe back gesture (left-edge → router.goBack()) ──────────────
+    (() => {
+        let _swipeStartX = 0;
+        let _swipeStartY = 0;
+        document.addEventListener('touchstart', (e) => {
+            if (e.touches[0].clientX < 32) {
+                _swipeStartX = e.touches[0].clientX;
+                _swipeStartY = e.touches[0].clientY;
+            } else {
+                _swipeStartX = 0;
+            }
+        }, { passive: true });
+        document.addEventListener('touchend', (e) => {
+            if (_swipeStartX === 0) return;
+            const dx = e.changedTouches[0].clientX - _swipeStartX;
+            const dy = Math.abs(e.changedTouches[0].clientY - _swipeStartY);
+            if (dx > 60 && dy < 80) {
+                // Horizontal swipe from left edge — treat as back
+                router.goBack();
+            }
+            _swipeStartX = 0;
+        }, { passive: true });
+    })();
+
+    // ── Capacitor Native Android Back Button & Deep Links ──────────────────
     if (window.Capacitor) {
         const { App } = window.Capacitor.Plugins;
         if (App) {
@@ -2410,84 +3348,45 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log('[Capacitor] Deep link received:', event.url);
                 const url = event.url || '';
                 let route = '';
-                if (url.includes('sitam://')) {
-                    route = url.split('sitam://')[1];
-                } else if (url.includes('#sitam://')) {
-                    route = url.split('#sitam://')[1];
-                } else if (url.includes('/#')) {
-                    route = url.split('/#')[1];
-                }
+                if (url.includes('sitam://'))         route = url.split('sitam://')[1];
+                else if (url.includes('#sitam://'))   route = url.split('#sitam://')[1];
+                else if (url.includes('/#'))           route = url.split('/#')[1];
                 if (route) {
                     if (!route.startsWith('/')) route = '/' + route;
                     router.navigate(route);
                 }
             });
-            
-            // Native Back-Button interceptor
-            App.addListener('backButton', () => {
-                // 1. Close drawer if open
-                const drawer = $('nav-drawer');
-                if (drawer && !drawer.classList.contains('-translate-x-full')) {
-                    closeDrawer();
-                    return;
-                }
 
-                // 2. Close payment overlay if open
-                const overlay = $('payment-overlay');
-                if (overlay && !overlay.classList.contains('hidden')) {
-                    if (state.paymentTimeout) clearTimeout(state.paymentTimeout);
-                    overlay.classList.remove('opacity-100');
-                    setTimeout(() => overlay.classList.add('hidden'), 300);
-                    return;
-                }
-
-                // 3. Handle navigation history stack
-                if (state.navHistory && state.navHistory.length > 1) {
-                    state.navHistory.pop();
-                    const prevRoute = state.navHistory[state.navHistory.length - 1];
-                    router.navigate(prevRoute);
-                    return;
-                }
-
-                // 4. Double press back button within 2 seconds to exit
-                const now = Date.now();
-                if (state._lastBackPress && (now - state._lastBackPress < 2000)) {
-                    App.exitApp();
-                } else {
-                    state._lastBackPress = now;
-                    showToast('Press back again to exit', 'info', 2000);
-                }
-            });
+            // ── UNIFIED backButton → router.goBack() ──────────────────────────
+            App.addListener('backButton', () => router.goBack());
         }
     }
 
-    // SITAM Splash Controller & Session Bootstrapping
+    // ── Last-synced chip refresh timer ──────────────────────────────────────
+    setInterval(_updateLastSyncedChip, 30 * 1000);
+
+    // ── SITAM Splash Controller & Session Bootstrapping ────────────────────
     const progressBar = $('splash-progress-bar');
     if (progressBar) {
-        setTimeout(() => {
-            progressBar.style.width = '40%';
-        }, 50);
+        setTimeout(() => { progressBar.style.width = '40%'; }, 50);
     }
 
-    // Bootstrap Secure Keystore Sessions in background during splash overlay
     secureStorage.bootstrap().then(() => {
         state.token = secureStorage.getItem('token') || null;
-        
-        if (progressBar) {
-            progressBar.style.width = '100%';
-        }
-        
+        if (progressBar) progressBar.style.width = '100%';
+
         setTimeout(() => {
             const splash = $('sitam-splash');
             if (splash) {
                 splash.classList.add('opacity-0', 'pointer-events-none');
-                setTimeout(() => {
-                    splash.remove();
-                }, 700);
+                setTimeout(() => splash.remove(), 700);
             }
-            // Trigger routing and sync check now that session decryption is complete
             router.handle();
             checkSyncStatus();
+            // Prefetch immediately if already logged in (returning user)
+            if (state.token) {
+                prefetchAll().catch(() => {});
+            }
         }, 1000);
     }).catch(err => {
         console.error('[Boot] secureStorage bootstrap failed:', err);
