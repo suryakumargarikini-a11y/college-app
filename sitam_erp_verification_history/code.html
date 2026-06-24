@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Verification History | SITAM ERP</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "secondary": "#505f76",
+                    "tertiary-fixed": "#ffdbcd",
+                    "primary-fixed-dim": "#b4c5ff",
+                    "on-secondary-fixed": "#0b1c30",
+                    "on-surface-variant": "#434655",
+                    "tertiary-container": "#bc4800",
+                    "surface": "#f7f9fb",
+                    "secondary-fixed": "#d3e4fe",
+                    "on-surface": "#191c1e",
+                    "on-secondary-container": "#54647a",
+                    "on-tertiary-container": "#ffede6",
+                    "on-primary-container": "#eeefff",
+                    "inverse-surface": "#2d3133",
+                    "tertiary": "#943700",
+                    "on-primary-fixed-variant": "#003ea8",
+                    "surface-container-high": "#e6e8ea",
+                    "on-error-container": "#93000a",
+                    "on-background": "#191c1e",
+                    "surface-tint": "#0053db",
+                    "error-container": "#ffdad6",
+                    "secondary-container": "#d0e1fb",
+                    "on-tertiary": "#ffffff",
+                    "surface-container": "#eceef0",
+                    "on-error": "#ffffff",
+                    "error": "#ba1a1a",
+                    "surface-variant": "#e0e3e5",
+                    "primary-fixed": "#dbe1ff",
+                    "on-secondary": "#ffffff",
+                    "tertiary-fixed-dim": "#ffb596",
+                    "outline": "#737686",
+                    "on-tertiary-fixed-variant": "#7d2d00",
+                    "inverse-on-surface": "#eff1f3",
+                    "surface-dim": "#d8dadc",
+                    "primary": "#004ac6",
+                    "surface-container-lowest": "#ffffff",
+                    "on-primary": "#ffffff",
+                    "background": "#f7f9fb",
+                    "secondary-fixed-dim": "#b7c8e1",
+                    "on-primary-fixed": "#00174b",
+                    "surface-container-low": "#f2f4f6",
+                    "outline-variant": "#c3c6d7",
+                    "surface-bright": "#f7f9fb",
+                    "inverse-primary": "#b4c5ff",
+                    "primary-container": "#2563eb",
+                    "on-secondary-fixed-variant": "#38485d",
+                    "surface-container-highest": "#e0e3e5",
+                    "on-tertiary-fixed": "#360f00"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "margin": "24px",
+                    "md": "16px",
+                    "xl": "32px",
+                    "sm": "8px",
+                    "xs": "4px",
+                    "lg": "24px",
+                    "base": "8px",
+                    "container-max": "1440px",
+                    "gutter": "16px"
+            },
+            "fontFamily": {
+                    "mono-label": ["JetBrains Mono"],
+                    "label-caps": ["Inter"],
+                    "body-md": ["Inter"],
+                    "body-sm": ["Inter"],
+                    "display-lg-mobile": ["Inter"],
+                    "title-sm": ["Inter"],
+                    "headline-md": ["Inter"],
+                    "display-lg": ["Inter"]
+            },
+            "fontSize": {
+                    "mono-label": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+                    "label-caps": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "body-sm": ["13px", {"lineHeight": "18px", "fontWeight": "400"}],
+                    "display-lg-mobile": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "title-sm": ["16px", {"lineHeight": "24px", "fontWeight": "600"}],
+                    "headline-md": ["20px", {"lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "display-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        font-size: 20px;
+      }
+      body { font-family: 'Inter', sans-serif; }
+      .hide-scrollbar::-webkit-scrollbar { display: none; }
+      .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface flex overflow-hidden">
+<!-- SideNavBar (Execution from JSON) -->
+<aside class="fixed left-0 top-0 h-screen w-60 flex flex-col h-full border-r border-outline-variant bg-surface z-40">
+<!-- Brand Header -->
+<div class="px-lg py-xl">
+<h1 class="font-display-lg text-display-lg text-primary">SITAM Smart ERP</h1>
+<p class="font-title-sm text-title-sm text-secondary">Admin Portal</p>
+</div>
+<!-- Navigation Links -->
+<nav class="flex-1 px-sm space-y-1 overflow-y-auto hide-scrollbar">
+<!-- Dashboard (Inactive) -->
+<a class="flex items-center gap-md text-secondary hover:text-primary px-4 py-3 hover:bg-surface-container-low transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-caps text-label-caps">Dashboard</span>
+</a>
+<!-- Role Management (Inactive) -->
+<a class="flex items-center gap-md text-secondary hover:text-primary px-4 py-3 hover:bg-surface-container-low transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">admin_panel_settings</span>
+<span class="font-label-caps text-label-caps">Role Management</span>
+</a>
+<!-- Announcements (Inactive) -->
+<a class="flex items-center gap-md text-secondary hover:text-primary px-4 py-3 hover:bg-surface-container-low transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">campaign</span>
+<span class="font-label-caps text-label-caps">Announcements</span>
+</a>
+<!-- Fee Management (Inactive) -->
+<a class="flex items-center gap-md text-secondary hover:text-primary px-4 py-3 hover:bg-surface-container-low transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span class="font-label-caps text-label-caps">Fee Management</span>
+</a>
+<!-- Placement Cell (Inactive) -->
+<a class="flex items-center gap-md text-secondary hover:text-primary px-4 py-3 hover:bg-surface-container-low transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">work</span>
+<span class="font-label-caps text-label-caps">Placement Cell</span>
+</a>
+<!-- Security Gate (Active - Intent Mapping) -->
+<a class="flex items-center gap-md bg-secondary-container text-primary font-bold border-l-4 border-primary px-4 py-3 scale-[0.98]" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">security</span>
+<span class="font-label-caps text-label-caps">Security Gate</span>
+</a>
+</nav>
+<!-- CTA Section -->
+<div class="px-md py-lg border-t border-outline-variant">
+<button class="w-full flex items-center justify-center gap-sm bg-primary text-on-primary py-2 px-4 rounded-xl font-label-caps text-label-caps hover:opacity-90 transition-all">
+<span class="material-symbols-outlined">sync</span>
+                System Status
+            </button>
+</div>
+<!-- Footer Links -->
+<div class="px-sm pb-lg space-y-1">
+<a class="flex items-center gap-md text-secondary hover:text-primary px-4 py-3 hover:bg-surface-container-low transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-caps text-label-caps">Settings</span>
+</a>
+<a class="flex items-center gap-md text-secondary hover:text-primary px-4 py-3 hover:bg-surface-container-low transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span class="font-label-caps text-label-caps">Logout</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-60 flex-1 flex flex-col h-screen overflow-hidden">
+<!-- TopAppBar (Execution from JSON) -->
+<header class="sticky top-0 z-50 flex justify-between items-center px-lg py-sm w-full bg-surface shadow-sm border-b border-outline-variant">
+<div class="flex items-center gap-xl">
+<span class="font-headline-md text-headline-md font-bold text-on-surface">SITAM Admin</span>
+<div class="relative w-64">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">search</span>
+<input class="w-full pl-10 pr-4 py-2 bg-surface-container-low border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary focus:border-primary text-body-md outline-none" placeholder="Search logs..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-lg">
+<nav class="hidden md:flex items-center gap-md">
+<a class="font-body-md text-on-surface-variant hover:text-primary transition-all" href="#">Audit Trails</a>
+<a class="font-body-md text-on-surface-variant hover:text-primary transition-all" href="#">Reports</a>
+<a class="font-body-md text-on-surface-variant hover:text-primary transition-all" href="#">Support</a>
+</nav>
+<div class="flex items-center gap-md border-l border-outline-variant pl-lg">
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-high rounded-full transition-all opacity-80 active:opacity-60">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-high rounded-full transition-all opacity-80 active:opacity-60">
+<span class="material-symbols-outlined">history</span>
+</button>
+<div class="h-10 w-10 rounded-full bg-primary-container flex items-center justify-center overflow-hidden border border-outline-variant">
+<img class="w-full h-full object-cover" data-alt="A professional headshot of a campus security administrator in a formal office setting, soft natural lighting, high-end corporate photography style with a shallow depth of field, neutral tones and sharp focus." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAiZnoAG0e-QgiF62SBGjsFx8Bko1LA9Ij27qM2oWUpatrf475YLELgVboDu-S3h2oTXWaZTHJ5hoqft8NEIwRY_QHDU4CAbeozfC7-IiyL1nUn1fbO5NUXY1mVFIBD-wBNG-elEoaAkul1MEnhZgQvdZlv5VjBIuzl9KB-pLin5urs9SloeB-2QOsoKXWOrv-Co1wg2d05048blBsnR-YXsrbcdLOZ602Ix_WMZKkQC6g6wzxBpGE_T6vEHWRBO8Bh0wxkXIMga5Hl"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Page Header & Filters -->
+<section class="p-lg bg-surface">
+<div class="flex justify-between items-end mb-lg">
+<div>
+<h2 class="font-display-lg text-display-lg text-on-surface mb-xs">Verification History</h2>
+<p class="font-body-md text-secondary">Monitoring secure access audit trails for SITAM Campus.</p>
+</div>
+<div class="flex items-center gap-md">
+<button class="flex items-center gap-sm px-4 py-2 border border-outline-variant rounded-xl text-secondary hover:bg-surface-container-high transition-all font-label-caps text-label-caps">
+<span class="material-symbols-outlined">download</span>
+                        Export CSV
+                    </button>
+<button class="flex items-center gap-sm px-4 py-2 bg-primary text-on-primary rounded-xl hover:opacity-90 transition-all font-label-caps text-label-caps">
+<span class="material-symbols-outlined">add</span>
+                        Manual Entry
+                    </button>
+</div>
+</div>
+<!-- Filter Chips -->
+<div class="flex items-center justify-between bg-surface-container-lowest p-md border border-outline-variant rounded-xl">
+<div class="flex items-center gap-sm">
+<button class="px-4 py-1.5 rounded-full bg-primary-fixed text-on-primary-fixed font-label-caps text-label-caps border border-primary">Today</button>
+<button class="px-4 py-1.5 rounded-full hover:bg-surface-container-high text-secondary font-label-caps text-label-caps transition-all">This Week</button>
+<button class="px-4 py-1.5 rounded-full hover:bg-surface-container-high text-secondary font-label-caps text-label-caps transition-all">This Month</button>
+<div class="w-[1px] h-6 bg-outline-variant mx-2"></div>
+<button class="flex items-center gap-xs px-3 py-1.5 rounded-xl border border-outline-variant text-secondary font-label-caps text-label-caps hover:bg-surface-container-high">
+<span class="material-symbols-outlined text-[18px]">calendar_month</span>
+                        Custom Date
+                    </button>
+</div>
+<div class="flex items-center gap-md">
+<div class="flex items-center gap-sm text-body-sm text-secondary">
+<span class="material-symbols-outlined text-[18px]">filter_list</span>
+<span>Branch: </span>
+<select class="bg-transparent border-none focus:ring-0 font-bold text-on-surface cursor-pointer p-0">
+<option>All Branches</option>
+<option>CSE</option>
+<option>ECE</option>
+<option>MECH</option>
+</select>
+</div>
+</div>
+</div>
+</section>
+<!-- Data Grid (High Density Table) -->
+<section class="flex-1 px-lg pb-lg overflow-hidden flex flex-col">
+<div class="flex-1 bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden flex flex-col">
+<div class="overflow-y-auto flex-1">
+<table class="w-full text-left border-collapse">
+<thead class="sticky top-0 bg-surface-container-low z-10">
+<tr class="border-b border-outline-variant">
+<th class="px-lg py-4 font-label-caps text-label-caps text-secondary">Student Name</th>
+<th class="px-lg py-4 font-label-caps text-label-caps text-secondary">Roll Number</th>
+<th class="px-lg py-4 font-label-caps text-label-caps text-secondary">Branch</th>
+<th class="px-lg py-4 font-label-caps text-label-caps text-secondary">Verified Time</th>
+<th class="px-lg py-4 font-label-caps text-label-caps text-secondary">Status</th>
+<th class="px-lg py-4 font-label-caps text-label-caps text-secondary">Verified By</th>
+<th class="px-lg py-4 text-right"></th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<!-- Row 1 -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-lg py-3 flex items-center gap-md">
+<div class="h-8 w-8 rounded-full bg-secondary-container flex items-center justify-center text-primary font-bold text-xs">RS</div>
+<span class="font-title-sm text-title-sm text-on-surface">Rahul Sharma</span>
+</td>
+<td class="px-lg py-3 font-mono-label text-mono-label text-secondary">20ST-CSE-042</td>
+<td class="px-lg py-3 font-body-md text-body-md">CSE</td>
+<td class="px-lg py-3 font-body-md text-body-md">10:42 AM</td>
+<td class="px-lg py-3">
+<span class="inline-flex items-center gap-xs px-2.5 py-0.5 rounded-full bg-green-100 text-green-700 text-xs font-semibold">
+<span class="w-1.5 h-1.5 rounded-full bg-green-600"></span>
+                                        Authorized
+                                    </span>
+</td>
+<td class="px-lg py-3 font-body-md text-body-md text-secondary">SGT. Vikram K.</td>
+<td class="px-lg py-3 text-right opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-2 hover:bg-surface-container-high rounded-lg text-primary">
+<span class="material-symbols-outlined">visibility</span>
+</button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-lg py-3 flex items-center gap-md">
+<div class="h-8 w-8 rounded-full bg-secondary-container flex items-center justify-center text-primary font-bold text-xs">AP</div>
+<span class="font-title-sm text-title-sm text-on-surface">Ananya Patel</span>
+</td>
+<td class="px-lg py-3 font-mono-label text-mono-label text-secondary">21ST-ECE-108</td>
+<td class="px-lg py-3 font-body-md text-body-md">ECE</td>
+<td class="px-lg py-3 font-body-md text-body-md">10:35 AM</td>
+<td class="px-lg py-3">
+<span class="inline-flex items-center gap-xs px-2.5 py-0.5 rounded-full bg-green-100 text-green-700 text-xs font-semibold">
+<span class="w-1.5 h-1.5 rounded-full bg-green-600"></span>
+                                        Authorized
+                                    </span>
+</td>
+<td class="px-lg py-3 font-body-md text-body-md text-secondary">Gate 02 System</td>
+<td class="px-lg py-3 text-right opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-2 hover:bg-surface-container-high rounded-lg text-primary">
+<span class="material-symbols-outlined">visibility</span>
+</button>
+</td>
+</tr>
+<!-- Row 3 - Warning State -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-lg py-3 flex items-center gap-md border-l-4 border-error">
+<div class="h-8 w-8 rounded-full bg-error-container flex items-center justify-center text-error font-bold text-xs">DM</div>
+<span class="font-title-sm text-title-sm text-on-surface">Deepak Mishra</span>
+</td>
+<td class="px-lg py-3 font-mono-label text-mono-label text-secondary">19ST-MECH-012</td>
+<td class="px-lg py-3 font-body-md text-body-md">MECH</td>
+<td class="px-lg py-3 font-body-md text-body-md">10:12 AM</td>
+<td class="px-lg py-3">
+<span class="inline-flex items-center gap-xs px-2.5 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-semibold">
+<span class="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse"></span>
+                                        Suspended ID
+                                    </span>
+</td>
+<td class="px-lg py-3 font-body-md text-body-md text-secondary">SGT. Vikram K.</td>
+<td class="px-lg py-3 text-right opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-2 hover:bg-surface-container-high rounded-lg text-error">
+<span class="material-symbols-outlined">report</span>
+</button>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-lg py-3 flex items-center gap-md">
+<div class="h-8 w-8 rounded-full bg-secondary-container flex items-center justify-center text-primary font-bold text-xs">SK</div>
+<span class="font-title-sm text-title-sm text-on-surface">Sneha Kapoor</span>
+</td>
+<td class="px-lg py-3 font-mono-label text-mono-label text-secondary">22ST-CSE-156</td>
+<td class="px-lg py-3 font-body-md text-body-md">CSE</td>
+<td class="px-lg py-3 font-body-md text-body-md">09:58 AM</td>
+<td class="px-lg py-3">
+<span class="inline-flex items-center gap-xs px-2.5 py-0.5 rounded-full bg-yellow-100 text-yellow-700 text-xs font-semibold">
+<span class="w-1.5 h-1.5 rounded-full bg-yellow-600"></span>
+                                        Late Entry
+                                    </span>
+</td>
+<td class="px-lg py-3 font-body-md text-body-md text-secondary">Admin Auto-Gate</td>
+<td class="px-lg py-3 text-right opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-2 hover:bg-surface-container-high rounded-lg text-primary">
+<span class="material-symbols-outlined">visibility</span>
+</button>
+</td>
+</tr>
+<!-- Row 5 -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-lg py-3 flex items-center gap-md">
+<div class="h-8 w-8 rounded-full bg-secondary-container flex items-center justify-center text-primary font-bold text-xs">RK</div>
+<span class="font-title-sm text-title-sm text-on-surface">Rohan Kumar</span>
+</td>
+<td class="px-lg py-3 font-mono-label text-mono-label text-secondary">20ST-EEE-088</td>
+<td class="px-lg py-3 font-body-md text-body-md">EEE</td>
+<td class="px-lg py-3 font-body-md text-body-md">09:45 AM</td>
+<td class="px-lg py-3">
+<span class="inline-flex items-center gap-xs px-2.5 py-0.5 rounded-full bg-green-100 text-green-700 text-xs font-semibold">
+<span class="w-1.5 h-1.5 rounded-full bg-green-600"></span>
+                                        Authorized
+                                    </span>
+</td>
+<td class="px-lg py-3 font-body-md text-body-md text-secondary">Officer Reddy</td>
+<td class="px-lg py-3 text-right opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-2 hover:bg-surface-container-high rounded-lg text-primary">
+<span class="material-symbols-outlined">visibility</span>
+</button>
+</td>
+</tr>
+<!-- Row 6 -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-lg py-3 flex items-center gap-md">
+<div class="h-8 w-8 rounded-full bg-secondary-container flex items-center justify-center text-primary font-bold text-xs">PJ</div>
+<span class="font-title-sm text-title-sm text-on-surface">Priya Jha</span>
+</td>
+<td class="px-lg py-3 font-mono-label text-mono-label text-secondary">21ST-CIV-034</td>
+<td class="px-lg py-3 font-body-md text-body-md">CIVIL</td>
+<td class="px-lg py-3 font-body-md text-body-md">09:30 AM</td>
+<td class="px-lg py-3">
+<span class="inline-flex items-center gap-xs px-2.5 py-0.5 rounded-full bg-green-100 text-green-700 text-xs font-semibold">
+<span class="w-1.5 h-1.5 rounded-full bg-green-600"></span>
+                                        Authorized
+                                    </span>
+</td>
+<td class="px-lg py-3 font-body-md text-body-md text-secondary">Gate 01 System</td>
+<td class="px-lg py-3 text-right opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-2 hover:bg-surface-container-high rounded-lg text-primary">
+<span class="material-symbols-outlined">visibility</span>
+</button>
+</td>
+</tr>
+<!-- Row 7 -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-lg py-3 flex items-center gap-md">
+<div class="h-8 w-8 rounded-full bg-secondary-container flex items-center justify-center text-primary font-bold text-xs">AM</div>
+<span class="font-title-sm text-title-sm text-on-surface">Amit Mahato</span>
+</td>
+<td class="px-lg py-3 font-mono-label text-mono-label text-secondary">20ST-MECH-099</td>
+<td class="px-lg py-3 font-body-md text-body-md">MECH</td>
+<td class="px-lg py-3 font-body-md text-body-md">09:15 AM</td>
+<td class="px-lg py-3">
+<span class="inline-flex items-center gap-xs px-2.5 py-0.5 rounded-full bg-green-100 text-green-700 text-xs font-semibold">
+<span class="w-1.5 h-1.5 rounded-full bg-green-600"></span>
+                                        Authorized
+                                    </span>
+</td>
+<td class="px-lg py-3 font-body-md text-body-md text-secondary">Officer Reddy</td>
+<td class="px-lg py-3 text-right opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-2 hover:bg-surface-container-high rounded-lg text-primary">
+<span class="material-symbols-outlined">visibility</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination Footer -->
+<div class="px-lg py-4 border-t border-outline-variant bg-surface-container-low flex items-center justify-between">
+<span class="text-body-sm text-secondary">Showing 1 to 7 of 1,240 entries</span>
+<div class="flex items-center gap-xs">
+<button class="p-1.5 rounded-lg border border-outline-variant hover:bg-surface transition-all disabled:opacity-30" disabled="">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<button class="w-8 h-8 rounded-lg bg-primary text-on-primary font-label-caps text-label-caps">1</button>
+<button class="w-8 h-8 rounded-lg hover:bg-surface-container-high text-on-surface font-label-caps text-label-caps">2</button>
+<button class="w-8 h-8 rounded-lg hover:bg-surface-container-high text-on-surface font-label-caps text-label-caps">3</button>
+<span class="px-2">...</span>
+<button class="w-8 h-8 rounded-lg hover:bg-surface-container-high text-on-surface font-label-caps text-label-caps">124</button>
+<button class="p-1.5 rounded-lg border border-outline-variant hover:bg-surface transition-all">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Micro-interaction Scripts -->
+<script>
+        // Tab switching logic for filter chips
+        const filterButtons = document.querySelectorAll('.filter-chips button');
+        filterButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                filterButtons.forEach(b => {
+                    b.classList.remove('bg-primary-fixed', 'text-on-primary-fixed', 'border-primary');
+                    b.classList.add('hover:bg-surface-container-high', 'text-secondary');
+                });
+                btn.classList.add('bg-primary-fixed', 'text-on-primary-fixed', 'border-primary');
+                btn.classList.remove('hover:bg-surface-container-high', 'text-secondary');
+            });
+        });
+    </script>
+</body></html>

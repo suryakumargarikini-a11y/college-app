@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Security Dashboard - SITAM Smart ERP</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "secondary": "#505f76",
+                    "tertiary-fixed": "#ffdbcd",
+                    "primary-fixed-dim": "#b4c5ff",
+                    "on-secondary-fixed": "#0b1c30",
+                    "on-surface-variant": "#434655",
+                    "tertiary-container": "#bc4800",
+                    "surface": "#f7f9fb",
+                    "secondary-fixed": "#d3e4fe",
+                    "on-surface": "#191c1e",
+                    "on-secondary-container": "#54647a",
+                    "on-tertiary-container": "#ffede6",
+                    "on-primary-container": "#eeefff",
+                    "inverse-surface": "#2d3133",
+                    "tertiary": "#943700",
+                    "on-primary-fixed-variant": "#003ea8",
+                    "surface-container-high": "#e6e8ea",
+                    "on-error-container": "#93000a",
+                    "on-background": "#191c1e",
+                    "surface-tint": "#0053db",
+                    "error-container": "#ffdad6",
+                    "secondary-container": "#d0e1fb",
+                    "on-tertiary": "#ffffff",
+                    "surface-container": "#eceef0",
+                    "on-error": "#ffffff",
+                    "error": "#ba1a1a",
+                    "surface-variant": "#e0e3e5",
+                    "primary-fixed": "#dbe1ff",
+                    "on-secondary": "#ffffff",
+                    "tertiary-fixed-dim": "#ffb596",
+                    "outline": "#737686",
+                    "on-tertiary-fixed-variant": "#7d2d00",
+                    "inverse-on-surface": "#eff1f3",
+                    "surface-dim": "#d8dadc",
+                    "primary": "#004ac6",
+                    "surface-container-lowest": "#ffffff",
+                    "on-primary": "#ffffff",
+                    "background": "#f7f9fb",
+                    "secondary-fixed-dim": "#b7c8e1",
+                    "on-primary-fixed": "#00174b",
+                    "surface-container-low": "#f2f4f6",
+                    "outline-variant": "#c3c6d7",
+                    "surface-bright": "#f7f9fb",
+                    "inverse-primary": "#b4c5ff",
+                    "primary-container": "#2563eb",
+                    "on-secondary-fixed-variant": "#38485d",
+                    "surface-container-highest": "#e0e3e5",
+                    "on-tertiary-fixed": "#360f00"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "margin": "24px",
+                    "md": "16px",
+                    "xl": "32px",
+                    "sm": "8px",
+                    "xs": "4px",
+                    "lg": "24px",
+                    "base": "8px",
+                    "container-max": "1440px",
+                    "gutter": "16px"
+            },
+            "fontFamily": {
+                    "mono-label": ["JetBrains Mono"],
+                    "label-caps": ["Inter"],
+                    "body-md": ["Inter"],
+                    "body-sm": ["Inter"],
+                    "display-lg-mobile": ["Inter"],
+                    "title-sm": ["Inter"],
+                    "headline-md": ["Inter"],
+                    "display-lg": ["Inter"]
+            },
+            "fontSize": {
+                    "mono-label": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+                    "label-caps": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "body-sm": ["13px", {"lineHeight": "18px", "fontWeight": "400"}],
+                    "display-lg-mobile": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "title-sm": ["16px", {"lineHeight": "24px", "fontWeight": "600"}],
+                    "headline-md": ["20px", {"lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "display-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #f7f9fb; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .sidebar-active { background-color: #d0e1fb; color: #004ac6; font-weight: 700; border-left: 4px solid #004ac6; }
+        .glass-card { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(12px); border: 1px solid #e2e8f0; }
+        .stat-card-glow:hover { border-color: #2563eb; transform: translateY(-2px); transition: all 0.2s ease; }
+    </style>
+</head>
+<body class="flex overflow-hidden">
+<!-- SideNavBar (Authority: JSON & Contextual Shell Logic) -->
+<aside class="fixed left-0 top-0 h-screen w-60 flex flex-col bg-surface border-r border-outline-variant z-50">
+<div class="p-lg">
+<h1 class="font-display-lg text-display-lg text-primary leading-none">SITAM</h1>
+<p class="font-title-sm text-title-sm text-secondary mt-xs">Admin Portal</p>
+</div>
+<nav class="flex-1 px-sm">
+<div class="space-y-1">
+<!-- Dashboard is active -->
+<a class="bg-secondary-container text-primary font-bold border-l-4 border-primary px-4 py-3 flex items-center gap-3 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-label-caps text-label-caps uppercase tracking-wider">Dashboard</span>
+</a>
+<a class="text-secondary hover:text-primary hover:bg-surface-container-low px-4 py-3 flex items-center gap-3 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="security">security</span>
+<span class="font-label-caps text-label-caps uppercase tracking-wider">Security Gate</span>
+</a>
+<div class="pt-4 pb-2 px-4">
+<span class="text-[10px] font-bold text-outline uppercase tracking-[0.2em]">Quick Access</span>
+</div>
+<a class="text-secondary hover:text-primary hover:bg-surface-container-low px-4 py-3 flex items-center gap-3 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="pin">pin</span>
+<span class="font-label-caps text-label-caps">OTP Verification</span>
+</a>
+<a class="text-secondary hover:text-primary hover:bg-surface-container-low px-4 py-3 flex items-center gap-3 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+<span class="font-label-caps text-label-caps">Verification History</span>
+</a>
+</div>
+</nav>
+<div class="p-4 border-t border-outline-variant">
+<div class="flex items-center gap-3 p-2 bg-surface-container-low rounded-xl mb-4">
+<div class="w-10 h-10 rounded-full overflow-hidden bg-primary-container flex items-center justify-center">
+<img class="w-full h-full object-cover" data-alt="A professional security officer portrait in a clean, high-contrast corporate environment. The officer is wearing a sharp, dark navy blue uniform with a visible SITAM ERP emblem. The lighting is bright and focused, using a professional studio aesthetic with cool blue secondary highlights." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC433_pY3HQVDguPdF9LVivpeE1dSIx-HpO1AuYlh20tAzozw9S2AAmpDdpB_gUbbBfzWzzqgyYMY3MtYMa8OfI2jVSqW34V_askpPQhPfZceCzmDV2wfPP86mOC9n0isojvzBvQ0FtlywBSWoueIsuOsvm0BAte08s_Pg1x2wjZ5eBJQ1lw0LeI0f4mkx5BWV01Da2h-_0s62Zc1oi_FdlKFGrQtOLBE_p54mZm_0YlP_rr443HC1hZpbFAOSZX7wduBJMBpwyo7f2"/>
+</div>
+<div class="flex-1 overflow-hidden">
+<p class="font-title-sm text-title-sm text-on-surface truncate">Officer Khanna</p>
+<p class="font-body-sm text-body-sm text-secondary">Gate #1 Shift A</p>
+</div>
+</div>
+<a class="text-secondary hover:text-primary px-4 py-2 flex items-center gap-3 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-label-caps text-label-caps">Settings</span>
+</a>
+<a class="text-secondary hover:text-error px-4 py-2 flex items-center gap-3 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="logout">logout</span>
+<span class="font-label-caps text-label-caps">Logout</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-1 ml-60 h-screen overflow-y-auto bg-surface-bright flex flex-col">
+<!-- TopAppBar (Authority: JSON) -->
+<header class="sticky top-0 z-40 flex justify-between items-center px-lg py-sm w-full bg-surface border-b border-outline-variant shadow-sm">
+<div class="flex items-center gap-xl">
+<span class="font-headline-md text-headline-md font-bold text-on-surface">SITAM Admin</span>
+<div class="relative w-96">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline" data-icon="search">search</span>
+<input class="w-full pl-10 pr-4 py-2 bg-surface-container-low border-none rounded-full focus:ring-2 focus:ring-primary text-body-md" placeholder="Search Roll Number or Gate Pass ID..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<div class="flex gap-sm mr-4 border-r border-outline-variant pr-4">
+<button class="w-10 h-10 rounded-full hover:bg-surface-container-high flex items-center justify-center text-on-surface-variant transition-all">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="w-10 h-10 rounded-full hover:bg-surface-container-high flex items-center justify-center text-on-surface-variant transition-all">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+</button>
+</div>
+<button class="px-6 py-2 bg-primary text-on-primary rounded-full font-bold text-body-md transition-all active:scale-95 shadow-md">
+                    Verify OTP
+                </button>
+</div>
+</header>
+<div class="p-lg max-w-[1440px] mx-auto w-full space-y-lg">
+<!-- Page Header Area -->
+<div class="flex justify-between items-end">
+<div>
+<h2 class="font-display-lg text-display-lg text-on-surface">Security Operations</h2>
+<p class="font-body-md text-secondary mt-1">Real-time gate verification and pass management for Gate #1.</p>
+</div>
+<div class="flex items-center gap-sm bg-surface-container p-1 rounded-xl">
+<button class="px-4 py-1.5 rounded-lg bg-surface-container-highest text-primary font-bold text-body-sm">Today</button>
+<button class="px-4 py-1.5 rounded-lg hover:bg-surface-container-high text-secondary text-body-sm transition-colors">Week</button>
+<button class="px-4 py-1.5 rounded-lg hover:bg-surface-container-high text-secondary text-body-sm transition-colors">Month</button>
+</div>
+</div>
+<!-- Bento Grid Stats (High-end UI Pattern) -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-lg">
+<!-- Stat Card 1 -->
+<div class="glass-card p-lg rounded-xl stat-card-glow relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-[64px]" data-icon="exit_to_app">exit_to_app</span>
+</div>
+<p class="font-label-caps text-label-caps text-secondary uppercase tracking-widest">Exits Verified Today</p>
+<div class="mt-4 flex items-baseline gap-2">
+<span class="font-display-lg text-display-lg text-on-surface">142</span>
+<span class="text-green-600 text-body-sm font-bold flex items-center">
+<span class="material-symbols-outlined text-sm" data-icon="trending_up">trending_up</span> 12%
+                        </span>
+</div>
+</div>
+<!-- Stat Card 2 -->
+<div class="glass-card p-lg rounded-xl stat-card-glow relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-[64px]" data-icon="verified_user">verified_user</span>
+</div>
+<p class="font-label-caps text-label-caps text-secondary uppercase tracking-widest">Active Approved Passes</p>
+<div class="mt-4 flex items-baseline gap-2">
+<span class="font-display-lg text-display-lg text-primary">28</span>
+<span class="text-secondary text-body-sm">Pending Exit</span>
+</div>
+</div>
+<!-- Stat Card 3 -->
+<div class="glass-card p-lg rounded-xl stat-card-glow relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-[64px]" data-icon="calendar_month">calendar_month</span>
+</div>
+<p class="font-label-caps text-label-caps text-secondary uppercase tracking-widest">Total Verified This Month</p>
+<div class="mt-4 flex items-baseline gap-2">
+<span class="font-display-lg text-display-lg text-on-surface">3,491</span>
+<span class="text-secondary text-body-sm">Avg 116/day</span>
+</div>
+</div>
+<!-- Stat Card 4 -->
+<div class="glass-card p-lg rounded-xl stat-card-glow relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-[64px]" data-icon="event_busy" style="color: #ba1a1a;">event_busy</span>
+</div>
+<p class="font-label-caps text-label-caps text-secondary uppercase tracking-widest">Expired Passes</p>
+<div class="mt-4 flex items-baseline gap-2">
+<span class="font-display-lg text-display-lg text-error">04</span>
+<span class="text-error text-body-sm font-bold flex items-center">
+<span class="material-symbols-outlined text-sm" data-icon="warning">warning</span> Flagged
+                        </span>
+</div>
+</div>
+</div>
+<!-- Dashboard Body: Two Columns -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-lg">
+<!-- Left: Recent Activity Table -->
+<div class="lg:col-span-2 space-y-md">
+<div class="flex justify-between items-center">
+<h3 class="font-title-sm text-title-sm text-on-surface">Recent Activity</h3>
+<button class="text-primary font-bold text-body-sm flex items-center gap-1">
+                            Export Logs <span class="material-symbols-outlined text-sm" data-icon="download">download</span>
+</button>
+</div>
+<div class="glass-card rounded-xl overflow-hidden">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low border-b border-outline-variant">
+<th class="px-lg py-4 font-label-caps text-label-caps text-secondary">Student Name</th>
+<th class="px-lg py-4 font-label-caps text-label-caps text-secondary">Roll Number</th>
+<th class="px-lg py-4 font-label-caps text-label-caps text-secondary">Verification Time</th>
+<th class="px-lg py-4 font-label-caps text-label-caps text-secondary text-right">Status</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-lg py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-secondary-fixed flex items-center justify-center font-bold text-on-secondary-fixed text-xs">AS</div>
+<span class="font-body-md text-on-surface">Arjun Sharma</span>
+</div>
+</td>
+<td class="px-lg py-4 font-mono-label text-mono-label text-secondary">SITAM-2023-451</td>
+<td class="px-lg py-4 font-body-sm text-secondary">14:24:08 Today</td>
+<td class="px-lg py-4 text-right">
+<span class="px-3 py-1 rounded-full bg-green-100 text-green-700 text-[10px] font-bold uppercase tracking-wider">Verified</span>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-lg py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-secondary-fixed flex items-center justify-center font-bold text-on-secondary-fixed text-xs">PK</div>
+<span class="font-body-md text-on-surface">Priya Kapoor</span>
+</div>
+</td>
+<td class="px-lg py-4 font-mono-label text-mono-label text-secondary">SITAM-2022-108</td>
+<td class="px-lg py-4 font-body-sm text-secondary">14:18:55 Today</td>
+<td class="px-lg py-4 text-right">
+<span class="px-3 py-1 rounded-full bg-green-100 text-green-700 text-[10px] font-bold uppercase tracking-wider">Verified</span>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-lg py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-tertiary-fixed flex items-center justify-center font-bold text-on-tertiary-fixed text-xs">RJ</div>
+<span class="font-body-md text-on-surface">Rahul Jain</span>
+</div>
+</td>
+<td class="px-lg py-4 font-mono-label text-mono-label text-secondary">SITAM-2024-992</td>
+<td class="px-lg py-4 font-body-sm text-secondary">14:02:11 Today</td>
+<td class="px-lg py-4 text-right">
+<span class="px-3 py-1 rounded-full bg-red-100 text-red-700 text-[10px] font-bold uppercase tracking-wider">Expired</span>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors group border-l-4 border-primary">
+<td class="px-lg py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-secondary-fixed flex items-center justify-center font-bold text-on-secondary-fixed text-xs">MV</div>
+<span class="font-body-md text-on-surface">Meera Varma</span>
+</div>
+</td>
+<td class="px-lg py-4 font-mono-label text-mono-label text-secondary">SITAM-2023-331</td>
+<td class="px-lg py-4 font-body-sm text-secondary">13:55:40 Today</td>
+<td class="px-lg py-4 text-right">
+<span class="px-3 py-1 rounded-full bg-green-100 text-green-700 text-[10px] font-bold uppercase tracking-wider">Verified</span>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-lg py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-secondary-fixed flex items-center justify-center font-bold text-on-secondary-fixed text-xs">SK</div>
+<span class="font-body-md text-on-surface">Suresh Kumar</span>
+</div>
+</td>
+<td class="px-lg py-4 font-mono-label text-mono-label text-secondary">SITAM-2021-005</td>
+<td class="px-lg py-4 font-body-sm text-secondary">13:42:01 Today</td>
+<td class="px-lg py-4 text-right">
+<span class="px-3 py-1 rounded-full bg-green-100 text-green-700 text-[10px] font-bold uppercase tracking-wider">Verified</span>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="p-lg flex justify-center border-t border-outline-variant">
+<button class="text-secondary hover:text-primary font-bold text-body-sm transition-colors">View All Logs</button>
+</div>
+</div>
+</div>
+<!-- Right: Quick Actions & Live Gate Map -->
+<div class="space-y-lg">
+<div class="space-y-md">
+<h3 class="font-title-sm text-title-sm text-on-surface">Quick Actions</h3>
+<div class="space-y-sm">
+<button class="w-full p-lg bg-primary-container text-on-primary-container rounded-xl flex items-center justify-between group hover:shadow-lg transition-all active:scale-[0.98]">
+<div class="flex items-center gap-4 text-white">
+<span class="material-symbols-outlined text-[32px]" data-icon="pin" style="font-variation-settings: 'FILL' 1;">pin</span>
+<div class="text-left">
+<p class="font-bold text-body-md leading-tight">Verify OTP</p>
+<p class="text-body-sm opacity-80">Manual Entry</p>
+</div>
+</div>
+<span class="material-symbols-outlined opacity-0 group-hover:opacity-100 transition-opacity" data-icon="chevron_right">chevron_right</span>
+</button>
+<button class="w-full p-lg bg-surface border border-outline-variant rounded-xl flex items-center justify-between group hover:border-primary transition-all active:scale-[0.98]">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-[32px] text-primary" data-icon="history">history</span>
+<div class="text-left">
+<p class="font-bold text-body-md text-on-surface leading-tight">Verification History</p>
+<p class="text-body-sm text-secondary">Review Past Logs</p>
+</div>
+</div>
+<span class="material-symbols-outlined opacity-0 group-hover:opacity-100 text-primary transition-opacity" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+</div>
+<div class="space-y-md">
+<div class="flex justify-between items-center">
+<h3 class="font-title-sm text-title-sm text-on-surface">Gate #1 Overview</h3>
+<span class="flex items-center gap-1.5 text-green-600 text-[10px] font-bold uppercase">
+<span class="w-2 h-2 rounded-full bg-green-600 animate-pulse"></span>
+                                Live Feed
+                            </span>
+</div>
+<div class="rounded-xl overflow-hidden h-48 relative border border-outline-variant">
+<div class="absolute inset-0 bg-cover bg-center" data-alt="A sophisticated digital rendering of a modern university campus gate area from a top-down technical perspective. The image uses a clean blueprints aesthetic with soft blue and white tones. It shows the flow of pedestrian and vehicle traffic areas with subtle glowing markers for security sensors. The style is minimalist, enterprise-grade, and focuses on technological surveillance efficiency." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuC2qOwbBgkfBx2GdN48UMrUh91xag7dyoqklPeuuESWl-tPLTev25UnXlo1Szt6wE_RVMdRucOPdkKJ5CvWszsNRZMB2aw2JiNTjp16h6hTJ796-yztsubpfcRfKC8NLnw-63_xJmGrbsVBfyorY53DpLao1opTbFUBmJQsT-rfz6Fqtxcx2WpCHB7_msxc9OF0lc0jludzxgs_rHvSmsON28msVtSQ2RJvPBQt2YCz6xp4amd8QA-fD2iP_AUUCij3edDn9HiRXewD')"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
+<div class="absolute bottom-4 left-4">
+<span class="text-white font-bold text-body-sm">Main Campus Entrance</span>
+</div>
+</div>
+<div class="p-4 bg-secondary-container/30 rounded-xl border border-secondary-container">
+<div class="flex items-start gap-3">
+<span class="material-symbols-outlined text-primary" data-icon="info">info</span>
+<div>
+<p class="text-on-secondary-container font-bold text-body-sm">Current Density: Low</p>
+<p class="text-on-secondary-container text-body-sm opacity-80 mt-1">Expected peak traffic at 16:00 during faculty exit.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Floating Action Button (Contextual) -->
+<button class="fixed bottom-lg right-lg w-14 h-14 bg-primary text-on-primary rounded-full shadow-xl flex items-center justify-center hover:scale-105 active:scale-95 transition-all group z-50">
+<span class="material-symbols-outlined" data-icon="add" style="font-size: 32px;">add</span>
+<span class="absolute right-16 bg-inverse-surface text-inverse-on-surface px-4 py-2 rounded-lg text-body-sm whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">New Entry Log</span>
+</button>
+<script>
+        // Micro-interaction for table rows and active state transitions
+        document.querySelectorAll('tbody tr').forEach(row => {
+            row.addEventListener('click', () => {
+                // Generic visual feedback
+                row.classList.add('opacity-50');
+                setTimeout(() => row.classList.remove('opacity-50'), 150);
+            });
+        });
+
+        // Search Bar Focus Effect
+        const searchInput = document.querySelector('input[type="text"]');
+        searchInput.addEventListener('focus', () => {
+            searchInput.parentElement.classList.add('ring-2', 'ring-primary/30');
+        });
+        searchInput.addEventListener('blur', () => {
+            searchInput.parentElement.classList.remove('ring-2', 'ring-primary/30');
+        });
+    </script>
+</body></html>

@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Placement Drives - SITAM ERP</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                "error": "#ba1a1a",
+                "surface-container-highest": "#e0e3e5",
+                "error-container": "#ffdad6",
+                "on-secondary-container": "#54647a",
+                "surface-container": "#eceef0",
+                "primary-fixed": "#dbe1ff",
+                "on-tertiary": "#ffffff",
+                "on-tertiary-fixed-variant": "#7d2d00",
+                "surface-container-high": "#e6e8ea",
+                "tertiary-fixed": "#ffdbcd",
+                "on-surface-variant": "#434655",
+                "on-secondary-fixed": "#0b1c30",
+                "primary-container": "#2563eb",
+                "surface-container-lowest": "#ffffff",
+                "on-primary-container": "#eeefff",
+                "surface-variant": "#e0e3e5",
+                "inverse-primary": "#b4c5ff",
+                "on-tertiary-container": "#ffede6",
+                "inverse-surface": "#2d3133",
+                "secondary-fixed-dim": "#b7c8e1",
+                "on-tertiary-fixed": "#360f00",
+                "secondary": "#505f76",
+                "on-secondary": "#ffffff",
+                "outline": "#737686",
+                "on-primary-fixed": "#00174b",
+                "tertiary-fixed-dim": "#ffb596",
+                "surface-tint": "#0053db",
+                "outline-variant": "#c3c6d7",
+                "on-error-container": "#93000a",
+                "secondary-fixed": "#d3e4fe",
+                "surface": "#f7f9fb",
+                "inverse-on-surface": "#eff1f3",
+                "tertiary": "#943700",
+                "tertiary-container": "#bc4800",
+                "on-error": "#ffffff",
+                "secondary-container": "#d0e1fb",
+                "surface-dim": "#d8dadc",
+                "primary": "#004ac6",
+                "on-secondary-fixed-variant": "#38485d",
+                "on-primary": "#ffffff",
+                "on-primary-fixed-variant": "#003ea8",
+                "primary-fixed-dim": "#b4c5ff",
+                "on-background": "#191c1e",
+                "background": "#f7f9fb",
+                "surface-container-low": "#f2f4f6",
+                "surface-bright": "#f7f9fb",
+                "on-surface": "#191c1e"
+              },
+              "borderRadius": {
+                "DEFAULT": "0.25rem",
+                "lg": "0.5rem",
+                "xl": "0.75rem",
+                "full": "9999px"
+              },
+              "spacing": {
+                "margin": "24px",
+                "sm": "8px",
+                "xl": "32px",
+                "lg": "24px",
+                "xs": "4px",
+                "md": "16px",
+                "base": "8px",
+                "container-max": "1440px",
+                "gutter": "16px"
+              },
+              "fontFamily": {
+                "display-lg": ["Inter"],
+                "title-sm": ["Inter"],
+                "body-md": ["Inter"],
+                "headline-md": ["Inter"],
+                "mono-label": ["JetBrains Mono"]
+              }
+            }
+          }
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .sidebar-active::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            width: 4px;
+            height: 24px;
+            background-color: #004ac6;
+            border-radius: 0 4px 4px 0;
+        }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #e2e8e0; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-background text-on-surface flex min-h-screen">
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-0 h-full w-[240px] bg-surface border-r border-outline-variant flex flex-col p-md gap-sm z-40 hidden md:flex">
+<div class="flex items-center gap-sm mb-lg px-xs">
+<div class="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-on-primary">
+<span class="material-symbols-outlined">school</span>
+</div>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary leading-none">SITAM ERP</h1>
+<p class="text-[10px] uppercase tracking-wider text-secondary font-bold">Admin Portal</p>
+</div>
+</div>
+<nav class="flex-1 flex flex-col gap-xs">
+<a class="flex items-center gap-md px-md py-sm text-secondary hover:bg-surface-container-high rounded-xl transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-title-sm text-title-sm">Dashboard</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-secondary hover:bg-surface-container-high rounded-xl transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="campaign">campaign</span>
+<span class="font-title-sm text-title-sm">Announcements</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm bg-secondary-container text-primary rounded-xl relative sidebar-active transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="work">work</span>
+<span class="font-title-sm text-title-sm">Placement Drives</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-secondary hover:bg-surface-container-high rounded-xl transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+<span class="font-title-sm text-title-sm">Fee Notices</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-secondary hover:bg-surface-container-high rounded-xl transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="exit_to_app">exit_to_app</span>
+<span class="font-title-sm text-title-sm">Exit Passes</span>
+</a>
+<div class="my-sm border-t border-outline-variant"></div>
+<a class="flex items-center gap-md px-md py-sm text-secondary hover:bg-surface-container-high rounded-xl transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+<span class="font-title-sm text-title-sm">Notifications</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-secondary hover:bg-surface-container-high rounded-xl transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-title-sm text-title-sm">Settings</span>
+</a>
+</nav>
+<div class="mt-auto pt-md border-t border-outline-variant">
+<a class="flex items-center gap-md px-md py-sm text-error hover:bg-error-container/20 rounded-xl transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="logout">logout</span>
+<span class="font-title-sm text-title-sm">Logout</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-1 md:ml-[240px] flex flex-col min-w-0">
+<!-- TopNavBar -->
+<header class="sticky top-0 h-[72px] w-full bg-surface-container-lowest shadow-sm flex justify-between items-center px-lg z-50">
+<div class="flex items-center gap-lg">
+<div class="flex items-center bg-surface-container rounded-full px-md py-xs w-80">
+<span class="material-symbols-outlined text-secondary mr-sm" data-icon="search">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-body-md font-body-md w-full" placeholder="Search companies or students..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<button class="bg-primary text-on-primary px-lg py-sm rounded-xl font-title-sm text-title-sm flex items-center gap-sm active:scale-95 transition-transform">
+<span class="material-symbols-outlined" data-icon="add">add</span>
+                    Create Placement Drive
+                </button>
+<div class="h-8 w-px bg-outline-variant mx-xs"></div>
+<div class="flex items-center gap-sm cursor-pointer hover:bg-surface-container-low p-xs rounded-full transition-colors">
+<div class="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Corporate headshot of a professional male administrative officer with a clean-cut appearance, wearing a crisp navy blue suit and glasses, looking directly at the camera with a confident and helpful expression against a neutral studio background. The style is modern, sharp, and enterprise-grade." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCk7L1wroohiHTLvtcijSli-GhQVMtIyZBncK8CVhh3MgnZPX0PtnATEViKTZj_0T-JwxsS2OmCtNevEpDB8uM--3kx4UavQTmzDOaSPi4AaL4W8-TH4UqtoXHeAge-ddYtSZdxHXN8fGR2W9MPohpBjGsXxr8bypPJJdSxjcFBfKBCgAz8zmuE2EZ6Ko4rFmqNBWR_3tCrrhnG3bDCxBzJyXw6naMm1e6eyOVzx3_2SZ9XYqwgWi2dmLVz14EHUq3knU_HG-pW7FM7"/>
+</div>
+<span class="material-symbols-outlined text-secondary" data-icon="expand_more">expand_more</span>
+</div>
+</div>
+</header>
+<!-- Page Canvas -->
+<section class="p-lg flex flex-col gap-lg">
+<!-- Breadcrumbs and Title -->
+<div class="flex flex-col gap-xs">
+<div class="flex items-center gap-xs text-secondary text-mono-label font-mono-label uppercase">
+<span>Admin</span>
+<span class="material-symbols-outlined text-xs" data-icon="chevron_right">chevron_right</span>
+<span class="text-primary font-bold">Placement Drives</span>
+</div>
+<h2 class="font-display-lg text-display-lg text-on-surface">Active Drives &amp; Analytics</h2>
+</div>
+<!-- Bento Grid - Status Overview -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-md">
+<div class="bg-surface-container-lowest border border-outline-variant p-lg rounded-xl flex items-center gap-md">
+<div class="w-12 h-12 bg-primary-container/10 text-primary-container rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="trending_up">trending_up</span>
+</div>
+<div>
+<p class="text-secondary text-body-sm font-body-sm">Total Offers</p>
+<p class="text-headline-md font-bold text-on-surface">432</p>
+</div>
+</div>
+<div class="bg-surface-container-lowest border border-outline-variant p-lg rounded-xl flex items-center gap-md">
+<div class="w-12 h-12 bg-tertiary/10 text-tertiary rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="corporate_fare">corporate_fare</span>
+</div>
+<div>
+<p class="text-secondary text-body-sm font-body-sm">Companies</p>
+<p class="text-headline-md font-bold text-on-surface">18</p>
+</div>
+</div>
+<div class="bg-surface-container-lowest border border-outline-variant p-lg rounded-xl flex items-center gap-md">
+<div class="w-12 h-12 bg-secondary-container/50 text-secondary rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="groups">groups</span>
+</div>
+<div>
+<p class="text-secondary text-body-sm font-body-sm">Participants</p>
+<p class="text-headline-md font-bold text-on-surface">1,240</p>
+</div>
+</div>
+<div class="bg-surface-container-lowest border border-outline-variant p-lg rounded-xl flex items-center gap-md">
+<div class="w-12 h-12 bg-on-tertiary-fixed-variant/10 text-on-tertiary-fixed-variant rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="verified">verified</span>
+</div>
+<div>
+<p class="text-secondary text-body-sm font-body-sm">Placed Rate</p>
+<p class="text-headline-md font-bold text-on-surface">76.4%</p>
+</div>
+</div>
+</div>
+<!-- Featured Company Cards -->
+<div class="flex items-center justify-between">
+<h3 class="font-headline-md text-headline-md text-on-surface">Featured Opportunities</h3>
+<button class="text-primary font-title-sm text-title-sm hover:underline">View all drives</button>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-lg">
+<!-- Card 1: Google -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden hover:shadow-lg transition-shadow group cursor-pointer">
+<div class="h-2 w-full bg-[#4285F4]"></div>
+<div class="p-lg flex flex-col gap-md">
+<div class="flex justify-between items-start">
+<div class="w-12 h-12 rounded-lg border border-outline-variant flex items-center justify-center bg-white">
+<img class="w-8 h-8 object-contain" data-alt="Official Google corporate logo in high resolution, showcasing the iconic multi-colored G on a clean white circular background. The style is minimalist and modern, set within a crisp enterprise UI environment with soft professional lighting and sharp vectors." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBpjcb7kFkYYw06efNCyqo8vgnH0xcQKA59ZeNbt-GSFVtOTrurudEIyFxBwhSS_AJjjbuVOnLJmXOQLTCldLY2LtRUq7HvtTIqG-IjDEG2_iIdM95xsDZQdUpU3kIHqJV1r7YrPC6uv4APhFhB38XMmzEdpCOi6gziXe-OZBZ7QFmPNqkoRAPLvwelvph8Vv7fs-wOaQp2VvO2M6kvOVQd_Dxysuzoj2Zo1lQxyq1p_KJLOokDp-LNgMT8l29y709JOQAcTLMLcSYH"/>
+</div>
+<span class="px-md py-1 bg-secondary-container/50 text-on-secondary-fixed-variant rounded-full text-mono-label font-mono-label">ONGOING</span>
+</div>
+<div>
+<h4 class="font-title-sm text-title-sm text-on-surface group-hover:text-primary transition-colors">Google India</h4>
+<p class="text-secondary text-body-sm font-body-sm">Software Engineering (L3)</p>
+</div>
+<div class="flex flex-col gap-xs py-sm border-y border-outline-variant">
+<div class="flex justify-between">
+<span class="text-secondary text-body-sm">CTC Package</span>
+<span class="font-bold text-primary">₹32.0 LPA</span>
+</div>
+<div class="flex justify-between">
+<span class="text-secondary text-body-sm">Drive Date</span>
+<span class="font-bold">Oct 24, 2023</span>
+</div>
+</div>
+<button class="w-full bg-surface-container-high py-sm rounded-xl font-title-sm text-title-sm hover:bg-primary hover:text-on-primary transition-all">Details</button>
+</div>
+</div>
+<!-- Card 2: Microsoft -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden hover:shadow-lg transition-shadow group cursor-pointer">
+<div class="h-2 w-full bg-[#00A4EF]"></div>
+<div class="p-lg flex flex-col gap-md">
+<div class="flex justify-between items-start">
+<div class="w-12 h-12 rounded-lg border border-outline-variant flex items-center justify-center bg-white">
+<img class="w-8 h-8 object-contain" data-alt="Official Microsoft corporate logo with the four-color square icon and sleek typography. The image is rendered in high definition with a flat, modern aesthetic, suitable for a professional administrative dashboard. The background is white and clean, maintaining high contrast." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCMA3xqe5QN7cPyFz2lw-h-2EO4FgS7OEMA5FjLsuYlJYyWt_ERoKT1OjF0MRoJFxqDeTTUlcjs7v2M6yexo8mVQNBFM2EYevu06j9guE7r_2d54SRE3BEdRjPkf302KvaDWWVw_pKPq5F04Wk_tVqOTIe9w9h2xg3UKxOZXfPaJKCBOD6pnSf1KdF8rLz5A1lwhtSqaY-YA0-2bbGvcZsRvLdnvLDoBelqH0W036llnnyMp3WNfkR-EAO0pYNZgLRCb6kIyV0jj3eY"/>
+</div>
+<span class="px-md py-1 bg-surface-container-high text-secondary rounded-full text-mono-label font-mono-label">UPCOMING</span>
+</div>
+<div>
+<h4 class="font-title-sm text-title-sm text-on-surface group-hover:text-primary transition-colors">Microsoft IDC</h4>
+<p class="text-secondary text-body-sm font-body-sm">Cloud Operations Analyst</p>
+</div>
+<div class="flex flex-col gap-xs py-sm border-y border-outline-variant">
+<div class="flex justify-between">
+<span class="text-secondary text-body-sm">CTC Package</span>
+<span class="font-bold text-primary">₹24.5 LPA</span>
+</div>
+<div class="flex justify-between">
+<span class="text-secondary text-body-sm">Drive Date</span>
+<span class="font-bold">Nov 02, 2023</span>
+</div>
+</div>
+<button class="w-full bg-surface-container-high py-sm rounded-xl font-title-sm text-title-sm hover:bg-primary hover:text-on-primary transition-all">Details</button>
+</div>
+</div>
+<!-- Card 3: TCS -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden hover:shadow-lg transition-shadow group cursor-pointer">
+<div class="h-2 w-full bg-[#1B1F3B]"></div>
+<div class="p-lg flex flex-col gap-md">
+<div class="flex justify-between items-start">
+<div class="w-12 h-12 rounded-lg border border-outline-variant flex items-center justify-center bg-white">
+<img class="w-8 h-8 object-contain" data-alt="Tata Consultancy Services official logo, featuring the stylized bridge icon and TCS lettering in deep navy blue. The image is a sharp, vector-quality graphic on a clean white background, designed for an enterprise-level financial and recruitment management system." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBriGf5jx47cF-_7dZF6YnMYiBJAo2VmOdL05vvbYht-7EMpmi7zITDJtnvba97Rhdr4zb8qkQRniaTWY1ayG6xt25IcNOXDUAh-IgCRRFLwVL6UzcGBi9znMf8bnXh7PvDroZTC28og32KioD-jXkHrjbRsi3jFrndlacuBirAWyxpG384pOYF7dRN4t71UHyQ1-ZEFTruKtCnV0oCo94Gr423zPyrk8RyCM5Fon2ad7n19VzUpgY-06NFltr1Nefh_O82q8-DvaYr"/>
+</div>
+<span class="px-md py-1 bg-secondary-container/50 text-on-secondary-fixed-variant rounded-full text-mono-label font-mono-label">ONGOING</span>
+</div>
+<div>
+<h4 class="font-title-sm text-title-sm text-on-surface group-hover:text-primary transition-colors">TCS Ninja/Digital</h4>
+<p class="text-secondary text-body-sm font-body-sm">Associate System Engineer</p>
+</div>
+<div class="flex flex-col gap-xs py-sm border-y border-outline-variant">
+<div class="flex justify-between">
+<span class="text-secondary text-body-sm">CTC Package</span>
+<span class="font-bold text-primary">₹7.2 LPA</span>
+</div>
+<div class="flex justify-between">
+<span class="text-secondary text-body-sm">Drive Date</span>
+<span class="font-bold">Oct 18, 2023</span>
+</div>
+</div>
+<button class="w-full bg-surface-container-high py-sm rounded-xl font-title-sm text-title-sm hover:bg-primary hover:text-on-primary transition-all">Details</button>
+</div>
+</div>
+<!-- Card 4: ZS Associates -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden hover:shadow-lg transition-shadow group cursor-pointer">
+<div class="h-2 w-full bg-tertiary"></div>
+<div class="p-lg flex flex-col gap-md">
+<div class="flex justify-between items-start">
+<div class="w-12 h-12 rounded-lg border border-outline-variant flex items-center justify-center bg-white">
+<img class="w-10 h-10 object-contain" data-alt="ZS Associates corporate logo in high resolution, presenting the modern orange and black typography against a pristine white background. The image style is professional, sharp, and aligned with corporate consulting branding, fitting seamlessly into a high-utility UI grid." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAoCAUjLsNrha_B4cgytI_5Tkev-zWFGbkiDe3ufgxizFfyzY-ujZpyEtOJXmKYFbZ4DMomdWH8otTVYbjjCHUVje53xW1bQV9oqqISMP-9jldgGl-VEWfs5RlEa_BNjQ0yPKzotT10isoIOUv61-5Yj712sRYM4NtOiSzR9u487YGSAC8F_M5dqINuWdYn1laF25PprtX33QpKMO5nqnYw8VoyoB8uU8bVUCEzgiLWOkE_6L1FJwml6FTyYb4eJ58DxwaTqBtnb952"/>
+</div>
+<span class="px-md py-1 bg-surface-container-high text-secondary rounded-full text-mono-label font-mono-label">UPCOMING</span>
+</div>
+<div>
+<h4 class="font-title-sm text-title-sm text-on-surface group-hover:text-primary transition-colors">ZS Associates</h4>
+<p class="text-secondary text-body-sm font-body-sm">Decision Analytics Associate</p>
+</div>
+<div class="flex flex-col gap-xs py-sm border-y border-outline-variant">
+<div class="flex justify-between">
+<span class="text-secondary text-body-sm">CTC Package</span>
+<span class="font-bold text-primary">₹12.5 LPA</span>
+</div>
+<div class="flex justify-between">
+<span class="text-secondary text-body-sm">Drive Date</span>
+<span class="font-bold">Nov 15, 2023</span>
+</div>
+</div>
+<button class="w-full bg-surface-container-high py-sm rounded-xl font-title-sm text-title-sm hover:bg-primary hover:text-on-primary transition-all">Details</button>
+</div>
+</div>
+</div>
+<!-- Detailed Tracking Table Section -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-2xl overflow-hidden flex flex-col mt-lg shadow-sm">
+<div class="p-lg border-b border-outline-variant flex items-center justify-between">
+<h3 class="font-headline-md text-headline-md text-on-surface">Detailed Drive Status</h3>
+<div class="flex items-center gap-md">
+<button class="flex items-center gap-sm px-md py-sm border border-outline-variant rounded-xl text-body-md hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined" data-icon="filter_list">filter_list</span>
+                            Filter
+                        </button>
+<button class="flex items-center gap-sm px-md py-sm border border-outline-variant rounded-xl text-body-md hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined" data-icon="download">download</span>
+                            Export
+                        </button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low/50">
+<th class="px-lg py-md text-label-caps font-label-caps text-secondary uppercase tracking-wider">Company</th>
+<th class="px-lg py-md text-label-caps font-label-caps text-secondary uppercase tracking-wider">Eligible Branches</th>
+<th class="px-lg py-md text-label-caps font-label-caps text-secondary uppercase tracking-wider text-center">Registered</th>
+<th class="px-lg py-md text-label-caps font-label-caps text-secondary uppercase tracking-wider">Status</th>
+<th class="px-lg py-md text-label-caps font-label-caps text-secondary uppercase tracking-wider text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-lg py-md">
+<div class="flex items-center gap-md">
+<div class="w-10 h-10 rounded border border-outline-variant flex items-center justify-center p-1 bg-white">
+<img class="w-full h-full object-contain" data-alt="Official Google minimalist G logo, sharp and clear." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC8wHW64BkSALftXqKXYyDtybPXTP6ElzEsgArs9WDYmXGUsFLehCT5CKJ3fes1K234GcSb5gt18_L_-QppjhmVp5U7gOiN9IGOzQFmXjdo45eai-Jc6As2k0eJy7rrscpLNhlY-5CPQg0N9wLVxdD4atgo6Io8jQPIGPZyUMwxlv3B0U0L4cHF_7J-GdbIllJayphLnyZdmxob_aAM0eDSX_A78W-oPneqdcUzVIMuZSfKJMkHViKCanG_ixkXdjvzJEysIRqqRrJL"/>
+</div>
+<div>
+<p class="font-title-sm text-title-sm text-on-surface">Google</p>
+<p class="text-body-sm text-secondary">Mountain View, CA</p>
+</div>
+</div>
+</td>
+<td class="px-lg py-md">
+<div class="flex flex-wrap gap-xs">
+<span class="px-xs py-px bg-primary-container/10 text-primary-container text-[10px] font-bold rounded">CSE</span>
+<span class="px-xs py-px bg-primary-container/10 text-primary-container text-[10px] font-bold rounded">IT</span>
+<span class="px-xs py-px bg-primary-container/10 text-primary-container text-[10px] font-bold rounded">ECE</span>
+</div>
+</td>
+<td class="px-lg py-md text-center">
+<p class="font-bold text-on-surface">342</p>
+<p class="text-[10px] text-secondary">Verified</p>
+</td>
+<td class="px-lg py-md">
+<div class="flex items-center gap-sm">
+<span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+<span class="text-body-md font-semibold text-primary">Ongoing</span>
+</div>
+</td>
+<td class="px-lg py-md text-right">
+<a class="text-primary font-bold text-body-md hover:underline" href="#">Register Link</a>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-lg py-md">
+<div class="flex items-center gap-md">
+<div class="w-10 h-10 rounded border border-outline-variant flex items-center justify-center p-1 bg-white">
+<img class="w-full h-full object-contain" data-alt="Microsoft corporate tile logo in high resolution." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDv7k6LzkzGhSWRu_7T1YkGzVfBKHHLDLaWyYmIYF7vWb6K2t2JN9AVPPgHmfmwbKVCxKJvIIezIPYGfqdpy2EjxcRyxSJzLJBzoUkMR8DZ4teVaB5ePnRUo9og6Dm3j-tVJCqe3JXfOVWgUF8-pJfhEfa3IFwMsX-yMTazYuzeubbYKba-mjOS3UxAauzbMNk_-tHXO5mmLzTRw4r33bUHGh94u5rs_tdfjBavjLsFUBmHTrjMGUE_ETaDiIEn8wJk9H3dd_xf0L7O"/>
+</div>
+<div>
+<p class="font-title-sm text-title-sm text-on-surface">Microsoft</p>
+<p class="text-body-sm text-secondary">Hyderabad, TS</p>
+</div>
+</div>
+</td>
+<td class="px-lg py-md">
+<div class="flex flex-wrap gap-xs">
+<span class="px-xs py-px bg-primary-container/10 text-primary-container text-[10px] font-bold rounded">CSE</span>
+<span class="px-xs py-px bg-primary-container/10 text-primary-container text-[10px] font-bold rounded">IT</span>
+</div>
+</td>
+<td class="px-lg py-md text-center">
+<p class="font-bold text-on-surface">218</p>
+<p class="text-[10px] text-secondary">Verified</p>
+</td>
+<td class="px-lg py-md">
+<div class="flex items-center gap-sm text-secondary">
+<span class="w-2 h-2 rounded-full bg-outline"></span>
+<span class="text-body-md font-semibold">Upcoming</span>
+</div>
+</td>
+<td class="px-lg py-md text-right">
+<a class="text-primary font-bold text-body-md hover:underline" href="#">Register Link</a>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-lg py-md">
+<div class="flex items-center gap-md">
+<div class="w-10 h-10 rounded border border-outline-variant flex items-center justify-center p-1 bg-white">
+<img class="w-full h-full object-contain" data-alt="TCS official corporate logo." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAiMT6rN79Js_RI5kC1rUrcTs6vtMllLjQ11Tr9ljRsDik1ETz4oeOhxYzqpbeVyndmKkV6ccPb16b2acmlxU1Pui8R0omVq-bAkrbIvKfAzgQEqTRleG124ASpl5VYiEgDSCFVPtAaeFGrVL8_IEqb5UuX30ALQje5o0PTgZCNQMZrFBGXXsO4W6p4knGSn401rQtror_eqrQ88-kDBZWh1WOTsOCH83wlZQGNgKBM6KEdtvpvRb_bgXGlkZLQwnu0_XlavybT7oUZ"/>
+</div>
+<div>
+<p class="font-title-sm text-title-sm text-on-surface">TCS</p>
+<p class="text-body-sm text-secondary">Pan India</p>
+</div>
+</div>
+</td>
+<td class="px-lg py-md">
+<div class="flex flex-wrap gap-xs">
+<span class="px-xs py-px bg-secondary-container text-on-secondary-container text-[10px] font-bold rounded">ALL BRANCHES</span>
+</div>
+</td>
+<td class="px-lg py-md text-center">
+<p class="font-bold text-on-surface">865</p>
+<p class="text-[10px] text-secondary">Verified</p>
+</td>
+<td class="px-lg py-md">
+<div class="flex items-center gap-sm">
+<span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+<span class="text-body-md font-semibold text-primary">Ongoing</span>
+</div>
+</td>
+<td class="px-lg py-md text-right">
+<a class="text-primary font-bold text-body-md hover:underline" href="#">Register Link</a>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-lg py-md">
+<div class="flex items-center gap-md">
+<div class="w-10 h-10 rounded border border-outline-variant flex items-center justify-center p-1 bg-white">
+<img class="w-full h-full object-contain" data-alt="Cognizant corporate logo for high-level UI." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC6Cl5aD_GmcAnSGJZdF6Snd3sHXj5fB7scLNmYdb1nhaCYmM82P7QVdJwxn8eH1NISqvuEwZcLgqMeH77wGJ-bCJEkcZgW_ZwLfir0PUhmD9Mha2Z6T04BYMliqeEW8aLD0zaJF1oyk9XhMjr_z598sBqrE-reJ-SnE_cRp3imSxX-G8QxcBuR1zLFV059-x1j1Q1DOr40Zg1FKdvvKhLyuwVLeRoPhS05kIRCdWLklJRt9m32CFeDQIOhNTi-QJoHSWPv76Sp6wGq"/>
+</div>
+<div>
+<p class="font-title-sm text-title-sm text-on-surface">Cognizant</p>
+<p class="text-body-sm text-secondary">Chennai, TN</p>
+</div>
+</div>
+</td>
+<td class="px-lg py-md">
+<div class="flex flex-wrap gap-xs">
+<span class="px-xs py-px bg-primary-container/10 text-primary-container text-[10px] font-bold rounded">CSE</span>
+<span class="px-xs py-px bg-primary-container/10 text-primary-container text-[10px] font-bold rounded">IT</span>
+<span class="px-xs py-px bg-primary-container/10 text-primary-container text-[10px] font-bold rounded">ECE</span>
+<span class="px-xs py-px bg-primary-container/10 text-primary-container text-[10px] font-bold rounded">EEE</span>
+</div>
+</td>
+<td class="px-lg py-md text-center">
+<p class="font-bold text-on-surface">456</p>
+<p class="text-[10px] text-secondary">Verified</p>
+</td>
+<td class="px-lg py-md">
+<div class="flex items-center gap-sm text-secondary">
+<span class="w-2 h-2 rounded-full bg-outline"></span>
+<span class="text-body-md font-semibold">Upcoming</span>
+</div>
+</td>
+<td class="px-lg py-md text-right">
+<a class="text-primary font-bold text-body-md hover:underline" href="#">Register Link</a>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="p-lg bg-surface-container-low/30 border-t border-outline-variant flex items-center justify-between">
+<p class="text-body-sm text-secondary">Showing 4 of 18 companies</p>
+<div class="flex items-center gap-sm">
+<button class="w-10 h-10 flex items-center justify-center rounded-xl border border-outline-variant hover:bg-surface-container transition-colors disabled:opacity-50" disabled="">
+<span class="material-symbols-outlined" data-icon="chevron_left">chevron_left</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-xl bg-primary text-on-primary">1</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-xl border border-outline-variant hover:bg-surface-container transition-colors">2</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-xl border border-outline-variant hover:bg-surface-container transition-colors">3</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-xl border border-outline-variant hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+<!-- Footer -->
+<footer class="mt-auto p-lg text-center border-t border-outline-variant bg-surface-container-lowest">
+<p class="text-secondary text-body-sm">© 2023 SITAM Smart ERP - Training &amp; Placement Cell. All rights reserved.</p>
+</footer>
+</main>
+<!-- BottomNavBar (Mobile only) -->
+<nav class="fixed bottom-0 left-0 w-full h-[64px] bg-surface-container-lowest border-t border-outline-variant flex md:hidden z-50 px-md">
+<div class="flex-1 flex flex-col items-center justify-center text-secondary gap-xs">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="text-[10px] font-bold">DASHBOARD</span>
+</div>
+<div class="flex-1 flex flex-col items-center justify-center text-primary gap-xs">
+<span class="material-symbols-outlined" data-icon="work" style="font-variation-settings: 'FILL' 1;">work</span>
+<span class="text-[10px] font-bold">DRIVES</span>
+</div>
+<div class="flex-1 flex flex-col items-center justify-center text-secondary gap-xs">
+<span class="material-symbols-outlined" data-icon="campaign">campaign</span>
+<span class="text-[10px] font-bold">NOTICES</span>
+</div>
+<div class="flex-1 flex flex-col items-center justify-center text-secondary gap-xs">
+<span class="material-symbols-outlined" data-icon="account_circle">account_circle</span>
+<span class="text-[10px] font-bold">PROFILE</span>
+</div>
+</nav>
+<script>
+        // Simple interaction for the "Create" button
+        document.querySelector('button.bg-primary').addEventListener('click', () => {
+            alert('Opening Create Placement Drive modal...');
+        });
+
+        // Hover effect for table rows
+        const rows = document.querySelectorAll('tbody tr');
+        rows.forEach(row => {
+            row.addEventListener('mouseenter', () => {
+                row.style.boxShadow = 'inset 4px 0 0 #004ac6';
+            });
+            row.addEventListener('mouseleave', () => {
+                row.style.boxShadow = 'none';
+            });
+        });
+    </script>
+</body></html>

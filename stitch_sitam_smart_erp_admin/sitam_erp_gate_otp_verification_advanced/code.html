@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SITAM Smart ERP - Security Gate Verification</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "secondary": "#505f76",
+                    "tertiary-fixed": "#ffdbcd",
+                    "primary-fixed-dim": "#b4c5ff",
+                    "on-secondary-fixed": "#0b1c30",
+                    "on-surface-variant": "#434655",
+                    "tertiary-container": "#bc4800",
+                    "surface": "#f7f9fb",
+                    "secondary-fixed": "#d3e4fe",
+                    "on-surface": "#191c1e",
+                    "on-secondary-container": "#54647a",
+                    "on-tertiary-container": "#ffede6",
+                    "on-primary-container": "#eeefff",
+                    "inverse-surface": "#2d3133",
+                    "tertiary": "#943700",
+                    "on-primary-fixed-variant": "#003ea8",
+                    "surface-container-high": "#e6e8ea",
+                    "on-error-container": "#93000a",
+                    "on-background": "#191c1e",
+                    "surface-tint": "#0053db",
+                    "error-container": "#ffdad6",
+                    "secondary-container": "#d0e1fb",
+                    "on-tertiary": "#ffffff",
+                    "surface-container": "#eceef0",
+                    "on-error": "#ffffff",
+                    "error": "#ba1a1a",
+                    "surface-variant": "#e0e3e5",
+                    "primary-fixed": "#dbe1ff",
+                    "on-secondary": "#ffffff",
+                    "tertiary-fixed-dim": "#ffb596",
+                    "outline": "#737686",
+                    "on-tertiary-fixed-variant": "#7d2d00",
+                    "inverse-on-surface": "#eff1f3",
+                    "surface-dim": "#d8dadc",
+                    "primary": "#004ac6",
+                    "surface-container-lowest": "#ffffff",
+                    "on-primary": "#ffffff",
+                    "background": "#f7f9fb",
+                    "secondary-fixed-dim": "#b7c8e1",
+                    "on-primary-fixed": "#00174b",
+                    "surface-container-low": "#f2f4f6",
+                    "outline-variant": "#c3c6d7",
+                    "surface-bright": "#f7f9fb",
+                    "inverse-primary": "#b4c5ff",
+                    "primary-container": "#2563eb",
+                    "on-secondary-fixed-variant": "#38485d",
+                    "surface-container-highest": "#e0e3e5",
+                    "on-tertiary-fixed": "#360f00"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "margin": "24px",
+                    "md": "16px",
+                    "xl": "32px",
+                    "sm": "8px",
+                    "xs": "4px",
+                    "lg": "24px",
+                    "base": "8px",
+                    "container-max": "1440px",
+                    "gutter": "16px"
+            },
+            "fontFamily": {
+                    "mono-label": ["JetBrains Mono"],
+                    "label-caps": ["Inter"],
+                    "body-md": ["Inter"],
+                    "body-sm": ["Inter"],
+                    "display-lg-mobile": ["Inter"],
+                    "title-sm": ["Inter"],
+                    "headline-md": ["Inter"],
+                    "display-lg": ["Inter"]
+            },
+            "fontSize": {
+                    "mono-label": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+                    "label-caps": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "body-sm": ["13px", {"lineHeight": "18px", "fontWeight": "400"}],
+                    "display-lg-mobile": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "title-sm": ["16px", {"lineHeight": "24px", "fontWeight": "600"}],
+                    "headline-md": ["20px", {"lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "display-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(8px);
+            border: 1px solid #E2E8F0;
+        }
+        .otp-input:focus {
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen flex">
+<!-- SIDEBAR ANCHOR -->
+<aside class="fixed left-0 top-0 h-screen w-60 flex flex-col bg-surface border-r border-outline-variant dark:border-outline z-40">
+<div class="p-lg">
+<h1 class="font-display-lg text-display-lg text-primary">SITAM</h1>
+<p class="font-title-sm text-title-sm text-secondary">Admin Portal</p>
+</div>
+<nav class="flex-1 px-sm">
+<div class="space-y-1">
+<a class="flex items-center gap-3 text-secondary hover:text-primary px-4 py-3 hover:bg-surface-container-low transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-caps text-label-caps">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 text-secondary hover:text-primary px-4 py-3 hover:bg-surface-container-low transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">admin_panel_settings</span>
+<span class="font-label-caps text-label-caps">Role Management</span>
+</a>
+<a class="flex items-center gap-3 text-secondary hover:text-primary px-4 py-3 hover:bg-surface-container-low transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">campaign</span>
+<span class="font-label-caps text-label-caps">Announcements</span>
+</a>
+<a class="flex items-center gap-3 text-secondary hover:text-primary px-4 py-3 hover:bg-surface-container-low transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span class="font-label-caps text-label-caps">Fee Management</span>
+</a>
+<a class="flex items-center gap-3 text-secondary hover:text-primary px-4 py-3 hover:bg-surface-container-low transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">work</span>
+<span class="font-label-caps text-label-caps">Placement Cell</span>
+</a>
+<!-- ACTIVE TAB: Security Gate -->
+<a class="flex items-center gap-3 bg-secondary-container text-primary font-bold border-l-4 border-primary px-4 py-3 active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">security</span>
+<span class="font-label-caps text-label-caps">Security Gate</span>
+</a>
+</div>
+</nav>
+<div class="p-sm mt-auto border-t border-outline-variant">
+<button class="w-full flex items-center gap-3 text-secondary hover:text-primary px-4 py-3 hover:bg-surface-container-low transition-colors duration-200">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-caps text-label-caps">Settings</span>
+</button>
+<button class="w-full flex items-center gap-3 text-secondary hover:text-primary px-4 py-3 hover:bg-surface-container-low transition-colors duration-200">
+<span class="material-symbols-outlined">logout</span>
+<span class="font-label-caps text-label-caps">Logout</span>
+</button>
+</div>
+</aside>
+<!-- MAIN CANVAS -->
+<main class="ml-60 flex-1 min-h-screen flex flex-col">
+<!-- TOP APP BAR -->
+<header class="sticky top-0 z-30 flex justify-between items-center px-lg py-sm w-full bg-surface border-b border-outline-variant shadow-sm">
+<div class="flex items-center gap-xl">
+<span class="font-headline-md text-headline-md font-bold text-on-surface">SITAM Admin</span>
+<div class="hidden md:flex gap-lg ml-xl">
+<a class="text-on-surface-variant hover:text-primary font-body-md text-body-md" href="#">Audit Trails</a>
+<a class="text-on-surface-variant hover:text-primary font-body-md text-body-md" href="#">Reports</a>
+<a class="text-on-surface-variant hover:text-primary font-body-md text-body-md" href="#">Support</a>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<div class="flex gap-sm">
+<button class="p-xs text-on-surface-variant hover:bg-surface-container-high rounded-full transition-all">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-xs text-on-surface-variant hover:bg-surface-container-high rounded-full transition-all">
+<span class="material-symbols-outlined">history</span>
+</button>
+<button class="p-xs text-on-surface-variant hover:bg-surface-container-high rounded-full transition-all">
+<span class="material-symbols-outlined">help_outline</span>
+</button>
+</div>
+<div class="h-8 w-8 rounded-full bg-primary-container flex items-center justify-center text-white font-bold">
+                    A
+                </div>
+</div>
+</header>
+<!-- CONTENT -->
+<div class="flex-1 p-lg max-w-6xl mx-auto w-full">
+<div class="mb-xl">
+<h2 class="font-display-lg text-display-lg text-on-surface">Security Verification</h2>
+<p class="text-secondary font-body-md text-body-md">Rapid OTP validation for student gate entry/exit.</p>
+</div>
+<!-- BENTO GRID LAYOUT -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-lg items-start">
+<!-- INPUT SECTION -->
+<div class="lg:col-span-4 space-y-lg">
+<section class="bg-surface-container-lowest p-lg rounded-xl border border-outline-variant shadow-sm">
+<label class="block font-label-caps text-label-caps text-secondary mb-sm">GATE PASS OTP</label>
+<div class="relative group">
+<input class="otp-input w-full h-16 text-center text-3xl font-mono-label tracking-[0.5em] border-2 border-outline-variant rounded-xl focus:border-primary focus:ring-0 transition-all bg-surface" id="otp-input" maxlength="6" placeholder="000000" type="text"/>
+<div class="absolute inset-y-0 right-4 flex items-center pointer-events-none opacity-0 group-focus-within:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-primary">key</span>
+</div>
+</div>
+<button class="w-full mt-lg h-12 bg-primary text-white font-bold rounded-xl hover:bg-primary-container transition-all active:scale-[0.98] flex items-center justify-center gap-2" onclick="simulateVerify()">
+<span class="material-symbols-outlined">verified_user</span>
+                            Verify OTP
+                        </button>
+</section>
+<div class="bg-secondary-container/30 p-md rounded-xl border border-secondary-container">
+<h4 class="font-title-sm text-title-sm text-on-secondary-container mb-xs flex items-center gap-2">
+<span class="material-symbols-outlined text-[20px]">info</span>
+                            Quick Tips
+                        </h4>
+<ul class="text-body-sm text-on-secondary-container space-y-1 opacity-80">
+<li>• OTPs are valid for 15 minutes</li>
+<li>• Single-use pass validation</li>
+<li>• Check student ID if OTP fails twice</li>
+</ul>
+</div>
+</div>
+<!-- RESULTS SECTION (DYNAMIC) -->
+<div class="lg:col-span-8">
+<div class="space-y-lg opacity-40 transition-opacity duration-500 pointer-events-none" id="result-container">
+<!-- MAIN DATA CARD -->
+<div class="glass-card rounded-xl overflow-hidden shadow-sm">
+<div class="flex flex-col md:flex-row">
+<!-- Student Media -->
+<div class="w-full md:w-48 h-64 md:h-auto relative bg-surface-variant">
+<img class="w-full h-full object-cover" data-alt="A professional student portrait for a university ID card. The student is a young adult with a friendly expression, set against a neutral, light gray studio background. The lighting is soft and even, highlighting facial features clearly for security identification purposes. High quality digital photography style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBjk9UZ_Lpk2189zAp-LRfNz8qCkYBFJnSTribHq0RGq8_CbemtYblLnXET99jgCRAUjIcEe0X-FV3sHF7YEDI8df4QU4aWZmHUpHmR48b9v4eVys8Uou1DvQWSe3F2MUozJEQiE4mX3bqznRW0qcjdW9RIMW0LzjTkwh3PJGvkDu7EgiujM-_eWAfoMKk_Umgma4JqKT1NmNp3Wc4Le1jwlRHcq3DMtRMWpQYLpKhHABPEtyUS9v5G1ORtITUg_-plE7ON80Z_YsSa"/>
+<div class="absolute top-4 left-4">
+<span class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border border-green-200" id="status-badge">
+                                            Valid
+                                        </span>
+</div>
+</div>
+<!-- Student Details -->
+<div class="flex-1 p-lg grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-lg">
+<div class="col-span-2">
+<h3 class="font-display-lg text-display-lg text-on-surface" id="res-name">Aditya Vardhan</h3>
+<p class="font-mono-label text-mono-label text-secondary" id="res-roll">21BCE10294</p>
+</div>
+<div>
+<label class="font-label-caps text-label-caps text-outline block mb-1">Branch &amp; Year</label>
+<p class="font-title-sm text-title-sm text-on-surface" id="res-branch">B.Tech CSE - 3rd Year</p>
+</div>
+<div>
+<label class="font-label-caps text-label-caps text-outline block mb-1">Destination</label>
+<p class="font-title-sm text-title-sm text-on-surface" id="res-dest">City Library / Local Area</p>
+</div>
+<div class="col-span-2">
+<label class="font-label-caps text-label-caps text-outline block mb-1">Reason for Leave</label>
+<p class="font-body-md text-body-md text-on-surface bg-surface p-sm rounded-lg border border-outline-variant italic" id="res-reason">
+                                            "Attending technical workshop at State University. Returning by 8 PM."
+                                        </p>
+</div>
+<div>
+<label class="font-label-caps text-label-caps text-outline block mb-1">Approved At</label>
+<p class="font-body-md text-body-md text-on-surface flex items-center gap-2" id="res-approved">
+<span class="material-symbols-outlined text-[18px]">event_available</span>
+                                            Today, 09:15 AM
+                                        </p>
+</div>
+<div>
+<label class="font-label-caps text-label-caps text-outline block mb-1">Expiry Time</label>
+<p class="font-body-md text-body-md text-error flex items-center gap-2" id="res-expiry">
+<span class="material-symbols-outlined text-[18px]">timer</span>
+                                            Today, 09:30 AM
+                                        </p>
+</div>
+</div>
+</div>
+<!-- Footer Action -->
+<div class="bg-surface-container-high p-lg flex justify-between items-center">
+<div class="flex gap-xl text-body-sm text-secondary">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-green-500"></span>
+                                        Biometric Linked
+                                    </div>
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                                        HOD Approved
+                                    </div>
+</div>
+<button class="px-xl py-3 bg-inverse-surface text-inverse-on-surface rounded-full font-bold hover:bg-black transition-all flex items-center gap-2" onclick="markPassUsed()">
+<span class="material-symbols-outlined">how_to_reg</span>
+                                    Mark Pass Used
+                                </button>
+</div>
+</div>
+<!-- RECENT VERIFICATIONS TABLE -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant overflow-hidden">
+<div class="px-lg py-md border-b border-outline-variant flex justify-between items-center">
+<h4 class="font-title-sm text-title-sm text-on-surface">Recent Gate Activity</h4>
+<span class="text-mono-label text-mono-label text-secondary">Live Update</span>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left">
+<thead>
+<tr class="bg-surface-container-low text-label-caps font-label-caps text-secondary">
+<th class="px-lg py-3">Student</th>
+<th class="px-lg py-3">Roll No.</th>
+<th class="px-lg py-3">Time</th>
+<th class="px-lg py-3">Status</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<tr class="hover:bg-surface-container-low transition-colors h-12">
+<td class="px-lg py-3 font-body-md text-body-md text-on-surface">Priya Sharma</td>
+<td class="px-lg py-3 font-mono-label text-mono-label">22BME0451</td>
+<td class="px-lg py-3 font-body-md text-body-md">10:45 AM</td>
+<td class="px-lg py-3">
+<span class="px-2 py-0.5 rounded-full text-[10px] bg-green-100 text-green-700 font-bold uppercase">Valid</span>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors h-12">
+<td class="px-lg py-3 font-body-md text-body-md text-on-surface">Rahul Kumar</td>
+<td class="px-lg py-3 font-mono-label text-mono-label">21BEC0882</td>
+<td class="px-lg py-3">10:42 AM</td>
+<td class="px-lg py-3">
+<span class="px-2 py-0.5 rounded-full text-[10px] bg-red-100 text-red-700 font-bold uppercase">Expired</span>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors h-12 border-l-4 border-primary">
+<td class="px-lg py-3 font-body-md text-body-md text-on-surface">Sneha Reddy</td>
+<td class="px-lg py-3 font-mono-label text-mono-label">23BCS0120</td>
+<td class="px-lg py-3">10:39 AM</td>
+<td class="px-lg py-3">
+<span class="px-2 py-0.5 rounded-full text-[10px] bg-amber-100 text-amber-700 font-bold uppercase">Used</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- EMPTY STATE / WELCOME -->
+<div class="h-96 flex flex-col items-center justify-center text-center p-xl border-2 border-dashed border-outline-variant rounded-2xl bg-surface-container-low" id="empty-state">
+<div class="w-20 h-20 rounded-full bg-surface-container-high flex items-center justify-center mb-lg">
+<span class="material-symbols-outlined text-[40px] text-outline">search_check</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-on-surface">Awaiting Input</h3>
+<p class="text-secondary max-w-sm mt-sm">Enter the 6-digit OTP provided by the student to retrieve and verify their gate pass details.</p>
+</div>
+</div>
+</div>
+</div>
+</main>
+<script>
+        function simulateVerify() {
+            const input = document.getElementById('otp-input');
+            const resultContainer = document.getElementById('result-container');
+            const emptyState = document.getElementById('empty-state');
+            
+            if (input.value.length === 6) {
+                // Show loading state
+                input.disabled = true;
+                
+                setTimeout(() => {
+                    emptyState.classList.add('hidden');
+                    resultContainer.classList.remove('opacity-40', 'pointer-events-none');
+                    input.disabled = false;
+                    
+                    // Simple logic for simulation based on digits
+                    const statusBadge = document.getElementById('status-badge');
+                    if(input.value.startsWith('1')) {
+                        updateStatus('Invalid', 'bg-red-100', 'text-red-700', 'border-red-200');
+                    } else if(input.value.startsWith('2')) {
+                        updateStatus('Expired', 'bg-amber-100', 'text-amber-700', 'border-amber-200');
+                    } else if(input.value.startsWith('3')) {
+                        updateStatus('Already Used', 'bg-blue-100', 'text-blue-700', 'border-blue-200');
+                    } else {
+                        updateStatus('Valid', 'bg-green-100', 'text-green-700', 'border-green-200');
+                    }
+                }, 600);
+            } else {
+                input.classList.add('border-error');
+                setTimeout(() => input.classList.remove('border-error'), 1000);
+            }
+        }
+
+        function updateStatus(text, bg, textColor, border) {
+            const badge = document.getElementById('status-badge');
+            badge.innerText = text;
+            badge.className = `${bg} ${textColor} ${border} px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border`;
+        }
+
+        function markPassUsed() {
+            const btn = event.currentTarget;
+            btn.innerHTML = `<span class="material-symbols-outlined">check_circle</span> Verified Successfully`;
+            btn.classList.replace('bg-inverse-surface', 'bg-green-600');
+            btn.disabled = true;
+            
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
+        }
+
+        // Auto-focus input on load
+        window.onload = () => {
+            document.getElementById('otp-input').focus();
+        };
+
+        // Handle enter key
+        document.getElementById('otp-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') simulateVerify();
+        });
+    </script>
+</body></html>

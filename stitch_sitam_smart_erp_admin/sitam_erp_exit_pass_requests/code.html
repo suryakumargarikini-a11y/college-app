@@ -1,0 +1,484 @@
+<!DOCTYPE html><html class="light" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Exit Pass Management - SITAM ERP</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            line-height: 1;
+            text-transform: none;
+            letter-spacing: normal;
+            word-wrap: normal;
+            white-space: nowrap;
+            direction: ltr;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #e2e8f0;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #cbd5e1;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "error": "#ba1a1a",
+                        "surface-container-highest": "#e0e3e5",
+                        "error-container": "#ffdad6",
+                        "on-secondary-container": "#54647a",
+                        "surface-container": "#eceef0",
+                        "primary-fixed": "#dbe1ff",
+                        "on-tertiary": "#ffffff",
+                        "on-tertiary-fixed-variant": "#7d2d00",
+                        "surface-container-high": "#e6e8ea",
+                        "tertiary-fixed": "#ffdbcd",
+                        "on-surface-variant": "#434655",
+                        "on-secondary-fixed": "#0b1c30",
+                        "primary-container": "#2563eb",
+                        "surface-container-lowest": "#ffffff",
+                        "on-primary-container": "#eeefff",
+                        "surface-variant": "#e0e3e5",
+                        "inverse-primary": "#b4c5ff",
+                        "on-tertiary-container": "#ffede6",
+                        "inverse-surface": "#2d3133",
+                        "secondary-fixed-dim": "#b7c8e1",
+                        "on-tertiary-fixed": "#360f00",
+                        "secondary": "#505f76",
+                        "on-secondary": "#ffffff",
+                        "outline": "#737686",
+                        "on-primary-fixed": "#00174b",
+                        "tertiary-fixed-dim": "#ffb596",
+                        "surface-tint": "#0053db",
+                        "outline-variant": "#c3c6d7",
+                        "on-error-container": "#93000a",
+                        "secondary-fixed": "#d3e4fe",
+                        "surface": "#f7f9fb",
+                        "inverse-on-surface": "#eff1f3",
+                        "tertiary": "#943700",
+                        "tertiary-container": "#bc4800",
+                        "on-error": "#ffffff",
+                        "secondary-container": "#d0e1fb",
+                        "surface-dim": "#d8dadc",
+                        "primary": "#004ac6",
+                        "on-secondary-fixed-variant": "#38485d",
+                        "on-primary": "#ffffff",
+                        "on-primary-fixed-variant": "#003ea8",
+                        "primary-fixed-dim": "#b4c5ff",
+                        "on-background": "#191c1e",
+                        "background": "#f7f9fb",
+                        "surface-container-low": "#f2f4f6",
+                        "surface-bright": "#f7f9fb",
+                        "on-surface": "#191c1e"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "margin": "24px",
+                        "sm": "8px",
+                        "xl": "32px",
+                        "lg": "24px",
+                        "xs": "4px",
+                        "md": "16px",
+                        "base": "8px",
+                        "container-max": "1440px",
+                        "gutter": "16px"
+                    },
+                    "fontFamily": {
+                        "display-lg": ["Inter"],
+                        "title-sm": ["Inter"],
+                        "body-md": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "mono-label": ["JetBrains Mono"],
+                        "headline-md": ["Inter"],
+                        "label-caps": ["Inter"]
+                    },
+                    "fontSize": {
+                        "display-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "title-sm": ["16px", { "lineHeight": "24px", "fontWeight": "600" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "body-sm": ["13px", { "lineHeight": "18px", "fontWeight": "400" }],
+                        "mono-label": ["12px", { "lineHeight": "16px", "fontWeight": "400" }],
+                        "headline-md": ["20px", { "lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "label-caps": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background text-on-surface font-body-md antialiased overflow-hidden h-screen flex">
+<!-- SideNavBar (Shared Component) -->
+<aside class="fixed left-0 top-0 h-full w-[240px] bg-surface border-r border-outline-variant flex flex-col p-md gap-sm z-40">
+<div class="flex items-center gap-sm mb-lg px-xs">
+<div class="w-10 h-10 bg-primary-container rounded-xl flex items-center justify-center text-on-primary-container">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">account_balance</span>
+</div>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary leading-tight">SITAM ERP</h1>
+<p class="font-body-sm text-body-sm text-secondary">Admin Portal</p>
+</div>
+</div>
+<nav class="flex-1 space-y-xs">
+<a class="flex items-center gap-md px-md py-sm text-secondary hover:bg-surface-container-high rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-title-sm text-title-sm">Dashboard</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-secondary hover:bg-surface-container-high rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="campaign">campaign</span>
+<span class="font-title-sm text-title-sm">Announcements</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-secondary hover:bg-surface-container-high rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="work">work</span>
+<span class="font-title-sm text-title-sm">Placement Drives</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-secondary hover:bg-surface-container-high rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+<span class="font-title-sm text-title-sm">Fee Notices</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm bg-secondary-container text-primary rounded-xl relative before:absolute before:left-0 before:w-1 before:h-2/3 before:bg-primary before:rounded-full transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="exit_to_app" style="font-variation-settings: 'FILL' 1;">exit_to_app</span>
+<span class="font-title-sm text-title-sm">Exit Passes</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-secondary hover:bg-surface-container-high rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+<span class="font-title-sm text-title-sm">Notifications</span>
+</a>
+</nav>
+<div class="mt-auto border-t border-outline-variant pt-md space-y-xs">
+<a class="flex items-center gap-md px-md py-sm text-secondary hover:bg-surface-container-high rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-title-sm text-title-sm">Settings</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-error hover:bg-error-container/20 rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="logout">logout</span>
+<span class="font-title-sm text-title-sm">Logout</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-[240px] flex-1 flex flex-col h-screen overflow-hidden">
+<!-- TopNavBar (Shared Component) -->
+<header class="sticky top-0 h-[72px] w-full bg-surface-container-lowest shadow-[0_4px_12px_rgba(0,0,0,0.05)] flex justify-between items-center px-lg z-30">
+<div class="flex items-center gap-lg">
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-md text-secondary" data-icon="search">search</span>
+<input class="bg-surface-container-low border-none rounded-full pl-[48px] pr-lg h-10 w-80 focus:ring-2 focus:ring-primary/20 text-body-md transition-all" placeholder="Search roll number or name..." type="text">
+</div>
+</div>
+<div class="flex items-center gap-md">
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-low text-secondary transition-colors">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-low text-secondary transition-colors">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<div class="h-8 w-[1px] bg-outline-variant mx-xs"></div>
+<div class="flex items-center gap-sm cursor-pointer group">
+<div class="text-right hidden sm:block">
+<p class="font-title-sm text-title-sm text-on-surface">Chief Warden</p>
+<p class="font-body-sm text-body-sm text-secondary">Gate Management</p>
+</div>
+<div class="w-10 h-10 rounded-full border-2 border-primary/10 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A professional headshot of an administrative officer for a modern university, clean-shaven, wearing a navy blue blazer and a light blue collared shirt. High-key professional office lighting, neutral grey background, corporate minimalist photography style with soft focus." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBLKnxD88saLQ1XsXItMFNoMW01uEh-TYH7RMtBVdtfBVu6cQgifq_DX-IGY3SF6G8NE83SsZ8tQHzJi0pKcJXz1L5Tf3EZGTDqvMY5oHfKZdDY5edAc3KSbeeHiS2URG5iJareG9LH1Qc_M0NcMj3O3PFAJ52039vrrIbPcutGWS8ikjtp5r5VeAVj5b6bTWOrEp866Ww3d9yWpmCDJtVqVdOmWsAeFfgZmMHZEY5BlVMwHOu8f68WKZArvH7NmA-jDg1cD_DNyeOY">
+</div>
+</div>
+</div>
+</header>
+<!-- Content Canvas -->
+<section class="flex-1 overflow-y-auto p-lg custom-scrollbar bg-surface/50">
+<div class="max-w-[1200px] mx-auto space-y-lg">
+<!-- Page Header & Tabs -->
+<div class="flex flex-col gap-lg">
+<div class="flex justify-between items-end">
+<div>
+<h2 class="font-display-lg text-display-lg font-bold text-primary tracking-tight">Exit Pass Management</h2>
+<p class="text-secondary font-body-md mt-xs">Real-time gate clearance and student movement tracking.</p>
+</div>
+<div class="flex gap-sm">
+<button class="flex items-center gap-sm px-lg h-10 bg-surface-container-lowest border border-outline-variant text-on-surface rounded-xl hover:shadow-sm transition-all active:scale-95">
+<span class="material-symbols-outlined text-[20px]" data-icon="filter_list">filter_list</span>
+<span class="font-title-sm">Filter</span>
+</button>
+
+</div>
+</div>
+<!-- Tabs -->
+<div class="flex items-center border-b border-outline-variant">
+<button class="px-xl py-md text-primary font-bold border-b-2 border-primary transition-all relative">
+                            Pending
+                            <span class="absolute -top-1 -right-2 bg-error text-on-error text-[10px] w-5 h-5 flex items-center justify-center rounded-full">12</span>
+</button>
+<button class="px-xl py-md text-secondary font-title-sm hover:text-primary transition-all">Approved</button>
+<button class="px-xl py-md text-secondary font-title-sm hover:text-primary transition-all">Rejected</button>
+<button class="px-xl py-md text-secondary font-title-sm hover:text-primary transition-all">Expired</button>
+<button class="px-xl py-md text-secondary font-title-sm hover:text-primary transition-all">Used</button></div>
+</div>
+<!-- Stats Grid (Subtle Bento Style) -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-lg">
+<div class="bg-surface-container-lowest p-lg rounded-xl border border-outline-variant flex items-center gap-lg">
+<div class="w-12 h-12 bg-primary/10 text-primary rounded-xl flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="pending_actions">pending_actions</span>
+</div>
+<div>
+<p class="text-secondary font-label-caps text-label-caps uppercase">Total Pending</p>
+<h3 class="font-headline-md text-headline-md font-bold">12</h3>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-lg rounded-xl border border-outline-variant flex items-center gap-lg">
+<div class="w-12 h-12 bg-green-50 text-green-600 rounded-xl flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="check_circle">check_circle</span>
+</div>
+<div>
+<p class="text-secondary font-label-caps text-label-caps uppercase">Approved Today</p>
+<h3 class="font-headline-md text-headline-md font-bold">48</h3>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-lg rounded-xl border border-outline-variant flex items-center gap-lg">
+<div class="w-12 h-12 bg-red-50 text-red-600 rounded-xl flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="do_not_disturb_on">do_not_disturb_on</span>
+</div>
+<div>
+<p class="text-secondary font-label-caps text-label-caps uppercase">Rejected</p>
+<h3 class="font-headline-md text-headline-md font-bold">04</h3>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-lg rounded-xl border border-outline-variant flex items-center gap-lg">
+<div class="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+</div>
+<div>
+<p class="text-secondary font-label-caps text-label-caps uppercase">Live Out</p>
+<h3 class="font-headline-md text-headline-md font-bold">22</h3>
+</div>
+</div>
+</div>
+<!-- Requests Section -->
+<div class="space-y-md">
+<h4 class="font-title-sm text-title-sm text-on-surface flex items-center gap-sm">
+                        Active Pending Requests
+                        <span class="w-2 h-2 rounded-full bg-error animate-pulse"></span>
+</h4>
+<!-- Request List -->
+<div class="flex flex-col gap-md">
+<!-- Card 1 -->
+<div class="group bg-surface-container-lowest border border-outline-variant rounded-xl p-md flex flex-wrap lg:flex-nowrap items-center gap-lg hover:shadow-md hover:border-primary/30 transition-all">
+<div class="flex items-center gap-md w-full lg:w-[280px]">
+<div class="w-12 h-12 rounded-full bg-surface-container border border-outline-variant overflow-hidden flex-shrink-0">
+<img class="w-full h-full object-cover" data-alt="A portrait of a male Indian university student, approximately 20 years old, wearing a white casual polo shirt. Neutral library background with soft bokeh, high-resolution photography, natural lighting, clean and professional university ID style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB1iYQkUFZ6aZC9xKMi9D7frqf2Hzj4nOZnf2gVJ_KMnQQdlsw5t969nGwm26VReyaN1OAqqVnzNdiG5kYXZKGD7nvIfuTGZCWe_db_NcAtNXhZCM_gT722gMI0TEJclzyOI5sKeNYt6ZVjXtrppktDuMuidtj_idqtdndXtSqFONX7my7hNc_W2jrjfGaS6bfCL33o9Kl0ktDco8PMKpVF2vm0UXj_wtEzIWYJomLdvJOmJ9QRo2ATq_ubm508rUWj1APu3CTI6MQz">
+</div>
+<div>
+<h5 class="font-title-sm text-title-sm font-bold">Arjun Sharma</h5>
+<p class="font-mono-label text-mono-label text-secondary">CSE-2021-045</p>
+</div>
+</div>
+<div class="grid grid-cols-2 lg:grid-cols-3 gap-lg flex-1"><div><p class="text-secondary font-label-caps text-[10px] uppercase">Branch</p><p class="text-body-md font-title-sm mt-1">CSE</p></div>
+<div>
+<p class="text-secondary font-label-caps text-[10px] uppercase">Reason</p>
+<span class="inline-flex items-center gap-xs px-sm py-1 bg-amber-50 text-amber-700 text-xs font-bold rounded-full mt-1">
+<span class="material-symbols-outlined text-[14px]" data-icon="medical_services">medical_services</span>
+                                        Medical Emergency
+                                    </span>
+</div>
+<div>
+<p class="text-secondary font-label-caps text-[10px] uppercase">Destination</p>
+<p class="text-body-md font-title-sm mt-1">City General Hospital</p>
+</div>
+<div>
+<p class="text-secondary font-label-caps text-[10px] uppercase">Requested At</p>
+<p class="text-body-md font-title-sm mt-1">Today, 10:45 AM</p>
+</div>
+</div>
+<div class="flex items-center gap-sm w-full lg:w-auto">
+<button class="flex-1 lg:flex-none px-lg py-sm bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition-all shadow-sm active:scale-95 flex items-center justify-center gap-xs">
+<span class="material-symbols-outlined text-[18px]" data-icon="check">check</span>
+                                    Approve
+                                </button>
+<button class="flex-1 lg:flex-none px-lg py-sm border border-error text-error rounded-xl font-bold hover:bg-error/5 transition-all active:scale-95 flex items-center justify-center gap-xs">
+<span class="material-symbols-outlined text-[18px]" data-icon="close">close</span>
+                                    Reject
+                                </button>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="group bg-surface-container-lowest border border-outline-variant rounded-xl p-md flex flex-wrap lg:flex-nowrap items-center gap-lg hover:shadow-md hover:border-primary/30 transition-all">
+<div class="flex items-center gap-md w-full lg:w-[280px]">
+<div class="w-12 h-12 rounded-full bg-surface-container border border-outline-variant overflow-hidden flex-shrink-0">
+<img class="w-full h-full object-cover" data-alt="A portrait of a female Indian university student, early 20s, with glasses, wearing a modest yellow kurta. Modern campus architecture in the blurred background, soft natural daylight, bright and optimistic mood, high-quality portrait photography." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDn_vPEDUPddi6C5Rp-SIdDqBDn5nDVbO5_dBG2l9W5_i5jCf0f5EpL3oDldfsf0F4H0DzITRl2Pk8pi8I5cuv8ZMKHIw6BE0hLpgMJFR9WdRwQWlYkT4n00JRg8A8ptgJakY8dTYC-8k5fxOtKleRFQqQ-OuJhZ0WXbKRbW9SuXRMMlHYnntXUXjB_bjpMWfejzYrhivbHWI5rIdHYLaX1IGhCnaWnlmLjZGQimfqHncB9VCymkehJ1R8SIISDsbLETqe-_Z3bmK7k">
+</div>
+<div>
+<h5 class="font-title-sm text-title-sm font-bold">Priya Verma</h5>
+<p class="font-mono-label text-mono-label text-secondary">ECE-2022-112</p>
+</div>
+</div>
+<div class="grid grid-cols-2 lg:grid-cols-3 gap-lg flex-1"><div><p class="text-secondary font-label-caps text-[10px] uppercase">Branch</p><p class="text-body-md font-title-sm mt-1">ECE</p></div>
+<div>
+<p class="text-secondary font-label-caps text-[10px] uppercase">Reason</p>
+<span class="inline-flex items-center gap-xs px-sm py-1 bg-blue-50 text-blue-700 text-xs font-bold rounded-full mt-1">
+<span class="material-symbols-outlined text-[14px]" data-icon="person">person</span>
+                                        Personal Work
+                                    </span>
+</div>
+<div>
+<p class="text-secondary font-label-caps text-[10px] uppercase">Destination</p>
+<p class="text-body-md font-title-sm mt-1">Home (Local)</p>
+</div>
+<div>
+<p class="text-secondary font-label-caps text-[10px] uppercase">Requested At</p>
+<p class="text-body-md font-title-sm mt-1">Today, 09:30 AM</p>
+</div>
+</div>
+<div class="flex items-center gap-sm w-full lg:w-auto">
+<button class="flex-1 lg:flex-none px-lg py-sm bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition-all shadow-sm active:scale-95 flex items-center justify-center gap-xs">
+<span class="material-symbols-outlined text-[18px]" data-icon="check">check</span>
+                                    Approve
+                                </button>
+<button class="flex-1 lg:flex-none px-lg py-sm border border-error text-error rounded-xl font-bold hover:bg-error/5 transition-all active:scale-95 flex items-center justify-center gap-xs">
+<span class="material-symbols-outlined text-[18px]" data-icon="close">close</span>
+                                    Reject
+                                </button>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="group bg-surface-container-lowest border border-outline-variant rounded-xl p-md flex flex-wrap lg:flex-nowrap items-center gap-lg hover:shadow-md hover:border-primary/30 transition-all">
+<div class="flex items-center gap-md w-full lg:w-[280px]">
+<div class="w-12 h-12 rounded-full bg-surface-container border border-outline-variant overflow-hidden flex-shrink-0">
+<img class="w-full h-full object-cover" data-alt="A portrait of a male Indian engineering student, 21 years old, wearing a checked button-down shirt. Clean outdoor campus environment with greenery in the background, sharp focus, clear skin, bright corporate style lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBbS5f5baZ4rbmWc4kJhRJiyRsYbri3CR5un3J-gOpQAbYI0zbK0jICrDr3zL8IZkTFqGv9zQXlP6z3ajhoIqnassZDPZJD6MipwKrw2o7dUsYWD4IKWBPXRp7JsQxSP-SEHp_PCzFRbXbxNwue4GlJhXq-I6HiIi-LgLdwhDJXTRZ82BQKQ458LgO4f61jl7lX3fkBRC6iR-FiPBn-7HC0uSG-B5mzR_wFhV7vhMjiJtLMdXN3wVURHbdRfe26CKzz3CEycM1j_xzS">
+</div>
+<div>
+<h5 class="font-title-sm text-title-sm font-bold">Karthik Raja</h5>
+<p class="font-mono-label text-mono-label text-secondary">ME-2020-009</p>
+</div>
+</div>
+<div class="grid grid-cols-2 lg:grid-cols-3 gap-lg flex-1"><div><p class="text-secondary font-label-caps text-[10px] uppercase">Branch</p><p class="text-body-md font-title-sm mt-1">ME</p></div>
+<div>
+<p class="text-secondary font-label-caps text-[10px] uppercase">Reason</p>
+<span class="inline-flex items-center gap-xs px-sm py-1 bg-purple-50 text-purple-700 text-xs font-bold rounded-full mt-1">
+<span class="material-symbols-outlined text-[14px]" data-icon="event">event</span>
+                                        Outside Training
+                                    </span>
+</div>
+<div>
+<p class="text-secondary font-label-caps text-[10px] uppercase">Destination</p>
+<p class="text-body-md font-title-sm mt-1">Tech Mahindra Office</p>
+</div>
+<div>
+<p class="text-secondary font-label-caps text-[10px] uppercase">Requested At</p>
+<p class="text-body-md font-title-sm mt-1">Today, 08:15 AM</p>
+</div>
+</div>
+<div class="flex items-center gap-sm w-full lg:w-auto">
+<button class="flex-1 lg:flex-none px-lg py-sm bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition-all shadow-sm active:scale-95 flex items-center justify-center gap-xs">
+<span class="material-symbols-outlined text-[18px]" data-icon="check">check</span>
+                                    Approve
+                                </button>
+<button class="flex-1 lg:flex-none px-lg py-sm border border-error text-error rounded-xl font-bold hover:bg-error/5 transition-all active:scale-95 flex items-center justify-center gap-xs">
+<span class="material-symbols-outlined text-[18px]" data-icon="close">close</span>
+                                    Reject
+                                </button>
+</div>
+</div>
+<!-- Card 4 -->
+<div class="group bg-surface-container-lowest border border-outline-variant rounded-xl p-md flex flex-wrap lg:flex-nowrap items-center gap-lg hover:shadow-md hover:border-primary/30 transition-all">
+<div class="flex items-center gap-md w-full lg:w-[280px]">
+<div class="w-12 h-12 rounded-full bg-surface-container border border-outline-variant overflow-hidden flex-shrink-0">
+<img class="w-full h-full object-cover" data-alt="A portrait of a female Indian university student, smiling, wearing a simple blue denim jacket over a white top. Modern architectural glass window background, high-end photography, cinematic soft lighting, clean professional look." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDUUKlzdoMmPz4GwOk3DUndFkY-lnDKSb0yogEdu_0lwSkqKndxft4FbBxD_QmMYmosuIRMrk1NPRcreiz_92FPBoemeswYQeo0btigHEold00ysH2m4wQHOXiOa4vng2LfUgXY2V7nRbDrjjnCUPo0Kb7XhGgYKiiEfyLv2kZbn2P8q0ad_61poDykGhydggWbWo_PaBd30PR0dUnG56zzV0nTPYrmHI6qHmcXbQrZuCaUowjmn1burU6leolebi4iIrjsoUmrfaJp">
+</div>
+<div>
+<h5 class="font-title-sm text-title-sm font-bold">Sneha Reddy</h5>
+<p class="font-mono-label text-mono-label text-secondary">CIVIL-2023-012</p>
+</div>
+</div>
+<div class="grid grid-cols-2 lg:grid-cols-3 gap-lg flex-1"><div><p class="text-secondary font-label-caps text-[10px] uppercase">Branch</p><p class="text-body-md font-title-sm mt-1">CIVIL</p></div>
+<div>
+<p class="text-secondary font-label-caps text-[10px] uppercase">Reason</p>
+<span class="inline-flex items-center gap-xs px-sm py-1 bg-amber-50 text-amber-700 text-xs font-bold rounded-full mt-1">
+<span class="material-symbols-outlined text-[14px]" data-icon="medical_services">medical_services</span>
+                                        Dentist Appt.
+                                    </span>
+</div>
+<div>
+<p class="text-secondary font-label-caps text-[10px] uppercase">Destination</p>
+<p class="text-body-md font-title-sm mt-1">Apollo Dental Clinic</p>
+</div>
+<div>
+<p class="text-secondary font-label-caps text-[10px] uppercase">Requested At</p>
+<p class="text-body-md font-title-sm mt-1">Yesterday, 11:55 PM</p>
+</div>
+</div>
+<div class="flex items-center gap-sm w-full lg:w-auto">
+<button class="flex-1 lg:flex-none px-lg py-sm bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition-all shadow-sm active:scale-95 flex items-center justify-center gap-xs">
+<span class="material-symbols-outlined text-[18px]" data-icon="check">check</span>
+                                    Approve
+                                </button>
+<button class="flex-1 lg:flex-none px-lg py-sm border border-error text-error rounded-xl font-bold hover:bg-error/5 transition-all active:scale-95 flex items-center justify-center gap-xs">
+<span class="material-symbols-outlined text-[18px]" data-icon="close">close</span>
+                                    Reject
+                                </button>
+</div>
+</div>
+</div>
+</div>
+<!-- Gate Pass Policy Notice -->
+<div class="bg-primary-container/10 p-lg rounded-xl border border-primary/20 flex gap-lg items-start">
+<span class="material-symbols-outlined text-primary text-[32px]" data-icon="info">info</span>
+<div>
+<h4 class="font-title-sm text-title-sm text-primary">Gate Administration Notice</h4>
+<p class="text-on-secondary-fixed-variant text-body-md mt-xs">All exit passes approved after 6:00 PM require a secondary confirmation from the Hostel Warden. Please ensure student ID cards are scanned at the physical gate console upon exit.</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Contextual FAB (Shared Logic) -->
+<button class="fixed bottom-lg right-lg w-14 h-14 bg-primary text-on-primary rounded-full shadow-lg hover:shadow-xl flex items-center justify-center transition-all active:scale-95 z-50">
+<span class="material-symbols-outlined text-[28px]" data-icon="print">print</span>
+</button>
+</main>
+<script>
+        // Simple Micro-interaction for buttons
+        document.querySelectorAll('button').forEach(button => {
+            button.addEventListener('mousedown', () => {
+                button.classList.add('scale-95');
+            });
+            button.addEventListener('mouseup', () => {
+                button.classList.remove('scale-95');
+            });
+            button.addEventListener('mouseleave', () => {
+                button.classList.remove('scale-95');
+            });
+        });
+
+        // Tab Switching Logic (Visual Only)
+        const tabs = document.querySelectorAll('.border-b button');
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => {
+                    t.classList.remove('text-primary', 'font-bold', 'border-b-2', 'border-primary');
+                    t.classList.add('text-secondary', 'font-title-sm');
+                });
+                tab.classList.remove('text-secondary', 'font-title-sm');
+                tab.classList.add('text-primary', 'font-bold', 'border-b-2', 'border-primary');
+            });
+        });
+    </script>
+
+
+</body></html>

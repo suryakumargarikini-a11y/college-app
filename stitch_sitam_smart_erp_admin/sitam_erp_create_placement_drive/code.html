@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Create Placement Drive - SITAM ERP</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-container-highest": "#e0e3e5",
+                    "on-tertiary": "#ffffff",
+                    "secondary": "#505f76",
+                    "surface-tint": "#0053db",
+                    "on-surface": "#191c1e",
+                    "on-primary": "#ffffff",
+                    "on-secondary-container": "#54647a",
+                    "error": "#ba1a1a",
+                    "on-primary-fixed-variant": "#003ea8",
+                    "on-error-container": "#93000a",
+                    "inverse-on-surface": "#eff1f3",
+                    "surface-container-lowest": "#ffffff",
+                    "secondary-fixed": "#d3e4fe",
+                    "surface-variant": "#e0e3e5",
+                    "on-secondary-fixed-variant": "#38485d",
+                    "error-container": "#ffdad6",
+                    "surface-container": "#eceef0",
+                    "surface-container-low": "#f2f4f6",
+                    "on-primary-container": "#eeefff",
+                    "surface-container-high": "#e6e8ea",
+                    "inverse-primary": "#b4c5ff",
+                    "tertiary-container": "#bc4800",
+                    "secondary-container": "#d0e1fb",
+                    "surface-bright": "#f7f9fb",
+                    "surface": "#f7f9fb",
+                    "primary-container": "#2563eb",
+                    "tertiary-fixed-dim": "#ffb596",
+                    "surface-dim": "#d8dadc",
+                    "tertiary": "#943700",
+                    "tertiary-fixed": "#ffdbcd",
+                    "outline-variant": "#c3c6d7",
+                    "on-tertiary-fixed-variant": "#7d2d00",
+                    "on-primary-fixed": "#00174b",
+                    "on-tertiary-container": "#ffede6",
+                    "on-secondary": "#ffffff",
+                    "secondary-fixed-dim": "#b7c8e1",
+                    "on-surface-variant": "#434655",
+                    "on-error": "#ffffff",
+                    "inverse-surface": "#2d3133",
+                    "on-tertiary-fixed": "#360f00",
+                    "background": "#f7f9fb",
+                    "primary-fixed-dim": "#b4c5ff",
+                    "primary": "#004ac6",
+                    "on-background": "#191c1e",
+                    "outline": "#737686",
+                    "on-secondary-fixed": "#0b1c30",
+                    "primary-fixed": "#dbe1ff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "xs": "4px",
+                    "base": "8px",
+                    "lg": "24px",
+                    "gutter": "16px",
+                    "md": "16px",
+                    "sm": "8px",
+                    "xl": "32px",
+                    "margin": "24px",
+                    "container-max": "1440px"
+            },
+            "fontFamily": {
+                    "label-caps": ["Inter"],
+                    "display-lg-mobile": ["Inter"],
+                    "title-sm": ["Inter"],
+                    "body-sm": ["Inter"],
+                    "mono-label": ["JetBrains Mono"],
+                    "display-lg": ["Inter"],
+                    "headline-md": ["Inter"],
+                    "body-md": ["Inter"]
+            },
+            "fontSize": {
+                    "label-caps": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "display-lg-mobile": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "title-sm": ["16px", {"lineHeight": "24px", "fontWeight": "600"}],
+                    "body-sm": ["13px", {"lineHeight": "18px", "fontWeight": "400"}],
+                    "mono-label": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+                    "display-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "headline-md": ["20px", {"lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .form-input { 
+            height: 40px; 
+            border-radius: 16px; 
+            border: 1px solid #E2E8F0; 
+            padding: 0 16px; 
+            width: 100%;
+            transition: all 0.2s ease;
+        }
+        .form-input:focus {
+            outline: none;
+            border-color: #2563EB;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface">
+<!-- TopNavBar -->
+<header class="sticky top-0 h-[72px] w-full bg-surface-container-lowest shadow-[0_4px_12px_rgba(0,0,0,0.05)] z-50 flex justify-between items-center px-lg">
+<div class="flex items-center gap-md">
+<h1 class="font-display-lg text-display-lg font-bold text-primary">SITAM ERP</h1>
+<div class="hidden md:flex bg-surface-container-low px-md py-xs rounded-full items-center gap-sm">
+<span class="material-symbols-outlined text-secondary">search</span>
+<input class="bg-transparent border-none focus:ring-0 font-body-md text-body-md w-64" placeholder="Search resources..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<button class="hover:bg-surface-container-low transition-colors p-sm rounded-full cursor-pointer active:scale-95">
+<span class="material-symbols-outlined text-on-secondary-container">notifications</span>
+</button>
+<button class="hover:bg-surface-container-low transition-colors p-sm rounded-full cursor-pointer active:scale-95">
+<span class="material-symbols-outlined text-on-secondary-container">settings</span>
+</button>
+<div class="h-8 w-8 rounded-full overflow-hidden border border-outline-variant">
+<img class="w-full h-full object-cover" data-alt="A professional headshot of a corporate administrator, high-end lighting, minimalist office background, sharp focus, wearing a tailored blue suit, photorealistic style, representing an authority figure in a modern enterprise environment." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAiDImCQi_8Ax8hnX-IyzhREiE4w3h_o4Ntwr4TP19UzkyUEn7C1x6gfdpiSCiftovN6zuYXaq8rCH89JbWhSdW866a-ApSVeiZ0QAUyi3F45bSdsPuSoGYvvMSkqCdl9k-8lBquxG7-cLOYuOcmAsYYx8TBJGTeMHdLLrDPsd8LAucbCXj6uWxEGOArIBnjps2r5Zv3Vv5D6cS-yeFMZOcPzkjVnRg3dRdlKWfSGhf7LUK1KhyL500coxZ4cwgrqgLDkEkUDcSsGdy"/>
+</div>
+</div>
+</header>
+<div class="flex min-h-[calc(100vh-72px)]">
+<!-- SideNavBar -->
+<aside class="hidden md:flex flex-col p-md gap-sm bg-surface w-[240px] border-r border-outline-variant sticky top-[72px] h-[calc(100vh-72px)] overflow-y-auto">
+<div class="flex flex-col gap-xs mb-lg">
+<a class="flex items-center gap-md px-md py-sm text-secondary hover:bg-surface-container-high rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-title-sm text-title-sm">Dashboard</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-secondary hover:bg-surface-container-high rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined">campaign</span>
+<span class="font-title-sm text-title-sm">Announcements</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm bg-secondary-container text-primary rounded-xl relative before:absolute before:left-0 before:w-1 before:h-2/3 before:bg-primary before:rounded-full transition-all" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">work</span>
+<span class="font-title-sm text-title-sm">Placement Drives</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-secondary hover:bg-surface-container-high rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span class="font-title-sm text-title-sm">Fee Notices</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-secondary hover:bg-surface-container-high rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined">exit_to_app</span>
+<span class="font-title-sm text-title-sm">Exit Passes</span>
+</a>
+</div>
+<div class="mt-auto border-t border-outline-variant pt-md">
+<a class="flex items-center gap-md px-md py-sm text-secondary hover:bg-surface-container-high rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span class="font-title-sm text-title-sm">Logout</span>
+</a>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 p-lg overflow-y-auto max-w-[1440px] mx-auto w-full">
+<div class="flex justify-between items-end mb-xl">
+<div>
+<nav class="flex items-center gap-xs text-secondary mb-xs">
+<span class="font-body-sm text-body-sm">Placements</span>
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+<span class="font-body-sm text-body-sm text-primary">New Drive</span>
+</nav>
+<h2 class="font-display-lg text-display-lg text-on-surface">Create Placement Drive</h2>
+</div>
+<div class="flex gap-md">
+<button class="px-lg py-sm border border-outline text-on-surface rounded-xl font-title-sm text-title-sm hover:bg-surface-container-high transition-all">
+                        Save as Draft
+                    </button>
+<button class="px-lg py-sm bg-primary text-on-primary rounded-xl font-title-sm text-title-sm shadow-sm hover:shadow-md transition-all active:scale-95">
+                        Publish Drive
+                    </button>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-xl">
+<!-- Form Column -->
+<div class="lg:col-span-7 flex flex-col gap-lg">
+<section class="bg-surface-container-lowest p-lg rounded-xl border border-outline-variant shadow-sm">
+<h3 class="font-headline-md text-headline-md mb-lg flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary">business</span>
+                            Company Details
+                        </h3>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-md">
+<div class="col-span-2">
+<label class="block font-label-caps text-label-caps mb-xs text-on-surface-variant">Company Logo</label>
+<div class="flex items-center gap-lg p-md border-2 border-dashed border-outline-variant rounded-xl bg-surface-container-low hover:bg-surface-container transition-colors cursor-pointer group">
+<div class="h-16 w-16 bg-surface-container-highest rounded-lg flex items-center justify-center overflow-hidden">
+<span class="material-symbols-outlined text-secondary text-3xl" id="logo-preview-icon">image</span>
+<img class="hidden h-full w-full object-contain" data-alt="A clean, minimalist corporate logo of a technology company, flat design, high contrast, blue and white color scheme, professional and modern branding aesthetic." id="logo-preview-img" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBpAkANG5KRRjOWMnqlmbBuCg8gG1q-ZpWsGhA68zUwhxTaHHpV4Ba8W5nTK_ux6UWyyHhHYXOCUVyupPzvJ9TVORBq-6KD48e2F2tDEXq2hXkR9H1udDhAxdAGNJWgpdhr1dXXIHjpGOk8wtDMN_eq_WzoKAGZZA8P5_UrOYuOEqBkhLcIcKkc9d14kfK_Yb6QNIKSYkth1-Txh-ljWqZshKfjFjk1Om4BynHh32rZ1aDI8aNlOanIw9uoTt6K3nxnxP4YFJx49wOb"/>
+</div>
+<div>
+<p class="font-title-sm text-title-sm text-primary group-hover:underline">Upload Logo</p>
+<p class="font-body-sm text-body-sm text-secondary">SVG, PNG or JPG (max. 2MB)</p>
+</div>
+</div>
+</div>
+<div class="col-span-2">
+<label class="block font-label-caps text-label-caps mb-xs text-on-surface-variant">Company Name</label>
+<input class="form-input" id="company-name-input" placeholder="e.g. Google India" type="text"/>
+</div>
+<div>
+<label class="block font-label-caps text-label-caps mb-xs text-on-surface-variant">Job Role</label>
+<input class="form-input" id="role-input" placeholder="e.g. Software Engineer" type="text"/>
+</div>
+<div>
+<label class="block font-label-caps text-label-caps mb-xs text-on-surface-variant">Package (LPA)</label>
+<input class="form-input" id="package-input" placeholder="e.g. 12" type="number"/>
+</div>
+</div>
+</section>
+<section class="bg-surface-container-lowest p-lg rounded-xl border border-outline-variant shadow-sm">
+<h3 class="font-headline-md text-headline-md mb-lg flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary">groups</span>
+                            Eligibility &amp; Logistics
+                        </h3>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-md">
+<div class="col-span-2">
+<label class="block font-label-caps text-label-caps mb-xs text-on-surface-variant">Eligible Branches</label>
+<div class="flex flex-wrap gap-xs p-base border border-outline-variant rounded-xl bg-white min-h-[40px]">
+<span class="bg-secondary-container text-on-secondary-container px-sm py-xs rounded-full font-body-sm text-body-sm flex items-center gap-xs">CSE <span class="material-symbols-outlined text-xs cursor-pointer">close</span></span>
+<span class="bg-secondary-container text-on-secondary-container px-sm py-xs rounded-full font-body-sm text-body-sm flex items-center gap-xs">ECE <span class="material-symbols-outlined text-xs cursor-pointer">close</span></span>
+<button class="text-primary font-body-sm text-body-sm px-sm">+ Add Branch</button>
+</div>
+</div>
+<div class="col-span-2">
+<label class="block font-label-caps text-label-caps mb-xs text-on-surface-variant">Eligibility Criteria</label>
+<textarea class="form-input h-auto py-sm" id="criteria-input" placeholder="Min. 70% in 10th, 12th and B.Tech. No active backlogs." rows="3"></textarea>
+</div>
+<div>
+<label class="block font-label-caps text-label-caps mb-xs text-on-surface-variant">Registration Deadline</label>
+<input class="form-input" id="deadline-input" type="date"/>
+</div>
+<div>
+<label class="block font-label-caps text-label-caps mb-xs text-on-surface-variant">Drive Date</label>
+<input class="form-input" id="drive-date-input" type="date"/>
+</div>
+<div class="col-span-2">
+<label class="block font-label-caps text-label-caps mb-xs text-on-surface-variant">Registration Link</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-md top-1/2 -translate-y-1/2 text-secondary text-lg">link</span>
+<input class="form-input pl-12" id="link-input" placeholder="https://careers.google.com/..." type="url"/>
+</div>
+</div>
+</div>
+</section>
+<section class="bg-surface-container-lowest p-lg rounded-xl border border-outline-variant shadow-sm">
+<h3 class="font-headline-md text-headline-md mb-lg flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary">description</span>
+                            Additional Info
+                        </h3>
+<div class="space-y-md">
+<div>
+<label class="block font-label-caps text-label-caps mb-xs text-on-surface-variant">Description</label>
+<textarea class="form-input h-auto py-sm" id="description-input" placeholder="Briefly describe the company and the drive process..." rows="4"></textarea>
+</div>
+<div>
+<label class="block font-label-caps text-label-caps mb-xs text-on-surface-variant">Status</label>
+<div class="flex gap-md">
+<label class="flex-1 cursor-pointer">
+<input checked="" class="hidden peer" name="status" type="radio" value="draft"/>
+<div class="p-md border border-outline-variant rounded-xl text-center peer-checked:border-primary peer-checked:bg-secondary-container peer-checked:text-primary transition-all">
+<span class="font-title-sm text-title-sm">Draft</span>
+</div>
+</label>
+<label class="flex-1 cursor-pointer">
+<input class="hidden peer" name="status" type="radio" value="published"/>
+<div class="p-md border border-outline-variant rounded-xl text-center peer-checked:border-primary peer-checked:bg-secondary-container peer-checked:text-primary transition-all">
+<span class="font-title-sm text-title-sm">Published</span>
+</div>
+</label>
+</div>
+</div>
+</div>
+</section>
+</div>
+<!-- Preview Column -->
+<div class="lg:col-span-5 sticky top-[96px] h-fit">
+<div class="p-lg rounded-2xl bg-gradient-to-br from-primary/5 to-secondary/5 border border-primary/10 shadow-lg relative overflow-hidden">
+<div class="flex items-center justify-between mb-lg">
+<span class="font-label-caps text-label-caps text-primary px-sm py-xs bg-white rounded-md border border-primary/20 shadow-sm">Live Preview</span>
+<span class="flex items-center gap-xs text-secondary font-body-sm text-body-sm">
+<span class="w-2 h-2 bg-error rounded-full animate-pulse"></span>
+                                Updating...
+                            </span>
+</div>
+<!-- Preview Card Body -->
+<div class="bg-white rounded-xl shadow-xl overflow-hidden border border-outline-variant" id="preview-card">
+<div class="h-24 bg-surface-container-highest relative">
+<div class="absolute -bottom-8 left-md h-20 w-20 bg-white rounded-xl shadow-md border border-outline-variant p-base flex items-center justify-center">
+<img class="w-full h-full object-contain" data-alt="A clean, minimalist corporate logo of a technology company, flat design, high contrast, blue and white color scheme, professional and modern branding aesthetic." id="preview-logo" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAOCzG3djZqIrCD1SnIU1LKIxHTlD2zPQVL8d2DD8ofQmgkmOvSeZyghMY4zG47ctsnRQQqcBgHbRiKiVl1zl6wEHf278n_AslFnNK8o9U8ZlWYrL_W19n5MqngTBdM51slf41xkTWQBRzx5CoKYQc64EyF0sdS_H92I7i47znyI2SjCkuUU_PmMF6uCTcCzchJjzg0AMF_hn-NL8UkCyLgsH00W4A8RaRBNIZcCdBz4ToYuvQW9SPZjYnFnQ71edOvjoJefcJkF3LO"/>
+</div>
+</div>
+<div class="pt-10 pb-lg px-lg">
+<div class="flex justify-between items-start mb-base">
+<div>
+<h4 class="font-headline-md text-headline-md text-on-surface" id="preview-company">Company Name</h4>
+<p class="text-secondary font-body-md text-body-md" id="preview-role">Job Role</p>
+</div>
+<div class="text-right">
+<p class="font-title-sm text-title-sm text-primary" id="preview-package">0 LPA</p>
+<p class="font-body-sm text-body-sm text-secondary">Package</p>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-md my-lg py-md border-y border-surface-container">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary text-xl">calendar_today</span>
+<div>
+<p class="font-label-caps text-label-caps text-on-surface-variant">Drive Date</p>
+<p class="font-body-sm text-body-sm text-on-surface" id="preview-date">-- -- ----</p>
+</div>
+</div>
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-error text-xl">timer</span>
+<div>
+<p class="font-label-caps text-label-caps text-on-surface-variant">Deadline</p>
+<p class="font-body-sm text-body-sm text-on-surface" id="preview-deadline">-- -- ----</p>
+</div>
+</div>
+</div>
+<div class="space-y-md mb-lg">
+<div>
+<p class="font-label-caps text-label-caps text-on-surface-variant mb-xs">Eligible Branches</p>
+<div class="flex flex-wrap gap-xs">
+<span class="bg-surface-container-low text-secondary border border-outline-variant px-sm py-xs rounded-lg font-body-sm text-body-sm">CSE</span>
+<span class="bg-surface-container-low text-secondary border border-outline-variant px-sm py-xs rounded-lg font-body-sm text-body-sm">ECE</span>
+</div>
+</div>
+<div>
+<p class="font-label-caps text-label-caps text-on-surface-variant mb-xs">Criteria</p>
+<p class="font-body-sm text-body-sm text-on-surface line-clamp-2" id="preview-criteria">Criteria details will appear here...</p>
+</div>
+</div>
+<button class="w-full bg-primary text-on-primary py-md rounded-xl font-title-sm text-title-sm shadow-md hover:bg-primary-container transition-all">
+                                    Apply Now
+                                </button>
+</div>
+</div>
+<div class="mt-lg flex items-start gap-md text-secondary">
+<span class="material-symbols-outlined text-lg">info</span>
+<p class="font-body-sm text-body-sm italic">This is a live representation of how the placement card will look on the Student Portal.</p>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+<script>
+        // Micro-interactions and Live Preview Sync
+        const inputs = {
+            name: document.getElementById('company-name-input'),
+            role: document.getElementById('role-input'),
+            package: document.getElementById('package-input'),
+            criteria: document.getElementById('criteria-input'),
+            deadline: document.getElementById('deadline-input'),
+            driveDate: document.getElementById('drive-date-input'),
+            description: document.getElementById('description-input')
+        };
+
+        const previews = {
+            name: document.getElementById('preview-company'),
+            role: document.getElementById('preview-role'),
+            package: document.getElementById('preview-package'),
+            criteria: document.getElementById('preview-criteria'),
+            deadline: document.getElementById('preview-deadline'),
+            driveDate: document.getElementById('preview-date')
+        };
+
+        const updatePreview = () => {
+            previews.name.innerText = inputs.name.value || 'Company Name';
+            previews.role.innerText = inputs.role.value || 'Job Role';
+            previews.package.innerText = inputs.package.value ? `${inputs.package.value} LPA` : '0 LPA';
+            previews.criteria.innerText = inputs.criteria.value || 'Criteria details will appear here...';
+            
+            if (inputs.deadline.value) {
+                const d = new Date(inputs.deadline.value);
+                previews.deadline.innerText = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+            } else {
+                previews.deadline.innerText = '-- -- ----';
+            }
+
+            if (inputs.driveDate.value) {
+                const d = new Date(inputs.driveDate.value);
+                previews.driveDate.innerText = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+            } else {
+                previews.driveDate.innerText = '-- -- ----';
+            }
+        };
+
+        Object.values(inputs).forEach(input => {
+            if (input) input.addEventListener('input', updatePreview);
+        });
+
+        // Initialize state
+        updatePreview();
+    </script>
+</body></html>

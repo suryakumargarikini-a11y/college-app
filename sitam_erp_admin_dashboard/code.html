@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SITAM ERP - Admin Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "error": "#ba1a1a",
+                    "surface-container-highest": "#e0e3e5",
+                    "error-container": "#ffdad6",
+                    "on-secondary-container": "#54647a",
+                    "surface-container": "#eceef0",
+                    "primary-fixed": "#dbe1ff",
+                    "on-tertiary": "#ffffff",
+                    "on-tertiary-fixed-variant": "#7d2d00",
+                    "surface-container-high": "#e6e8ea",
+                    "tertiary-fixed": "#ffdbcd",
+                    "on-surface-variant": "#434655",
+                    "on-secondary-fixed": "#0b1c30",
+                    "primary-container": "#2563eb",
+                    "surface-container-lowest": "#ffffff",
+                    "on-primary-container": "#eeefff",
+                    "surface-variant": "#e0e3e5",
+                    "inverse-primary": "#b4c5ff",
+                    "on-tertiary-container": "#ffede6",
+                    "inverse-surface": "#2d3133",
+                    "secondary-fixed-dim": "#b7c8e1",
+                    "on-tertiary-fixed": "#360f00",
+                    "secondary": "#505f76",
+                    "on-secondary": "#ffffff",
+                    "outline": "#737686",
+                    "on-primary-fixed": "#00174b",
+                    "tertiary-fixed-dim": "#ffb596",
+                    "surface-tint": "#0053db",
+                    "outline-variant": "#c3c6d7",
+                    "on-error-container": "#93000a",
+                    "secondary-fixed": "#d3e4fe",
+                    "surface": "#f7f9fb",
+                    "inverse-on-surface": "#eff1f3",
+                    "tertiary": "#943700",
+                    "tertiary-container": "#bc4800",
+                    "on-error": "#ffffff",
+                    "secondary-container": "#d0e1fb",
+                    "surface-dim": "#d8dadc",
+                    "primary": "#004ac6",
+                    "on-secondary-fixed-variant": "#38485d",
+                    "on-primary": "#ffffff",
+                    "on-primary-fixed-variant": "#003ea8",
+                    "primary-fixed-dim": "#b4c5ff",
+                    "on-background": "#191c1e",
+                    "background": "#f7f9fb",
+                    "surface-container-low": "#f2f4f6",
+                    "surface-bright": "#f7f9fb",
+                    "on-surface": "#191c1e"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "margin": "24px",
+                    "sm": "8px",
+                    "xl": "32px",
+                    "lg": "24px",
+                    "xs": "4px",
+                    "md": "16px",
+                    "base": "8px",
+                    "container-max": "1440px",
+                    "gutter": "16px"
+            },
+            "fontFamily": {
+                    "display-lg": ["Inter"],
+                    "title-sm": ["Inter"],
+                    "display-lg-mobile": ["Inter"],
+                    "body-md": ["Inter"],
+                    "body-sm": ["Inter"],
+                    "mono-label": ["JetBrains Mono"],
+                    "headline-md": ["Inter"],
+                    "label-caps": ["Inter"]
+            },
+            "fontSize": {
+                    "display-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "title-sm": ["16px", {"lineHeight": "24px", "fontWeight": "600"}],
+                    "display-lg-mobile": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "body-sm": ["13px", {"lineHeight": "18px", "fontWeight": "400"}],
+                    "mono-label": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+                    "headline-md": ["20px", {"lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "label-caps": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f9fb;
+        }
+        .bento-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: auto;
+            gap: 24px;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #e2e8e0;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="text-on-background">
+<!-- SideNavBar (JSON Derived) -->
+<aside class="fixed left-0 top-0 h-full w-[240px] bg-surface dark:bg-on-background border-r border-outline-variant dark:border-on-secondary-fixed-variant flex flex-col p-md gap-sm z-50">
+<div class="mb-xl px-sm">
+<h1 class="font-headline-md text-headline-md font-bold text-primary">SITAM ERP</h1>
+<p class="text-secondary text-body-sm">Admin Portal</p>
+</div>
+<nav class="flex flex-col gap-xs flex-grow">
+<!-- Active State Logic: Dashboard -->
+<a class="bg-secondary-container text-primary rounded-xl relative before:absolute before:left-0 before:w-1 before:h-2/3 before:bg-primary before:rounded-full flex items-center gap-md px-md py-sm transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-title-sm text-title-sm">Dashboard</span>
+</a>
+<a class="text-secondary hover:bg-surface-container-high rounded-xl flex items-center gap-md px-md py-sm transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">campaign</span>
+<span class="font-title-sm text-title-sm">Announcements</span>
+</a>
+<a class="text-secondary hover:bg-surface-container-high rounded-xl flex items-center gap-md px-md py-sm transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">work</span>
+<span class="font-title-sm text-title-sm">Placement Drives</span>
+</a>
+<a class="text-secondary hover:bg-surface-container-high rounded-xl flex items-center gap-md px-md py-sm transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span class="font-title-sm text-title-sm">Fee Notices</span>
+</a>
+<a class="text-secondary hover:bg-surface-container-high rounded-xl flex items-center gap-md px-md py-sm transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">exit_to_app</span>
+<span class="font-title-sm text-title-sm">Exit Passes</span>
+</a>
+<a class="text-secondary hover:bg-surface-container-high rounded-xl flex items-center gap-md px-md py-sm transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">notifications</span>
+<span class="font-title-sm text-title-sm">Notifications</span>
+</a>
+</nav>
+<div class="mt-auto flex flex-col gap-xs pt-md border-t border-outline-variant">
+<a class="text-secondary hover:bg-surface-container-high rounded-xl flex items-center gap-md px-md py-sm transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-title-sm text-title-sm">Settings</span>
+</a>
+<a class="text-secondary hover:bg-surface-container-high rounded-xl flex items-center gap-md px-md py-sm transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span class="font-title-sm text-title-sm">Logout</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-[240px] min-h-screen">
+<!-- TopAppBar (JSON Derived) -->
+<header class="sticky top-0 h-[72px] w-full bg-surface-container-lowest dark:bg-inverse-surface shadow-[0_4px_12px_rgba(0,0,0,0.05)] flex justify-between items-center px-lg z-40">
+<div class="flex items-center gap-md">
+<div class="relative w-96">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">search</span>
+<input class="w-full bg-surface-container-low border-none rounded-xl pl-10 pr-4 py-2 text-body-md focus:ring-2 focus:ring-primary" placeholder="Search for students, fees, or drives..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-lg">
+<div class="flex items-center gap-sm">
+<button class="w-10 h-10 flex items-center justify-center text-on-secondary-container hover:bg-surface-container-low rounded-full transition-colors active:scale-95">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center text-on-secondary-container hover:bg-surface-container-low rounded-full transition-colors active:scale-95">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center text-on-secondary-container hover:bg-surface-container-low rounded-full transition-colors active:scale-95">
+<span class="material-symbols-outlined">logout</span>
+</button>
+</div>
+<div class="h-8 w-px bg-outline-variant"></div>
+<div class="flex items-center gap-md">
+<div class="text-right">
+<p class="font-title-sm text-primary text-sm">Admin SITAM</p>
+<p class="text-body-sm text-secondary text-xs">Super Admin</p>
+</div>
+<img class="w-10 h-10 rounded-full border-2 border-primary-container object-cover" data-alt="A professional headshot of a university administrator in a clean office setting, featuring high-key natural lighting and a minimalist background that reflects a professional enterprise ERP environment with cool blue tones and white surfaces." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCxgk0uD-D3BM6cF7xIll2XgjTV2N0sWxlpIyigf-0E65nMRvzmIG2EHcCvf3XasMLR5VLBG4bLkvdSWEaMS_4TI78OHi8GHDf3RI4xXaSenDmTlBJTiHhj9frZ8XJrV40Nv_03EIwgFm53b9YcAXpB9wD2H86QkgefMRfMeW19xh_SprzjLHrJbSV68qx_QftVc31AjugbodMuKc55DMSZYGnCITDNVVVNZZdPk1o2st8Zy9DLN7u66daa0XB0hoxn39zH9Md1M1Iz"/>
+</div>
+</div>
+</header>
+<!-- Canvas -->
+<div class="p-lg max-w-[1600px] mx-auto">
+<!-- Hero Section -->
+<section class="mb-xl flex flex-col md:flex-row justify-between items-end gap-lg">
+<div>
+<h2 class="font-display-lg text-display-lg text-on-background">Welcome Back, Administrator</h2>
+<div class="flex items-center gap-md mt-sm">
+<div class="flex items-center gap-xs text-secondary">
+<span class="material-symbols-outlined text-[18px]">calendar_today</span>
+<span class="font-body-md text-body-md" id="current-date">October 24, 2023</span>
+</div>
+<div class="flex items-center gap-xs text-success-600 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100">
+<span class="relative flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+</span>
+<span class="text-emerald-700 font-label-caps text-[11px] uppercase tracking-wider">System Operational</span>
+</div>
+</div>
+</div>
+<div class="flex gap-md">
+<button class="flex items-center gap-sm bg-primary text-on-primary px-lg py-md rounded-xl shadow-sm hover:opacity-90 active:scale-95 transition-all">
+<span class="material-symbols-outlined">add_circle</span>
+<span class="font-title-sm text-title-sm">New Announcement</span>
+</button>
+<button class="flex items-center gap-sm bg-surface-container-lowest border border-outline-variant text-on-surface px-lg py-md rounded-xl hover:bg-surface-container-low transition-all active:scale-95">
+<span class="material-symbols-outlined text-primary">work</span>
+<span class="font-title-sm text-title-sm">New Placement Drive</span>
+</button>
+</div>
+</section>
+<!-- Stat Cards Grid -->
+<section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-lg mb-xl">
+<!-- Stat 1 -->
+<div class="bg-surface-container-lowest border border-outline-variant p-lg rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.02)] transition-all hover:shadow-md">
+<div class="w-12 h-12 bg-primary-container/10 rounded-xl flex items-center justify-center mb-md">
+<span class="material-symbols-outlined text-primary">groups</span>
+</div>
+<p class="text-secondary font-label-caps text-xs">Total Students</p>
+<h3 class="text-display-lg font-bold mt-xs">4,820</h3>
+<p class="text-emerald-600 text-body-sm flex items-center gap-xs mt-sm">
+<span class="material-symbols-outlined text-[16px]">trending_up</span> 12% vs last sem
+                    </p>
+</div>
+<!-- Stat 2 -->
+<div class="bg-surface-container-lowest border border-outline-variant p-lg rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.02)] transition-all hover:shadow-md">
+<div class="w-12 h-12 bg-tertiary-container/10 rounded-xl flex items-center justify-center mb-md">
+<span class="material-symbols-outlined text-tertiary">campaign</span>
+</div>
+<p class="text-secondary font-label-caps text-xs">Active Announcements</p>
+<h3 class="text-display-lg font-bold mt-xs">14</h3>
+<p class="text-secondary text-body-sm flex items-center gap-xs mt-sm">
+<span class="material-symbols-outlined text-[16px]">schedule</span> 3 expiring soon
+                    </p>
+</div>
+<!-- Stat 3 -->
+<div class="bg-surface-container-lowest border border-outline-variant p-lg rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.02)] transition-all hover:shadow-md">
+<div class="w-12 h-12 bg-secondary-container/10 rounded-xl flex items-center justify-center mb-md">
+<span class="material-symbols-outlined text-secondary">work</span>
+</div>
+<p class="text-secondary font-label-caps text-xs">Placement Drives</p>
+<h3 class="text-display-lg font-bold mt-xs">28</h3>
+<p class="text-emerald-600 text-body-sm flex items-center gap-xs mt-sm">
+<span class="material-symbols-outlined text-[16px]">check_circle</span> 8 hiring now
+                    </p>
+</div>
+<!-- Stat 4 -->
+<div class="bg-surface-container-lowest border border-outline-variant p-lg rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.02)] transition-all hover:shadow-md">
+<div class="w-12 h-12 bg-error-container/10 rounded-xl flex items-center justify-center mb-md">
+<span class="material-symbols-outlined text-error">payments</span>
+</div>
+<p class="text-secondary font-label-caps text-xs">Fee Notices</p>
+<h3 class="text-display-lg font-bold mt-xs">156</h3>
+<p class="text-error text-body-sm flex items-center gap-xs mt-sm">
+<span class="material-symbols-outlined text-[16px]">priority_high</span> 24 overdue
+                    </p>
+</div>
+<!-- Stat 5 -->
+<div class="bg-surface-container-lowest border border-outline-variant p-lg rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.02)] transition-all hover:shadow-md">
+<div class="w-12 h-12 bg-primary-fixed/30 rounded-xl flex items-center justify-center mb-md">
+<span class="material-symbols-outlined text-primary">exit_to_app</span>
+</div>
+<p class="text-secondary font-label-caps text-xs">Pending Exit Passes</p>
+<h3 class="text-display-lg font-bold mt-xs">42</h3>
+<p class="text-primary text-body-sm flex items-center gap-xs mt-sm font-semibold">
+<span class="material-symbols-outlined text-[16px]">bolt</span> Review Now
+                    </p>
+</div>
+</section>
+<!-- Main Dashboard Layout -->
+<div class="grid grid-cols-12 gap-lg">
+<!-- Quick Actions & Recent Activity (Left Col) -->
+<div class="col-span-12 lg:col-span-8 flex flex-col gap-lg">
+<!-- Activity Visualization (Glassmorphism inspired) -->
+<div class="bg-gradient-to-br from-primary-container/5 to-surface-container-lowest border border-outline-variant rounded-2xl p-lg relative overflow-hidden">
+<div class="absolute -right-20 -top-20 w-64 h-64 bg-primary/5 rounded-full blur-3xl"></div>
+<div class="relative z-10">
+<div class="flex justify-between items-center mb-lg">
+<h3 class="font-headline-md text-headline-md">Placement Engagement</h3>
+<div class="flex gap-sm">
+<span class="bg-surface-container-lowest border border-outline-variant px-3 py-1 rounded-lg text-body-sm">Weekly</span>
+<button class="material-symbols-outlined text-outline">more_horiz</button>
+</div>
+</div>
+<div class="h-64 w-full flex items-end justify-between gap-md pb-md">
+<!-- Mock Chart -->
+<div class="w-full bg-primary/20 rounded-t-lg h-[40%] transition-all hover:h-[45%] cursor-pointer group relative">
+<div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-on-background text-on-primary text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">120</div>
+</div>
+<div class="w-full bg-primary/30 rounded-t-lg h-[60%] transition-all hover:h-[65%] cursor-pointer group relative">
+<div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-on-background text-on-primary text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">180</div>
+</div>
+<div class="w-full bg-primary/40 rounded-t-lg h-[45%] transition-all hover:h-[50%] cursor-pointer group relative">
+<div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-on-background text-on-primary text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">135</div>
+</div>
+<div class="w-full bg-primary/60 rounded-t-lg h-[85%] transition-all hover:h-[90%] cursor-pointer group relative border-x-4 border-primary/20">
+<div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-on-background text-on-primary text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">250</div>
+</div>
+<div class="w-full bg-primary/50 rounded-t-lg h-[55%] transition-all hover:h-[60%] cursor-pointer group relative">
+<div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-on-background text-on-primary text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">165</div>
+</div>
+<div class="w-full bg-primary/40 rounded-t-lg h-[70%] transition-all hover:h-[75%] cursor-pointer group relative">
+<div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-on-background text-on-primary text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">210</div>
+</div>
+<div class="w-full bg-primary/70 rounded-t-lg h-[95%] transition-all hover:h-[100%] cursor-pointer group relative">
+<div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-on-background text-on-primary text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">288</div>
+</div>
+</div>
+<div class="flex justify-between text-[10px] text-secondary font-label-caps pt-2">
+<span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+</div>
+</div>
+</div>
+<!-- Recent Activity Timeline -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-2xl p-lg flex flex-col flex-grow">
+<div class="flex justify-between items-center mb-lg">
+<h3 class="font-headline-md text-headline-md">System Log</h3>
+<button class="text-primary text-body-sm font-semibold hover:underline">View All Logs</button>
+</div>
+<div class="space-y-6 relative before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-px before:bg-outline-variant">
+<!-- Timeline Item 1 -->
+<div class="relative pl-9 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+<div class="absolute left-0 top-1 w-6 h-6 rounded-full bg-surface-container-lowest border-2 border-primary flex items-center justify-center z-10">
+<span class="material-symbols-outlined text-[14px] text-primary" style="font-variation-settings: 'FILL' 1;">work</span>
+</div>
+<div>
+<p class="text-body-md font-semibold text-on-background">New Placement Drive Published</p>
+<p class="text-body-sm text-secondary">Google Cloud SDE-1 Hiring for 2024 Batch</p>
+</div>
+<div class="text-right">
+<span class="text-[11px] font-label-caps text-outline bg-surface-container px-2 py-1 rounded uppercase">14 Min Ago</span>
+</div>
+</div>
+<!-- Timeline Item 2 -->
+<div class="relative pl-9 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+<div class="absolute left-0 top-1 w-6 h-6 rounded-full bg-surface-container-lowest border-2 border-error flex items-center justify-center z-10">
+<span class="material-symbols-outlined text-[14px] text-error" style="font-variation-settings: 'FILL' 1;">payments</span>
+</div>
+<div>
+<p class="text-body-md font-semibold text-on-background">Fee Notice Dispatched</p>
+<p class="text-body-sm text-secondary">Semester 5 Tuition Fee reminder sent to 450 students</p>
+</div>
+<div class="text-right">
+<span class="text-[11px] font-label-caps text-outline bg-surface-container px-2 py-1 rounded uppercase">2 Hours Ago</span>
+</div>
+</div>
+<!-- Timeline Item 3 -->
+<div class="relative pl-9 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+<div class="absolute left-0 top-1 w-6 h-6 rounded-full bg-surface-container-lowest border-2 border-emerald-500 flex items-center justify-center z-10">
+<span class="material-symbols-outlined text-[14px] text-emerald-500" style="font-variation-settings: 'FILL' 1;">verified</span>
+</div>
+<div>
+<p class="text-body-md font-semibold text-on-background">Exit Pass Approved</p>
+<p class="text-body-sm text-secondary">Request #XP-9928 for Student: Aryan Sharma</p>
+</div>
+<div class="text-right">
+<span class="text-[11px] font-label-caps text-outline bg-surface-container px-2 py-1 rounded uppercase">5 Hours Ago</span>
+</div>
+</div>
+<!-- Timeline Item 4 -->
+<div class="relative pl-9 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+<div class="absolute left-0 top-1 w-6 h-6 rounded-full bg-surface-container-lowest border-2 border-tertiary flex items-center justify-center z-10">
+<span class="material-symbols-outlined text-[14px] text-tertiary" style="font-variation-settings: 'FILL' 1;">campaign</span>
+</div>
+<div>
+<p class="text-body-md font-semibold text-on-background">Announcement Published</p>
+<p class="text-body-sm text-secondary">Revised Library Timings for Mid-Sem Exams</p>
+</div>
+<div class="text-right">
+<span class="text-[11px] font-label-caps text-outline bg-surface-container px-2 py-1 rounded uppercase">Yesterday</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Column (Contextual Actions) -->
+<div class="col-span-12 lg:col-span-4 flex flex-col gap-lg">
+<!-- Pending Exit Passes Quick Review -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-2xl p-lg shadow-sm">
+<div class="flex justify-between items-center mb-md">
+<h3 class="font-title-sm text-title-sm">Exit Pass Requests</h3>
+<span class="bg-primary text-on-primary px-2 py-0.5 rounded-full text-[10px] font-bold">42 NEW</span>
+</div>
+<div class="space-y-md">
+<div class="p-md bg-surface-container-low rounded-xl flex items-center justify-between group hover:bg-surface-container-high transition-colors cursor-pointer">
+<div class="flex items-center gap-md">
+<img class="w-10 h-10 rounded-lg object-cover" data-alt="A portrait of a male university student in professional casual attire, blurred library background, clean bright lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB1YlmucK5Tj9xvyNP6mV3185pq5fZmoOcEKAQgu5jcdD2RrcFoUthKamsstFGxOsbZkF-tGq9C_aleCkChetnV-A0CVyT7MKlsmRfL1CfrVONURMYxoKre0gGo8dkU-FjJb4cq8PyuHJuYv9rJtbKiVprAO0O0MOoCgB3ZgNxxjs9H9W6jfFZ97nRWgzQLHjJeF6jVttz9q6S1tTaMx3YQ8PeCoJM9rKMlAwqf-0n543AVK_Dg2BWwE0BBPAIz2wdwQo5q4eogFLfl"/>
+<div>
+<p class="font-title-sm text-sm">Rahul Verma</p>
+<p class="text-xs text-secondary">CSE - Sem 6</p>
+</div>
+</div>
+<div class="flex gap-sm">
+<button class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center hover:bg-emerald-100 transition-colors">
+<span class="material-symbols-outlined text-[18px]">check</span>
+</button>
+<button class="w-8 h-8 rounded-lg bg-error-container/20 text-error flex items-center justify-center hover:bg-error-container/40 transition-colors">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+</div>
+<div class="p-md bg-surface-container-low rounded-xl flex items-center justify-between group hover:bg-surface-container-high transition-colors cursor-pointer">
+<div class="flex items-center gap-md">
+<img class="w-10 h-10 rounded-lg object-cover" data-alt="A portrait of a female university student wearing glasses and a formal shirt, indoor educational setting with soft depth of field." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA1Py3z4JSEs3f0rvrNyMLAJyDELzSbYlPdV1AKcvcZAV_6F4J5rDo5WZBQR-nwEFZ5ajaTp-qPoLIO8eIiLngXDRp7NS1L9yMLGWR-8C2qX2UYkv_PqNDFq8mUfk-k_AEyqWkkXJZOL6xrE1N0GyjmBaKLIBjfqpOd2JngIejnZt3I9iONxogCLrdmDDgMbijjPfeFbGb_aMOiHdPYz9dRm6JZKmggOlpsxEsGU2oPzBsqovrr1Z9UDtbP5JAWI11uCr7MrhB6-qFH"/>
+<div>
+<p class="font-title-sm text-sm">Priya Singh</p>
+<p class="text-xs text-secondary">ECE - Sem 4</p>
+</div>
+</div>
+<div class="flex gap-sm">
+<button class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center hover:bg-emerald-100 transition-colors">
+<span class="material-symbols-outlined text-[18px]">check</span>
+</button>
+<button class="w-8 h-8 rounded-lg bg-error-container/20 text-error flex items-center justify-center hover:bg-error-container/40 transition-colors">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+</div>
+</div>
+<button class="w-full mt-lg py-md rounded-xl border border-dashed border-outline-variant text-secondary text-body-sm font-semibold hover:border-primary hover:text-primary transition-all">
+                            Review All 42 Requests
+                        </button>
+</div>
+<!-- Upcoming Events/Deadlines -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-2xl p-lg">
+<h3 class="font-title-sm text-title-sm mb-lg">Academic Deadlines</h3>
+<div class="space-y-lg">
+<div class="flex gap-md">
+<div class="flex-shrink-0 w-12 h-14 bg-primary/10 rounded-xl flex flex-col items-center justify-center text-primary border border-primary/20">
+<span class="text-xs font-bold uppercase">Oct</span>
+<span class="text-lg font-black leading-none">28</span>
+</div>
+<div>
+<h4 class="font-title-sm text-sm">Tech Mahindra Drive</h4>
+<p class="text-body-sm text-secondary">Registration Closes at 5:00 PM</p>
+<div class="flex gap-xs mt-xs">
+<span class="bg-primary/5 text-primary text-[10px] px-2 py-0.5 rounded uppercase font-bold tracking-tighter">Placement</span>
+</div>
+</div>
+</div>
+<div class="flex gap-md">
+<div class="flex-shrink-0 w-12 h-14 bg-tertiary/10 rounded-xl flex flex-col items-center justify-center text-tertiary border border-tertiary/20">
+<span class="text-xs font-bold uppercase">Nov</span>
+<span class="text-lg font-black leading-none">02</span>
+</div>
+<div>
+<h4 class="font-title-sm text-sm">Exam Fee Deadline</h4>
+<p class="text-body-sm text-secondary">Fine of ₹500 from next day</p>
+<div class="flex gap-xs mt-xs">
+<span class="bg-tertiary/5 text-tertiary text-[10px] px-2 py-0.5 rounded uppercase font-bold tracking-tighter">Fees</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- System Health Widget -->
+<div class="bg-inverse-surface text-on-primary-container rounded-2xl p-lg overflow-hidden relative">
+<div class="flex justify-between items-start">
+<div>
+<h3 class="font-headline-md text-on-surface-variant font-bold">Cloud Status</h3>
+<p class="text-body-sm text-on-secondary-fixed opacity-70">Main Database: Node 4</p>
+</div>
+<span class="bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded text-[10px] font-bold border border-emerald-500/30 uppercase">Healthy</span>
+</div>
+<div class="mt-lg flex items-center gap-md">
+<div class="flex-grow bg-white/10 h-1.5 rounded-full overflow-hidden">
+<div class="bg-emerald-400 h-full w-[94%]" id="load-bar"></div>
+</div>
+<span class="text-xs font-mono">94%</span>
+</div>
+<!-- Background Decorative Shaders could go here -->
+<div class="absolute bottom-0 right-0 opacity-10 pointer-events-none">
+<span class="material-symbols-outlined text-[120px]" style="font-variation-settings: 'wght' 200;">settings_input_component</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<script>
+        // Update current date
+        const dateEl = document.getElementById('current-date');
+        const options = { year: 'numeric', month: 'long', day: 'numeric' };
+        dateEl.textContent = new Date().toLocaleDateString(undefined, options);
+
+        // Simple interaction for the system load bar
+        setInterval(() => {
+            const bar = document.getElementById('load-bar');
+            const variance = Math.floor(Math.random() * 5) - 2; // -2 to +2
+            let currentWidth = parseInt(bar.style.width || "94");
+            let nextWidth = Math.min(Math.max(currentWidth + variance, 85), 99);
+            bar.style.width = nextWidth + '%';
+        }, 3000);
+
+        // Sidebar active state highlight logic handled in HTML via JSON classes
+    </script>
+</body></html>

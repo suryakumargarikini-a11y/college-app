@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SITAM Smart ERP - Announcements</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary": "#505f76",
+                        "tertiary-fixed": "#ffdbcd",
+                        "primary-fixed-dim": "#b4c5ff",
+                        "on-secondary-fixed": "#0b1c30",
+                        "on-surface-variant": "#434655",
+                        "tertiary-container": "#bc4800",
+                        "surface": "#f7f9fb",
+                        "secondary-fixed": "#d3e4fe",
+                        "on-surface": "#191c1e",
+                        "on-secondary-container": "#54647a",
+                        "on-tertiary-container": "#ffede6",
+                        "on-primary-container": "#eeefff",
+                        "inverse-surface": "#2d3133",
+                        "tertiary": "#943700",
+                        "on-primary-fixed-variant": "#003ea8",
+                        "surface-container-high": "#e6e8ea",
+                        "on-error-container": "#93000a",
+                        "on-background": "#191c1e",
+                        "surface-tint": "#0053db",
+                        "error-container": "#ffdad6",
+                        "secondary-container": "#d0e1fb",
+                        "on-tertiary": "#ffffff",
+                        "surface-container": "#eceef0",
+                        "on-error": "#ffffff",
+                        "error": "#ba1a1a",
+                        "surface-variant": "#e0e3e5",
+                        "primary-fixed": "#dbe1ff",
+                        "on-secondary": "#ffffff",
+                        "tertiary-fixed-dim": "#ffb596",
+                        "outline": "#737686",
+                        "on-tertiary-fixed-variant": "#7d2d00",
+                        "inverse-on-surface": "#eff1f3",
+                        "surface-dim": "#d8dadc",
+                        "primary": "#004ac6",
+                        "surface-container-lowest": "#ffffff",
+                        "on-primary": "#ffffff",
+                        "background": "#f7f9fb",
+                        "secondary-fixed-dim": "#b7c8e1",
+                        "on-primary-fixed": "#00174b",
+                        "surface-container-low": "#f2f4f6",
+                        "outline-variant": "#c3c6d7",
+                        "surface-bright": "#f7f9fb",
+                        "inverse-primary": "#b4c5ff",
+                        "primary-container": "#2563eb",
+                        "on-secondary-fixed-variant": "#38485d",
+                        "surface-container-highest": "#e0e3e5",
+                        "on-tertiary-fixed": "#360f00"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "margin": "24px",
+                        "md": "16px",
+                        "xl": "32px",
+                        "sm": "8px",
+                        "xs": "4px",
+                        "lg": "24px",
+                        "base": "8px",
+                        "container-max": "1440px",
+                        "gutter": "16px"
+                    },
+                    "fontFamily": {
+                        "mono-label": ["JetBrains Mono"],
+                        "label-caps": ["Inter"],
+                        "body-md": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "display-lg-mobile": ["Inter"],
+                        "title-sm": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "display-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "mono-label": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+                        "label-caps": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "body-sm": ["13px", {"lineHeight": "18px", "fontWeight": "400"}],
+                        "display-lg-mobile": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "title-sm": ["16px", {"lineHeight": "24px", "fontWeight": "600"}],
+                        "headline-md": ["20px", {"lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "display-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .active-nav-border { position: relative; }
+        .active-nav-border::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background-color: #004ac6;
+        }
+        /* Custom Rich Text Area simulation */
+        .rich-text-editor {
+            min-height: 200px;
+            border: 1px solid #c3c6d7;
+            border-radius: 0.75rem;
+            padding: 1rem;
+            background: white;
+        }
+        .rich-text-editor:focus-within {
+            border-color: #004ac6;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface overflow-hidden">
+<div class="flex h-screen w-full">
+<!-- SideNavBar -->
+<aside class="flex flex-col h-full border-r border-outline-variant dark:border-outline fixed left-0 top-0 w-60 bg-surface dark:bg-inverse-surface z-50">
+<div class="px-lg py-xl">
+<h1 class="font-display-lg text-display-lg text-primary dark:text-primary-fixed-dim">SITAM</h1>
+<p class="font-title-sm text-title-sm text-secondary">Admin Portal</p>
+</div>
+<nav class="flex-1 px-sm">
+<div class="space-y-1">
+<!-- Dashboard -->
+<a class="flex items-center text-secondary hover:text-primary px-4 py-3 hover:bg-surface-container-low transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined mr-3">dashboard</span>
+<span class="font-label-caps text-label-caps">Dashboard</span>
+</a>
+<!-- Role Management -->
+<a class="flex items-center text-secondary hover:text-primary px-4 py-3 hover:bg-surface-container-low transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined mr-3">admin_panel_settings</span>
+<span class="font-label-caps text-label-caps">Role Management</span>
+</a>
+<!-- Announcements (Active) -->
+<a class="flex items-center bg-secondary-container text-primary font-bold border-l-4 border-primary px-4 py-3 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined mr-3" style="font-variation-settings: 'FILL' 1;">campaign</span>
+<span class="font-label-caps text-label-caps uppercase">Announcements</span>
+</a>
+<!-- Fee Management -->
+<a class="flex items-center text-secondary hover:text-primary px-4 py-3 hover:bg-surface-container-low transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined mr-3">payments</span>
+<span class="font-label-caps text-label-caps">Fee Management</span>
+</a>
+<!-- Placement Cell -->
+<a class="flex items-center text-secondary hover:text-primary px-4 py-3 hover:bg-surface-container-low transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined mr-3">work</span>
+<span class="font-label-caps text-label-caps">Placement Cell</span>
+</a>
+<!-- Security Gate -->
+<a class="flex items-center text-secondary hover:text-primary px-4 py-3 hover:bg-surface-container-low transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined mr-3">security</span>
+<span class="font-label-caps text-label-caps">Security Gate</span>
+</a>
+</div>
+</nav>
+<div class="p-sm mt-auto border-t border-outline-variant">
+<a class="flex items-center text-secondary hover:text-primary px-4 py-3 hover:bg-surface-container-low transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined mr-3">settings</span>
+<span class="font-label-caps text-label-caps">Settings</span>
+</a>
+<a class="flex items-center text-secondary hover:text-primary px-4 py-3 hover:bg-surface-container-low transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined mr-3">logout</span>
+<span class="font-label-caps text-label-caps">Logout</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-60 flex-1 flex flex-col h-full">
+<!-- TopAppBar -->
+<header class="sticky top-0 z-40 flex justify-between items-center px-lg py-sm w-full bg-surface dark:bg-surface-dim border-b border-outline-variant shadow-sm">
+<div class="flex items-center gap-xl">
+<span class="font-headline-md text-headline-md font-bold text-on-surface dark:text-inverse-on-surface">SITAM Admin</span>
+<nav class="hidden md:flex gap-lg">
+<a class="text-on-surface-variant hover:text-primary font-body-md text-body-md" href="#">Audit Trails</a>
+<a class="text-on-surface-variant hover:text-primary font-body-md text-body-md" href="#">Reports</a>
+<a class="text-on-surface-variant hover:text-primary font-body-md text-body-md" href="#">Support</a>
+</nav>
+</div>
+<div class="flex items-center gap-md">
+<div class="flex items-center gap-sm">
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-high rounded-full transition-all">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-high rounded-full transition-all">
+<span class="material-symbols-outlined">history</span>
+</button>
+</div>
+<div class="w-10 h-10 rounded-full bg-surface-container-highest flex items-center justify-center overflow-hidden border border-outline-variant">
+<img class="w-full h-full object-cover" data-alt="A professional headshot of a university administrator wearing formal business attire, set against a blurred office background with warm lighting. The image conveys authority, experience, and approachable leadership in a high-end corporate setting, following the minimalist and clean aesthetic of the SITAM ERP brand." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAPVebGxYlzWwaJGx7iVONMfRSE8bLEER3CcNFghV5lk9p45W_6DAYba7rKb5DaVTADX_HsOSpjbYj9oG8n_rBCyEi4JkW_ZPoX7jujjl23Z16B3QUQbw-EiDw0VrOEXjkI8SUyFtndBGO8OM24AwHzmF5OMKoO5xEwBlTHs9TmpNETXTI9ilwQ1IljGiJFD5HqzAYgWQUo9Bd56RaztpU3Mq-KzaVy7xuQ4ApkuqfvOq_qGxmEk_CJtB9DypjHQzcsCPMpoOxiuqri"/>
+</div>
+</div>
+</header>
+<!-- Page Content -->
+<div class="flex-1 flex overflow-hidden">
+<!-- LEFT: Creation Form -->
+<section class="w-1/2 h-full overflow-y-auto p-lg border-r border-outline-variant bg-surface-container-lowest">
+<div class="max-w-2xl mx-auto space-y-xl">
+<div>
+<h2 class="font-headline-md text-headline-md text-on-surface">Create New Announcement</h2>
+<p class="text-secondary font-body-sm text-body-sm">Broadcast important updates to students, faculty, or staff.</p>
+</div>
+<form class="space-y-lg" id="announcementForm">
+<!-- Title -->
+<div class="space-y-sm">
+<label class="block text-label-caps font-label-caps text-on-surface-variant uppercase">Announcement Title</label>
+<input class="w-full px-4 h-10 rounded-xl border border-outline-variant focus:ring-2 focus:ring-primary focus:border-primary transition-all" id="input-title" placeholder="e.g., Mid-Term Examination Schedule Revised" type="text"/>
+</div>
+<!-- Target Audience -->
+<div class="grid grid-cols-2 gap-md">
+<div class="space-y-sm">
+<label class="block text-label-caps font-label-caps text-on-surface-variant uppercase">Target Audience</label>
+<select class="w-full px-4 h-10 rounded-xl border border-outline-variant focus:ring-2 focus:ring-primary focus:border-primary transition-all bg-white" id="input-audience">
+<option value="All Users">All Users</option>
+<option value="Students Only">Students Only</option>
+<option value="Faculty Only">Faculty Only</option>
+<option value="Administrative Staff">Administrative Staff</option>
+</select>
+</div>
+<div class="space-y-sm">
+<label class="block text-label-caps font-label-caps text-on-surface-variant uppercase">Priority Level</label>
+<select class="w-full px-4 h-10 rounded-xl border border-outline-variant focus:ring-2 focus:ring-primary focus:border-primary transition-all bg-white" id="input-priority">
+<option value="Normal">Normal</option>
+<option value="High">High</option>
+<option value="Urgent">Urgent</option>
+</select>
+</div>
+</div>
+<!-- Description (Rich Text Simulator) -->
+<div class="space-y-sm">
+<label class="block text-label-caps font-label-caps text-on-surface-variant uppercase">Description</label>
+<div class="rich-text-editor flex flex-col">
+<div class="flex gap-xs border-b border-outline-variant pb-2 mb-3">
+<button class="p-1 hover:bg-surface-container rounded" type="button"><span class="material-symbols-outlined text-sm">format_bold</span></button>
+<button class="p-1 hover:bg-surface-container rounded" type="button"><span class="material-symbols-outlined text-sm">format_italic</span></button>
+<button class="p-1 hover:bg-surface-container rounded" type="button"><span class="material-symbols-outlined text-sm">format_list_bulleted</span></button>
+<button class="p-1 hover:bg-surface-container rounded" type="button"><span class="material-symbols-outlined text-sm">link</span></button>
+</div>
+<textarea class="flex-1 w-full border-none focus:ring-0 p-0 text-body-md font-body-md resize-none" id="input-desc" placeholder="Write your announcement details here..."></textarea>
+</div>
+</div>
+<!-- Attachments -->
+<div class="space-y-sm">
+<label class="block text-label-caps font-label-caps text-on-surface-variant uppercase">Attachments (Optional)</label>
+<div class="border-2 border-dashed border-outline-variant rounded-xl p-lg flex flex-col items-center justify-center bg-surface hover:bg-surface-container transition-colors cursor-pointer group">
+<span class="material-symbols-outlined text-primary mb-2 text-3xl group-hover:scale-110 transition-transform">upload_file</span>
+<p class="text-body-sm font-body-sm text-secondary">Drag &amp; Drop or <span class="text-primary font-semibold">Browse</span></p>
+<p class="text-[10px] text-outline mt-1">PDF, DOCX, JPG (Max 10MB)</p>
+</div>
+</div>
+<!-- Actions -->
+<div class="flex items-center gap-md pt-lg">
+<button class="flex-1 h-12 bg-primary text-white font-semibold rounded-xl hover:bg-primary-container transition-all active:scale-[0.98] shadow-md" type="button">
+                                    Publish Now
+                                </button>
+<button class="flex-1 h-12 bg-white border border-outline-variant text-on-surface font-semibold rounded-xl hover:bg-surface-container transition-all active:scale-[0.98]" type="button">
+                                    Schedule Later
+                                </button>
+</div>
+</form>
+</div>
+</section>
+<!-- RIGHT: Live Preview Panel -->
+<section class="w-1/2 h-full bg-surface p-lg flex flex-col items-center justify-start">
+<div class="w-full max-w-md space-y-md">
+<div class="flex items-center justify-between">
+<span class="text-label-caps font-label-caps text-secondary uppercase tracking-widest">Live Preview</span>
+<span class="text-body-sm font-body-sm text-outline">Mobile View</span>
+</div>
+<!-- Mobile Mockup Frame -->
+<div class="w-full bg-white border border-outline-variant rounded-[32px] overflow-hidden shadow-2xl relative aspect-[9/16] flex flex-col">
+<!-- Device Header -->
+<div class="h-10 bg-white flex items-center justify-between px-8 border-b border-outline-variant/50">
+<span class="text-[10px] font-bold">9:41</span>
+<div class="flex gap-1">
+<span class="material-symbols-outlined text-xs">signal_cellular_alt</span>
+<span class="material-symbols-outlined text-xs">wifi</span>
+<span class="material-symbols-outlined text-xs">battery_full</span>
+</div>
+</div>
+<!-- Content Wrapper -->
+<div class="flex-1 overflow-y-auto bg-surface-container-lowest p-6 space-y-4">
+<!-- App Bar Mock -->
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-primary-fixed flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-sm">arrow_back</span>
+</div>
+<span class="font-bold text-sm">Announcement</span>
+</div>
+<!-- Dynamic Preview Card -->
+<div class="bg-white rounded-2xl p-4 border border-outline-variant shadow-sm space-y-3">
+<div class="flex justify-between items-start" id="preview-tag-container">
+<span class="px-3 py-1 rounded-full text-[10px] font-bold bg-secondary-container text-on-secondary-container" id="preview-priority">NORMAL</span>
+<span class="text-[10px] text-outline">Today</span>
+</div>
+<h3 class="font-display-lg-mobile text-display-lg-mobile leading-tight text-on-surface" id="preview-title">Title Preview</h3>
+<div class="flex items-center gap-2 text-outline">
+<span class="material-symbols-outlined text-[14px]">group</span>
+<span class="text-[10px] font-semibold" id="preview-audience">All Users</span>
+</div>
+<div class="border-t border-outline-variant/30 pt-3">
+<p class="text-body-sm font-body-sm text-secondary leading-relaxed" id="preview-desc">Your content will appear here as you type...</p>
+</div>
+<!-- Mock Attachment Card -->
+<div class="bg-surface-container-low border border-outline-variant rounded-lg p-2 flex items-center gap-3" id="preview-attachment-card">
+<div class="w-8 h-8 bg-white rounded border border-outline-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-error text-lg">picture_as_pdf</span>
+</div>
+<div class="flex-1">
+<p class="text-[10px] font-bold truncate">Examination_Policy_2024.pdf</p>
+<p class="text-[8px] text-outline">2.4 MB</p>
+</div>
+</div>
+</div>
+<!-- Bottom Branding -->
+<div class="text-center py-4">
+<p class="text-[10px] text-outline-variant font-bold uppercase tracking-widest">SITAM SMART ERP</p>
+</div>
+</div>
+<!-- Home Indicator -->
+<div class="h-6 bg-white flex justify-center items-center">
+<div class="w-24 h-1 bg-outline-variant rounded-full"></div>
+</div>
+</div>
+</div>
+</section>
+</div>
+</main>
+</div>
+<script>
+        // Real-time Preview Logic
+        const inputTitle = document.getElementById('input-title');
+        const inputDesc = document.getElementById('input-desc');
+        const inputAudience = document.getElementById('input-audience');
+        const inputPriority = document.getElementById('input-priority');
+
+        const previewTitle = document.getElementById('preview-title');
+        const previewDesc = document.getElementById('preview-desc');
+        const previewAudience = document.getElementById('preview-audience');
+        const previewPriority = document.getElementById('preview-priority');
+
+        inputTitle.addEventListener('input', (e) => {
+            previewTitle.textContent = e.target.value || 'Title Preview';
+        });
+
+        inputDesc.addEventListener('input', (e) => {
+            previewDesc.textContent = e.target.value || 'Your content will appear here as you type...';
+        });
+
+        inputAudience.addEventListener('change', (e) => {
+            previewAudience.textContent = e.target.value;
+        });
+
+        inputPriority.addEventListener('change', (e) => {
+            const val = e.target.value.toUpperCase();
+            previewPriority.textContent = val;
+            
+            // Priority Styling
+            if (val === 'URGENT') {
+                previewPriority.className = 'px-3 py-1 rounded-full text-[10px] font-bold bg-error-container text-on-error-container';
+            } else if (val === 'HIGH') {
+                previewPriority.className = 'px-3 py-1 rounded-full text-[10px] font-bold bg-tertiary-container text-on-tertiary-container';
+            } else {
+                previewPriority.className = 'px-3 py-1 rounded-full text-[10px] font-bold bg-secondary-container text-on-secondary-container';
+            }
+        });
+
+        // Simple button active effect simulation
+        document.querySelectorAll('button').forEach(btn => {
+            btn.addEventListener('mousedown', () => btn.classList.add('opacity-80'));
+            btn.addEventListener('mouseup', () => btn.classList.remove('opacity-80'));
+        });
+    </script>
+</body></html>

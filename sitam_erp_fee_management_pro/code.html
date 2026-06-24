@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SITAM ERP - Fee Notice Management</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .sidebar-active-indicator::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            width: 4px;
+            height: 24px;
+            background-color: #004ac6;
+            border-radius: 0 4px 4px 0;
+        }
+        /* Hide scrollbar for Chrome, Safari and Opera */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        /* Hide scrollbar for IE, Edge and Firefox */
+        .no-scrollbar {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-highest": "#e0e3e5",
+                        "on-tertiary": "#ffffff",
+                        "secondary": "#505f76",
+                        "surface-tint": "#0053db",
+                        "on-surface": "#191c1e",
+                        "on-primary": "#ffffff",
+                        "on-secondary-container": "#54647a",
+                        "error": "#ba1a1a",
+                        "on-primary-fixed-variant": "#003ea8",
+                        "on-error-container": "#93000a",
+                        "inverse-on-surface": "#eff1f3",
+                        "surface-container-lowest": "#ffffff",
+                        "secondary-fixed": "#d3e4fe",
+                        "surface-variant": "#e0e3e5",
+                        "on-secondary-fixed-variant": "#38485d",
+                        "error-container": "#ffdad6",
+                        "surface-container": "#eceef0",
+                        "surface-container-low": "#f2f4f6",
+                        "on-primary-container": "#eeefff",
+                        "surface-container-high": "#e6e8ea",
+                        "inverse-primary": "#b4c5ff",
+                        "tertiary-container": "#bc4800",
+                        "secondary-container": "#d0e1fb",
+                        "surface-bright": "#f7f9fb",
+                        "surface": "#f7f9fb",
+                        "primary-container": "#2563eb",
+                        "tertiary-fixed-dim": "#ffb596",
+                        "surface-dim": "#d8dadc",
+                        "tertiary": "#943700",
+                        "tertiary-fixed": "#ffdbcd",
+                        "outline-variant": "#c3c6d7",
+                        "on-tertiary-fixed-variant": "#7d2d00",
+                        "on-primary-fixed": "#00174b",
+                        "on-tertiary-container": "#ffede6",
+                        "on-secondary": "#ffffff",
+                        "secondary-fixed-dim": "#b7c8e1",
+                        "on-surface-variant": "#434655",
+                        "on-error": "#ffffff",
+                        "inverse-surface": "#2d3133",
+                        "on-tertiary-fixed": "#360f00",
+                        "background": "#f7f9fb",
+                        "primary-fixed-dim": "#b4c5ff",
+                        "primary": "#004ac6",
+                        "on-background": "#191c1e",
+                        "outline": "#737686",
+                        "on-secondary-fixed": "#0b1c30",
+                        "primary-fixed": "#dbe1ff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "xs": "4px",
+                        "base": "8px",
+                        "lg": "24px",
+                        "gutter": "16px",
+                        "md": "16px",
+                        "sm": "8px",
+                        "xl": "32px",
+                        "margin": "24px",
+                        "container-max": "1440px"
+                    },
+                    "fontFamily": {
+                        "label-caps": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "body-md": ["Inter"],
+                        "title-sm": ["Inter"]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-background text-on-surface font-body-md overflow-hidden flex h-screen">
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-0 h-full w-[240px] bg-surface dark:bg-on-background border-r border-outline-variant dark:border-on-secondary-fixed-variant flex flex-col p-md gap-sm z-40">
+<div class="flex items-center gap-sm px-sm mb-lg">
+<div class="w-10 h-10 bg-primary-container rounded-xl flex items-center justify-center text-on-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">account_balance</span>
+</div>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary">SITAM ERP</h1>
+<p class="text-[10px] text-secondary uppercase tracking-widest font-bold">Admin Portal</p>
+</div>
+</div>
+<nav class="flex-1 flex flex-col gap-xs overflow-y-auto no-scrollbar">
+<a class="flex items-center gap-md p-md text-secondary hover:bg-surface-container-high rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-title-sm text-title-sm">Dashboard</span>
+</a>
+<a class="flex items-center gap-md p-md text-secondary hover:bg-surface-container-high rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="campaign">campaign</span>
+<span class="font-title-sm text-title-sm">Announcements</span>
+</a>
+<a class="flex items-center gap-md p-md text-secondary hover:bg-surface-container-high rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="work">work</span>
+<span class="font-title-sm text-title-sm">Placement Drives</span>
+</a>
+<a class="bg-secondary-container text-primary rounded-xl relative flex items-center gap-md p-md transition-all before:absolute before:left-0 before:w-1 before:h-2/3 before:bg-primary before:rounded-full" href="#">
+<span class="material-symbols-outlined" data-icon="payments" style="font-variation-settings: 'FILL' 1;">payments</span>
+<span class="font-title-sm text-title-sm">Fee Notices</span>
+</a>
+<a class="flex items-center gap-md p-md text-secondary hover:bg-surface-container-high rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="exit_to_app">exit_to_app</span>
+<span class="font-title-sm text-title-sm">Exit Passes</span>
+</a>
+<div class="my-sm border-t border-outline-variant opacity-50 mx-md"></div>
+<a class="flex items-center gap-md p-md text-secondary hover:bg-surface-container-high rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+<span class="font-title-sm text-title-sm">Notifications</span>
+</a>
+<a class="flex items-center gap-md p-md text-secondary hover:bg-surface-container-high rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-title-sm text-title-sm">Settings</span>
+</a>
+</nav>
+<div class="mt-auto p-sm bg-surface-container-low rounded-xl flex items-center gap-sm">
+<img class="w-10 h-10 rounded-full object-cover" data-alt="A professional headshot of a female administrator" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAzt3KcVreCgg2MKXI-X9ByttfVbtnwg-8gopmH3dFoOlkNhNOzh1FyF9nFSvTo5B3PR4aoxhzhzGuF5IUVoWqXc9LVYcu39wHQl-LRrX2-Di5FplFPY7v6ugYthp6urL1YRFlWBfvSeHAmn9Yeue3BIdKLE415MQAWOWV-oPjq2EC2354bborXOz6qeslXA8Mgw9YZRrEqp7uCAks2wJX9vvm9kynZ51pkFMIJ_wNt1wPe0KZEbdGs3NiGUqgA4DIkcALei4-f5epf"/>
+<div class="flex-1 min-w-0">
+<p class="font-title-sm text-sm font-bold truncate">SITAM Admin</p>
+<p class="text-xs text-secondary truncate">admin@sitam.edu</p>
+</div>
+<button class="text-secondary hover:text-error transition-colors p-xs">
+<span class="material-symbols-outlined" data-icon="logout">logout</span>
+</button>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-[240px] flex-1 flex flex-col h-full relative overflow-hidden">
+<!-- TopNavBar -->
+<header class="sticky top-0 h-[72px] w-full bg-surface-container-lowest dark:bg-inverse-surface shadow-[0_4px_12px_rgba(0,0,0,0.05)] flex justify-between items-center px-lg z-30">
+<div class="flex items-center gap-lg">
+<h2 class="font-headline-md text-headline-md font-bold text-primary">Fee Notice Management</h2>
+<div class="relative hidden md:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline" data-icon="search">search</span>
+<input class="pl-10 pr-4 py-2 bg-surface-container-low border-none rounded-full w-64 focus:ring-2 focus:ring-primary/20 text-body-md" placeholder="Search notices..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<button class="p-2 text-on-secondary-container hover:bg-surface-container-low rounded-full transition-colors cursor-pointer active:scale-95" title="Notifications">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="p-2 text-on-secondary-container hover:bg-surface-container-low rounded-full transition-colors cursor-pointer active:scale-95" title="Settings">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<button class="bg-primary text-on-primary px-lg py-2 rounded-full font-bold flex items-center gap-sm hover:brightness-110 active:scale-95 transition-all" onclick="document.getElementById('modal-overlay').classList.remove('hidden')">
+<span class="material-symbols-outlined" data-icon="add">add</span>
+                Create New Notice
+            </button>
+</div>
+</header>
+<!-- Page Content -->
+<div class="flex-1 overflow-y-auto p-lg space-y-lg no-scrollbar">
+<!-- Collection Statistics -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-gutter">
+<div class="bg-surface-container-lowest border border-outline-variant p-lg rounded-xl flex items-center gap-lg">
+<div class="w-12 h-12 rounded-xl bg-primary-fixed text-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-2xl" data-icon="groups">groups</span>
+</div>
+<div>
+<p class="text-secondary text-xs uppercase font-bold tracking-wider">Total Students</p>
+<h3 class="font-display-lg text-2xl font-bold">4,850</h3>
+</div>
+</div>
+<div class="bg-surface-container-lowest border border-outline-variant p-lg rounded-xl flex items-center gap-lg">
+<div class="w-12 h-12 rounded-xl bg-secondary-container text-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-2xl" data-icon="check_circle">check_circle</span>
+</div>
+<div>
+<p class="text-secondary text-xs uppercase font-bold tracking-wider">Paid</p>
+<h3 class="font-display-lg text-2xl font-bold">3,602</h3>
+</div>
+</div>
+<div class="bg-surface-container-lowest border border-outline-variant p-lg rounded-xl flex items-center gap-lg">
+<div class="w-12 h-12 rounded-xl bg-error-container text-error flex items-center justify-center">
+<span class="material-symbols-outlined text-2xl" data-icon="pending_actions">pending_actions</span>
+</div>
+<div>
+<p class="text-secondary text-xs uppercase font-bold tracking-wider">Pending</p>
+<h3 class="font-display-lg text-2xl font-bold">1,248</h3>
+</div>
+</div>
+<div class="bg-surface-container-lowest border border-outline-variant p-lg rounded-xl flex items-center gap-lg">
+<div class="w-12 h-12 rounded-xl bg-tertiary-fixed text-tertiary flex items-center justify-center">
+<span class="material-symbols-outlined text-2xl" data-icon="query_stats">query_stats</span>
+</div>
+<div>
+<p class="text-secondary text-xs uppercase font-bold tracking-wider">Collection %</p>
+<h3 class="font-display-lg text-2xl font-bold">74.2%</h3>
+</div>
+</div>
+</div>
+<!-- Main Table Section -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden">
+<div class="px-lg py-md border-b border-outline-variant flex justify-between items-center">
+<h4 class="font-title-sm text-title-sm">Current Fee Notices</h4>
+<div class="flex gap-sm">
+<button class="p-2 border border-outline-variant rounded-lg text-secondary hover:bg-surface-container-low">
+<span class="material-symbols-outlined" data-icon="filter_list">filter_list</span>
+</button>
+<button class="p-2 border border-outline-variant rounded-lg text-secondary hover:bg-surface-container-low">
+<span class="material-symbols-outlined" data-icon="download">download</span>
+</button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left">
+<thead class="bg-surface-container-low text-on-surface-variant font-label-caps text-xs">
+<tr>
+<th class="px-lg py-md">Notice</th>
+<th class="px-lg py-md">Due Date</th>
+<th class="px-lg py-md">Target Audience</th>
+<th class="px-lg py-md text-center">Popup Enabled</th>
+<th class="px-lg py-md text-center">Notification Enabled</th>
+<th class="px-lg py-md">Status</th>
+<th class="px-lg py-md text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-lg py-md">
+<div class="flex flex-col">
+<span class="font-bold text-on-surface">Semester 5 Tuition Fee</span>
+<span class="text-xs text-secondary">Academic Year 2023-24</span>
+</div>
+</td>
+<td class="px-lg py-md text-body-md">Oct 25, 2023</td>
+<td class="px-lg py-md text-body-md">BE / B.Tech 2021-25</td>
+<td class="px-lg py-md text-center">
+<button class="text-primary hover:scale-110 transition-transform">
+<span class="material-symbols-outlined" data-icon="toggle_on" style="font-variation-settings: 'FILL' 1;">toggle_on</span>
+</button>
+</td>
+<td class="px-lg py-md text-center">
+<button class="text-primary hover:scale-110 transition-transform">
+<span class="material-symbols-outlined" data-icon="toggle_on" style="font-variation-settings: 'FILL' 1;">toggle_on</span>
+</button>
+</td>
+<td class="px-lg py-md">
+<span class="px-3 py-1 rounded-full text-xs font-bold bg-secondary-container text-primary">Active</span>
+</td>
+<td class="px-lg py-md text-right">
+<div class="flex justify-end gap-sm opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-2 text-secondary hover:text-primary"><span class="material-symbols-outlined text-xl" data-icon="edit">edit</span></button>
+<button class="p-2 text-secondary hover:text-error"><span class="material-symbols-outlined text-xl" data-icon="delete">delete</span></button>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-lg py-md">
+<div class="flex flex-col">
+<span class="font-bold text-on-surface">Late Hostel Charges</span>
+<span class="text-xs text-secondary">All Hostellers</span>
+</div>
+</td>
+<td class="px-lg py-md text-body-md">Nov 05, 2023</td>
+<td class="px-lg py-md text-body-md">All Batches</td>
+<td class="px-lg py-md text-center">
+<button class="text-primary hover:scale-110 transition-transform">
+<span class="material-symbols-outlined" data-icon="toggle_on" style="font-variation-settings: 'FILL' 1;">toggle_on</span>
+</button>
+</td>
+<td class="px-lg py-md text-center">
+<button class="text-outline hover:scale-110 transition-transform">
+<span class="material-symbols-outlined" data-icon="toggle_off">toggle_off</span>
+</button>
+</td>
+<td class="px-lg py-md">
+<span class="px-3 py-1 rounded-full text-xs font-bold bg-error-container text-error">Critical</span>
+</td>
+<td class="px-lg py-md text-right">
+<div class="flex justify-end gap-sm opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-2 text-secondary hover:text-primary"><span class="material-symbols-outlined text-xl" data-icon="edit">edit</span></button>
+<button class="p-2 text-secondary hover:text-error"><span class="material-symbols-outlined text-xl" data-icon="delete">delete</span></button>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-lg py-md">
+<div class="flex flex-col">
+<span class="font-bold text-on-surface">Library Overdue Fine</span>
+<span class="text-xs text-secondary">Individual Basis</span>
+</div>
+</td>
+<td class="px-lg py-md text-body-md">N/A</td>
+<td class="px-lg py-md text-body-md">All Batches</td>
+<td class="px-lg py-md text-center">
+<button class="text-outline hover:scale-110 transition-transform">
+<span class="material-symbols-outlined" data-icon="toggle_off">toggle_off</span>
+</button>
+</td>
+<td class="px-lg py-md text-center">
+<button class="text-outline hover:scale-110 transition-transform">
+<span class="material-symbols-outlined" data-icon="toggle_off">toggle_off</span>
+</button>
+</td>
+<td class="px-lg py-md">
+<span class="px-3 py-1 rounded-full text-xs font-bold bg-surface-container text-secondary">Draft</span>
+</td>
+<td class="px-lg py-md text-right">
+<div class="flex justify-end gap-sm opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-2 text-secondary hover:text-primary"><span class="material-symbols-outlined text-xl" data-icon="edit">edit</span></button>
+<button class="p-2 text-secondary hover:text-error"><span class="material-symbols-outlined text-xl" data-icon="delete">delete</span></button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="px-lg py-md bg-surface-container-low border-t border-outline-variant flex justify-between items-center">
+<p class="text-xs text-secondary">Showing 1 to 3 of 12 notices</p>
+<div class="flex gap-xs">
+<button class="w-8 h-8 flex items-center justify-center rounded border border-outline-variant text-secondary bg-surface disabled:opacity-50" disabled="">
+<span class="material-symbols-outlined text-sm" data-icon="chevron_left">chevron_left</span>
+</button>
+<button class="w-8 h-8 flex items-center justify-center rounded border border-primary bg-primary text-on-primary text-xs font-bold">1</button>
+<button class="w-8 h-8 flex items-center justify-center rounded border border-outline-variant text-secondary bg-surface text-xs font-bold hover:bg-surface-container">2</button>
+<button class="w-8 h-8 flex items-center justify-center rounded border border-outline-variant text-secondary bg-surface text-xs font-bold hover:bg-surface-container">3</button>
+<button class="w-8 h-8 flex items-center justify-center rounded border border-outline-variant text-secondary bg-surface hover:bg-surface-container">
+<span class="material-symbols-outlined text-sm" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Modal Overlay for Create Notice -->
+<div class="fixed inset-0 bg-on-background/40 backdrop-blur-sm z-[60] flex items-center justify-center hidden p-md" id="modal-overlay">
+<div class="bg-surface-container-lowest w-full max-w-2xl rounded-2xl shadow-[0_12px_32px_rgba(0,0,0,0.15)] overflow-hidden flex flex-col max-h-[921px]">
+<div class="px-lg py-lg border-b border-outline-variant flex justify-between items-center bg-surface-container-low">
+<div>
+<h3 class="font-headline-md text-xl font-bold text-primary">Create New Fee Notice</h3>
+<p class="text-sm text-secondary">Fill in the details to publish a new fee announcement.</p>
+</div>
+<button class="p-2 hover:bg-surface-container-high rounded-full transition-colors" onclick="document.getElementById('modal-overlay').classList.add('hidden')">
+<span class="material-symbols-outlined" data-icon="close">close</span>
+</button>
+</div>
+<form class="p-lg space-y-lg overflow-y-auto no-scrollbar">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-lg">
+<div class="space-y-sm md:col-span-2">
+<label class="block font-label-caps text-xs text-on-surface-variant">Title</label>
+<input class="w-full h-10 px-md border border-outline rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary text-body-md" placeholder="e.g., Odd Semester Exam Fee 2023" type="text"/>
+</div>
+<div class="space-y-sm md:col-span-2">
+<label class="block font-label-caps text-xs text-on-surface-variant">Description</label>
+<textarea class="w-full px-md py-sm border border-outline rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary text-body-md" placeholder="Enter detailed information about the fee..." rows="3"></textarea>
+</div>
+<div class="space-y-sm">
+<label class="block font-label-caps text-xs text-on-surface-variant">Due Date</label>
+<input class="w-full h-10 px-md border border-outline rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary text-body-md" type="date"/>
+</div>
+<div class="space-y-sm">
+<label class="block font-label-caps text-xs text-on-surface-variant">Priority</label>
+<select class="w-full h-10 px-md border border-outline rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary text-body-md">
+<option>Low</option>
+<option>Medium</option>
+<option>High</option>
+</select>
+</div>
+<div class="space-y-sm">
+<label class="block font-label-caps text-xs text-on-surface-variant">Target Year</label>
+<select class="w-full h-10 px-md border border-outline rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary text-body-md">
+<option>All Years</option>
+<option>1st Year</option>
+<option>2nd Year</option>
+<option>3rd Year</option>
+<option>4th Year</option>
+</select>
+</div>
+<div class="space-y-sm">
+<label class="block font-label-caps text-xs text-on-surface-variant">Target Branch</label>
+<div class="grid grid-cols-2 gap-sm">
+<label class="flex items-center gap-sm text-body-md cursor-pointer">
+<input checked="" class="rounded border-outline text-primary focus:ring-primary" type="checkbox"/> CSE
+                        </label>
+<label class="flex items-center gap-sm text-body-md cursor-pointer">
+<input class="rounded border-outline text-primary focus:ring-primary" type="checkbox"/> ECE
+                        </label>
+<label class="flex items-center gap-sm text-body-md cursor-pointer">
+<input class="rounded border-outline text-primary focus:ring-primary" type="checkbox"/> Mechanical
+                        </label>
+<label class="flex items-center gap-sm text-body-md cursor-pointer">
+<input class="rounded border-outline text-primary focus:ring-primary" type="checkbox"/> Civil
+                        </label>
+</div>
+</div>
+</div>
+<div class="p-md bg-surface-container-low rounded-xl flex flex-wrap gap-lg">
+<div class="flex items-center gap-md">
+<div class="relative inline-block w-12 h-6 rounded-full bg-outline-variant has-[:checked]:bg-primary transition-colors cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-6"></div>
+</div>
+<span class="font-title-sm text-sm">Popup Enabled</span>
+</div>
+<div class="flex items-center gap-md">
+<div class="relative inline-block w-12 h-6 rounded-full bg-outline-variant has-[:checked]:bg-primary transition-colors cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-6"></div>
+</div>
+<span class="font-title-sm text-sm">Notification Enabled</span>
+</div>
+</div>
+</form>
+<div class="px-lg py-md border-t border-outline-variant bg-surface-container flex justify-end gap-md">
+<button class="px-lg py-2 rounded-xl text-secondary border border-outline-variant hover:bg-surface-container-high transition-all" onclick="document.getElementById('modal-overlay').classList.add('hidden')">Cancel</button>
+<button class="bg-primary text-on-primary px-lg py-2 rounded-xl font-bold hover:brightness-110 active:scale-95 transition-all">Create Notice</button>
+</div>
+</div>
+</div>
+<script>
+    // Simple micro-interaction for the sidebar
+    document.querySelectorAll('aside nav a').forEach(link => {
+        link.addEventListener('click', function(e) {
+            if(this.getAttribute('href') === '#') e.preventDefault();
+            document.querySelectorAll('aside nav a').forEach(l => {
+                l.classList.remove('bg-secondary-container', 'text-primary', 'before:absolute', 'before:left-0', 'before:w-1', 'before:h-2/3', 'before:bg-primary', 'before:rounded-full');
+                l.classList.add('text-secondary', 'hover:bg-surface-container-high');
+                const icon = l.querySelector('.material-symbols-outlined');
+                if(icon) icon.style.fontVariationSettings = "'FILL' 0";
+            });
+            this.classList.add('bg-secondary-container', 'text-primary', 'relative', 'before:absolute', 'before:left-0', 'before:w-1', 'before:h-2/3', 'before:bg-primary', 'before:rounded-full');
+            this.classList.remove('text-secondary', 'hover:bg-surface-container-high');
+            const activeIcon = this.querySelector('.material-symbols-outlined');
+            if(activeIcon) activeIcon.style.fontVariationSettings = "'FILL' 1";
+        });
+    });
+
+    // Close modal on escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            document.getElementById('modal-overlay').classList.add('hidden');
+        }
+    });
+
+    // Clicking outside the modal content closes it
+    document.getElementById('modal-overlay').addEventListener('click', (e) => {
+        if (e.target.id === 'modal-overlay') {
+            document.getElementById('modal-overlay').classList.add('hidden');
+        }
+    });
+</script>
+</body></html>

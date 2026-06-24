@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Role Management | SITAM Smart ERP</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "secondary": "#505f76",
+                    "tertiary-fixed": "#ffdbcd",
+                    "primary-fixed-dim": "#b4c5ff",
+                    "on-secondary-fixed": "#0b1c30",
+                    "on-surface-variant": "#434655",
+                    "tertiary-container": "#bc4800",
+                    "surface": "#f7f9fb",
+                    "secondary-fixed": "#d3e4fe",
+                    "on-surface": "#191c1e",
+                    "on-secondary-container": "#54647a",
+                    "on-tertiary-container": "#ffede6",
+                    "on-primary-container": "#eeefff",
+                    "inverse-surface": "#2d3133",
+                    "tertiary": "#943700",
+                    "on-primary-fixed-variant": "#003ea8",
+                    "surface-container-high": "#e6e8ea",
+                    "on-error-container": "#93000a",
+                    "on-background": "#191c1e",
+                    "surface-tint": "#0053db",
+                    "error-container": "#ffdad6",
+                    "secondary-container": "#d0e1fb",
+                    "on-tertiary": "#ffffff",
+                    "surface-container": "#eceef0",
+                    "on-error": "#ffffff",
+                    "error": "#ba1a1a",
+                    "surface-variant": "#e0e3e5",
+                    "primary-fixed": "#dbe1ff",
+                    "on-secondary": "#ffffff",
+                    "tertiary-fixed-dim": "#ffb596",
+                    "outline": "#737686",
+                    "on-tertiary-fixed-variant": "#7d2d00",
+                    "inverse-on-surface": "#eff1f3",
+                    "surface-dim": "#d8dadc",
+                    "primary": "#004ac6",
+                    "surface-container-lowest": "#ffffff",
+                    "on-primary": "#ffffff",
+                    "background": "#f7f9fb",
+                    "secondary-fixed-dim": "#b7c8e1",
+                    "on-primary-fixed": "#00174b",
+                    "surface-container-low": "#f2f4f6",
+                    "outline-variant": "#c3c6d7",
+                    "surface-bright": "#f7f9fb",
+                    "inverse-primary": "#b4c5ff",
+                    "primary-container": "#2563eb",
+                    "on-secondary-fixed-variant": "#38485d",
+                    "surface-container-highest": "#e0e3e5",
+                    "on-tertiary-fixed": "#360f00"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "margin": "24px",
+                    "md": "16px",
+                    "xl": "32px",
+                    "sm": "8px",
+                    "xs": "4px",
+                    "lg": "24px",
+                    "base": "8px",
+                    "container-max": "1440px",
+                    "gutter": "16px"
+            },
+            "fontFamily": {
+                    "mono-label": ["JetBrains Mono"],
+                    "label-caps": ["Inter"],
+                    "body-md": ["Inter"],
+                    "body-sm": ["Inter"],
+                    "display-lg-mobile": ["Inter"],
+                    "title-sm": ["Inter"],
+                    "headline-md": ["Inter"],
+                    "display-lg": ["Inter"]
+            },
+            "fontSize": {
+                    "mono-label": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+                    "label-caps": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "body-sm": ["13px", {"lineHeight": "18px", "fontWeight": "400"}],
+                    "display-lg-mobile": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "title-sm": ["16px", {"lineHeight": "24px", "fontWeight": "600"}],
+                    "headline-md": ["20px", {"lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "display-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f9fb;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(8px);
+            border: 1px solid #e2e8f0;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        .bento-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 24px;
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface overflow-hidden">
+<div class="flex h-screen w-full">
+<!-- SideNavBar - JSON Implementation -->
+<aside class="fixed left-0 top-0 h-screen w-60 flex flex-col bg-surface border-r border-outline-variant z-50">
+<div class="p-lg">
+<h1 class="font-display-lg text-display-lg text-primary font-extrabold tracking-tight">SITAM</h1>
+<p class="font-title-sm text-title-sm text-secondary">Admin Portal</p>
+</div>
+<nav class="flex-1 px-sm space-y-1 overflow-y-auto scrollbar-hide">
+<!-- Active Item: Role Management -->
+<a class="flex items-center gap-3 bg-secondary-container text-primary font-bold border-l-4 border-primary px-4 py-3 scale-[0.98] transition-colors duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="admin_panel_settings">admin_panel_settings</span>
+<span class="font-label-caps text-label-caps">Role Management</span>
+</a>
+<a class="flex items-center gap-3 text-secondary hover:text-primary hover:bg-surface-container-low px-4 py-3 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-label-caps text-label-caps">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 text-secondary hover:text-primary hover:bg-surface-container-low px-4 py-3 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="campaign">campaign</span>
+<span class="font-label-caps text-label-caps">Announcements</span>
+</a>
+<a class="flex items-center gap-3 text-secondary hover:text-primary hover:bg-surface-container-low px-4 py-3 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+<span class="font-label-caps text-label-caps">Fee Management</span>
+</a>
+<a class="flex items-center gap-3 text-secondary hover:text-primary hover:bg-surface-container-low px-4 py-3 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="work">work</span>
+<span class="font-label-caps text-label-caps">Placement Cell</span>
+</a>
+<a class="flex items-center gap-3 text-secondary hover:text-primary hover:bg-surface-container-low px-4 py-3 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="security">security</span>
+<span class="font-label-caps text-label-caps">Security Gate</span>
+</a>
+</nav>
+<div class="mt-auto border-t border-outline-variant p-sm space-y-1">
+<button class="w-full flex items-center justify-center gap-2 mb-4 bg-primary text-on-primary py-2 rounded-xl text-body-sm font-semibold hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined text-[18px]" data-icon="info">info</span>
+                    System Status
+                </button>
+<a class="flex items-center gap-3 text-secondary hover:text-primary hover:bg-surface-container-low px-4 py-3 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-label-caps text-label-caps">Settings</span>
+</a>
+<a class="flex items-center gap-3 text-secondary hover:text-primary hover:bg-surface-container-low px-4 py-3 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="logout">logout</span>
+<span class="font-label-caps text-label-caps">Logout</span>
+</a>
+</div>
+</aside>
+<!-- Main Canvas -->
+<main class="ml-60 flex-1 flex flex-col min-h-screen overflow-y-auto bg-surface">
+<!-- TopAppBar - JSON Implementation -->
+<header class="sticky top-0 z-40 flex justify-between items-center px-lg py-sm w-full bg-surface border-b border-outline-variant shadow-sm">
+<div class="flex items-center gap-6">
+<h2 class="font-headline-md text-headline-md font-extrabold text-on-surface">SITAM Admin</h2>
+<div class="relative w-80">
+<span class="absolute inset-y-0 left-0 pl-3 flex items-center text-outline">
+<span class="material-symbols-outlined text-[20px]" data-icon="search">search</span>
+</span>
+<input class="block w-full pl-10 pr-3 py-2 bg-surface-container-low border border-outline-variant rounded-full text-body-md focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none" placeholder="Search roles or users..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="hidden md:flex items-center gap-6 mr-4">
+<a class="text-on-surface-variant hover:text-primary font-body-md" href="#">Audit Trails</a>
+<a class="text-on-surface-variant hover:text-primary font-body-md" href="#">Reports</a>
+<a class="text-on-surface-variant hover:text-primary font-body-md" href="#">Support</a>
+</div>
+<div class="flex items-center gap-2 pr-4 border-r border-outline-variant">
+<button class="p-2 text-secondary hover:bg-surface-container-high rounded-full transition-all">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="p-2 text-secondary hover:bg-surface-container-high rounded-full transition-all">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+</button>
+<button class="p-2 text-secondary hover:bg-surface-container-high rounded-full transition-all">
+<span class="material-symbols-outlined" data-icon="help_outline">help_outline</span>
+</button>
+</div>
+<div class="flex items-center gap-3 pl-2">
+<img class="w-10 h-10 rounded-full border-2 border-primary object-cover shadow-sm" data-alt="Close up professional portrait of a senior system administrator in a clean modern office, soft high-key lighting, focused look, graying hair, wearing a navy blue blazer, neutral corporate background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCPKEe41w30j5zzasgJj-zT0mXUP3F5kiwsx154Q2ZYMZcXLqXnoRowU-8hgpnvxV14cNakFXyP0Q9BdWquIodc4mPc2KJ7VVCUhMwNcZFrBl9n-TNjRjR_fmMXh4TngDlfIbV3ojFJhMHvabSHeFu-jZVeveEBpmBaUZ9I0kucH93dGowfMVI5EKqbn_auymYBDtFPz78rIj0Vtd7pQcqjGy6ruAe72rffmoOhN2lJoDTrPgf8raQqnBYvKodVW_Z21epp-6mII-JW"/>
+</div>
+</div>
+</header>
+<!-- Page Content -->
+<div class="p-lg max-w-[1440px] mx-auto w-full">
+<!-- Header Actions -->
+<div class="flex justify-between items-end mb-lg">
+<div>
+<nav class="flex items-center gap-2 text-body-sm text-secondary mb-2">
+<span>Settings</span>
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+<span class="text-primary font-medium">Role Management</span>
+</nav>
+<h3 class="font-display-lg text-display-lg text-on-surface">Manage User Permissions</h3>
+</div>
+<button class="flex items-center gap-2 bg-primary text-on-primary px-6 py-3 rounded-xl font-semibold shadow-md hover:shadow-lg active:scale-95 transition-all">
+<span class="material-symbols-outlined" data-icon="add">add</span>
+                        Create User
+                    </button>
+</div>
+<!-- Metrics Bento Section -->
+<div class="bento-grid mb-lg">
+<div class="col-span-12 md:col-span-4 glass-card p-lg rounded-xl shadow-sm hover:shadow-md transition-all flex items-center justify-between">
+<div>
+<p class="font-label-caps text-label-caps text-secondary uppercase mb-1">Total Administrators</p>
+<h4 class="text-display-lg font-bold">14</h4>
+</div>
+<div class="bg-primary-container p-3 rounded-xl">
+<span class="material-symbols-outlined text-on-primary-container text-[32px]" data-icon="verified_user">verified_user</span>
+</div>
+</div>
+<div class="col-span-12 md:col-span-4 glass-card p-lg rounded-xl shadow-sm hover:shadow-md transition-all flex items-center justify-between">
+<div>
+<p class="font-label-caps text-label-caps text-secondary uppercase mb-1">Security Personnel</p>
+<h4 class="text-display-lg font-bold">32</h4>
+</div>
+<div class="bg-secondary-container p-3 rounded-xl">
+<span class="material-symbols-outlined text-on-secondary-container text-[32px]" data-icon="security">security</span>
+</div>
+</div>
+<div class="col-span-12 md:col-span-4 glass-card p-lg rounded-xl shadow-sm hover:shadow-md transition-all flex items-center justify-between">
+<div>
+<p class="font-label-caps text-label-caps text-secondary uppercase mb-1">Active Sessions</p>
+<h4 class="text-display-lg font-bold">128</h4>
+</div>
+<div class="bg-tertiary-fixed p-3 rounded-xl">
+<span class="material-symbols-outlined text-on-tertiary-fixed-variant text-[32px]" data-icon="bolt">bolt</span>
+</div>
+</div>
+</div>
+<!-- Roles Table Card -->
+<div class="glass-card rounded-xl overflow-hidden border-outline-variant">
+<div class="px-lg py-md border-b border-outline-variant flex justify-between items-center bg-white/50">
+<div class="flex items-center gap-4">
+<h5 class="font-title-sm text-title-sm">Active User Directory</h5>
+<span class="bg-surface-container-high text-on-surface-variant px-3 py-1 rounded-full text-mono-label">84 Records</span>
+</div>
+<div class="flex items-center gap-2">
+<button class="flex items-center gap-2 border border-outline-variant px-4 py-2 rounded-xl text-body-sm font-medium hover:bg-surface-container-low transition-all">
+<span class="material-symbols-outlined text-[18px]">filter_list</span>
+                                Filter
+                            </button>
+<button class="flex items-center gap-2 border border-outline-variant px-4 py-2 rounded-xl text-body-sm font-medium hover:bg-surface-container-low transition-all">
+<span class="material-symbols-outlined text-[18px]">download</span>
+                                Export
+                            </button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low/50">
+<th class="px-lg py-4 font-label-caps text-label-caps text-secondary uppercase">User Details</th>
+<th class="px-lg py-4 font-label-caps text-label-caps text-secondary uppercase">Access Role</th>
+<th class="px-lg py-4 font-label-caps text-label-caps text-secondary uppercase">Status</th>
+<th class="px-lg py-4 font-label-caps text-label-caps text-secondary uppercase">Last Login</th>
+<th class="px-lg py-4 font-label-caps text-label-caps text-secondary uppercase text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<!-- User Row 1 -->
+<tr class="group hover:bg-surface-container-lowest transition-all">
+<td class="px-lg py-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold">RK</div>
+<div>
+<p class="font-title-sm text-title-sm">Rajesh Kumar</p>
+<p class="text-body-sm text-secondary">rajesh.admin@sitam.edu</p>
+</div>
+</div>
+</td>
+<td class="px-lg py-4">
+<span class="inline-flex items-center px-3 py-1 rounded-full bg-primary/10 text-primary text-mono-label font-bold">SUPER_ADMIN</span>
+</td>
+<td class="px-lg py-4">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-green-500"></span>
+<span class="text-body-md font-medium text-green-700">Active</span>
+</div>
+</td>
+<td class="px-lg py-4 text-body-sm text-secondary">Today, 09:42 AM</td>
+<td class="px-lg py-4 text-right">
+<div class="flex items-center justify-end gap-1">
+<button class="p-2 text-outline hover:text-primary hover:bg-primary/10 rounded-lg transition-all" title="Edit User">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+<button class="p-2 text-outline hover:text-secondary hover:bg-secondary/10 rounded-lg transition-all" title="Reset Password">
+<span class="material-symbols-outlined text-[20px]">lock_reset</span>
+</button>
+<button class="p-2 text-outline hover:text-error hover:bg-error/10 rounded-lg transition-all" title="Deactivate User">
+<span class="material-symbols-outlined text-[20px]">block</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- User Row 2 -->
+<tr class="group hover:bg-surface-container-lowest transition-all">
+<td class="px-lg py-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-secondary/10 text-secondary flex items-center justify-center font-bold">SP</div>
+<div>
+<p class="font-title-sm text-title-sm">Suman Pandey</p>
+<p class="text-body-sm text-secondary">suman.acc@sitam.edu</p>
+</div>
+</div>
+</td>
+<td class="px-lg py-4">
+<span class="inline-flex items-center px-3 py-1 rounded-full bg-secondary/10 text-secondary text-mono-label font-bold">ACCOUNTS_ADMIN</span>
+</td>
+<td class="px-lg py-4">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-green-500"></span>
+<span class="text-body-md font-medium text-green-700">Active</span>
+</div>
+</td>
+<td class="px-lg py-4 text-body-sm text-secondary">Yesterday, 04:15 PM</td>
+<td class="px-lg py-4 text-right">
+<div class="flex items-center justify-end gap-1">
+<button class="p-2 text-outline hover:text-primary hover:bg-primary/10 rounded-lg transition-all" title="Edit User">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+<button class="p-2 text-outline hover:text-secondary hover:bg-secondary/10 rounded-lg transition-all" title="Reset Password">
+<span class="material-symbols-outlined text-[20px]">lock_reset</span>
+</button>
+<button class="p-2 text-outline hover:text-error hover:bg-error/10 rounded-lg transition-all" title="Deactivate User">
+<span class="material-symbols-outlined text-[20px]">block</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- User Row 3 -->
+<tr class="group hover:bg-surface-container-lowest transition-all">
+<td class="px-lg py-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-tertiary/10 text-tertiary flex items-center justify-center font-bold">AR</div>
+<div>
+<p class="font-title-sm text-title-sm">Anil Rao</p>
+<p class="text-body-sm text-secondary">anil.placements@sitam.edu</p>
+</div>
+</div>
+</td>
+<td class="px-lg py-4">
+<span class="inline-flex items-center px-3 py-1 rounded-full bg-tertiary-fixed text-tertiary text-mono-label font-bold">PLACEMENT_ADMIN</span>
+</td>
+<td class="px-lg py-4">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-gray-400"></span>
+<span class="text-body-md font-medium text-gray-500">Inactive</span>
+</div>
+</td>
+<td class="px-lg py-4 text-body-sm text-secondary">2 weeks ago</td>
+<td class="px-lg py-4 text-right">
+<div class="flex items-center justify-end gap-1">
+<button class="p-2 text-outline hover:text-primary hover:bg-primary/10 rounded-lg transition-all" title="Edit User">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+<button class="p-2 text-outline hover:text-secondary hover:bg-secondary/10 rounded-lg transition-all" title="Reset Password">
+<span class="material-symbols-outlined text-[20px]">lock_reset</span>
+</button>
+<button class="p-2 text-outline hover:text-error hover:bg-error/10 rounded-lg transition-all" title="Deactivate User">
+<span class="material-symbols-outlined text-[20px]">block</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- User Row 4 -->
+<tr class="group hover:bg-surface-container-lowest transition-all">
+<td class="px-lg py-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-outline/10 text-outline flex items-center justify-center font-bold">BS</div>
+<div>
+<p class="font-title-sm text-title-sm">Balbir Singh</p>
+<p class="text-body-sm text-secondary">security.main@sitam.edu</p>
+</div>
+</div>
+</td>
+<td class="px-lg py-4">
+<span class="inline-flex items-center px-3 py-1 rounded-full bg-surface-container-high text-on-surface-variant text-mono-label font-bold">SECURITY_GUARD</span>
+</td>
+<td class="px-lg py-4">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-green-500"></span>
+<span class="text-body-md font-medium text-green-700">Active</span>
+</div>
+</td>
+<td class="px-lg py-4 text-body-sm text-secondary">Today, 06:00 AM</td>
+<td class="px-lg py-4 text-right">
+<div class="flex items-center justify-end gap-1">
+<button class="p-2 text-outline hover:text-primary hover:bg-primary/10 rounded-lg transition-all" title="Edit User">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+<button class="p-2 text-outline hover:text-secondary hover:bg-secondary/10 rounded-lg transition-all" title="Reset Password">
+<span class="material-symbols-outlined text-[20px]">lock_reset</span>
+</button>
+<button class="p-2 text-outline hover:text-error hover:bg-error/10 rounded-lg transition-all" title="Deactivate User">
+<span class="material-symbols-outlined text-[20px]">block</span>
+</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="p-lg bg-surface-container-low/30 flex justify-between items-center">
+<span class="text-body-sm text-secondary">Showing 1 to 10 of 84 results</span>
+<div class="flex items-center gap-1">
+<button class="w-10 h-10 flex items-center justify-center border border-outline-variant rounded-lg hover:bg-white transition-all disabled:opacity-50" disabled="">
+<span class="material-symbols-outlined text-[20px]">chevron_left</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center bg-primary text-on-primary rounded-lg shadow-sm">1</button>
+<button class="w-10 h-10 flex items-center justify-center border border-outline-variant rounded-lg hover:bg-white transition-all">2</button>
+<button class="w-10 h-10 flex items-center justify-center border border-outline-variant rounded-lg hover:bg-white transition-all">3</button>
+<span class="px-2">...</span>
+<button class="w-10 h-10 flex items-center justify-center border border-outline-variant rounded-lg hover:bg-white transition-all">9</button>
+<button class="w-10 h-10 flex items-center justify-center border border-outline-variant rounded-lg hover:bg-white transition-all">
+<span class="material-symbols-outlined text-[20px]">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Footer Contextual Help -->
+<div class="mt-xl grid grid-cols-1 md:grid-cols-2 gap-lg">
+<div class="glass-card p-lg rounded-xl flex gap-4 items-start bg-blue-50/30">
+<div class="bg-primary-container p-2 rounded-lg shrink-0">
+<span class="material-symbols-outlined text-on-primary-container" data-icon="shield">shield</span>
+</div>
+<div>
+<h6 class="font-title-sm text-title-sm mb-1">RBAC Policy Enforcement</h6>
+<p class="text-body-sm text-secondary">Role-Based Access Control is enforced globally. Changes to roles will affect user permissions immediately after their next session synchronization.</p>
+<a class="text-primary font-semibold text-body-sm mt-2 inline-flex items-center gap-1 hover:underline" href="#">
+                                View Policy Docs
+                                <span class="material-symbols-outlined text-[14px]">open_in_new</span>
+</a>
+</div>
+</div>
+<div class="glass-card p-lg rounded-xl flex gap-4 items-start">
+<div class="bg-secondary-container p-2 rounded-lg shrink-0">
+<span class="material-symbols-outlined text-on-secondary-container" data-icon="history_edu">history_edu</span>
+</div>
+<div>
+<h6 class="font-title-sm text-title-sm mb-1">Recent Audit logs</h6>
+<p class="text-body-sm text-secondary">Super Admin Rajesh Kumar created 2 new placement officer accounts and reset 5 passwords in the last 24 hours.</p>
+<a class="text-primary font-semibold text-body-sm mt-2 inline-flex items-center gap-1 hover:underline" href="#">
+                                Full Audit Trail
+                                <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
+</a>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+<!-- Micro-interaction Script -->
+<script>
+        document.querySelectorAll('button').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                let x = e.clientX - e.target.offsetLeft;
+                let y = e.clientY - e.target.offsetTop;
+                let ripples = document.createElement('span');
+                ripples.style.left = x + 'px';
+                ripples.style.top = y + 'px';
+                this.appendChild(ripples);
+                setTimeout(() => { ripples.remove() }, 1000);
+            });
+        });
+    </script>
+</body></html>
