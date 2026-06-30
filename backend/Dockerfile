@@ -17,9 +17,6 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY prisma ./prisma
-# Use the PostgreSQL schema in production — overwrite the SQLite default
-# so that npx prisma generate produces a PostgreSQL client.
-RUN cp prisma/schema.postgresql.prisma prisma/schema.prisma
 RUN npx prisma generate
 
 # ─── Stage 2: Runtime ─────────────────────────────────────────────────────────
@@ -74,12 +71,6 @@ COPY --chown=node:node . .
 # Must come AFTER the source COPY so nothing overwrites it.
 COPY --from=builder --chown=node:node /build/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder --chown=node:node /build/node_modules/@prisma  ./node_modules/@prisma
-
-# Overwrite the SQLite schema.prisma (brought in by COPY . .) with the
-# PostgreSQL schema from the builder stage so that `prisma db push` at
-# container startup targets the Railway PostgreSQL plugin, not an ephemeral
-# in-container SQLite file that disappears on every redeploy.
-COPY --from=builder --chown=node:node /build/prisma/schema.prisma ./prisma/schema.prisma
 
 # Create the logs directory and give the node user full ownership of /usr/src/app
 # before dropping privileges. winston-daily-rotate-file needs to mkdir logs/ at startup.
