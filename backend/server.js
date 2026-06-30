@@ -369,8 +369,16 @@ try {
         env: { ...process.env }
     });
     logger.info('[DB-Init] Database schema sync successful.');
+
+    logger.info('[DB-Init] Seeding default administrative accounts...');
+    execSync('node scripts/seed-admin.js', {
+        cwd: __dirname,
+        stdio: 'inherit',
+        env: { ...process.env }
+    });
+    logger.info('[DB-Init] Database seeding successful.');
 } catch (err) {
-    logger.error(`[DB-Init] Database schema sync failed: ${err.message}`);
+    logger.error(`[DB-Init] Database initialization/seeding failed: ${err.message}`);
 }
 
 // ─── Startup Puppeteer Validation ────────────────────────────────────────────

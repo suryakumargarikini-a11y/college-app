@@ -58,10 +58,15 @@ async function main() {
         for (const adminData of admins) {
             const existing = await prisma.admin.findUnique({ where: { email: adminData.email } });
             if (existing) {
-                // Ensure correct role and status
+                // Ensure correct role, status, and password hash are synchronized
                 await prisma.admin.update({
                     where: { email: adminData.email },
-                    data: { role: adminData.role, name: adminData.name }
+                    data: {
+                        role: adminData.role,
+                        name: adminData.name,
+                        passwordHash: hashPassword(adminData.password),
+                        isActive: true
+                    }
                 });
                 console.log(`[Seed] Admin updated/verified: ${adminData.email} (${adminData.role})`);
             } else {
