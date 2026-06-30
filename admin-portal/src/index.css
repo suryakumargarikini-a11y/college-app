@@ -1,50 +1,202 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  * { box-sizing: border-box; }
-  body { font-family: 'Inter', system-ui, sans-serif; }
+/* ─── CSS Custom Properties ───────────────────────────────────────────────── */
+:root {
+  --sidebar-width: 240px;
+  --sidebar-collapsed-width: 64px;
+  --topbar-height: 56px;
+
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-light: #eff6ff;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.07), 0 1px 2px -1px rgb(0 0 0 / 0.07);
+  --shadow-md: 0 4px 12px 0 rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+  --shadow-lg: 0 8px 24px 0 rgb(0 0 0 / 0.10), 0 4px 8px -4px rgb(0 0 0 / 0.06);
+  --shadow-card: 0 0 0 1px rgb(0 0 0 / 0.05), 0 2px 8px 0 rgb(0 0 0 / 0.06);
+
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* ─── Base ────────────────────────────────────────────────────────────────── */
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background-color: #f8fafc;
+    color: #111827;
+    line-height: 1.5;
+  }
+
+  /* Smooth scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+}
+
+/* ─── Components ──────────────────────────────────────────────────────────── */
 @layer components {
+
+  /* Buttons */
   .btn-primary {
-    @apply bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center justify-center gap-2 bg-blue-600 text-white
+           px-4 py-2 rounded-lg text-sm font-semibold
+           hover:bg-blue-700 active:scale-[0.97]
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2
+           transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none;
   }
   .btn-secondary {
-    @apply bg-white text-gray-700 px-4 py-2 rounded-lg font-medium border border-gray-300 hover:bg-gray-50 transition-colors;
+    @apply inline-flex items-center justify-center gap-2 bg-white text-gray-700
+           px-4 py-2 rounded-lg text-sm font-semibold border border-gray-200
+           hover:bg-gray-50 hover:border-gray-300 active:scale-[0.97]
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 focus-visible:ring-offset-2
+           transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed;
   }
   .btn-danger {
-    @apply bg-red-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-red-700 transition-colors;
+    @apply inline-flex items-center justify-center gap-2 bg-red-600 text-white
+           px-4 py-2 rounded-lg text-sm font-semibold
+           hover:bg-red-700 active:scale-[0.97]
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2
+           transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed;
   }
   .btn-success {
-    @apply bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700 transition-colors;
+    @apply inline-flex items-center justify-center gap-2 bg-emerald-600 text-white
+           px-4 py-2 rounded-lg text-sm font-semibold
+           hover:bg-emerald-700 active:scale-[0.97]
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2
+           transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed;
   }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-1.5 text-gray-600
+           px-2.5 py-1.5 rounded-md text-sm font-medium
+           hover:bg-gray-100 hover:text-gray-900 active:scale-[0.97]
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400
+           transition-all duration-150;
+  }
+  .btn-icon {
+    @apply inline-flex items-center justify-center w-8 h-8 rounded-md text-gray-500
+           hover:bg-gray-100 hover:text-gray-700 active:scale-[0.97]
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400
+           transition-all duration-150;
+  }
+
+  /* Inputs */
   .input-field {
-    @apply w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent;
+    @apply w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900
+           bg-white placeholder:text-gray-400
+           focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500
+           transition-all duration-150 disabled:bg-gray-50 disabled:text-gray-400;
   }
+
+  /* Cards */
   .card {
-    @apply bg-white rounded-xl border border-gray-200 shadow-sm;
+    @apply bg-white rounded-xl border border-gray-200;
+    box-shadow: var(--shadow-card);
   }
-  .badge-draft { @apply px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600; }
-  .badge-published { @apply px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700; }
-  .badge-closed { @apply px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700; }
-  .badge-pending { @apply px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700; }
-  .badge-approved { @apply px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700; }
-  .badge-rejected { @apply px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700; }
-  .badge-used { @apply px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-500; }
-  .badge-high { @apply px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700; }
-  .badge-normal { @apply px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-600; }
-  .badge-low { @apply px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-500; }
-  .badge-active { @apply px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700; }
-  .badge-inactive { @apply px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-500; }
+  .card-hover {
+    @apply card hover:border-gray-300 hover:shadow-md transition-all duration-200 cursor-pointer;
+  }
+
+  /* Sidebar Links */
   .sidebar-link {
-    @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors;
+    @apply flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium
+           transition-all duration-150 relative select-none;
   }
   .sidebar-link-active {
-    @apply bg-blue-50 text-blue-700;
+    @apply bg-blue-50 text-blue-700 font-semibold;
   }
   .sidebar-link-inactive {
     @apply text-gray-600 hover:bg-gray-100 hover:text-gray-900;
   }
+
+  /* Badges */
+  .badge {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border;
+  }
+  .badge-draft    { @apply badge bg-gray-50  text-gray-600  border-gray-200;  }
+  .badge-published{ @apply badge bg-green-50 text-green-700 border-green-200; }
+  .badge-closed   { @apply badge bg-red-50   text-red-700   border-red-200;   }
+  .badge-pending  { @apply badge bg-amber-50 text-amber-700 border-amber-200; }
+  .badge-approved { @apply badge bg-blue-50  text-blue-700  border-blue-200;  }
+  .badge-rejected { @apply badge bg-red-50   text-red-600   border-red-200;   }
+  .badge-used     { @apply badge bg-gray-50  text-gray-500  border-gray-200;  }
+  .badge-high     { @apply badge bg-red-50   text-red-700   border-red-200;   }
+  .badge-normal   { @apply badge bg-blue-50  text-blue-600  border-blue-200;  }
+  .badge-low      { @apply badge bg-gray-50  text-gray-500  border-gray-200;  }
+  .badge-active   { @apply badge bg-green-50 text-green-700 border-green-200; }
+  .badge-inactive { @apply badge bg-gray-50  text-gray-500  border-gray-200;  }
+  .badge-upcoming { @apply badge bg-violet-50 text-violet-700 border-violet-200; }
+  .badge-expired  { @apply badge bg-orange-50 text-orange-700 border-orange-200; }
+
+  /* Table */
+  .table-wrapper { @apply overflow-x-auto w-full; }
+  .table-base    { @apply w-full text-sm border-collapse; }
+  .th            { @apply px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide bg-gray-50 border-b border-gray-200 whitespace-nowrap; }
+  .td            { @apply px-4 py-3 text-sm text-gray-700 align-top; }
+  .tr-hover      { @apply hover:bg-gray-50/70 transition-colors duration-100 border-b border-gray-100 last:border-0; }
+
+  /* Skeleton shimmer */
+  .skeleton {
+    @apply bg-gray-200 rounded animate-pulse;
+  }
+  .skeleton-text { @apply skeleton h-4 w-full rounded; }
+  .skeleton-sm   { @apply skeleton h-3; }
+}
+
+/* ─── Utilities ───────────────────────────────────────────────────────────── */
+@layer utilities {
+  .text-balance { text-wrap: balance; }
+
+  /* Sidebar collapse transition */
+  .sidebar-transition { transition: width var(--transition-slow), transform var(--transition-slow); }
+
+  /* Content margin driven by CSS variable */
+  .content-offset {
+    margin-left: var(--sidebar-width);
+    transition: margin-left var(--transition-slow);
+  }
+  .content-offset-collapsed {
+    margin-left: var(--sidebar-collapsed-width);
+  }
+
+  /* Toast slide-in */
+  @keyframes slide-in-right {
+    from { transform: translateX(110%); opacity: 0; }
+    to   { transform: translateX(0);    opacity: 1; }
+  }
+  @keyframes slide-out-right {
+    from { transform: translateX(0);    opacity: 1; }
+    to   { transform: translateX(110%); opacity: 0; }
+  }
+  .toast-enter { animation: slide-in-right 0.25s ease forwards; }
+  .toast-exit  { animation: slide-out-right 0.2s ease forwards; }
+
+  /* Modal scale-in */
+  @keyframes modal-in {
+    from { transform: scale(0.95); opacity: 0; }
+    to   { transform: scale(1);    opacity: 1; }
+  }
+  .modal-animate { animation: modal-in 0.18s ease forwards; }
+
+  /* Subtle fade-in */
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .fade-in { animation: fade-in 0.2s ease forwards; }
 }

@@ -1,18 +1,28 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import AdminLayout from './layouts/AdminLayout';
-import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import Announcements from './pages/Announcements';
-import Placements from './pages/Placements';
-import FeeNotices from './pages/FeeNotices';
-import ExitPasses from './pages/ExitPasses';
-import Notifications from './pages/Notifications';
-import Settings from './pages/Settings';
-import SecurityDashboard from './pages/SecurityDashboard';
-import SecurityVerifyOtp from './pages/SecurityVerifyOtp';
-import SecurityHistory from './pages/SecurityHistory';
 import { authStore } from './store/authStore';
+
+/* ── Lazy-loaded pages (code splitting) ── */
+const Login             = lazy(() => import('./pages/Login'));
+const Dashboard         = lazy(() => import('./pages/Dashboard'));
+const Announcements     = lazy(() => import('./pages/Announcements'));
+const Placements        = lazy(() => import('./pages/Placements'));
+const FeeNotices        = lazy(() => import('./pages/FeeNotices'));
+const ExitPasses        = lazy(() => import('./pages/ExitPasses'));
+const Notifications     = lazy(() => import('./pages/Notifications'));
+const Settings          = lazy(() => import('./pages/Settings'));
+const SecurityDashboard = lazy(() => import('./pages/SecurityDashboard'));
+const SecurityVerifyOtp = lazy(() => import('./pages/SecurityVerifyOtp'));
+const SecurityHistory   = lazy(() => import('./pages/SecurityHistory'));
+
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+}
 
 function ProtectedRoute({ children, allowedRoles }) {
   if (!authStore.isAuthenticated()) {
@@ -52,6 +62,7 @@ function RootRedirect() {
 
 export default function App() {
   return (
+    <Suspense fallback={<PageLoader />}>
     <Routes>
       <Route
         path="/login"
@@ -151,5 +162,6 @@ export default function App() {
       </Route>
       <Route path="/" element={<RootRedirect />} />
     </Routes>
+    </Suspense>
   );
 }

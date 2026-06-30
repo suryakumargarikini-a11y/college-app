@@ -1,9 +1,9 @@
 {
   "artifactName": "server",
-  "artifactHash": "e4854ce9a0f01f1a38b98bfde36cb4d62077f656935d09ed62724beaed1549d9",
-  "signature": "67c8d00abb6def94c6ce209784761a6e365d945e7cdecb3cae579e31b2cd85b2",
+  "artifactHash": "b602129fdad5e04200297b580756db16406780fd9edb81dc31a7cf3bb6713aab",
+  "signature": "a1fe15dcc24e829c63b1c9b2807126c9b89a5877768a6546c38dd88c72dba847",
   "algorithm": "HMAC-SHA256",
   "signingKeyId": "default-hmac-key",
-  "timestamp": "2026-06-13T12:38:33.688Z",
-  "provenanceId": "c757b2e6-6fad-4a45-aa6c-3814017674c6"
+  "timestamp": "2026-06-30T09:58:14.420Z",
+  "provenanceId": "1a13e908-15e8-4902-807a-b5e0b83a5ac2"
 }

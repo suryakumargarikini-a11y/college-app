@@ -79,7 +79,7 @@ export default function SecurityVerifyOtp() {
   };
 
   return (
-    <div className="space-y-6 select-none max-w-4xl mx-auto">
+    <div className="space-y-6 select-none max-w-4xl mx-auto fade-in">
       {/* Header */}
       <div>
         <h2 className="text-2xl font-bold text-gray-900">Security Gate OTP Verification</h2>
