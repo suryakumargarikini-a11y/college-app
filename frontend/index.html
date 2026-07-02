@@ -457,6 +457,9 @@ input, textarea {
            <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping"></span>
            <span>Live</span>
         </div>
+        <button id="search-btn" class="p-2 hover:bg-slate-100/50 transition-all active:scale-95 duration-200 rounded-full text-slate-500 hover:text-blue-600 relative" onclick="toggleSearchOverlay(true)" title="Search">
+          <span class="material-symbols-outlined">search</span>
+        </button>
         <button id="sync-btn" class="p-2 hover:bg-slate-100/50 transition-all active:scale-95 duration-200 rounded-full text-slate-500 hover:text-blue-600 relative" title="Sync Data">
           <span class="material-symbols-outlined">sync</span>
         </button>
@@ -478,25 +481,25 @@ input, textarea {
       <span class="material-symbols-outlined dock-icon">home</span>
       <span class="dock-label">Home</span>
     </a>
-    <a data-nav="attendance" data-nav-link="attendance" href="#" id="dock-attendance"
-       class="dock-item bottom-nav-item" aria-label="Attendance">
-      <span class="material-symbols-outlined dock-icon">calendar_today</span>
-      <span class="dock-label">Attend</span>
+    <a data-nav="academics" data-nav-link="academics" href="#" id="dock-academics"
+       class="dock-item bottom-nav-item" aria-label="Academics">
+      <span class="material-symbols-outlined dock-icon">school</span>
+      <span class="dock-label">Academics</span>
     </a>
-    <a data-nav="timetable" data-nav-link="timetable" href="#" id="dock-timetable"
-       class="dock-item bottom-nav-item" aria-label="Timetable">
-      <span class="material-symbols-outlined dock-icon">schedule</span>
-      <span class="dock-label">Schedule</span>
+    <a data-nav="career" data-nav-link="career" href="#" id="dock-career"
+       class="dock-item bottom-nav-item" aria-label="Career">
+      <span class="material-symbols-outlined dock-icon">work</span>
+      <span class="dock-label">Career</span>
     </a>
-    <a data-nav="syllabus" data-nav-link="syllabus" href="#" id="dock-syllabus"
-       class="dock-item bottom-nav-item" aria-label="Syllabus">
-      <span class="material-symbols-outlined dock-icon">auto_stories</span>
-      <span class="dock-label">Syllabus</span>
+    <a data-nav="services" data-nav-link="services" href="#" id="dock-services"
+       class="dock-item bottom-nav-item" aria-label="Services">
+      <span class="material-symbols-outlined dock-icon">apps</span>
+      <span class="dock-label">Services</span>
     </a>
-    <a data-nav="marks" data-nav-link="marks" href="#" id="dock-marks"
-       class="dock-item bottom-nav-item" aria-label="Marks">
-      <span class="material-symbols-outlined dock-icon">analytics</span>
-      <span class="dock-label">Marks</span>
+    <a data-nav="profile" data-nav-link="profile" href="#" id="dock-profile"
+       class="dock-item bottom-nav-item" aria-label="Profile">
+      <span class="material-symbols-outlined dock-icon">person</span>
+      <span class="dock-label">Profile</span>
     </a>
   </nav>
 
@@ -533,44 +536,48 @@ input, textarea {
 
   <nav class="flex-1 overflow-y-auto space-y-6 pr-2 hide-scrollbar">
     <div class="space-y-2">
-      <div class="px-3 py-1"><span class="text-[11px] uppercase tracking-widest font-bold text-[#2563EB]">Academics</span></div>
+      <div class="px-3 py-1"><span class="text-[11px] uppercase tracking-widest font-bold text-[#2563EB]">Main</span></div>
       <div class="space-y-1">
         <a href="#" data-nav="dashboard" data-nav-link="dashboard" class="flex items-center gap-3 px-4 py-3.5 rounded-xl text-slate-500 hover:bg-blue-50 hover:text-blue-700 transition-all duration-300">
           <span class="material-symbols-outlined text-[20px]">grid_view</span>
           <span class="text-[13px] font-bold tracking-wide uppercase">Dashboard</span>
         </a>
-        <a href="#" data-nav="timetable" data-nav-link="timetable" class="flex items-center gap-3 px-4 py-3.5 rounded-xl text-slate-500 hover:bg-blue-50 hover:text-blue-700 transition-all duration-300">
-          <span class="material-symbols-outlined text-[20px]">schedule</span>
-          <span class="text-[13px] font-bold tracking-wide uppercase">Weekly Schedule</span>
+        <a href="#" data-nav="academics" data-nav-link="academics" class="flex items-center gap-3 px-4 py-3.5 rounded-xl text-slate-500 hover:bg-blue-50 hover:text-blue-700 transition-all duration-300">
+          <span class="material-symbols-outlined text-[20px]">school</span>
+          <span class="text-[13px] font-bold tracking-wide uppercase">Academics</span>
         </a>
-        <a href="#" data-nav="syllabus" data-nav-link="syllabus" class="flex items-center gap-3 px-4 py-3.5 rounded-xl text-slate-500 hover:bg-blue-50 hover:text-blue-700 transition-all duration-300">
-          <span class="material-symbols-outlined text-[20px]">auto_stories</span>
-          <span class="text-[13px] font-bold tracking-wide uppercase">Curriculum &amp; Syllabus</span>
+        <a href="#" data-nav="career" data-nav-link="career" class="flex items-center gap-3 px-4 py-3.5 rounded-xl text-slate-500 hover:bg-blue-50 hover:text-blue-700 transition-all duration-300">
+          <span class="material-symbols-outlined text-[20px]">work</span>
+          <span class="text-[13px] font-bold tracking-wide uppercase">Career</span>
         </a>
-        <a href="#" data-nav="marks" data-nav-link="marks" class="flex items-center gap-3 px-4 py-3.5 rounded-xl text-slate-500 hover:bg-blue-50 hover:text-blue-700 transition-all duration-300">
-          <span class="material-symbols-outlined text-[20px]" style="font-variation-settings:'FILL' 1;">grade</span>
-          <span class="text-[13px] font-bold tracking-wide uppercase">Marks &amp; Results</span>
-        </a>
-        <a href="#" data-nav="attendance" data-nav-link="attendance" class="flex items-center gap-3 px-4 py-3.5 rounded-xl text-slate-500 hover:bg-blue-50 hover:text-blue-700 transition-all duration-300">
-          <span class="material-symbols-outlined text-[20px]">calendar_today</span>
-          <span class="text-[13px] font-bold tracking-wide uppercase">Attendance</span>
-        </a>
-        <a href="#" data-nav="assignments" data-nav-link="assignments" class="flex items-center gap-3 px-4 py-3.5 rounded-xl text-slate-500 hover:bg-blue-50 hover:text-blue-700 transition-all duration-300">
-          <span class="material-symbols-outlined text-[20px]">assignment_turned_in</span>
-          <span class="text-[13px] font-bold tracking-wide uppercase">Assignments</span>
-        </a>
-        <a href="#" data-nav="notifications" data-nav-link="notifications" class="flex items-center gap-3 px-4 py-3.5 rounded-xl text-slate-500 hover:bg-blue-50 hover:text-blue-700 transition-all duration-300">
-          <span class="material-symbols-outlined text-[20px]">notifications</span>
-          <span class="text-[13px] font-bold tracking-wide uppercase">Announcements</span>
+        <a href="#" data-nav="services" data-nav-link="services" class="flex items-center gap-3 px-4 py-3.5 rounded-xl text-slate-500 hover:bg-blue-50 hover:text-blue-700 transition-all duration-300">
+          <span class="material-symbols-outlined text-[20px]">apps</span>
+          <span class="text-[13px] font-bold tracking-wide uppercase">Services</span>
         </a>
       </div>
     </div>
     <div class="space-y-2">
-      <div class="px-3 py-1"><span class="text-[11px] uppercase tracking-widest font-bold text-[#2563EB]">Finance</span></div>
+      <div class="px-3 py-1"><span class="text-[11px] uppercase tracking-widest font-bold text-[#2563EB]">Services</span></div>
       <div class="space-y-1">
-        <a href="#" data-nav="fees" data-nav-link="fees" class="flex items-center gap-3 px-4 py-3.5 rounded-xl text-slate-500 hover:bg-blue-50 hover:text-blue-700 transition-all duration-300">
-          <span class="material-symbols-outlined text-[20px]">account_balance_wallet</span>
-          <span class="text-[13px] font-bold tracking-wide uppercase">Fees &amp; Payments</span>
+        <a href="#" data-nav="exit-pass" data-nav-link="exit-pass" class="flex items-center gap-3 px-4 py-3.5 rounded-xl text-slate-500 hover:bg-blue-50 hover:text-blue-700 transition-all duration-300">
+          <span class="material-symbols-outlined text-[20px]">badge</span>
+          <span class="text-[13px] font-bold tracking-wide uppercase">Exit Pass</span>
+        </a>
+        <a href="#" data-nav="survey" data-nav-link="survey" class="flex items-center gap-3 px-4 py-3.5 rounded-xl text-slate-500 hover:bg-blue-50 hover:text-blue-700 transition-all duration-300">
+          <span class="material-symbols-outlined text-[20px]">poll</span>
+          <span class="text-[13px] font-bold tracking-wide uppercase">Surveys</span>
+        </a>
+        <a href="#" data-nav="announcements" data-nav-link="announcements" class="flex items-center gap-3 px-4 py-3.5 rounded-xl text-slate-500 hover:bg-blue-50 hover:text-blue-700 transition-all duration-300">
+          <span class="material-symbols-outlined text-[20px]">campaign</span>
+          <span class="text-[13px] font-bold tracking-wide uppercase">Announcements</span>
+        </a>
+        <a href="#" data-nav="lost-found" data-nav-link="lost-found" class="flex items-center gap-3 px-4 py-3.5 rounded-xl text-slate-500 hover:bg-blue-50 hover:text-blue-700 transition-all duration-300">
+          <span class="material-symbols-outlined text-[20px]">search</span>
+          <span class="text-[13px] font-bold tracking-wide uppercase">Lost &amp; Found</span>
+        </a>
+        <a href="#" data-nav="help" data-nav-link="help" class="flex items-center gap-3 px-4 py-3.5 rounded-xl text-slate-500 hover:bg-blue-50 hover:text-blue-700 transition-all duration-300">
+          <span class="material-symbols-outlined text-[20px]">support_agent</span>
+          <span class="text-[13px] font-bold tracking-wide uppercase">Help Desk</span>
         </a>
       </div>
     </div>
@@ -580,19 +587,6 @@ input, textarea {
         <a href="#" data-nav="profile" data-nav-link="profile" class="flex items-center gap-3 px-4 py-3.5 rounded-xl text-slate-500 hover:bg-blue-50 hover:text-blue-700 transition-all duration-300">
           <span class="material-symbols-outlined text-[20px]">manage_accounts</span>
           <span class="text-[13px] font-bold tracking-wide uppercase">Profile</span>
-        </a>
-      </div>
-    </div>
-    <div class="space-y-2">
-      <div class="px-3 py-1"><span class="text-[11px] uppercase tracking-widest font-bold text-[#2563EB]">Legal</span></div>
-      <div class="space-y-1">
-        <a href="#" onclick="closeDrawer(); router.navigate('/privacy'); return false;" class="flex items-center gap-3 px-4 py-3.5 rounded-xl text-slate-500 hover:bg-blue-50 hover:text-blue-700 transition-all duration-300">
-          <span class="material-symbols-outlined text-[20px]">policy</span>
-          <span class="text-[13px] font-bold tracking-wide uppercase">Privacy Policy</span>
-        </a>
-        <a href="#" onclick="closeDrawer(); router.navigate('/terms'); return false;" class="flex items-center gap-3 px-4 py-3.5 rounded-xl text-slate-500 hover:bg-blue-50 hover:text-blue-700 transition-all duration-300">
-          <span class="material-symbols-outlined text-[20px]">gavel</span>
-          <span class="text-[13px] font-bold tracking-wide uppercase">Terms of Service</span>
         </a>
       </div>
     </div>
@@ -645,7 +639,7 @@ input, textarea {
 <!-- ===== OFFLINE ALERT BANNER ===== -->
 <div id="offline-banner" class="fixed top-0 left-0 w-full z-[110] bg-error/95 backdrop-blur-xl text-white px-4 py-2 text-center text-xs font-bold tracking-wide transition-all duration-300 transform -translate-y-full shadow-md flex items-center justify-center gap-2">
   <span class="material-symbols-outlined text-base animate-pulse">cloud_off</span>
-  <span>SITAM Campus is currently Offline. Operating on secure cached record.</span>
+  <span>⚠ Offline Mode — Showing cached data — Sync when connected</span>
 </div>
 
 <!-- ===== LOADING OVERLAY ===== -->
@@ -656,6 +650,20 @@ input, textarea {
 
 <!-- ===== FLOATING TOAST NOTIFICATIONS ===== -->
 <div id="toast-container" class="fixed bottom-24 right-6 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none"></div>
+
+<!-- ===== GLOBAL SEARCH OVERLAY ===== -->
+<div id="search-overlay" class="fixed inset-0 bg-[#F8FAFC]/97 backdrop-blur-lg z-[130] flex flex-col hidden opacity-0 transition-opacity duration-300">
+  <div class="px-6 py-4 flex items-center gap-4 border-b border-slate-200/80 bg-white shadow-sm">
+    <span class="material-symbols-outlined text-slate-400">search</span>
+    <input type="text" id="global-search-input" placeholder="Search subject, faculty, company, survey, ticket, etc..." class="flex-1 text-sm text-slate-800 bg-transparent outline-none placeholder:text-slate-400" />
+    <button onclick="toggleSearchOverlay(false)" class="p-2 hover:bg-slate-100 rounded-full transition-colors active:scale-95 duration-200">
+      <span class="material-symbols-outlined text-slate-500">close</span>
+    </button>
+  </div>
+  <div class="flex-1 overflow-y-auto px-6 py-4 space-y-6" id="search-results-container">
+    <div class="text-center py-16 text-slate-400 text-xs font-bold uppercase tracking-wider">Type to start searching...</div>
+  </div>
+</div>
 
 <script src="./config.js"></script>
 <script src="./db.js"></script>

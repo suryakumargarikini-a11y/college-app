@@ -9,5 +9,8 @@ router.use('/fee-notices',   require('./feeNotices'));
 router.use('/exit-passes',   require('./exitPasses'));
 router.use('/notifications', require('./notifications'));
 router.use('/settings',      require('./settings'));
+router.use('/surveys',       require('./surveys'));
+router.use('/help-desk',     require('./helpDesk'));
+router.use('/lost-found',    require('./lostFound'));
 
 module.exports = router;

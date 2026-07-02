@@ -4,9 +4,9 @@
   "webDir": "frontend",
   "bundledWebRuntime": false,
   "server": {
-    "androidScheme": "http",
+    "androidScheme": "https",
     "allowNavigation": [
-      "college-app-production-0fd2.up.railway.app"
+      "college-app-bx6b.onrender.com"
     ]
   },
   "plugins": {

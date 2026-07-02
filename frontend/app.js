@@ -1381,28 +1381,28 @@ const pages = {
             // Time-based greeting
             const hour = new Date().getHours();
             const greeting = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening';
-            const greetEmoji = '\u{1F44B}'; // wave hand emoji
-            // Set the hero date label
-            const heroDateEl = $('hero-date-label');
-            if (heroDateEl) {
-                const now = new Date();
-                const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-                const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-                heroDateEl.innerText = `${dayNames[now.getDay()]}, ${now.getDate()} ${monthNames[now.getMonth()]}`;
+            
+            const indicator = $('live-indicator');
+            if (indicator) {
+                indicator.classList.remove('scale-0', 'opacity-0');
+                indicator.classList.add('scale-100', 'opacity-100');
             }
-            api.get('/profile').then(profRes => {
-                const name = (profRes.data?.name || 'Student').split(' ')[0];
-                setEl('dash-greeting', 'innerText', `${greetEmoji} ${greeting}, ${name}`);
-                setEl('hero-sub', 'innerText', 'Ready for a productive day?');
-                setEl('drawer-name', 'innerText', profRes.data?.name || '');
-                setEl('drawer-roll', 'innerText', profRes.data?.roll || '');
+
+            const hours = new Date().getHours();
+            const greeting = hours < 12 ? 'Good Morning' : hours < 17 ? 'Good Afternoon' : 'Good Evening';
+            const greetEmoji = hours < 12 ? '🌅' : hours < 17 ? '☀️' : '🌙';
+
+            api.get('/profile').then(res => {
+                const d = res.data || {};
+                setEl('dash-greeting', 'innerText', `${greetEmoji} ${d.name || 'Student'}`);
+                setEl('hero-sub', 'innerText', `Department of ${d.branch || d.program || 'CSE'}`);
+                state.profile = d;
             }).catch(e => {
                 console.error('[Dashboard] Profile fail:', e);
-                setEl('dash-greeting', 'innerText', `${greetEmoji} ${greeting}`);
+                setEl('dash-greeting', 'innerText', `${greetEmoji} Student`);
                 setEl('hero-sub', 'innerText', 'Ready for a productive day?');
             });
 
-            // Count-up animation utility
             const animateCount = (elId, targetStr, suffix = '') => {
                 const el = $(elId);
                 if (!el) return;
@@ -1423,219 +1423,114 @@ const pages = {
                 requestAnimationFrame(tick);
             };
 
-            // Values to track and compute Academic Health Score dynamically
-            let attendancePct = null;
-            let currentCgpa = null;
-            const updateHealthScore = () => {
-                if (attendancePct !== null && currentCgpa !== null) {
-                    const score = Math.round((attendancePct * 0.4) + (currentCgpa * 10 * 0.6));
-                    animateCount('dash-health-score', score.toString(), '%');
-                }
-            };
-
-            // 2. Attendance card + hero card
             api.get('/attendance').then(attRes => {
                 const attList = attRes.attendance || [];
                 const overall = calcOverallAttendance(attList);
                 setEl('dash-att-val', 'innerText', overall.text);
                 setEl('hero-att', 'innerText', overall.text);
-                
-                attendancePct = overall.pct || 0;
-                updateHealthScore();
-
                 setTimeout(() => {
                     setEl('dash-att-bar', 'style.width', overall.text);
-                    setEl('hero-att-bar', 'style.width', overall.text);
                 }, 200);
-            }).catch(e => {
-                console.error('[Dashboard] Attendance fail:', e);
-                setEl('dash-att-val', 'innerText', '--%');
-                setEl('hero-att', 'innerText', '--%');
-                setTimeout(() => {
-                    setEl('dash-att-bar', 'style.width', '0%');
-                    setEl('hero-att-bar', 'style.width', '0%');
-                }, 200);
-            });
+            }).catch(() => {});
 
-            // 3. Results (CGPA) card + hero card
             api.get('/marks').then(marksRes => {
                 const cgpa = marksRes.data?.cgpa || '--';
                 setEl('dash-gpa-val', 'innerText', cgpa);
-                
-                currentCgpa = parseFloat(cgpa) || 0;
-                updateHealthScore();
-
-                // Count-up for hero CGPA
                 animateCount('hero-cgpa', cgpa);
-            }).catch(e => {
-                console.error('[Dashboard] Marks fail:', e);
-                setEl('dash-gpa-val', 'innerText', '--');
-                setEl('hero-cgpa', 'innerText', '--');
-            });
+            }).catch(() => {});
 
-            // 4. Assignments card + hero card
-            api.get('/assignments').then(asnRes => {
-                const asnCount = asnRes.data?.activeCount ?? 0;
-                setEl('dash-asn-count', 'innerText', asnCount.toString());
-                setEl('hero-asn', 'innerText', asnCount.toString());
-            }).catch(e => {
-                console.error('[Dashboard] Assignments fail:', e);
-                setEl('dash-asn-count', 'innerText', '0');
-                setEl('hero-asn', 'innerText', '0');
-            });
-
-            // 5. Fees card
             api.get('/fees').then(feesRes => {
                 const due = feesRes.data?.dueAmount || feesRes.data?.totalDue;
                 if (due) {
-                    setEl('dash-fee-text', 'innerText', `Due: \${due}`);
-                    api.get('/fee-notices').then(noticesRes => {
-                        const notices = noticesRes.notices || [];
-                        const warningNotice = notices.find(n => n.hallTicketBlockWarning === true);
-                        if (warningNotice) {
-                            showFeeWarningPopup(warningNotice.title, warningNotice.description);
-                        }
-                    }).catch(() => {});
+                    setEl('dash-fee-text', 'innerText', due);
                 } else {
-                    setEl('dash-fee-text', 'innerText', 'Dues & History');
+                    setEl('dash-fee-text', 'innerText', 'Cleared');
                 }
-            }).catch(e => {
-                console.error('[Dashboard] Fees fail:', e);
-                setEl('dash-fee-text', 'innerText', 'Dues & History');
-            });
+            }).catch(() => {});
 
-            // 6. Notifications notice banner
-            api.get('/notifications').then(notifRes => {
-                const notifList = notifRes.data || [];
-                const unread = Array.isArray(notifList) ? notifList.filter(n => !n.isRead).length : 0;
-                setEl('dash-notif-count', 'innerText', unread.toString());
+            api.get('/placements').then(res => {
+                const list = res.placements || [];
+                setEl('dash-placements-count', 'innerText', `${list.length} Drives`);
+            }).catch(() => {});
 
-                // Find first notice that is NOT fee-related
-                const nonFeeNotif = notifList.find(n => {
-                    const text = ((n.message || '') + ' ' + (n.title || '')).toLowerCase();
-                    return !text.includes('fee') && !text.includes('pay') && !text.includes('due') && !text.includes('tuition') && !text.includes('statement');
-                });
-                if (nonFeeNotif) {
-                    setEl('notice-text', 'innerText', nonFeeNotif.message || nonFeeNotif.title);
+            api.get('/exit-passes/my').then(res => {
+                const passes = res.data || res.passes || [];
+                const active = passes[0];
+                if (active) {
+                    setEl('dash-ep-status', 'innerText', active.status);
                 } else {
-                    const bannerSec = $('notice-banner-section');
-                    if (bannerSec) bannerSec.classList.add('hidden');
+                    setEl('dash-ep-status', 'innerText', 'Apply');
                 }
-            }).catch(e => {
-                console.error('[Dashboard] Notifications fail:', e);
-                setEl('dash-notif-count', 'innerText', '--');
-                const bannerSec = $('notice-banner-section');
-                if (bannerSec) bannerSec.classList.add('hidden');
-            });
+            }).catch(() => {});
 
-            // 7. Exams count card & Live Next Exam
-            api.get('/exams').then(examsRes => {
-                const examSchedules = examsRes.data?.schedules || [];
-                setEl('dash-exams-count', 'innerText', examSchedules.length.toString());
-
-                const examContainer = $('dash-upcoming-exam-container');
-                if (examContainer && examSchedules.length > 0) {
-                    const nextExam = examSchedules[0];
-                    examContainer.innerHTML = `
-                        <div class="glass-card p-3.5 rounded-2xl border border-white/50 shadow-sm flex items-center gap-3.5 bg-white/70 active-scale transition-transform" onclick="router.navigate('/exams')">
-                            <div class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center flex-shrink-0 border border-indigo-100">
-                                <span class="material-symbols-outlined text-[18px]">event</span>
-                            </div>
-                            <div class="min-w-0 flex-1">
-                                <p class="text-[9px] font-extrabold text-indigo-600 uppercase tracking-widest leading-none">Next Exam</p>
-                                <h4 class="text-xs font-black text-slate-800 truncate mt-1.5">${nextExam.subjectName || nextExam.subjectCode || 'Exam'}</h4>
-                                <p class="text-[10px] text-slate-500 mt-1 leading-none">${nextExam.date || ''}</p>
-                            </div>
-                        </div>
-                    `;
-                } else if (examContainer) {
-                    examContainer.innerHTML = `
-                        <div class="glass-card p-3.5 rounded-2xl border border-white/40 shadow-sm text-center bg-white/40 py-5 text-slate-400 text-[10px] font-bold">
-                            No upcoming exams
-                        </div>
-                    `;
+            api.get('/surveys').then(res => {
+                const list = res.surveys || [];
+                setEl('dash-surveys-count', 'innerText', `${list.length} Survey${list.length !== 1 ? 's' : ''}`);
+                if (list.length > 0) {
+                    $('dash-surveys-alert')?.classList.remove('hidden');
+                } else {
+                    $('dash-surveys-alert')?.classList.add('hidden');
                 }
-            }).catch(e => {
-                console.error('[Dashboard] Exams fail:', e);
-                setEl('dash-exams-count', 'innerText', '0');
-            });
+            }).catch(() => {});
 
-            // 8. Today's Timetable card & Live Next Class
+            api.get('/lost-found').then(res => {
+                const list = res.items || [];
+                setEl('dash-lf-count', 'innerText', `${list.length} Item${list.length !== 1 ? 's' : ''}`);
+            }).catch(() => {});
+
             api.get('/timetable').then(ttRes => {
                 const slots = Array.isArray(ttRes) ? ttRes : (ttRes.data || []);
                 const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
                 let day = days[new Date().getDay()];
                 if (day === 'Sunday') day = 'Monday';
-                const todaySlots = slots.filter(s => s.day === day).sort((a, b) => (a.period||0) - (b.period||0));
-                const container = $('dash-timetable');
-                if (!container) return;
-
-                const colors = ['bg-primary-container text-primary', 'bg-indigo-100 text-indigo-600', 'bg-slate-100 text-slate-600'];
-                const icons = ['terminal','calculate','language','science','menu_book','code'];
-
-                if (todaySlots.length === 0) {
-                    container.innerHTML = `<div class="min-w-full flex items-center justify-center h-24 text-slate-400 text-xs font-semibold bg-white/40 border border-white/20 rounded-2xl shadow-sm">No classes today</div>`;
-                    
-                    const classContainer = $('dash-upcoming-class-container');
-                    if (classContainer) {
-                        classContainer.innerHTML = `
-                            <div class="glass-card p-3.5 rounded-2xl border border-white/40 shadow-sm text-center bg-white/40 py-5 text-slate-400 text-[10px] font-bold">
-                                No classes today
+                
+                const todaySlots = slots.filter(s => s.day === day).sort((a, b) => (parseInt(a.period)||0) - (parseInt(b.period)||0));
+                const widget = $('dash-live-schedule-widget');
+                
+                if (widget) {
+                    if (todaySlots.length === 0) {
+                        widget.innerHTML = `
+                            <div class="glass-card p-4 border border-white/40 flex items-center justify-between bg-white/40 text-center py-6 text-slate-400 text-xs font-bold">
+                                No classes scheduled today
+                            </div>
+                        `;
+                    } else {
+                        const nextClass = todaySlots[0]; 
+                        widget.innerHTML = `
+                            <div class="glass-panel p-4 flex items-center justify-between bg-white border border-slate-200/50 hover:shadow-md transition-all cursor-pointer" onclick="router.navigate('/timetable')">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center">
+                                        <span class="material-symbols-outlined text-base">school</span>
+                                    </div>
+                                    <div>
+                                        <h4 class="text-xs font-black text-slate-800">${nextClass.subjectName || nextClass.subjectCode}</h4>
+                                        <p class="text-[10px] text-slate-400 font-bold mt-0.5">Room ${nextClass.room || 'C-204'} · ${nextClass.time || ''}</p>
+                                    </div>
+                                </div>
+                                <span class="px-2.5 py-1 bg-blue-50 text-blue-600 border border-blue-100 rounded-lg text-[9px] font-black uppercase tracking-wide">Next Class</span>
                             </div>
                         `;
                     }
-                } else {
-                    container.innerHTML = `<div class="flex gap-3">${todaySlots.map((s, i) => `
-                        <div class="min-w-[170px] bg-white/75 backdrop-blur-xl border border-white/55 p-4 rounded-2xl flex flex-col gap-2.5 shadow-[0_4px_20px_rgba(48,51,55,0.02)] active-scale transition-all" onclick="router.navigate('/timetable')">
-                            <div class="w-9 h-9 rounded-xl flex items-center justify-center ${colors[i % colors.length]}">
-                                <span class="material-symbols-outlined text-sm" style="font-variation-settings:'FILL' 1">${icons[i % icons.length]}</span>
-                            </div>
-                            <div>
-                                <p class="text-[9px] font-extrabold text-slate-400 tracking-wider">${s.subjectCode || '---'}</p>
-                                <h4 class="text-xs font-bold text-on-surface truncate">${s.subjectName || s.subjectCode || 'Class'}</h4>
-                            </div>
-                            <div class="flex flex-col gap-0.5 mt-0.5">
-                                <div class="flex items-center gap-1.5 text-[10px] text-slate-500">
-                                    <span class="material-symbols-outlined text-xs text-slate-400" style="font-size:12px">meeting_room</span>
-                                    <span class="truncate">${s.room || '--'}</span>
-                                </div>
-                                <div class="flex items-center gap-1.5 text-[10px] text-slate-500">
-                                    <span class="material-symbols-outlined text-xs text-slate-400" style="font-size:12px">person</span>
-                                    <span class="truncate">${s.facultyName || '--'}</span>
-                                </div>
-                                <div class="flex items-center gap-1.5 text-[10px] text-secondary font-extrabold">
-                                    <span class="material-symbols-outlined text-xs" style="font-size:12px">schedule</span>
-                                    <span class="truncate">${(s.time || '--').replace(/^"|"$/g, '').trim()}</span>
-                                </div>
-                            </div>
-                        </div>`).join('')}</div>`;
                 }
-            }).catch(e => {
-                console.error('[Dashboard] Timetable fail:', e);
-                const container = $('dash-timetable');
-                if (container) {
-                    container.innerHTML = `<div class="min-w-full flex items-center justify-center h-24 text-slate-400 text-xs font-semibold bg-white/40 border border-white/20 rounded-2xl shadow-sm">No classes today</div>`;
-                }
-            });
+            }).catch(() => {});
 
-            // 9. Fetch Companies on Campus Today
-            api.get('/placements').then(placeRes => {
-                const placements = placeRes.placements || [];
-                const arrivedToday = placements.filter(p => p.companyArrivedToday === true || p.companyArrivedToday === 'true');
-                const section = $('companies-today-section');
-                const list = $('companies-today-list');
-                if (section && list) {
-                    if (arrivedToday.length > 0) {
-                        section.classList.remove('hidden');
-                        list.innerHTML = arrivedToday.map(c => `
-                            <span class="px-3.5 py-1.5 bg-blue-50 text-blue-700 text-xs font-bold rounded-full border border-blue-100 uppercase tracking-wide flex items-center gap-1.5 animate-reveal">
-                                <span class="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
-                                \${c.companyName}
-                            </span>
-                        `).join('');
+            api.get('/announcements').then(res => {
+                const list = res.announcements || [];
+                const preview = list.slice(0, 2);
+                const container = $('dash-ann-list');
+                if (container) {
+                    if (preview.length === 0) {
+                        container.innerHTML = `<div class="p-4 bg-slate-50 text-center text-slate-400 text-xs font-bold uppercase rounded-xl border border-slate-100">No notices posted</div>`;
                     } else {
-                        section.classList.add('hidden');
-                    }
+                        container.innerHTML = preview.map(a => `
+                            <div class="p-3.5 bg-white/60 border border-slate-200/50 rounded-xl flex items-center gap-3 active-scale transition-colors cursor-pointer" onclick="router.navigate('/announcements')">
+                                <span class="material-symbols-outlined text-slate-400 text-base">campaign</span>
+                                <div class="min-w-0 flex-1">
+                                    <h4 class="text-xs font-extrabold text-slate-700 truncate">${a.title}</h4>
+                                    <p class="text-[10px] text-slate-400 line-clamp-1 mt-0.5">${a.description}</p>
+                                </div>
+                            </div>
+                        `).join('');
                 }
             }).catch(e => {
                 console.error('[Dashboard] Placements fetch failed:', e);
@@ -2180,14 +2075,15 @@ const pages = {
                                 </div>
                                 <div class="min-w-0 flex-1">
                                     <p class="font-bold text-on-surface text-sm leading-tight truncate" title="\${txn.title}">\${txn.title}</p>
+                                    <p class="font-bold text-on-surface text-sm leading-tight truncate" title="${txn.title}">${txn.title}</p>
                                 </div>
                             </div>
                             <div class="text-right flex-shrink-0">
-                                <p class="font-extrabold text-on-surface text-sm leading-tight">\${txn.amount}</p>
-                                <span class="text-[9px] px-2 py-0.5 \${sc} rounded-full font-bold uppercase tracking-tighter mt-1 inline-block">\${txn.status}</span>
+                                <p class="font-extrabold text-on-surface text-sm leading-tight">${txn.amount}</p>
+                                <span class="text-[9px] px-2 py-0.5 ${sc} rounded-full font-bold uppercase tracking-tighter mt-1 inline-block">${txn.status}</span>
                             </div>
                         </div>
-                        \${warningHtml}
+                        ${warningHtml}
                     </div>`;
                 }).join('');
             } catch(e) { console.error('[Fees] Error:', e); }
@@ -2198,154 +2094,186 @@ const pages = {
     // ---- PROFILE ----
     profile: {
         render: () => `<div class="min-h-screen pb-36 bg-[#F8FAFC]">
-            <main class="pt-20 px-4 max-w-lg mx-auto">
+            <main class="pt-20 px-4 max-w-lg mx-auto space-y-6">
 
                 <!-- ════════════════════════════════════ -->
                 <!-- DIGITAL STUDENT ID CARD             -->
                 <!-- ════════════════════════════════════ -->
-                <section class="mb-6">
-                    <div class="id-card p-6 sm:p-8 relative overflow-hidden" id="id-card">
-                        <!-- Card Header: Institution -->
-                        <div class="relative z-10 flex items-center justify-between mb-6">
-                            <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 bg-white/10 rounded-2xl flex items-center justify-center border border-white/20 backdrop-blur-md">
-                                    <span class="material-symbols-outlined text-white" style="font-size:20px;font-variation-settings:'FILL' 1">school</span>
-                                </div>
+                <section>
+                    <div class="id-card p-6 sm:p-7 relative overflow-hidden cursor-pointer active-scale" id="id-card-element">
+                        <div class="relative z-10 flex items-center justify-between mb-4">
+                            <div class="flex items-center gap-2">
+                                <span class="material-symbols-outlined text-white" style="font-size:22px">school</span>
                                 <div>
-                                    <p class="text-white font-extrabold text-[12px] tracking-wider uppercase leading-none">SITAM</p>
-                                    <p class="text-blue-300/80 text-[9px] font-black tracking-widest uppercase mt-1">Campus ID Card</p>
+                                    <p class="text-white font-black text-xs uppercase leading-none tracking-wide">SITAM ERP</p>
+                                    <p class="text-blue-300 text-[8px] font-black uppercase mt-0.5 tracking-widest">Digital Campus ID</p>
                                 </div>
                             </div>
-                            <!-- Holographic chip -->
                             <div class="id-chip"></div>
                         </div>
 
-                        <!-- ID Card Body: Avatar & Core Info -->
-                        <div class="relative z-10 flex flex-col items-center text-center mb-6">
-                            <!-- Large Avatar Box with double borders and glow -->
-                            <div class="relative mb-4 group">
-                                <div class="absolute inset-0 bg-gradient-to-tr from-blue-500 to-indigo-500 rounded-[2.5rem] blur-md opacity-50 group-hover:opacity-75 transition-opacity"></div>
-                                <div class="w-24 h-24 rounded-[2.2rem] bg-slate-900 border-2 border-white/25 flex items-center justify-center shadow-2xl relative overflow-hidden">
-                                    <span class="material-symbols-outlined text-white/95" style="font-size:48px">person</span>
-                                </div>
+                        <!-- ID Grid Content -->
+                        <div class="relative z-10 flex items-center gap-4 mb-4">
+                            <div class="w-20 h-20 bg-slate-900 border border-white/20 rounded-2xl flex items-center justify-center shadow-md">
+                                <span class="material-symbols-outlined text-white/95 text-4xl">person</span>
                             </div>
-
-                            <h2 class="text-white text-xl font-black leading-tight tracking-tight mb-1" id="profile-name" style="font-family:'Inter',sans-serif">--</h2>
-                            <p class="text-blue-200 font-bold font-mono tracking-widest text-xs" id="profile-roll">--</p>
-                            
-                            <!-- Dynamic Academic Badges Container -->
-                            <div class="flex flex-wrap items-center justify-center gap-1.5 mt-3.5" id="profile-badges">
-                                <span class="px-3 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-200 text-[10px] font-bold tracking-wide" id="profile-branch-badge">--</span>
-                                <span class="px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-200 text-[10px] font-bold tracking-wide" id="profile-sem-badge">Sem --</span>
-                                <span class="px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-200 text-[10px] font-bold tracking-wide hidden" id="scholar-badge">🏆 Elite Scholar</span>
-                                <span class="px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/30 text-amber-200 text-[10px] font-bold tracking-wide hidden" id="att-champion-badge">⚡ Att Champion</span>
+                            <div class="text-left text-white">
+                                <h3 class="text-base font-black tracking-tight" id="id-name">---</h3>
+                                <p class="text-xs font-bold text-blue-200 mt-0.5" id="id-roll">---</p>
+                                <p class="text-[10px] text-slate-300 mt-1" id="id-dept">Dept: CSE</p>
+                                <p class="text-[10px] text-slate-300" id="id-year">Year: 3rd Year</p>
                             </div>
-                            
-                            <!-- Compatibility stubs -->
-                            <span id="profile-branch" class="hidden"></span>
-                            <span id="profile-year" class="hidden"></span>
                         </div>
 
-                        <!-- Stats strip -->
-                        <div class="relative z-10 grid grid-cols-3 gap-2 pt-4 border-t border-white/10">
-                            <div class="text-center">
-                                <p class="text-blue-300/70 text-[9px] font-bold uppercase tracking-widest mb-1">CGPA</p>
-                                <p class="text-white text-lg font-black" id="profile-cgpa">--</p>
-                            </div>
-                            <div class="text-center border-x border-white/10">
-                                <p class="text-blue-300/70 text-[9px] font-bold uppercase tracking-widest mb-1">Semester</p>
-                                <p class="text-white text-lg font-black" id="profile-semester">--</p>
-                            </div>
-                            <div class="text-center">
-                                <p class="text-blue-300/70 text-[9px] font-bold uppercase tracking-widest mb-1">Attendance</p>
-                                <p class="text-white text-lg font-black" id="profile-att-pct">--%</p>
-                            </div>
+                        <div class="relative z-10 flex justify-between items-center pt-3 border-t border-white/10 text-[9px] text-slate-400 font-bold uppercase tracking-widest">
+                            <span id="id-validity">Validity: May 2027</span>
+                            <span class="text-blue-400 font-black">Tap to Expand</span>
                         </div>
                     </div>
                 </section>
 
-                <!-- Detail Fields -->
-                <section>
-                    <p class="text-[11px] font-extrabold uppercase tracking-widest text-slate-400 mb-3">Personal Info</p>
-                    <div class="space-y-2" id="profile-details"></div>
+                <!-- Academic Progress stats -->
+                <section class="space-y-2">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Academic Standing</h3>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="p-4 bg-white border border-slate-200/50 rounded-2xl shadow-sm">
+                            <p class="text-[9px] uppercase font-bold text-slate-400 leading-none">Attendance</p>
+                            <p class="text-xl font-black text-emerald-600 mt-1.5" id="prof-att-val">--%</p>
+                        </div>
+                        <div class="p-4 bg-white border border-slate-200/50 rounded-2xl shadow-sm">
+                            <p class="text-[9px] uppercase font-bold text-slate-400 leading-none">CGPA</p>
+                            <p class="text-xl font-black text-primary mt-1.5" id="prof-gpa-val">--</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Detailed Personal & Academic Fields -->
+                <section class="space-y-3">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Student Details</h3>
+                    <div class="space-y-2" id="profile-fields-container">
+                        <div class="h-16 bg-slate-100 rounded-xl animate-pulse"></div>
+                    </div>
                 </section>
 
                 <!-- Actions -->
-                <div class="mt-6 space-y-3">
-                    <button class="w-full flex items-center justify-center gap-3 px-4 py-4 rounded-2xl bg-red-50 text-red-600 border border-red-100 hover:bg-red-600 hover:text-white transition-all duration-300 font-bold active-scale" onclick="api.logout()">
-                        <span class="material-symbols-outlined">logout</span>
-                        <span class="uppercase tracking-widest text-sm">Sign Out</span>
-                    </button>
-                    <div class="text-center text-[10px] font-bold text-slate-400/60 uppercase tracking-widest" id="about-app-version">
-                        SITAM Campus ERP v1.0.0
+                <button class="w-full py-4 bg-rose-50 text-rose-600 border border-rose-100 rounded-2xl font-bold active-scale transition-colors hover:bg-rose-600 hover:text-white mt-4 flex items-center justify-center gap-2" onclick="api.logout()">
+                    <span class="material-symbols-outlined">logout</span> Log Out
+                </button>
+            </main>
+
+            <!-- Fullscreen expanded Digital ID Overlay -->
+            <div id="fullscreen-id-overlay" class="fixed inset-0 bg-[#0f172a] z-[150] hidden flex-col items-center justify-center p-6" onclick="closeFullscreenID()">
+                <div class="bg-gradient-to-tr from-[#0f172a] to-[#1e3a8a] border border-white/10 rounded-3xl p-6 w-full max-w-sm text-center relative overflow-hidden shadow-2xl flex flex-col justify-between min-h-[420px]" onclick="event.stopPropagation()">
+                    <div class="flex justify-between items-start">
+                        <span class="material-symbols-outlined text-white text-3xl">school</span>
+                        <div class="text-right text-white">
+                            <h3 class="text-lg font-black tracking-tight leading-none uppercase">SITAM ERP</h3>
+                            <p class="text-[9px] text-blue-300 font-extrabold uppercase mt-0.5 tracking-widest">Digital Student Passport</p>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col items-center my-6 space-y-3 text-white">
+                        <div class="w-24 h-24 bg-slate-900 border-2 border-white/20 rounded-3xl flex items-center justify-center shadow-lg relative overflow-hidden">
+                            <span class="material-symbols-outlined text-white/95 text-5xl">person</span>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-black tracking-tight" id="fs-name">---</h2>
+                            <p class="text-sm font-mono text-blue-200 mt-0.5" id="fs-roll">---</p>
+                        </div>
+                        
+                        <div class="flex flex-col gap-1 text-[11px] text-slate-300 pt-1 text-center font-medium">
+                            <p id="fs-dept">Department: Computer Science</p>
+                            <p id="fs-batch">Batch: 2024 - 2028</p>
+                            <p id="fs-adm">Admission No: ADM-2024-0098</p>
+                            <p id="fs-blood">Blood Group: B+</p>
+                            <p id="fs-emergency">Emergency: +91-9988776655</p>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-center my-2">
+                        <div class="p-2.5 bg-white rounded-xl flex items-center justify-center shadow-md">
+                            <span class="material-symbols-outlined text-slate-800 text-5xl font-light">qr_code_2</span>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-between pt-3 border-t border-white/10 text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-2">
+                        <span id="fs-validity">Valid Till: May 2027</span>
+                        <span>SITAM Registrar</span>
                     </div>
                 </div>
-            </main>
+            </div>
         </div>`,
         afterRender: async () => {
             toggleShell(true);
             setActiveNav('profile');
-            loading.show('Loading Profile...');
+            loading.show('Loading Profile details...');
             try {
                 const res = await api.get('/profile');
                 const d = res.data || {};
-                setEl('profile-name', 'innerText', d.name || '--');
-                setEl('profile-roll', 'innerText', d.roll || d.userId || '--');
-                setEl('profile-branch', 'innerText', d.branch || d.program || '--');
-                setEl('profile-cgpa', 'innerText', d.cgpa || '--');
-                setEl('profile-semester', 'innerText', (d.semester || '--').split(' ')[0] || '--');
-                setEl('profile-year', 'innerText', d.year || '--');
-                setEl('drawer-name', 'innerText', d.name || '');
-                setEl('drawer-roll', 'innerText', d.roll || '');
-                setEl('about-app-version', 'innerText', `SITAM Campus ERP v${window.APP_VERSION || '1.0.0'}`);
+                
+                state.profile = d;
 
-                // Badges logic
-                const branchText = d.branch || d.program || '--';
-                setEl('profile-branch-badge', 'innerText', branchText);
-                setEl('profile-sem-badge', 'innerText', `Sem ${(d.semester || '--').split(' ')[0]}`);
+                setEl('id-name', 'innerText', d.name || 'Student');
+                setEl('id-roll', 'innerText', d.roll || d.userId || '---');
+                setEl('id-dept', 'innerText', `Dept: ${d.branch || d.program || 'CSE'}`);
+                setEl('id-year', 'innerText', `Year: ${d.year || '3rd Year'}`);
+                
+                setEl('fs-name', 'innerText', d.name || 'Student');
+                setEl('fs-roll', 'innerText', d.roll || d.userId || '---');
+                setEl('fs-dept', 'innerText', `Department: ${d.branch || d.program || 'CSE'}`);
+                setEl('fs-batch', 'innerText', `Batch: ${d.batch || '2023 - 2027'}`);
+                setEl('fs-adm', 'innerText', `Admission No: ${d.admissionNo || 'ADM-2023-0098'}`);
+                setEl('fs-blood', 'innerText', `Blood Group: ${d.bloodGroup || 'B+'}`);
+                setEl('fs-emergency', 'innerText', `Emergency: ${d.emergencyContact || '+91-9988776655'}`);
 
-                const cgpaVal = parseFloat(d.cgpa);
-                if (!isNaN(cgpaVal) && cgpaVal >= 8.5) {
-                    $('scholar-badge')?.classList.remove('hidden');
-                }
+                $('id-card-element')?.addEventListener('click', () => {
+                    haptic();
+                    $('fullscreen-id-overlay')?.classList.remove('hidden');
+                });
 
-                // Fetch attendance for the ID card stat
+                window.closeFullscreenID = () => {
+                    $('fullscreen-id-overlay')?.classList.add('hidden');
+                };
+
                 api.get('/attendance').then(attRes => {
                     const attList = attRes.attendance || [];
                     const overall = calcOverallAttendance(attList);
-                    setEl('profile-att-pct', 'innerText', overall.text || '--%');
-                    
-                    const attPct = parseFloat(overall.text);
-                    if (!isNaN(attPct) && attPct >= 90) {
-                        $('att-champion-badge')?.classList.remove('hidden');
-                    }
+                    setEl('prof-att-val', 'innerText', overall.text);
                 }).catch(() => {});
 
-                const detailsEl = $('profile-details');
-                if (!detailsEl) return;
-                const fields = [
-                    ['person', 'Gender', d.gender],
-                    ['cake', 'Date of Birth', d.dob],
-                    ['mail', 'Email', d.email],
-                    ['phone', 'Mobile', d.phone],
-                    ['supervisor_account', 'Father', d.fatherName],
-                    ['supervisor_account', 'Mother', d.motherName],
-                    ['home', 'Hostel', d.hostel ? `${d.hostel} - Room ${d.roomNo}` : 'N/A'],
-                    ['location_on', 'Address', d.address]
-                ].filter(([, , v]) => v && v !== 'N/A');
+                api.get('/marks').then(marksRes => {
+                    setEl('prof-gpa-val', 'innerText', marksRes.data?.cgpa || '--');
+                }).catch(() => {});
 
-                detailsEl.innerHTML = fields.map(([icon, label, val]) => `
-                    <div class="flex items-center gap-4 p-4 bg-white/60 backdrop-blur-xl rounded-2xl border border-white/50 shadow-sm active-scale transition-all hover:bg-white/80">
-                        <div class="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0 border border-blue-100">
-                            <span class="material-symbols-outlined text-blue-500 text-sm">${icon}</span>
+                const list = $('profile-fields-container');
+                if (!list) return;
+
+                const fields = [
+                    ['cake', 'Date of Birth', d.dob],
+                    ['mail', 'Email Address', d.email],
+                    ['phone', 'Mobile Number', d.phone],
+                    ['supervisor_account', 'Father Name', d.fatherName],
+                    ['supervisor_account', 'Mother Name', d.motherName],
+                    ['home', 'Hostel Assigned', d.hostel ? `${d.hostel} · Room ${d.roomNo}` : 'Day Scholar'],
+                    ['location_on', 'Home Address', d.address]
+                ];
+
+                list.innerHTML = fields.map(([icon, label, val]) => `
+                    <div class="flex items-center gap-4 p-4 bg-white border border-slate-200/50 rounded-2xl shadow-sm">
+                        <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-500 border border-blue-100 flex items-center justify-center flex-shrink-0">
+                            <span class="material-symbols-outlined text-sm">${icon}</span>
                         </div>
                         <div class="min-w-0 flex-1">
-                            <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400">${label}</p>
-                            <p class="text-sm font-semibold text-slate-800 mt-0.5 truncate">${val || '--'}</p>
+                            <p class="text-[9px] uppercase font-bold text-slate-400 leading-none">${label}</p>
+                            <p class="text-sm font-semibold text-slate-800 mt-1.5 truncate">${val || 'N/A'}</p>
                         </div>
-                    </div>`).join('');
-            } catch(e) { console.error('[Profile] Error:', e); }
-            finally { loading.hide(); }
+                    </div>
+                `).join('');
+            } catch (err) {
+                console.error('[Profile] load failed:', err);
+            } finally {
+                loading.hide();
+            }
         }
     },
 
@@ -2571,45 +2499,46 @@ const pages = {
 
     // ---- NOTIFICATIONS ----
     notifications: {
-        render: () => `<body class="bg-background min-h-screen pb-32">
-            <main class="pt-20 px-6 max-w-2xl mx-auto">
-                <section class="mb-6 flex justify-between items-end">
+        render: () => `<div class="min-h-screen pb-32 bg-[#F8FAFC]">
+            <main class="pt-20 px-4 max-w-lg mx-auto space-y-6">
+                <section class="flex justify-between items-center">
                     <div>
-                        <p class="text-[9px] font-bold uppercase tracking-[0.2em] text-on-surface-variant mb-1">Stay Updated</p>
-                        <h2 class="text-3xl font-extrabold tracking-tight text-on-surface" style="font-family:'Plus Jakarta Sans',sans-serif">Notifications</h2>
+                        <p class="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-1">Stay Updated</p>
+                        <h2 class="text-3xl font-extrabold tracking-tight text-slate-800" style="font-family:'Plus Jakarta Sans',sans-serif">Notifications</h2>
                     </div>
-                    <button id="mark-all-read-btn" class="text-xs font-bold text-secondary uppercase hover:underline flex items-center gap-1 active-scale">
-                        <span class="material-symbols-outlined text-sm" style="font-size:14px">done_all</span> Mark All Read
+                    <button id="mark-all-read-btn" class="text-xs font-bold text-primary uppercase hover:underline flex items-center gap-1 active-scale">
+                        <span class="material-symbols-outlined text-sm">done_all</span> Mark All Read
                     </button>
                 </section>
 
-                <!-- Search Bar -->
-                <div class="mb-5 relative">
-                    <span class="material-symbols-outlined absolute left-3.5 top-2.5 text-on-surface-variant text-sm" style="font-size:16px">search</span>
-                    <input type="text" id="notif-search" placeholder="Search notifications..." class="w-full pl-10 pr-4 py-2 bg-surface-container-low rounded-xl border border-outline-variant/15 text-xs text-on-surface placeholder-on-surface-variant/50 focus:outline-none focus:border-secondary transition-all" />
+                <!-- Search & Filters -->
+                <div class="space-y-3 select-none">
+                    <div class="relative">
+                        <span class="material-symbols-outlined absolute left-3.5 top-3.5 text-slate-400 text-sm" style="font-size:16px">search</span>
+                        <input type="text" id="notif-search" placeholder="Search alerts..." class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-primary transition-all" />
+                    </div>
+
+                    <div class="flex gap-2 overflow-x-auto pb-1 hide-scrollbar momentum-scroll" id="notif-filters">
+                        <button class="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-primary text-white whitespace-nowrap active-scale" data-filter="all">All</button>
+                        <button class="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-500 whitespace-nowrap active-scale" data-filter="academic">Academic</button>
+                        <button class="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-500 whitespace-nowrap active-scale" data-filter="placement">Placements</button>
+                        <button class="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-500 whitespace-nowrap active-scale" data-filter="event">Events</button>
+                        <button class="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-500 whitespace-nowrap active-scale" data-filter="survey">Surveys</button>
+                        <button class="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-500 whitespace-nowrap active-scale" data-filter="exit-pass">Exit Pass</button>
+                    </div>
                 </div>
 
-                <!-- Filter tabs -->
-                <div class="flex gap-2 overflow-x-auto pb-4 mb-4 hide-scrollbar select-none" id="notif-filters">
-                    <button class="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-secondary text-white transition-all whitespace-nowrap active-scale" data-filter="all">All</button>
-                    <button class="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-surface-container-low text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all whitespace-nowrap active-scale" data-filter="attendance">Attendance</button>
-                    <button class="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-surface-container-low text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all whitespace-nowrap active-scale" data-filter="marks">Marks</button>
-                    <button class="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-surface-container-low text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all whitespace-nowrap active-scale" data-filter="fees">Fees</button>
-                    <button class="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-surface-container-low text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all whitespace-nowrap active-scale" data-filter="assignments">Assignments</button>
-                    <button class="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-surface-container-low text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all whitespace-nowrap active-scale" data-filter="timetable">Schedule</button>
-                </div>
-
-                <!-- Notification List -->
-                <div class="space-y-3" id="notif-list">
-                    <div class="h-20 bg-surface-container-low rounded-xl animate-pulse"></div>
+                <!-- Notifications Grouped Container -->
+                <div class="space-y-6" id="notif-list-container">
+                    <div class="h-20 bg-slate-100 rounded-xl animate-pulse"></div>
                 </div>
             </main>
-        </body>`,
+        </div>`,
         afterRender: async () => {
             toggleShell(true);
             setActiveNav('notifications');
             
-            const list = $('notif-list');
+            const listContainer = $('notif-list-container');
             const searchInput = $('notif-search');
             const filterContainer = $('notif-filters');
             const markAllReadBtn = $('mark-all-read-btn');
@@ -2618,48 +2547,46 @@ const pages = {
             let activeFilter = 'all';
             let searchQuery = '';
 
-            const getNotifVisuals = (type, category) => {
-                let icon = 'notifications';
-                let bg = 'bg-slate-500/10';
-                let text = 'text-slate-600';
-                switch (type) {
-                    case 'attendance':
-                        icon = 'calendar_today';
-                        bg = category === 'alert' ? 'bg-red-500/10' : 'bg-emerald-500/10';
-                        text = category === 'alert' ? 'text-red-500' : 'text-emerald-600';
-                        break;
-                    case 'marks':
-                        icon = 'analytics';
-                        bg = 'bg-amber-500/10';
-                        text = 'text-amber-600';
-                        break;
-                    case 'fees':
-                        icon = 'account_balance_wallet';
-                        bg = category === 'success' ? 'bg-emerald-500/10' : 'bg-red-500/10';
-                        text = category === 'success' ? 'text-emerald-600' : 'text-red-600';
-                        break;
-                    case 'assignments':
-                        icon = 'assignment_turned_in';
-                        bg = 'bg-blue-500/10';
-                        text = 'text-blue-600';
-                        break;
-                    case 'timetable':
-                        icon = 'schedule';
-                        bg = 'bg-indigo-500/10';
-                        text = 'text-indigo-600';
-                        break;
+            const getVisuals = (type) => {
+                const normType = (type || 'general').toLowerCase();
+                if (normType.includes('academic') || normType.includes('attendance') || normType.includes('marks') || normType.includes('assignment')) {
+                    return { icon: 'school', bg: 'bg-blue-50 border-blue-100', text: 'text-blue-600' };
                 }
-                return { icon, bg, text };
+                if (normType.includes('placement') || normType.includes('career')) {
+                    return { icon: 'work', bg: 'bg-indigo-50 border-indigo-100', text: 'text-indigo-600' };
+                }
+                if (normType.includes('event')) {
+                    return { icon: 'festival', bg: 'bg-purple-50 border-purple-100', text: 'text-purple-600' };
+                }
+                if (normType.includes('survey')) {
+                    return { icon: 'poll', bg: 'bg-emerald-50 border-emerald-100', text: 'text-emerald-600' };
+                }
+                if (normType.includes('exit-pass') || normType.includes('gate-pass')) {
+                    return { icon: 'badge', bg: 'bg-amber-50 border-amber-100', text: 'text-amber-600' };
+                }
+                if (normType.includes('help-desk') || normType.includes('ticket')) {
+                    return { icon: 'support_agent', bg: 'bg-rose-50 border-rose-100', text: 'text-rose-600' };
+                }
+                return { icon: 'notifications', bg: 'bg-slate-50 border-slate-100', text: 'text-slate-600' };
             };
 
             const renderNotifications = () => {
-                if (!list) return;
+                if (!listContainer) return;
                 
                 let filtered = allNotifications;
                 
-                // 1. Filter by tab
+                // 1. Filter by category
                 if (activeFilter !== 'all') {
-                    filtered = filtered.filter(n => n.type === activeFilter);
+                    filtered = filtered.filter(n => {
+                        const nt = (n.type || 'general').toLowerCase();
+                        if (activeFilter === 'academic') return nt.includes('academic') || nt.includes('attendance') || nt.includes('marks') || nt.includes('assignment');
+                        if (activeFilter === 'placement') return nt.includes('placement') || nt.includes('career');
+                        if (activeFilter === 'event') return nt.includes('event');
+                        if (activeFilter === 'survey') return nt.includes('survey');
+                        if (activeFilter === 'exit-pass') return nt.includes('exit-pass') || nt.includes('gate-pass');
+                        if (activeFilter === 'help-desk') return nt.includes('help-desk') || nt.includes('ticket');
+                        return false;
+                    });
                 }
                 
                 // 2. Filter by search query
@@ -2672,55 +2599,87 @@ const pages = {
                 }
 
                 if (filtered.length === 0) {
-                    list.innerHTML = `
-                        <div class="text-center py-16 text-on-surface-variant animate-reveal">
-                            <span class="material-symbols-outlined text-5xl mb-4 block">notifications_none</span>
-                            <p class="font-bold">No notifications found</p>
-                            <p class="text-xs text-on-surface-variant/70 mt-1">Try changing your filter or search query.</p>
+                    listContainer.innerHTML = `
+                        <div class="text-center py-16 text-slate-400 animate-reveal">
+                            <span class="material-symbols-outlined text-5xl mb-3 block">notifications_off</span>
+                            <p class="font-bold text-xs uppercase tracking-wider">No notifications found</p>
                         </div>`;
                     return;
                 }
 
-                list.innerHTML = filtered.map(n => {
-                    const visuals = getNotifVisuals(n.type, n.category);
-                    const route = n.metadata ? (typeof n.metadata === 'string' ? JSON.parse(n.metadata).route : n.metadata.route) : null;
-                    const isRead = n.isRead || false;
-                    let parsedMetadata = null;
-                    try {
-                        parsedMetadata = typeof n.metadata === 'string' ? JSON.parse(n.metadata) : n.metadata;
-                    } catch (_) {}
-                    const isWarning = parsedMetadata?.hallTicketBlockWarning === true || parsedMetadata?.hallTicketBlockWarning === 'true';
-                    const warningBox = isWarning ? `
-                        <div class="mt-2.5 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-bold flex items-center gap-2 animate-reveal">
-                            <span class="material-symbols-outlined text-sm font-bold">warning</span>
-                            <span>⚠ Fee Due. Pay before Mid Examination. Hall Tickets may not be issued until dues are cleared.</span>
-                        </div>
-                    ` : '';
+                // Group by date categorizations
+                const now = new Date();
+                const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
 
-                    return `<div class="p-5 rounded-xl bg-surface-container-lowest border border-outline-variant/10 shadow-sm hover:shadow-md transition-all flex gap-4 justify-between items-start animate-reveal relative group cursor-pointer" 
-                             data-id="\${n.id}" data-route="\${route || ''}" data-read="\${isRead}">
-                            <div class="flex gap-4 min-w-0 flex-1 notif-card-click-area">
-                                <div class="w-10 h-10 rounded-full \${visuals.bg} flex items-center justify-center flex-shrink-0 mt-0.5">
-                                    <span class="material-symbols-outlined \${visuals.text} text-sm">\${visuals.icon}</span>
-                                </div>
-                                <div class="min-w-0 flex-1">
-                                    <div class="flex items-center gap-2">
-                                        <p class="font-bold text-on-surface text-sm truncate" title="\${n.title}">\${n.title}</p>
-                                        \${!isRead ? \`<span class="w-2 h-2 bg-secondary rounded-full flex-shrink-0" id="unread-dot-\${n.id}"></span>\` : ''}
-                                    </div>
-                                    <p class="text-xs text-on-surface-variant mt-1 leading-relaxed break-words">\${n.message}</p>
-                                    \${warningBox}
-                                    <p class="text-[10px] text-on-surface-variant/60 mt-2 font-bold">\${n.date || '--'}</p>
-                                </div>
+                const groups = {
+                    Unread: [],
+                    Today: [],
+                    Yesterday: [],
+                    Earlier: []
+                };
+
+                filtered.forEach(n => {
+                    if (!n.isRead) {
+                        groups.Unread.push(n);
+                        return;
+                    }
+                    const nDate = new Date(n.createdAt || Date.now());
+                    const nd = new Date(nDate.getFullYear(), nDate.getMonth(), nDate.getDate());
+                    if (nd.getTime() === today.getTime()) {
+                        groups.Today.push(n);
+                    } else if (nd.getTime() === yesterday.getTime()) {
+                        groups.Yesterday.push(n);
+                    } else {
+                        groups.Earlier.push(n);
+                    }
+                });
+
+                let html = '';
+                Object.keys(groups).forEach(key => {
+                    const groupList = groups[key];
+                    if (groupList.length === 0) return;
+
+                    html += `
+                        <div class="space-y-2.5 animate-reveal">
+                            <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">${key} Alerts</h3>
+                            <div class="space-y-2">
+                                ${groupList.map(n => {
+                                    const visuals = getVisuals(n.type);
+                                    const isRead = n.isRead || false;
+                                    const route = n.metadata ? (typeof n.metadata === 'string' ? JSON.parse(n.metadata).route : n.metadata.route) : null;
+                                    
+                                    return `
+                                        <div class="p-4 rounded-2xl bg-white border border-slate-200/50 flex gap-4 justify-between items-start active-scale relative cursor-pointer hover:shadow-sm transition-all"
+                                             data-id="${n.id}" data-route="${route || ''}" data-read="${isRead}">
+                                            <div class="flex gap-3 min-w-0 flex-1 notif-card-click-area">
+                                                <div class="w-10 h-10 rounded-xl ${visuals.bg} flex items-center justify-center flex-shrink-0 border mt-0.5">
+                                                    <span class="material-symbols-outlined ${visuals.text} text-sm">${visuals.icon}</span>
+                                                </div>
+                                                <div class="min-w-0 flex-1">
+                                                    <div class="flex items-center gap-1.5">
+                                                        <h4 class="font-extrabold text-slate-800 text-sm truncate leading-tight">${n.title}</h4>
+                                                        ${!isRead ? `<span class="w-1.5 h-1.5 bg-primary rounded-full flex-shrink-0" id="unread-dot-${n.id}"></span>` : ''}
+                                                    </div>
+                                                    <p class="text-xs text-slate-500 mt-1.5 leading-normal break-words">${n.message}</p>
+                                                    <p class="text-[9px] text-slate-400 font-bold mt-2 font-mono">${new Date(n.createdAt).toLocaleTimeString()}</p>
+                                                </div>
+                                            </div>
+                                            <button class="delete-notif-btn p-2 text-slate-400 hover:text-red-500 active-scale rounded-full flex items-center justify-center flex-shrink-0" data-id="${n.id}">
+                                                <span class="material-symbols-outlined text-sm">delete</span>
+                                            </button>
+                                        </div>
+                                    `;
+                                }).join('')}
                             </div>
-                            <button class="delete-notif-btn p-1 text-slate-400 hover:text-red-500 hover:bg-slate-100 rounded-full flex items-center justify-center transition-all active-scale" data-id="\${n.id}">
-                                <span class="material-symbols-outlined text-base">delete</span>
-                            </button>
-                        </div>`;
-                }).join('');
+                        </div>
+                    `;
+                });
+
+                listContainer.innerHTML = html;
 
                 // Click handler for body click (navigation & read status)
-                list.querySelectorAll('.notif-card-click-area').forEach(el => {
+                listContainer.querySelectorAll('.notif-card-click-area').forEach(el => {
                     el.addEventListener('click', async (e) => {
                         const card = e.currentTarget.closest('[data-id]');
                         const notifId = card.dataset.id;
@@ -2748,15 +2707,19 @@ const pages = {
                 });
 
                 // Delete handlers
-                list.querySelectorAll('.delete-notif-btn').forEach(btn => {
+                listContainer.querySelectorAll('.delete-notif-btn').forEach(btn => {
                     btn.addEventListener('click', async (e) => {
                         e.stopPropagation();
+                        haptic();
                         const notifId = e.currentTarget.dataset.id;
                         
                         const card = e.currentTarget.closest('[data-id]');
                         if (card) {
                             card.classList.add('scale-90', 'opacity-0');
-                            setTimeout(() => card.remove(), 200);
+                            setTimeout(() => {
+                                card.remove();
+                                renderNotifications();
+                            }, 200);
                         }
 
                         api.delete(`/notifications/${notifId}`).catch(() => {});
@@ -2769,18 +2732,16 @@ const pages = {
                 });
             };
 
-            // 1. Stale-While-Revalidate: load cache first
+            // Load from cache first
             try {
                 const cached = await SITAMDb.get('erp_cache', '/notifications', 24 * 60 * 60 * 1000);
                 if (cached && cached.notifications) {
                     allNotifications = cached.notifications;
                     renderNotifications();
                 }
-            } catch (err) {
-                console.warn('[Notifications] Cache read error:', err);
-            }
+            } catch (_) {}
 
-            // 2. Load from server
+            // Load from server
             try {
                 const res = await api.get('/notifications');
                 const data = res.data || {};
@@ -2791,12 +2752,8 @@ const pages = {
                 renderNotifications();
             } catch (err) {
                 console.error('[Notifications] Network fetch error:', err);
-                if (allNotifications.length === 0) {
-                    list.innerHTML = `<div class="text-center py-16 text-on-surface-variant font-bold">Failed to load notifications. Connection error.</div>`;
-                }
             }
 
-            // 3. Bind search input
             if (searchInput) {
                 searchInput.addEventListener('input', (e) => {
                     searchQuery = e.target.value;
@@ -2804,14 +2761,13 @@ const pages = {
                 });
             }
 
-            // 4. Bind filters
             if (filterContainer) {
                 filterContainer.querySelectorAll('[data-filter]').forEach(btn => {
                     btn.addEventListener('click', (e) => {
                         filterContainer.querySelectorAll('[data-filter]').forEach(b => {
-                            b.className = "px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-surface-container-low text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all whitespace-nowrap active-scale";
+                            b.className = "px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-500 whitespace-nowrap active-scale";
                         });
-                        e.currentTarget.className = "px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-secondary text-white transition-all whitespace-nowrap active-scale";
+                        e.currentTarget.className = "px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-primary text-white whitespace-nowrap active-scale";
                         activeFilter = e.currentTarget.dataset.filter;
                         renderNotifications();
                     });
@@ -2962,6 +2918,1628 @@ const pages = {
             toggleShell(true);
             setActiveNav('terms');
         }
+    },
+    
+    // ---- ACADEMICS HUB ----
+    academics: {
+        render: () => `
+            <div class="min-h-screen pb-32 bg-[#F8FAFC]">
+                <main class="pt-20 px-4 max-w-lg mx-auto">
+                    <!-- Tab Selector -->
+                    <div class="flex gap-2 overflow-x-auto pb-3 mb-5 hide-scrollbar momentum-scroll select-none" id="academic-tabs">
+                        <button class="academic-tab-btn flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider bg-primary text-white" data-tab="attendance">Attendance</button>
+                        <button class="academic-tab-btn flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-500" data-tab="marks">Results</button>
+                        <button class="academic-tab-btn flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-500" data-tab="timetable">Timetable</button>
+                        <button class="academic-tab-btn flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-500" data-tab="assignments">Assignments</button>
+                        <button class="academic-tab-btn flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-500" data-tab="fees">Fees</button>
+                    </div>
+                    <!-- Tab Content Container -->
+                    <div id="academic-tab-content" class="space-y-4"></div>
+                </main>
+            </div>
+        `,
+        afterRender: () => {
+            toggleShell(true);
+            setActiveNav('academics');
+            
+            const tabButtons = document.querySelectorAll('.academic-tab-btn');
+            const contentContainer = $('academic-tab-content');
+            
+            const loadTab = async (tabName) => {
+                tabButtons.forEach(btn => {
+                    if (btn.dataset.tab === tabName) {
+                        btn.className = 'academic-tab-btn flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider bg-primary text-white';
+                    } else {
+                        btn.className = 'academic-tab-btn flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-500';
+                    }
+                });
+                
+                const page = pages[tabName];
+                if (page) {
+                    const htmlStr = page.render();
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(htmlStr, 'text/html');
+                    const mainContent = doc.querySelector('main')?.innerHTML || htmlStr;
+                    if (contentContainer) {
+                        contentContainer.innerHTML = mainContent;
+                    }
+                    await page.afterRender?.();
+                }
+            };
+            
+            tabButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    haptic();
+                    loadTab(btn.dataset.tab);
+                });
+            });
+            
+            loadTab('attendance');
+        }
+    },
+
+    // ---- CAREER ----
+    career: {
+        render: () => `
+            <div class="min-h-screen pb-32 bg-[#F8FAFC]">
+                <main class="pt-20 px-4 max-w-lg mx-auto">
+                    <section class="mb-5 flex justify-between items-end">
+                        <div>
+                            <p class="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-1 font-headline">Opportunities</p>
+                            <h2 class="text-3xl font-extrabold tracking-tight text-slate-800" style="font-family:'Plus Jakarta Sans',sans-serif">Career Portal</h2>
+                        </div>
+                    </section>
+                    <!-- Sub-tabs -->
+                    <div class="flex gap-2 overflow-x-auto pb-3 mb-5 hide-scrollbar momentum-scroll select-none" id="career-tabs">
+                        <button class="career-tab-btn flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider bg-primary text-white" data-tab="PLACEMENT">Placements</button>
+                        <button class="career-tab-btn flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-500" data-tab="INTERNSHIP">Internships</button>
+                        <button class="career-tab-btn flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-500" data-tab="EVENT">Events</button>
+                        <button class="career-tab-btn flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-500" data-tab="SAVED">Saved</button>
+                    </div>
+                    <div class="space-y-4" id="career-list">
+                        <div class="h-24 bg-slate-100 rounded-xl animate-pulse"></div>
+                    </div>
+                </main>
+            </div>
+        `,
+        afterRender: async () => {
+            toggleShell(true);
+            setActiveNav('career');
+            const list = $('career-list');
+            const tabs = document.querySelectorAll('.career-tab-btn');
+            let activeTab = 'PLACEMENT';
+            let allItems = [];
+
+            const renderItems = () => {
+                if (!list) return;
+                const filtered = activeTab === 'SAVED'
+                    ? allItems.filter(item => item.isSaved)
+                    : allItems.filter(item => (item.type || 'PLACEMENT') === activeTab);
+
+                if (filtered.length === 0) {
+                    list.innerHTML = `<div class="text-center py-16 text-slate-400 font-bold">No opportunities found in this category.</div>`;
+                    return;
+                }
+
+                list.innerHTML = filtered.map((item, idx) => {
+                    const savedIcon = item.isSaved ? 'bookmark' : 'bookmark_border';
+                    const savedClass = item.isSaved ? 'text-primary font-fill' : 'text-slate-400';
+                    const logoLetter = (item.companyName || 'C').charAt(0);
+                    const gradientColors = ['from-blue-500 to-indigo-500', 'from-purple-500 to-pink-500', 'from-emerald-500 to-teal-500', 'from-amber-500 to-orange-500'];
+                    const logoBg = gradientColors[idx % gradientColors.length];
+                    const logoHtml = item.companyLogoUrl 
+                        ? `<img src="${item.companyLogoUrl}" class="w-12 h-12 rounded-xl object-cover" />`
+                        : `<div class="w-12 h-12 rounded-xl bg-gradient-to-tr ${logoBg} flex items-center justify-center text-white font-black text-lg">${logoLetter}</div>`;
+                    const location = item.location || 'Campus / Off-campus';
+                    const lastDate = item.lastDate || 'N/A';
+
+                    return `
+                        <div class="glass-panel p-5 space-y-4 active-scale transition-all duration-300 shadow-sm relative group hover:shadow-md border border-slate-200/50">
+                            ${item.companyArrivedToday ? `
+                            <div class="absolute top-4 right-4 flex items-center gap-1 bg-rose-50 border border-rose-100 text-rose-600 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wide animate-pulse">
+                                <span class="w-1.5 h-1.5 bg-rose-600 rounded-full"></span> Hiring Today
+                            </div>` : ''}
+                            <div class="flex items-center gap-4">
+                                ${logoHtml}
+                                <div class="min-w-0 flex-1">
+                                    <h4 class="font-extrabold text-slate-800 text-base leading-tight truncate">${item.jobRole}</h4>
+                                    <p class="text-sm font-bold text-slate-500 mt-1">${item.companyName}</p>
+                                    <p class="text-xs text-slate-400 mt-1 flex items-center gap-1 font-mono">
+                                        <span class="material-symbols-outlined text-xs" style="font-size:12px">location_on</span> ${location}
+                                        <span class="mx-1.5 text-slate-300">•</span>
+                                        <span class="material-symbols-outlined text-xs" style="font-size:12px">calendar_today</span> Last Date: ${lastDate}
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="flex justify-between items-center py-2 border-y border-slate-100 text-xs">
+                                <div>
+                                    <p class="text-[10px] uppercase font-bold text-slate-400">Package</p>
+                                    <p class="font-black text-slate-800 text-sm mt-0.5 font-mono">₹${item.packageLpa} LPA</p>
+                                </div>
+                                <div>
+                                    <p class="text-[10px] uppercase font-bold text-slate-400">Eligibility</p>
+                                    <p class="font-black text-slate-800 mt-0.5">${item.eligibility}</p>
+                                </div>
+                            </div>
+                            <div class="flex gap-2">
+                                <button class="save-job-btn flex items-center justify-center p-3.5 rounded-xl border border-slate-200 bg-white/60 active-scale hover:bg-slate-50 transition-colors" data-id="${item.id}">
+                                    <span class="material-symbols-outlined text-lg ${savedClass}">${savedIcon}</span>
+                                </button>
+                                <button class="share-job-btn flex items-center justify-center p-3.5 rounded-xl border border-slate-200 bg-white/60 active-scale hover:bg-slate-50 transition-colors" data-role="${item.jobRole}" data-company="${item.companyName}">
+                                    <span class="material-symbols-outlined text-lg text-slate-500">share</span>
+                                </button>
+                                <button class="register-job-btn flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-3.5 rounded-xl shadow-md active-scale transition-transform flex items-center justify-center gap-1.5" data-link="${item.registrationLink}">
+                                    Register <span class="material-symbols-outlined text-sm">arrow_forward</span>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                list.querySelectorAll('.save-job-btn').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        haptic();
+                        const id = btn.dataset.id;
+                        const item = allItems.find(x => x.id === id);
+                        if (item) {
+                            item.isSaved = !item.isSaved;
+                            renderItems();
+                            try {
+                                await api.post(`/placements/${id}/save`);
+                                showToast(item.isSaved ? 'Placement saved!' : 'Placement unsaved', 'info', 2000);
+                            } catch (_) {
+                                item.isSaved = !item.isSaved;
+                                renderItems();
+                            }
+                        }
+                    });
+                });
+
+                list.querySelectorAll('.share-job-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        haptic();
+                        const role = btn.dataset.role;
+                        const company = btn.dataset.company;
+                        const shareText = `Check out this career opportunity at SITAM ERP: ${role} at ${company}!`;
+                        if (navigator.share) {
+                            navigator.share({
+                                title: `${role} at ${company}`,
+                                text: shareText,
+                                url: window.location.href
+                            }).catch(() => {});
+                        } else {
+                            navigator.clipboard.writeText(shareText);
+                            showToast('Opportunity details copied to clipboard!', 'info', 2000);
+                        }
+                    });
+                });
+
+                list.querySelectorAll('.register-job-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        haptic();
+                        const link = btn.dataset.link;
+                        if (window.Capacitor?.Plugins?.Browser) {
+                            window.Capacitor.Plugins.Browser.open({ url: link }).catch(() => {});
+                        } else {
+                            window.open(link, '_blank');
+                        }
+                    });
+                });
+            };
+
+            const loadTab = (tab) => {
+                activeTab = tab;
+                tabs.forEach(btn => {
+                    if (btn.dataset.tab === tab) {
+                        btn.className = 'career-tab-btn flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider bg-primary text-white';
+                    } else {
+                        btn.className = 'career-tab-btn flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-500';
+                    }
+                });
+                renderItems();
+            };
+
+            tabs.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    haptic();
+                    loadTab(btn.dataset.tab);
+                });
+            });
+
+            loading.show('Loading Placements...');
+            try {
+                const res = await api.get('/placements');
+                allItems = res.placements || [];
+                renderItems();
+            } catch (err) {
+                console.error('[Career] placements fetch failed:', err);
+                if (list) list.innerHTML = `<div class="text-center py-16 text-slate-400 font-bold">Failed to load placements.</div>`;
+            } finally {
+                loading.hide();
+            }
+        }
+    },
+
+    // ---- SERVICES HUB ----
+    services: {
+        render: () => `
+            <div class="min-h-screen pb-32 bg-[#F8FAFC]">
+                <main class="pt-20 px-4 max-w-lg mx-auto">
+                    <section class="mb-6">
+                        <p class="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-1 font-headline">Utility Hub</p>
+                        <h2 class="text-3xl font-extrabold tracking-tight text-slate-800" style="font-family:'Plus Jakarta Sans',sans-serif">Campus Services</h2>
+                    </section>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="service-card glass-panel p-5 flex flex-col justify-between h-40 cursor-pointer active-scale transition-all hover:shadow-md border border-slate-200/50" onclick="haptic(); router.navigate('/exit-pass')">
+                            <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-500 to-indigo-500 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
+                                <span class="material-symbols-outlined text-2xl font-bold">badge</span>
+                            </div>
+                            <div>
+                                <h4 class="font-extrabold text-slate-800 text-sm tracking-wide">Exit Pass</h4>
+                                <p class="text-[10px] text-slate-400 mt-1 leading-snug">Request gate passes &amp; get verification OTPs</p>
+                            </div>
+                        </div>
+
+                        <div class="service-card glass-panel p-5 flex flex-col justify-between h-40 cursor-pointer active-scale transition-all hover:shadow-md border border-slate-200/50" onclick="haptic(); router.navigate('/survey')">
+                            <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-purple-500 to-pink-500 flex items-center justify-center text-white shadow-md shadow-purple-500/20">
+                                <span class="material-symbols-outlined text-2xl font-bold">poll</span>
+                            </div>
+                            <div>
+                                <h4 class="font-extrabold text-slate-800 text-sm tracking-wide">Surveys</h4>
+                                <p class="text-[10px] text-slate-400 mt-1 leading-snug">Voice your feedback anonymously</p>
+                            </div>
+                        </div>
+
+                        <div class="service-card glass-panel p-5 flex flex-col justify-between h-40 cursor-pointer active-scale transition-all hover:shadow-md border border-slate-200/50" onclick="haptic(); router.navigate('/announcements')">
+                            <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center text-white shadow-md shadow-amber-500/20">
+                                <span class="material-symbols-outlined text-2xl font-bold">campaign</span>
+                            </div>
+                            <div>
+                                <h4 class="font-extrabold text-slate-800 text-sm tracking-wide">Announcements</h4>
+                                <p class="text-[10px] text-slate-400 mt-1 leading-snug">Official college notices &amp; news boards</p>
+                            </div>
+                        </div>
+
+                        <div class="service-card glass-panel p-5 flex flex-col justify-between h-40 cursor-pointer active-scale transition-all hover:shadow-md border border-slate-200/50" onclick="haptic(); router.navigate('/notifications')">
+                            <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-500 flex items-center justify-center text-white shadow-md shadow-emerald-500/20">
+                                <span class="material-symbols-outlined text-2xl font-bold">notifications</span>
+                            </div>
+                            <div>
+                                <h4 class="font-extrabold text-slate-800 text-sm tracking-wide">Notifications</h4>
+                                <p class="text-[10px] text-slate-400 mt-1 leading-snug">System alerts &amp; real-time updates</p>
+                            </div>
+                        </div>
+
+                        <div class="service-card glass-panel p-5 flex flex-col justify-between h-40 cursor-pointer active-scale transition-all hover:shadow-md border border-slate-200/50" onclick="haptic(); router.navigate('/lost-found')">
+                            <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-red-500 to-rose-500 flex items-center justify-center text-white shadow-md shadow-red-500/20">
+                                <span class="material-symbols-outlined text-2xl font-bold">search</span>
+                            </div>
+                            <div>
+                                <h4 class="font-extrabold text-slate-800 text-sm tracking-wide">Lost &amp; Found</h4>
+                                <p class="text-[10px] text-slate-400 mt-1 leading-snug">Report items &amp; manage return claims</p>
+                            </div>
+                        </div>
+
+                        <div class="service-card glass-panel p-5 flex flex-col justify-between h-40 cursor-pointer active-scale transition-all hover:shadow-md border border-slate-200/50" onclick="haptic(); router.navigate('/help')">
+                            <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-slate-600 to-blue-900 flex items-center justify-center text-white shadow-md shadow-slate-600/20">
+                                <span class="material-symbols-outlined text-2xl font-bold">support_agent</span>
+                            </div>
+                            <div>
+                                <h4 class="font-extrabold text-slate-800 text-sm tracking-wide">Help Desk</h4>
+                                <p class="text-[10px] text-slate-400 mt-1 leading-snug">Open support tickets for issues</p>
+                            </div>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        `,
+        afterRender: () => {
+            toggleShell(true);
+            setActiveNav('services');
+        }
+    },
+
+    // ---- EXIT PASS ----
+    'exit-pass': {
+        render: () => `
+            <div class="min-h-screen pb-32 bg-[#F8FAFC]">
+                <main class="pt-20 px-4 max-w-lg mx-auto space-y-6">
+                    <section class="flex justify-between items-center">
+                        <div>
+                            <p class="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-1">Gate Pass</p>
+                            <h2 class="text-3xl font-extrabold tracking-tight text-slate-800" style="font-family:'Plus Jakarta Sans',sans-serif">Exit Passes</h2>
+                        </div>
+                        <button id="apply-ep-btn" class="bg-primary text-white font-bold text-xs uppercase tracking-wider px-5 py-2.5 rounded-full shadow-md active-scale transition-all">Apply</button>
+                    </section>
+
+                    <div id="active-ep-container" class="space-y-4">
+                        <div class="h-24 bg-slate-100 rounded-xl animate-pulse"></div>
+                    </div>
+
+                    <section class="space-y-3">
+                        <h3 class="text-sm font-bold uppercase tracking-wider text-slate-400">History</h3>
+                        <div class="space-y-3" id="ep-history-list"></div>
+                    </section>
+                </main>
+
+                <div id="ep-sheet-backdrop" class="bottom-sheet-backdrop hidden opacity-0"></div>
+                <div id="ep-sheet" class="bottom-sheet">
+                    <div class="px-6 py-4 flex items-center justify-between border-b border-slate-100">
+                        <h3 class="font-extrabold text-slate-800 text-lg">Apply for Exit Pass</h3>
+                        <button id="close-ep-sheet" class="p-2 hover:bg-slate-100 rounded-full transition-colors"><span class="material-symbols-outlined text-slate-500">close</span></button>
+                    </div>
+                    <form id="ep-form" class="p-6 space-y-4 overflow-y-auto">
+                        <div class="space-y-1">
+                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wide">Destination</label>
+                            <input type="text" id="ep-destination" required placeholder="e.g. Home, Hospital, Bank" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary transition-all" />
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wide">Reason</label>
+                            <textarea id="ep-reason" required placeholder="Describe the reason for exit..." class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary transition-all h-24 resize-none"></textarea>
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wide">Requested Exit Date</label>
+                            <input type="date" id="ep-date" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary transition-all font-mono" />
+                        </div>
+                        <button type="submit" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-3.5 rounded-xl shadow-md active-scale transition-transform">Submit Request</button>
+                    </form>
+                </div>
+            </div>
+        `,
+        afterRender: async () => {
+            toggleShell(true);
+            setActiveNav('services');
+            
+            const activeContainer = $('active-ep-container');
+            const historyList = $('ep-history-list');
+            const sheet = $('ep-sheet');
+            const backdrop = $('ep-sheet-backdrop');
+            const applyBtn = $('apply-ep-btn');
+            const closeBtn = $('close-ep-sheet');
+            const form = $('ep-form');
+
+            const openSheet = () => {
+                haptic();
+                backdrop.classList.remove('hidden');
+                sheet.classList.remove('hidden');
+                setTimeout(() => {
+                    backdrop.classList.add('opacity-100');
+                    sheet.classList.add('open');
+                }, 10);
+            };
+
+            const closeSheet = () => {
+                backdrop.classList.remove('opacity-100');
+                sheet.classList.remove('open');
+                setTimeout(() => {
+                    backdrop.classList.add('hidden');
+                }, 300);
+            };
+
+            applyBtn?.addEventListener('click', openSheet);
+            backdrop?.addEventListener('click', closeSheet);
+            closeBtn?.addEventListener('click', closeSheet);
+
+            const renderPasses = (passes) => {
+                if (!activeContainer || !historyList) return;
+                
+                const active = passes[0];
+                const history = passes.slice(1);
+
+                if (!active) {
+                    activeContainer.innerHTML = `<div class="p-6 rounded-2xl bg-white/60 border border-slate-200/50 text-center text-slate-400 font-bold text-xs uppercase tracking-wider">No active exit passes.</div>`;
+                } else {
+                    const statusColors = {
+                        PENDING: 'bg-amber-100 text-amber-800 border-amber-200',
+                        APPROVED: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+                        VERIFIED: 'bg-indigo-100 text-indigo-800 border-indigo-200',
+                        COMPLETED: 'bg-slate-100 text-slate-800 border-slate-200',
+                        REJECTED: 'bg-rose-100 text-rose-800 border-rose-200'
+                    };
+
+                    const sc = statusColors[active.status] || 'bg-slate-100 text-slate-600';
+                    const isApproved = active.status === 'APPROVED';
+                    const isPending = active.status === 'PENDING';
+                    const isVerified = active.status === 'VERIFIED';
+                    const isCompleted = active.status === 'COMPLETED';
+
+                    const steps = [
+                        { label: 'Applied', active: true, completed: true },
+                        { label: 'Faculty Review', active: isApproved || isVerified || isCompleted, completed: isApproved || isVerified || isCompleted },
+                        { label: 'Admin Approval', active: isApproved || isVerified || isCompleted, completed: isApproved || isVerified || isCompleted },
+                        { label: 'Security Verification', active: isVerified || isCompleted, completed: isVerified || isCompleted },
+                        { label: 'Completed', active: isCompleted, completed: isCompleted }
+                    ];
+
+                    const timelineHtml = `
+                        <div class="mt-4 p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Workflow Timeline</p>
+                            <div class="flex flex-col gap-3">
+                                ${steps.map(step => `
+                                    <div class="timeline-step ${step.active ? 'active' : ''} ${step.completed ? 'completed' : ''}">
+                                        <div class="timeline-dot"></div>
+                                        <p class="text-xs font-bold text-slate-800 leading-none">${step.label}</p>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+
+                    activeContainer.innerHTML = `
+                        <div class="glass-panel p-5 space-y-4 border border-slate-200/50 relative overflow-hidden">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <span class="px-2.5 py-0.5 rounded-full border text-[10px] font-extrabold uppercase tracking-wide ${sc}">${active.status}</span>
+                                    <h3 class="font-extrabold text-slate-800 text-base mt-2">${active.destination}</h3>
+                                    <p class="text-xs text-slate-500 mt-0.5">${active.reason}</p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Exit Date</p>
+                                    <p class="font-black text-slate-800 text-xs mt-0.5 font-mono">${active.requestDate || ''}</p>
+                                </div>
+                            </div>
+                            
+                            ${isApproved ? `
+                            <div class="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 flex flex-col items-center gap-3">
+                                <div class="w-32 h-32 bg-white rounded-xl border border-emerald-200 flex items-center justify-center">
+                                    <span class="material-symbols-outlined text-emerald-600 text-5xl font-light">qr_code_2</span>
+                                </div>
+                                <div class="text-center">
+                                    <p class="text-[10px] font-bold text-emerald-700 uppercase tracking-widest leading-none">Security Gate Pass OTP</p>
+                                    <p class="text-2xl font-black text-emerald-800 tracking-wider mt-1 font-mono">${active.otp || '------'}</p>
+                                </div>
+                            </div>` : ''}
+
+                            ${timelineHtml}
+                        </div>
+                    `;
+                }
+
+                if (history.length === 0) {
+                    historyList.innerHTML = `<div class="text-center py-6 text-slate-400 text-xs font-bold uppercase">No history records</div>`;
+                } else {
+                    historyList.innerHTML = history.map(h => `
+                        <div class="p-4 bg-white/60 border border-slate-200/40 rounded-2xl flex justify-between items-center">
+                            <div>
+                                <h4 class="text-sm font-extrabold text-slate-700 leading-tight">${h.destination}</h4>
+                                <p class="text-xs text-slate-400 mt-0.5 font-mono">${h.requestDate}</p>
+                            </div>
+                            <span class="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 bg-slate-100 text-slate-500 rounded-full border border-slate-200">${h.status}</span>
+                        </div>
+                    `).join('');
+                }
+            };
+
+            const loadPasses = async () => {
+                loading.show('Loading Exit Passes...');
+                try {
+                    const res = await api.get('/exit-passes/my');
+                    const passes = res.data || res.passes || [];
+                    renderPasses(passes);
+                } catch (err) {
+                    console.error('[ExitPass] Load failed:', err);
+                } finally {
+                    loading.hide();
+                }
+            };
+
+            form?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                haptic();
+                const destination = $('ep-destination').value.trim();
+                const reason = $('ep-reason').value.trim();
+                const requestDate = $('ep-date').value;
+
+                if (!destination || !reason || !requestDate) return;
+
+                loading.show('Submitting exit pass request...');
+                try {
+                    const res = await api.post('/exit-passes', { destination, reason, requestDate });
+                    if (res.success) {
+                        showToast('Gate pass request submitted!', 'success', 2000);
+                        closeSheet();
+                        form.reset();
+                        loadPasses();
+                    } else {
+                        showToast(res.message || 'Submission failed', 'error', 3000);
+                    }
+                } catch (err) {
+                    console.error('[ExitPass] submission error:', err);
+                    showToast('Submission failed. Server error.', 'error', 3000);
+                } finally {
+                    loading.hide();
+                }
+            });
+
+            loadPasses();
+        }
+    },
+
+    // ---- SURVEYS ----
+    survey: {
+        render: () => `
+            <div class="min-h-screen pb-32 bg-[#F8FAFC]">
+                <main class="pt-20 px-4 max-w-lg mx-auto space-y-6" id="survey-main-container">
+                    <section>
+                        <p class="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-1">Feedback</p>
+                        <h2 class="text-3xl font-extrabold tracking-tight text-slate-800" style="font-family:'Plus Jakarta Sans',sans-serif">Campus Surveys</h2>
+                    </section>
+
+                    <section class="space-y-4">
+                        <h3 class="text-sm font-bold uppercase tracking-wider text-slate-400">Active Surveys</h3>
+                        <div class="space-y-3" id="active-surveys-list">
+                            <div class="h-24 bg-slate-100 rounded-xl animate-pulse"></div>
+                        </div>
+                    </section>
+
+                    <section class="space-y-3 pt-4">
+                        <h3 class="text-sm font-bold uppercase tracking-wider text-slate-400">Completed Surveys</h3>
+                        <div class="space-y-3" id="completed-surveys-list">
+                            <div class="h-16 bg-slate-100 rounded-xl animate-pulse"></div>
+                        </div>
+                    </section>
+                </main>
+                
+                <div id="survey-wizard-panel" class="fixed inset-0 bg-[#F8FAFC] z-[125] hidden flex-col">
+                    <div class="px-6 py-4 flex items-center justify-between border-b border-slate-200/80 bg-white shadow-sm">
+                        <div>
+                            <h3 class="font-extrabold text-slate-800 text-sm" id="wizard-survey-title">---</h3>
+                            <div id="anonymous-badge" class="mt-0.5 inline-flex items-center gap-1 bg-purple-50 text-purple-700 px-2 py-0.5 border border-purple-100 rounded text-[9px] font-black uppercase tracking-wide hidden">
+                                <span class="material-symbols-outlined text-[10px]" style="font-size:10px">visibility_off</span> Anonymous
+                            </div>
+                        </div>
+                        <button onclick="closeSurveyWizard()" class="p-2 hover:bg-slate-100 rounded-full transition-colors active:scale-95 duration-200">
+                            <span class="material-symbols-outlined text-slate-500">close</span>
+                        </button>
+                    </div>
+                    <div class="flex-1 overflow-y-auto px-6 py-8 flex flex-col justify-between max-w-md mx-auto w-full">
+                        <div class="space-y-6 w-full">
+                            <div class="space-y-1.5">
+                                <div class="flex justify-between text-[9px] font-bold uppercase tracking-widest text-slate-400">
+                                    <span id="wizard-progress-text">Question 1 of 5</span>
+                                    <span id="wizard-progress-pct">20% Completed</span>
+                                </div>
+                                <div class="w-full h-2 bg-slate-200 rounded-full overflow-hidden border border-white">
+                                    <div class="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-300" style="width: 20%;" id="wizard-progress-bar"></div>
+                                </div>
+                            </div>
+                            
+                            <div class="space-y-4">
+                                <p class="text-[11px] font-bold text-primary uppercase tracking-widest" id="wizard-question-label">Question</p>
+                                <h4 class="text-xl font-black text-slate-800 leading-snug" id="wizard-question-text">---</h4>
+                            </div>
+                            
+                            <div id="wizard-answer-control" class="pt-4"></div>
+                        </div>
+
+                        <div class="flex gap-4 pt-8 w-full">
+                            <button id="wizard-prev-btn" class="flex-1 bg-slate-100 text-slate-600 font-bold py-3.5 rounded-xl active-scale transition-transform flex items-center justify-center gap-1.5 border border-slate-200">
+                                <span class="material-symbols-outlined text-sm">arrow_back</span> Back
+                            </button>
+                            <button id="wizard-next-btn" class="flex-1 bg-primary text-white font-bold py-3.5 rounded-xl shadow-md active-scale transition-transform flex items-center justify-center gap-1.5">
+                                Next <span class="material-symbols-outlined text-sm">arrow_forward</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `,
+        afterRender: async () => {
+            toggleShell(true);
+            setActiveNav('services');
+            
+            const activeList = $('active-surveys-list');
+            const completedList = $('completed-surveys-list');
+            let activeSurveys = [];
+            let completedResponses = [];
+            
+            let currentSurvey = null;
+            let currentQuestions = [];
+            let currentQuestionIndex = 0;
+            let currentAnswers = {};
+
+            const renderSurveyList = () => {
+                if (!activeList || !completedList) return;
+                
+                if (activeSurveys.length === 0) {
+                    activeList.innerHTML = `<div class="p-6 rounded-2xl bg-white/60 border border-slate-200/50 text-center text-slate-400 font-bold text-xs uppercase tracking-wider">No active surveys.</div>`;
+                } else {
+                    activeList.innerHTML = activeSurveys.map(s => `
+                        <div class="glass-panel p-5 space-y-3 border border-slate-200/50 active-scale transition-all duration-300 relative group" onclick="startSurvey('${s.id}')">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <h4 class="font-extrabold text-slate-800 text-sm leading-tight">${s.title}</h4>
+                                    <p class="text-xs text-slate-500 mt-1 leading-normal line-clamp-2">${s.description}</p>
+                                </div>
+                                <span class="material-symbols-outlined text-slate-400">chevron_right</span>
+                            </div>
+                            <div class="flex justify-between items-center pt-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                <span>${s.questions?.length || 0} Questions</span>
+                                ${s.isAnonymous ? `<span class="text-purple-600">Anonymous</span>` : '<span>Identified</span>'}
+                            </div>
+                        </div>
+                    `).join('');
+                }
+
+                if (completedResponses.length === 0) {
+                    completedList.innerHTML = `<div class="p-4 rounded-xl border border-slate-200/30 text-center text-slate-400 font-bold text-xs">No completed surveys.</div>`;
+                } else {
+                    completedList.innerHTML = completedResponses.map(r => `
+                        <div class="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex justify-between items-center active-scale transition-all duration-200 cursor-pointer" onclick="viewCompletedSurvey('${r.id}')">
+                            <div>
+                                <h4 class="text-xs font-bold text-slate-700 leading-tight">${r.survey?.title}</h4>
+                                <p class="text-[10px] text-slate-400 mt-1 font-bold">Submitted on ${new Date(r.submittedAt).toLocaleDateString()}</p>
+                            </div>
+                            <span class="material-symbols-outlined text-slate-400 text-base">check_circle</span>
+                        </div>
+                    `).join('');
+                }
+            };
+
+            const loadSurveys = async () => {
+                loading.show('Loading Surveys...');
+                try {
+                    const [actRes, compRes] = await Promise.all([
+                        api.get('/surveys'),
+                        api.get('/surveys/submitted')
+                    ]);
+                    activeSurveys = actRes.surveys || [];
+                    completedResponses = compRes.responses || [];
+                    renderSurveyList();
+                } catch (err) {
+                    console.error('[Survey] Load failed:', err);
+                } finally {
+                    loading.hide();
+                }
+            };
+
+            window.startSurvey = (surveyId) => {
+                const s = activeSurveys.find(x => x.id === surveyId);
+                if (!s) return;
+                currentSurvey = s;
+                currentQuestions = s.questions || [];
+                currentQuestionIndex = 0;
+                currentAnswers = {};
+                
+                setEl('wizard-survey-title', 'innerText', s.title);
+                if (s.isAnonymous) {
+                    $('anonymous-badge')?.classList.remove('hidden');
+                } else {
+                    $('anonymous-badge')?.classList.add('hidden');
+                }
+
+                const panel = $('survey-wizard-panel');
+                if (panel) {
+                    panel.classList.remove('hidden');
+                }
+                renderQuestion();
+            };
+
+            window.closeSurveyWizard = () => {
+                const panel = $('survey-wizard-panel');
+                if (panel) panel.classList.add('hidden');
+                currentSurvey = null;
+                currentQuestions = [];
+                currentQuestionIndex = 0;
+                currentAnswers = {};
+            };
+
+            const renderQuestion = () => {
+                const q = currentQuestions[currentQuestionIndex];
+                if (!q) return;
+
+                const total = currentQuestions.length;
+                const idx = currentQuestionIndex + 1;
+                const pct = Math.round((idx / total) * 100);
+                setEl('wizard-progress-text', 'innerText', `Question ${idx} of ${total}`);
+                setEl('wizard-progress-pct', 'innerText', `${pct}% Completed`);
+                
+                const bar = $('wizard-progress-bar');
+                if (bar) bar.style.width = `${pct}%`;
+
+                setEl('wizard-question-label', 'innerText', `Question ${idx} — ${q.type}`);
+                setEl('wizard-question-text', 'innerText', q.text);
+
+                const prevBtn = $('wizard-prev-btn');
+                if (prevBtn) {
+                    if (currentQuestionIndex === 0) {
+                        prevBtn.classList.add('opacity-50', 'pointer-events-none');
+                    } else {
+                        prevBtn.classList.remove('opacity-50', 'pointer-events-none');
+                    }
+                }
+
+                const nextBtn = $('wizard-next-btn');
+                if (nextBtn) {
+                    if (currentQuestionIndex === total - 1) {
+                        nextBtn.innerHTML = `Submit <span class="material-symbols-outlined text-sm">done</span>`;
+                    } else {
+                        nextBtn.innerHTML = `Next <span class="material-symbols-outlined text-sm">arrow_forward</span>`;
+                    }
+                }
+
+                const container = $('wizard-answer-control');
+                if (!container) return;
+                
+                const savedAns = currentAnswers[q.id] || '';
+
+                if (q.type === 'MCQ') {
+                    let choices = [];
+                    try { choices = JSON.parse(q.options) || []; } catch(_) {}
+                    container.innerHTML = `<div class="space-y-2.5">${choices.map(choice => {
+                        const isSelected = savedAns === choice;
+                        const borderClass = isSelected ? 'border-primary bg-blue-50/40 text-primary' : 'border-slate-200 hover:bg-slate-50 text-slate-800';
+                        return `
+                            <div class="mcq-option p-4 border rounded-xl cursor-pointer font-bold text-sm transition-all duration-200 active-scale ${borderClass}" 
+                                 onclick="selectOption('${q.id}', '${choice.replace(/'/g, "\\'")}')">
+                                ${choice}
+                            </div>
+                        `;
+                    }).join('')}</div>`;
+                } else if (q.type === 'RATING') {
+                    const stars = [1,2,3,4,5];
+                    const selectedVal = parseInt(savedAns) || 0;
+                    container.innerHTML = `
+                        <div class="flex justify-center gap-4 star-rating select-none">
+                            ${stars.map(star => {
+                                const filledClass = star <= selectedVal ? 'filled' : '';
+                                return `
+                                    <button class="star p-1 active-scale text-4xl ${filledClass}" onclick="selectRating('${q.id}', ${star})">
+                                        ★
+                                    </button>
+                                `;
+                            }).join('')}
+                        </div>
+                    `;
+                } else {
+                    container.innerHTML = `
+                        <textarea id="text-ans" placeholder="Type your response here..." class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary transition-all h-36 resize-none bg-slate-50">${savedAns}</textarea>
+                    `;
+                    const textarea = $('text-ans');
+                    textarea?.addEventListener('input', (e) => {
+                        currentAnswers[q.id] = e.target.value;
+                    });
+                }
+            };
+
+            window.selectOption = (qid, choice) => {
+                haptic();
+                currentAnswers[qid] = choice;
+                renderQuestion();
+            };
+
+            window.selectRating = (qid, stars) => {
+                haptic();
+                currentAnswers[qid] = stars.toString();
+                renderQuestion();
+            };
+
+            $('wizard-prev-btn')?.addEventListener('click', () => {
+                if (currentQuestionIndex > 0) {
+                    haptic();
+                    currentQuestionIndex--;
+                    renderQuestion();
+                }
+            });
+
+            $('wizard-next-btn')?.addEventListener('click', async () => {
+                const q = currentQuestions[currentQuestionIndex];
+                if (!q) return;
+
+                const ans = currentAnswers[q.id] || '';
+                if (q.type !== 'TEXT' && (!ans || ans.trim() === '')) {
+                    showToast('Please select an option before proceeding.', 'error', 2000);
+                    return;
+                }
+
+                const total = currentQuestions.length;
+                if (currentQuestionIndex < total - 1) {
+                    haptic();
+                    currentQuestionIndex++;
+                    renderQuestion();
+                } else {
+                    haptic();
+                    const submissionAnswers = Object.keys(currentAnswers).map(qid => ({
+                        questionId: qid,
+                        answer: currentAnswers[qid]
+                    }));
+
+                    loading.show('Submitting survey feedback...');
+                    try {
+                        const res = await api.post(`/surveys/${currentSurvey.id}/submit`, { answers: submissionAnswers });
+                        if (res.success) {
+                            showToast('Thank you! Survey submitted.', 'success', 2000);
+                            closeSurveyWizard();
+                            loadSurveys();
+                        } else {
+                            showToast(res.message || 'Failed to submit survey', 'error', 3000);
+                        }
+                    } catch (err) {
+                        console.error('[Survey] submission error:', err);
+                        showToast('Submission failed.', 'error', 3000);
+                    } finally {
+                        loading.hide();
+                    }
+                }
+            });
+
+            loadSurveys();
+        }
+    },
+
+    // ---- ANNOUNCEMENTS ----
+    announcements: {
+        render: () => `
+            <div class="min-h-screen pb-32 bg-[#F8FAFC]">
+                <main class="pt-20 px-4 max-w-lg mx-auto space-y-5">
+                    <section>
+                        <p class="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-1">Campus Board</p>
+                        <h2 class="text-3xl font-extrabold tracking-tight text-slate-800" style="font-family:'Plus Jakarta Sans',sans-serif">Announcements</h2>
+                    </section>
+                    
+                    <div class="flex gap-2 overflow-x-auto pb-2 hide-scrollbar momentum-scroll select-none" id="ann-category-filters">
+                        <button class="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-primary text-white" data-category="ALL">All</button>
+                        <button class="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-500" data-category="EXAM">Exams</button>
+                        <button class="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-500" data-category="PLACEMENT">Placements</button>
+                        <button class="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-500" data-category="EVENTS">Events</button>
+                        <button class="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-500" data-category="ACADEMIC">Academic</button>
+                        <button class="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-500" data-category="HOLIDAY">Holidays</button>
+                        <button class="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-500" data-category="GENERAL">General</button>
+                    </div>
+
+                    <div class="space-y-4" id="announcements-list-container">
+                        <div class="h-24 bg-slate-100 rounded-xl animate-pulse"></div>
+                    </div>
+                </main>
+            </div>
+        `,
+        afterRender: async () => {
+            toggleShell(true);
+            setActiveNav('services');
+            
+            const list = $('announcements-list-container');
+            const categoryFilters = document.querySelectorAll('#ann-category-filters button');
+            let activeCategory = 'ALL';
+            let allAnnouncements = [];
+
+            const renderAnnouncements = () => {
+                if (!list) return;
+                const filtered = activeCategory === 'ALL'
+                    ? allAnnouncements
+                    : allAnnouncements.filter(a => (a.category || 'GENERAL').toUpperCase() === activeCategory);
+
+                if (filtered.length === 0) {
+                    list.innerHTML = `<div class="text-center py-16 text-slate-400 font-bold">No announcements found.</div>`;
+                    return;
+                }
+
+                list.innerHTML = filtered.map(a => {
+                    const isUrgent = (a.priority || '').toUpperCase() === 'URGENT';
+                    const isHigh = (a.priority || '').toUpperCase() === 'HIGH';
+                    const borderLeftColor = isUrgent ? 'border-l-rose-500' : isHigh ? 'border-l-amber-500' : 'border-l-slate-200';
+                    const badgeBg = isUrgent ? 'bg-rose-50 text-rose-600 border border-rose-100' : isHigh ? 'bg-amber-50 text-amber-600 border border-amber-100' : 'bg-slate-50 text-slate-500 border border-slate-100';
+                    const catBadge = a.category || 'GENERAL';
+                    const dateStr = new Date(a.createdAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+
+                    return `
+                        <div class="glass-panel p-5 space-y-3 border-l-4 ${borderLeftColor} border-r border-t border-b border-slate-200/50 hover:shadow-md transition-all duration-300">
+                            <div class="flex justify-between items-start">
+                                <span class="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${badgeBg}">${catBadge}</span>
+                                <div class="flex items-center gap-1 text-[10px] font-bold text-slate-400">
+                                    <span class="material-symbols-outlined text-[12px]" style="font-size:12px">calendar_today</span> ${dateStr}
+                                </div>
+                            </div>
+                            <div>
+                                <h4 class="font-extrabold text-slate-800 text-sm leading-tight">${a.title}</h4>
+                                <p class="text-xs text-slate-500 mt-2 leading-relaxed break-words">${a.description}</p>
+                            </div>
+                            ${a.link ? `
+                            <button class="open-link-btn inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 border border-blue-100 text-[10px] font-bold tracking-wider uppercase active-scale" data-link="${a.link}">
+                                View Document <span class="material-symbols-outlined text-xs">open_in_new</span>
+                            </button>` : ''}
+                        </div>
+                    `;
+                }).join('');
+
+                list.querySelectorAll('.open-link-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        haptic();
+                        const link = btn.dataset.link;
+                        if (window.Capacitor?.Plugins?.Browser) {
+                            window.Capacitor.Plugins.Browser.open({ url: link }).catch(() => {});
+                        } else {
+                            window.open(link, '_blank');
+                        }
+                    });
+                });
+            };
+
+            const loadAnnouncements = async () => {
+                loading.show('Loading Announcements...');
+                try {
+                    const res = await api.get('/announcements');
+                    allAnnouncements = res.announcements || [];
+                    renderAnnouncements();
+                } catch (err) {
+                    console.error('[Announcements] load failed:', err);
+                } finally {
+                    loading.hide();
+                }
+            };
+
+            categoryFilters.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    haptic();
+                    activeCategory = btn.dataset.category;
+                    categoryFilters.forEach(b => {
+                        if (b.dataset.category === activeCategory) {
+                            b.className = 'px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-primary text-white';
+                        } else {
+                            b.className = 'px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-500';
+                        }
+                    });
+                    renderAnnouncements();
+                });
+            });
+
+            loadAnnouncements();
+        }
+    },
+
+    // ---- LOST & FOUND ----
+    'lost-found': {
+        render: () => `
+            <div class="min-h-screen pb-32 bg-[#F8FAFC]">
+                <main class="pt-20 px-4 max-w-lg mx-auto space-y-6">
+                    <section class="flex justify-between items-center">
+                        <div>
+                            <p class="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-1">Campus Board</p>
+                            <h2 class="text-3xl font-extrabold tracking-tight text-slate-800" style="font-family:'Plus Jakarta Sans',sans-serif">Lost &amp; Found</h2>
+                        </div>
+                        <button id="report-lf-btn" class="bg-primary text-white font-bold text-xs uppercase tracking-wider px-5 py-2.5 rounded-full shadow-md active-scale transition-all">Report</button>
+                    </section>
+
+                    <div class="flex gap-2">
+                        <button class="flex-1 lf-filter-btn py-2.5 rounded-xl border border-slate-200/80 bg-primary text-white text-xs font-bold uppercase tracking-wider shadow-sm transition-all" data-type="ALL">All Items</button>
+                        <button class="flex-1 lf-filter-btn py-2.5 rounded-xl border border-slate-200/80 bg-white text-slate-600 text-xs font-bold uppercase tracking-wider transition-all" data-type="LOST">🔴 Lost</button>
+                        <button class="flex-1 lf-filter-btn py-2.5 rounded-xl border border-slate-200/80 bg-white text-slate-600 text-xs font-bold uppercase tracking-wider transition-all" data-type="FOUND">🟢 Found</button>
+                    </div>
+
+                    <div class="space-y-4" id="lf-items-list">
+                        <div class="h-24 bg-slate-100 rounded-xl animate-pulse"></div>
+                    </div>
+                </main>
+
+                <div id="lf-sheet-backdrop" class="bottom-sheet-backdrop hidden opacity-0"></div>
+                <div id="lf-sheet" class="bottom-sheet">
+                    <div class="px-6 py-4 flex items-center justify-between border-b border-slate-100">
+                        <h3 class="font-extrabold text-slate-800 text-lg">Report Item</h3>
+                        <button id="close-lf-sheet" class="p-2 hover:bg-slate-100 rounded-full transition-colors"><span class="material-symbols-outlined text-slate-500">close</span></button>
+                    </div>
+                    <form id="lf-form" class="p-6 space-y-4 overflow-y-auto">
+                        <div class="flex gap-2 select-none">
+                            <button type="button" id="lf-type-lost-btn" class="flex-1 py-3 bg-red-50 border-2 border-red-500 text-red-700 rounded-xl text-xs font-extrabold uppercase tracking-wide transition-all">Lost</button>
+                            <button type="button" id="lf-type-found-btn" class="flex-1 py-3 bg-slate-50 border border-slate-200 text-slate-500 rounded-xl text-xs font-extrabold uppercase tracking-wide transition-all">Found</button>
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wide">Item Name</label>
+                            <input type="text" id="lf-title" required placeholder="e.g. Water Bottle, Keys, Wallet" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary transition-all" />
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wide">Description &amp; Key Details</label>
+                            <textarea id="lf-description" required placeholder="Describe details (color, brand, scratches...)" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary transition-all h-20 resize-none"></textarea>
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wide">Location</label>
+                            <input type="text" id="lf-location" required placeholder="e.g. Library 2nd floor, Room B-101" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary transition-all" />
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wide">Image URLs (Up to 3, comma separated)</label>
+                            <input type="text" id="lf-images" placeholder="URL 1, URL 2..." class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary transition-all" />
+                        </div>
+                        <button type="submit" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-3.5 rounded-xl shadow-md active-scale transition-transform">Post Report</button>
+                    </form>
+                </div>
+
+                <div id="lf-claim-backdrop" class="bottom-sheet-backdrop hidden opacity-0"></div>
+                <div id="lf-claim-sheet" class="bottom-sheet">
+                    <div class="px-6 py-4 flex items-center justify-between border-b border-slate-100">
+                        <h3 class="font-extrabold text-slate-800 text-lg">Submit Claim Request</h3>
+                        <button id="close-lf-claim-sheet" class="p-2 hover:bg-slate-100 rounded-full transition-colors"><span class="material-symbols-outlined text-slate-500">close</span></button>
+                    </div>
+                    <form id="lf-claim-form" class="p-6 space-y-4">
+                        <div class="space-y-1">
+                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wide">Claim Verification Description</label>
+                            <textarea id="lf-claim-message" required placeholder="Please describe identifying marks or contents of the item to confirm you are the owner..." class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary transition-all h-28 resize-none"></textarea>
+                        </div>
+                        <button type="submit" class="w-full bg-primary text-white font-bold py-3.5 rounded-xl shadow-md active-scale transition-transform">Submit Claim</button>
+                    </form>
+                </div>
+            </div>
+        `,
+        afterRender: async () => {
+            toggleShell(true);
+            setActiveNav('services');
+            
+            const list = $('lf-items-list');
+            const sheet = $('lf-sheet');
+            const backdrop = $('lf-sheet-backdrop');
+            const applyBtn = $('report-lf-btn');
+            const closeBtn = $('close-lf-sheet');
+            const form = $('lf-form');
+            
+            const claimSheet = $('lf-claim-sheet');
+            const claimBackdrop = $('lf-claim-backdrop');
+            const closeClaimBtn = $('close-lf-claim-sheet');
+            const claimForm = $('lf-claim-form');
+
+            const filterBtns = document.querySelectorAll('.lf-filter-btn');
+            let activeFilter = 'ALL';
+            let allItems = [];
+            let currentClaimItemId = null;
+            let reportType = 'LOST';
+
+            const setFormType = (type) => {
+                reportType = type;
+                const lostBtn = $('lf-type-lost-btn');
+                const foundBtn = $('lf-type-found-btn');
+                if (type === 'LOST') {
+                    lostBtn.className = 'flex-1 py-3 bg-red-50 border-2 border-red-500 text-red-700 rounded-xl text-xs font-extrabold uppercase tracking-wide transition-all';
+                    foundBtn.className = 'flex-1 py-3 bg-slate-50 border border-slate-200 text-slate-500 rounded-xl text-xs font-extrabold uppercase tracking-wide transition-all';
+                } else {
+                    lostBtn.className = 'flex-1 py-3 bg-slate-50 border border-slate-200 text-slate-500 rounded-xl text-xs font-extrabold uppercase tracking-wide transition-all';
+                    foundBtn.className = 'flex-1 py-3 bg-emerald-50 border-2 border-emerald-500 text-emerald-700 rounded-xl text-xs font-extrabold uppercase tracking-wide transition-all';
+                }
+            };
+
+            $('lf-type-lost-btn')?.addEventListener('click', () => setFormType('LOST'));
+            $('lf-type-found-btn')?.addEventListener('click', () => setFormType('FOUND'));
+
+            const openSheet = () => {
+                haptic();
+                backdrop.classList.remove('hidden');
+                sheet.classList.remove('hidden');
+                setTimeout(() => {
+                    backdrop.classList.add('opacity-100');
+                    sheet.classList.add('open');
+                }, 10);
+            };
+
+            const closeSheet = () => {
+                backdrop.classList.remove('opacity-100');
+                sheet.classList.remove('open');
+                setTimeout(() => {
+                    backdrop.classList.add('hidden');
+                }, 300);
+            };
+
+            applyBtn?.addEventListener('click', openSheet);
+            backdrop?.addEventListener('click', closeSheet);
+            closeBtn?.addEventListener('click', closeSheet);
+
+            const openClaimSheet = (itemId) => {
+                haptic();
+                currentClaimItemId = itemId;
+                claimBackdrop.classList.remove('hidden');
+                claimSheet.classList.remove('hidden');
+                setTimeout(() => {
+                    claimBackdrop.classList.add('opacity-100');
+                    claimSheet.classList.add('open');
+                }, 10);
+            };
+
+            const closeClaimSheet = () => {
+                claimBackdrop.classList.remove('opacity-100');
+                claimSheet.classList.remove('open');
+                setTimeout(() => {
+                    claimBackdrop.classList.add('hidden');
+                    currentClaimItemId = null;
+                }, 300);
+            };
+
+            claimBackdrop?.addEventListener('click', closeClaimSheet);
+            closeClaimBtn?.addEventListener('click', closeClaimSheet);
+
+            const renderItems = () => {
+                if (!list) return;
+                const filtered = activeFilter === 'ALL'
+                    ? allItems
+                    : allItems.filter(item => item.type === activeFilter);
+
+                if (filtered.length === 0) {
+                    list.innerHTML = `<div class="text-center py-16 text-slate-400 font-bold">No lost or found reports.</div>`;
+                    return;
+                }
+
+                list.innerHTML = filtered.map(item => {
+                    const isOwner = item.studentId === state.profile?.id;
+                    const badgeClass = item.type === 'LOST' ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100';
+                    const statusClass = item.status === 'CLAIMED' ? 'bg-slate-100 text-slate-600' : item.status === 'CLAIM_REQUESTED' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700';
+                    
+                    let imgs = [];
+                    try { imgs = JSON.parse(item.imageUrls) || []; } catch(_) {}
+                    const imagesHtml = imgs.length > 0 ? `
+                        <div class="flex gap-2 overflow-x-auto pb-1 mt-2 hide-scrollbar">
+                            ${imgs.map(url => `<img src="${url}" class="w-20 h-20 rounded-lg object-cover border border-slate-200 flex-shrink-0" />`).join('')}
+                        </div>
+                    ` : '';
+
+                    let actionsHtml = '';
+                    if (item.status === 'ACTIVE' && !isOwner) {
+                        actionsHtml = `
+                            <button class="claim-item-btn w-full mt-3 bg-blue-50 text-blue-600 font-extrabold text-xs uppercase tracking-wider py-2.5 rounded-xl border border-blue-100 active-scale" data-id="${item.id}">
+                                Claim Item
+                            </button>
+                        `;
+                    } else if (item.status === 'CLAIM_REQUESTED') {
+                        const verifiedClaim = item.claims?.find(c => c.status === 'VERIFIED');
+                        if (isOwner && verifiedClaim) {
+                            actionsHtml = `
+                                <div class="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-2">
+                                    <p class="text-xs font-bold text-amber-800">Claim Verified by Admin: "${verifiedClaim.message || ''}"</p>
+                                    <button class="confirm-claim-btn w-full bg-emerald-600 text-white font-extrabold text-xs uppercase tracking-wider py-2.5 rounded-xl active-scale" data-id="${item.id}" data-claim-id="${verifiedClaim.id}">
+                                        Confirm Return
+                                    </button>
+                                </div>
+                            `;
+                        } else {
+                            actionsHtml = `
+                                <div class="mt-3 p-2 bg-amber-50 border border-amber-100 text-amber-700 rounded-xl text-center text-[10px] font-bold uppercase tracking-wider">
+                                    Awaiting Claim Verification
+                                </div>
+                            `;
+                        }
+                    } else if (item.status === 'CLAIMED') {
+                        actionsHtml = `
+                            <div class="mt-3 p-2 bg-slate-100 border border-slate-200 text-slate-500 rounded-xl text-center text-[10px] font-bold uppercase tracking-wider">
+                                ✓ Returned &amp; Closed
+                            </div>
+                        `;
+                    }
+
+                    return `
+                        <div class="glass-panel p-5 space-y-3 border border-slate-200/50 active-scale transition-all duration-300">
+                            <div class="flex justify-between items-start">
+                                <div class="flex items-center gap-2">
+                                    <span class="px-2.5 py-0.5 rounded-full border text-[9px] font-black uppercase tracking-wider ${badgeClass}">${item.type}</span>
+                                    <span class="px-2.5 py-0.5 rounded-full border text-[9px] font-black uppercase tracking-wider ${statusClass}">${item.status}</span>
+                                </div>
+                                <span class="text-[10px] font-bold text-slate-400 font-mono">${new Date(item.createdAt).toLocaleDateString()}</span>
+                            </div>
+                            <div>
+                                <h4 class="font-extrabold text-slate-800 text-sm">${item.title}</h4>
+                                <p class="text-xs text-slate-500 mt-1 leading-normal break-words">${item.description}</p>
+                                <p class="text-[10px] text-slate-400 font-bold mt-2 flex items-center gap-1">
+                                    <span class="material-symbols-outlined text-xs" style="font-size:12px">location_on</span> ${item.location}
+                                </p>
+                                ${imagesHtml}
+                            </div>
+                            ${actionsHtml}
+                        </div>
+                    `;
+                }).join('');
+
+                list.querySelectorAll('.claim-item-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        openClaimSheet(btn.dataset.id);
+                    });
+                });
+
+                list.querySelectorAll('.confirm-claim-btn').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        haptic();
+                        const id = btn.dataset.id;
+                        const claimId = btn.dataset.claimId;
+                        loading.show('Confirming claim...');
+                        try {
+                            const res = await api.post(`/lost-found/${id}/confirm-claim`, { claimId });
+                            if (res.success) {
+                                showToast('Claim confirmed! Marked as returned.', 'success', 2000);
+                                loadItems();
+                            } else {
+                                showToast(res.message || 'Confirmation failed', 'error', 3000);
+                            }
+                        } catch (_) {
+                            showToast('Confirmation failed.', 'error', 3000);
+                        } finally {
+                            loading.hide();
+                        }
+                    });
+                });
+            };
+
+            const loadItems = async () => {
+                loading.show('Loading Items...');
+                try {
+                    const res = await api.get('/lost-found');
+                    allItems = res.items || [];
+                    renderItems();
+                } catch (err) {
+                    console.error('[LostFound] load failed:', err);
+                } finally {
+                    loading.hide();
+                }
+            };
+
+            filterBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    haptic();
+                    activeFilter = btn.dataset.type;
+                    filterBtns.forEach(b => {
+                        if (b.dataset.type === activeFilter) {
+                            b.className = 'flex-1 lf-filter-btn py-2.5 rounded-xl border border-slate-200/80 bg-primary text-white text-xs font-bold uppercase tracking-wider shadow-sm transition-all';
+                        } else {
+                            b.className = 'flex-1 lf-filter-btn py-2.5 rounded-xl border border-slate-200/80 bg-white text-slate-600 text-xs font-bold uppercase tracking-wider transition-all';
+                        }
+                    });
+                    renderItems();
+                });
+            });
+
+            form?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                haptic();
+                const title = $('lf-title').value.trim();
+                const description = $('lf-description').value.trim();
+                const location = $('lf-location').value.trim();
+                const imagesStr = $('lf-images').value.trim();
+                
+                let imageUrls = [];
+                if (imagesStr) {
+                    imageUrls = imagesStr.split(',').map(s => s.trim()).filter(Boolean).slice(0, 3);
+                }
+
+                if (!title || !description || !location) return;
+
+                loading.show('Posting report...');
+                try {
+                    const res = await api.post('/lost-found', { title, description, location, type: reportType, imageUrls });
+                    if (res.success) {
+                        showToast('Report posted successfully!', 'success', 2000);
+                        closeSheet();
+                        form.reset();
+                        loadItems();
+                    }
+                } catch (_) {
+                    showToast('Failed to post report.', 'error', 3000);
+                } finally {
+                    loading.hide();
+                }
+            });
+
+            claimForm?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                haptic();
+                const message = $('lf-claim-message').value.trim();
+                if (!message || !currentClaimItemId) return;
+
+                loading.show('Submitting claim...');
+                try {
+                    const res = await api.post(`/lost-found/${currentClaimItemId}/claim`, { message });
+                    if (res.success) {
+                        showToast('Claim submitted! Awaiting Admin verification.', 'success', 2500);
+                        closeClaimSheet();
+                        claimForm.reset();
+                        loadItems();
+                    }
+                } catch (_) {
+                    showToast('Failed to submit claim.', 'error', 3000);
+                } finally {
+                    loading.hide();
+                }
+            });
+
+            if (!state.profile) {
+                api.get('/profile').then(p => { state.profile = p.data; }).catch(() => {});
+            }
+
+            loadItems();
+        }
+    },
+
+    // ---- HELP DESK ----
+    help: {
+        render: () => `
+            <div class="min-h-screen pb-32 bg-[#F8FAFC]">
+                <main class="pt-20 px-4 max-w-lg mx-auto space-y-6" id="help-main-container">
+                    <section class="flex justify-between items-center">
+                        <div>
+                            <p class="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-1">Support</p>
+                            <h2 class="text-3xl font-extrabold tracking-tight text-slate-800" style="font-family:'Plus Jakarta Sans',sans-serif">Help Desk</h2>
+                        </div>
+                        <button id="raise-ticket-btn" class="bg-primary text-white font-bold text-xs uppercase tracking-wider px-5 py-2.5 rounded-full shadow-md active-scale transition-all">Raise Ticket</button>
+                    </section>
+
+                    <div class="space-y-4" id="tickets-list-container">
+                        <div class="h-24 bg-slate-100 rounded-xl animate-pulse"></div>
+                    </div>
+                </main>
+
+                <div id="ticket-chat-panel" class="fixed inset-0 bg-[#F8FAFC] z-[125] hidden flex-col">
+                    <div class="px-6 py-4 flex items-center justify-between border-b border-slate-200/80 bg-white shadow-sm">
+                        <div>
+                            <h3 class="font-extrabold text-slate-800 text-sm font-mono" id="chat-ticket-no">#HD-2026-000000</h3>
+                            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider" id="chat-ticket-subject">---</p>
+                        </div>
+                        <button onclick="closeTicketChat()" class="p-2 hover:bg-slate-100 rounded-full transition-colors active:scale-95 duration-200">
+                            <span class="material-symbols-outlined text-slate-500">close</span>
+                        </button>
+                    </div>
+                    <div class="flex-1 overflow-y-auto px-4 py-6 space-y-4 flex flex-col" id="chat-bubbles-container"></div>
+                    <div class="px-4 py-3 bg-white border-t border-slate-200/80 flex items-center gap-3">
+                        <input type="text" id="chat-reply-input" placeholder="Type support reply..." class="flex-1 text-sm text-slate-800 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-primary transition-all" />
+                        <button id="chat-send-btn" class="p-3 bg-primary text-white rounded-xl active-scale transition-transform flex items-center justify-center shadow-md">
+                            <span class="material-symbols-outlined text-base">send</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="ticket-sheet-backdrop" class="bottom-sheet-backdrop hidden opacity-0"></div>
+                <div id="ticket-sheet" class="bottom-sheet">
+                    <div class="px-6 py-4 flex items-center justify-between border-b border-slate-100">
+                        <h3 class="font-extrabold text-slate-800 text-lg">Raise Support Ticket</h3>
+                        <button id="close-ticket-sheet" class="p-2 hover:bg-slate-100 rounded-full transition-colors"><span class="material-symbols-outlined text-slate-500">close</span></button>
+                    </div>
+                    <form id="ticket-form" class="p-6 space-y-4 overflow-y-auto">
+                        <div class="space-y-1">
+                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wide">Category</label>
+                            <select id="ticket-category" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary transition-all">
+                                <option value="Academic">Academic (ETA: 24 Hours)</option>
+                                <option value="Technical">Technical (ETA: 6 Hours)</option>
+                                <option value="Fees">Fees (ETA: 48 Hours)</option>
+                                <option value="Hostel">Hostel (ETA: 24 Hours)</option>
+                                <option value="General">General (ETA: 48 Hours)</option>
+                            </select>
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wide">Priority</label>
+                            <div class="flex gap-2 select-none">
+                                <button type="button" data-priority="LOW" class="flex-1 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 text-xs font-bold uppercase ticket-priority-btn">Low</button>
+                                <button type="button" data-priority="NORMAL" class="flex-1 py-2 rounded-lg border-2 border-primary bg-blue-50/50 text-primary text-xs font-bold uppercase ticket-priority-btn">Normal</button>
+                                <button type="button" data-priority="HIGH" class="flex-1 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 text-xs font-bold uppercase ticket-priority-btn">High</button>
+                            </div>
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wide">Subject</label>
+                            <input type="text" id="ticket-subject" required placeholder="Brief summary of the issue..." class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary transition-all" />
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wide">Detailed Description</label>
+                            <textarea id="ticket-description" required placeholder="Describe the issue in detail (min 20 characters)..." class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary transition-all h-24 resize-none"></textarea>
+                        </div>
+                        <button type="submit" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-3.5 rounded-xl shadow-md active-scale transition-transform">Submit Ticket</button>
+                    </form>
+                </div>
+            </div>
+        `,
+        afterRender: async () => {
+            toggleShell(true);
+            setActiveNav('services');
+            
+            const list = $('tickets-list-container');
+            const sheet = $('ticket-sheet');
+            const backdrop = $('ticket-sheet-backdrop');
+            const applyBtn = $('raise-ticket-btn');
+            const closeBtn = $('close-ticket-sheet');
+            const form = $('ticket-form');
+            const chatPanel = $('ticket-chat-panel');
+            const chatBubbles = $('chat-bubbles-container');
+            const replyInput = $('chat-reply-input');
+            const sendBtn = $('chat-send-btn');
+            const priorityBtns = document.querySelectorAll('.ticket-priority-btn');
+
+            let allTickets = [];
+            let currentTicketId = null;
+            let ticketPriority = 'NORMAL';
+
+            priorityBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    haptic();
+                    ticketPriority = btn.dataset.priority;
+                    priorityBtns.forEach(b => {
+                        if (b.dataset.priority === ticketPriority) {
+                            b.className = 'flex-1 py-2 rounded-lg border-2 border-primary bg-blue-50/50 text-primary text-xs font-bold uppercase ticket-priority-btn';
+                        } else {
+                            b.className = 'flex-1 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 text-xs font-bold uppercase ticket-priority-btn';
+                        }
+                    });
+                });
+            });
+
+            const openSheet = () => {
+                haptic();
+                backdrop.classList.remove('hidden');
+                sheet.classList.remove('hidden');
+                setTimeout(() => {
+                    backdrop.classList.add('opacity-100');
+                    sheet.classList.add('open');
+                }, 10);
+            };
+
+            const closeSheet = () => {
+                backdrop.classList.remove('opacity-100');
+                sheet.classList.remove('open');
+                setTimeout(() => {
+                    backdrop.classList.add('hidden');
+                }, 300);
+            };
+
+            applyBtn?.addEventListener('click', openSheet);
+            backdrop?.addEventListener('click', closeSheet);
+            closeBtn?.addEventListener('click', closeSheet);
+
+            const renderTickets = () => {
+                if (!list) return;
+
+                if (allTickets.length === 0) {
+                    list.innerHTML = `<div class="p-6 rounded-2xl bg-white/60 border border-slate-200/50 text-center text-slate-400 font-bold text-xs uppercase tracking-wider">No tickets raised.</div>`;
+                    return;
+                }
+
+                list.innerHTML = allTickets.map(t => {
+                    let sc = 'status-open';
+                    if (t.status === 'IN_PROGRESS') sc = 'status-in-progress';
+                    else if (t.status === 'RESOLVED') sc = 'status-resolved';
+                    else if (t.status === 'CLOSED') sc = 'status-closed';
+
+                    let prColor = 'bg-slate-100 text-slate-600';
+                    if (t.priority === 'HIGH') prColor = 'bg-amber-100 text-amber-800';
+                    else if (t.priority === 'URGENT') prColor = 'bg-rose-100 text-rose-800';
+
+                    return `
+                        <div class="glass-panel p-5 space-y-3 border border-slate-200/50 active-scale transition-all duration-300 cursor-pointer" onclick="openTicketChat('${t.id}')">
+                            <div class="flex justify-between items-center">
+                                <div class="flex items-center gap-1.5">
+                                    <span class="px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-blue-50 text-blue-600 border border-blue-100">${t.category}</span>
+                                    <span class="px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${prColor}">${t.priority}</span>
+                                </div>
+                                <span class="status-chip ${sc}">${t.status}</span>
+                            </div>
+                            <div>
+                                <h4 class="font-extrabold text-slate-800 text-sm leading-tight font-mono">${t.ticketNumber}</h4>
+                                <p class="text-xs font-bold text-slate-500 mt-1 leading-snug">${t.subject}</p>
+                                <p class="text-[10px] text-slate-400 font-bold mt-2">⏱ Est. Response: ${t.estimatedResponseTime || '24 hours'}</p>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            };
+
+            const loadTickets = async () => {
+                loading.show('Loading Support Tickets...');
+                try {
+                    const res = await api.get('/help-desk');
+                    allTickets = res.tickets || [];
+                    renderTickets();
+                } catch (err) {
+                    console.error('[HelpDesk] Load failed:', err);
+                } finally {
+                    loading.hide();
+                }
+            };
+
+            window.openTicketChat = async (ticketId) => {
+                haptic();
+                currentTicketId = ticketId;
+                const ticket = allTickets.find(t => t.id === ticketId);
+                if (!ticket) return;
+
+                setEl('chat-ticket-no', 'innerText', ticket.ticketNumber);
+                setEl('chat-ticket-subject', 'innerText', ticket.subject);
+
+                if (chatPanel) {
+                    chatPanel.classList.remove('hidden');
+                }
+                loadChatMessages();
+            };
+
+            window.closeTicketChat = () => {
+                if (chatPanel) chatPanel.classList.add('hidden');
+                currentTicketId = null;
+                if (replyInput) replyInput.value = '';
+            };
+
+            const loadChatMessages = async () => {
+                if (!currentTicketId || !chatBubbles) return;
+                
+                chatBubbles.innerHTML = `<div class="text-center py-12 text-slate-400 text-xs font-bold">Loading conversation...</div>`;
+                
+                try {
+                    const res = await api.get(`/help-desk/${currentTicketId}`);
+                    const ticket = res.ticket || {};
+                    const replies = ticket.replies || [];
+
+                    let html = `
+                        <div class="chat-bubble-admin px-4 py-3 rounded-2xl max-w-[85%] text-sm leading-relaxed shadow-sm">
+                            <p class="font-black text-[10px] text-slate-400 uppercase tracking-widest mb-1">Issue Description</p>
+                            <p>${ticket.description}</p>
+                            <span class="text-[9px] font-bold text-slate-400 block text-right mt-1 font-mono">${new Date(ticket.createdAt).toLocaleTimeString()}</span>
+                        </div>
+                    `;
+
+                    replies.forEach(reply => {
+                        const isStudent = reply.senderType === 'STUDENT';
+                        const bubbleClass = isStudent ? 'chat-bubble-student' : 'chat-bubble-admin';
+                        const labelName = isStudent ? 'You' : reply.senderName || 'Support Admin';
+                        const labelColor = isStudent ? 'text-blue-200' : 'text-slate-400';
+                        
+                        html += `
+                            <div class="${bubbleClass} px-4 py-3 rounded-2xl max-w-[85%] text-sm leading-relaxed shadow-sm">
+                                <p class="font-black text-[10px] ${labelColor} uppercase tracking-widest mb-1">${labelName}</p>
+                                <p>${reply.message}</p>
+                                <span class="text-[9px] font-bold ${isStudent ? 'text-blue-100/75' : 'text-slate-400'} block text-right mt-1 font-mono">${new Date(reply.createdAt).toLocaleTimeString()}</span>
+                            </div>
+                        `;
+                    });
+
+                    chatBubbles.innerHTML = html;
+                    
+                    setTimeout(() => {
+                        chatBubbles.scrollTop = chatBubbles.scrollHeight;
+                    }, 50);
+                } catch (err) {
+                    console.error('[HelpDesk] Load chat failed:', err);
+                }
+            };
+
+            const sendReply = async () => {
+                const message = replyInput.value.trim();
+                if (!message || !currentTicketId) return;
+
+                haptic();
+                replyInput.value = '';
+                try {
+                    const res = await api.post(`/help-desk/${currentTicketId}/reply`, { message });
+                    if (res.success) {
+                        loadChatMessages();
+                    }
+                } catch (err) {
+                    console.error('[HelpDesk] send reply failed:', err);
+                }
+            };
+
+            sendBtn?.addEventListener('click', sendReply);
+            replyInput?.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') sendReply();
+            });
+
+            form?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                haptic();
+                const category = $('ticket-category').value;
+                const subject = $('ticket-subject').value.trim();
+                const description = $('ticket-description').value.trim();
+
+                if (!subject || !description || description.length < 20) {
+                    showToast('Description must be at least 20 characters long.', 'error', 3000);
+                    return;
+                }
+
+                loading.show('Raising ticket...');
+                try {
+                    const res = await api.post('/help-desk', { subject, description, category, priority: ticketPriority });
+                    if (res.success) {
+                        showToast(`Ticket Raised! ETA: ${res.ticket?.estimatedResponseTime}`, 'success', 4000);
+                        closeSheet();
+                        form.reset();
+                        loadTickets();
+                    }
+                } catch (_) {
+                    showToast('Failed to raise support ticket.', 'error', 3000);
+                } finally {
+                    loading.hide();
+                }
+            });
+
+            loadTickets();
+        }
     }
 };
 
@@ -3091,7 +4669,15 @@ const router = {
             '/assignments': pages.assignments,
             '/notifications': pages.notifications,
             '/exams': pages.exams,
-            '/maintenance': pages.maintenance
+            '/maintenance': pages.maintenance,
+            '/academics': pages.academics,
+            '/career': pages.career,
+            '/services': pages.services,
+            '/exit-pass': pages['exit-pass'],
+            '/survey': pages.survey,
+            '/announcements': pages.announcements,
+            '/lost-found': pages['lost-found'],
+            '/help': pages.help
         };
     },
 
@@ -3393,6 +4979,102 @@ document.addEventListener('DOMContentLoaded', () => {
         router.handle();
         checkSyncStatus();
     });
+
+    window.toggleSearchOverlay = (show) => {
+        const overlay = $('search-overlay');
+        const input = $('global-search-input');
+        if (!overlay) return;
+        if (show) {
+            overlay.classList.remove('hidden');
+            setTimeout(() => {
+                overlay.classList.remove('opacity-0');
+                input?.focus();
+            }, 10);
+        } else {
+            overlay.classList.add('opacity-0');
+            setTimeout(() => {
+                overlay.classList.add('hidden');
+                if (input) input.value = '';
+                const container = $('search-results-container');
+                if (container) container.innerHTML = `<div class="text-center py-16 text-slate-400 text-xs font-bold uppercase tracking-wider">Type to start searching...</div>`;
+            }, 300);
+        }
+    };
+
+    const searchInput = $('global-search-input');
+    const resultsContainer = $('search-results-container');
+    if (searchInput && resultsContainer) {
+        searchInput.addEventListener('input', async (e) => {
+            const query = e.target.value.toLowerCase().trim();
+            if (query.length < 2) {
+                resultsContainer.innerHTML = `<div class="text-center py-16 text-slate-400 text-xs font-bold uppercase tracking-wider">Type at least 2 characters to search...</div>`;
+                return;
+            }
+
+            const [assignments, announcements, placements, surveys, helpTickets, lostFound] = await Promise.all([
+                api.get('/assignments').then(c => c?.data?.list || []).catch(() => []),
+                api.get('/announcements').then(c => c?.announcements || []).catch(() => []),
+                api.get('/placements').then(c => c?.placements || []).catch(() => []),
+                api.get('/surveys').then(c => c?.surveys || []).catch(() => []),
+                api.get('/help-desk').then(c => c?.tickets || []).catch(() => []),
+                api.get('/lost-found').then(c => c?.items || []).catch(() => [])
+            ]);
+
+            const matches = [];
+
+            assignments.forEach(a => {
+                if (a.title.toLowerCase().includes(query) || a.subject.toLowerCase().includes(query)) {
+                    matches.push({ type: 'Assignment', title: a.title, subtitle: `${a.subject} · Due ${a.date}`, route: '/assignments' });
+                }
+            });
+
+            announcements.forEach(a => {
+                if (a.title.toLowerCase().includes(query) || a.description.toLowerCase().includes(query)) {
+                    matches.push({ type: 'Notice', title: a.title, subtitle: a.description, route: '/announcements' });
+                }
+            });
+
+            placements.forEach(p => {
+                if (p.companyName.toLowerCase().includes(query) || p.jobRole.toLowerCase().includes(query)) {
+                    matches.push({ type: 'Placement', title: p.companyName, subtitle: `${p.jobRole} · ₹${p.packageLpa} LPA`, route: '/career' });
+                }
+            });
+
+            surveys.forEach(s => {
+                if (s.title.toLowerCase().includes(query) || s.description.toLowerCase().includes(query)) {
+                    matches.push({ type: 'Survey', title: s.title, subtitle: s.description, route: '/survey' });
+                }
+            });
+
+            helpTickets.forEach(t => {
+                if (t.subject.toLowerCase().includes(query) || t.ticketNumber.toLowerCase().includes(query) || t.description.toLowerCase().includes(query)) {
+                    matches.push({ type: 'Support Ticket', title: t.ticketNumber, subtitle: `${t.subject} (${t.status})`, route: '/help' });
+                }
+            });
+
+            lostFound.forEach(lf => {
+                if (lf.title.toLowerCase().includes(query) || lf.description.toLowerCase().includes(query) || lf.location.toLowerCase().includes(query)) {
+                    matches.push({ type: `Lost & Found (${lf.type})`, title: lf.title, subtitle: `${lf.description} · Found at ${lf.location}`, route: '/lost-found' });
+                }
+            });
+
+            if (matches.length === 0) {
+                resultsContainer.innerHTML = `<div class="text-center py-16 text-slate-400 text-xs font-bold uppercase tracking-wider">No matching results found.</div>`;
+                return;
+            }
+
+            resultsContainer.innerHTML = matches.map(m => `
+                <div class="p-4 bg-white/60 rounded-2xl border border-slate-200/50 flex justify-between items-center hover:bg-slate-100 transition-colors active-scale cursor-pointer" onclick="toggleSearchOverlay(false); router.navigate('${m.route}')">
+                    <div>
+                        <span class="px-2 py-0.5 rounded bg-blue-100 text-blue-800 text-[9px] font-black uppercase tracking-wide inline-block mb-1">${m.type}</span>
+                        <h4 class="text-sm font-bold text-slate-800 truncate">${m.title}</h4>
+                        <p class="text-xs text-slate-500 mt-0.5 line-clamp-1">${m.subtitle}</p>
+                    </div>
+                    <span class="material-symbols-outlined text-slate-400 text-base">chevron_right</span>
+                </div>
+            `).join('');
+        });
+    }
 
     window.addEventListener('hashchange', () => router.handle());
 });

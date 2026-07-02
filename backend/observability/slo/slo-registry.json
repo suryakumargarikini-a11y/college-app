@@ -6,8 +6,8 @@
       "monthlyBudgetMin": 43.8,
       "sliDescription": "Ratio of HTTP 2xx/3xx to total requests",
       "status": {
-        "compliance": 0.9995,
-        "budgetRemainingMin": 21.9,
+        "compliance": 1,
+        "budgetRemainingMin": 43.8,
         "burnRates": {
           "1h": 0.8,
           "6h": 0.9,

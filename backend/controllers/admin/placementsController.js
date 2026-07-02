@@ -109,12 +109,82 @@ const remove = async (req, res) => {
 // Student-facing: published only, ordered by drive date ascending
 const getPublished = async (req, res) => {
     try {
+        const studentId = req.user.id;
         const placements = await prisma.placement.findMany({
             where: { status: 'PUBLISHED' },
+            include: {
+                savedPlacements: {
+                    where: { studentId }
+                }
+            },
             orderBy: { driveDate: 'asc' }
         });
-        res.json({ placements });
+        
+        const formatted = placements.map(p => {
+            const { savedPlacements, ...rest } = p;
+            return {
+                ...rest,
+                isSaved: savedPlacements.length > 0
+            };
+        });
+
+        res.json({ placements: formatted });
     } catch (err) { res.status(500).json({ error: 'Failed to fetch placements' }); }
 };
 
-module.exports = { getAll, create, update, remove, getPublished };
+const saveToggle = async (req, res) => {
+    try {
+        const studentId = req.user.id;
+        const { id } = req.params;
+
+        const existing = await prisma.savedPlacement.findUnique({
+            where: {
+                studentId_placementId: {
+                    studentId,
+                    placementId: id
+                }
+            }
+        });
+
+        if (existing) {
+            await prisma.savedPlacement.delete({
+                where: { id: existing.id }
+            });
+            return res.json({ success: true, saved: false, message: 'Placement unsaved' });
+        } else {
+            await prisma.savedPlacement.create({
+                data: {
+                    studentId,
+                    placementId: id
+                }
+            });
+            return res.json({ success: true, saved: true, message: 'Placement saved' });
+        }
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to toggle save state' });
+    }
+};
+
+const getSaved = async (req, res) => {
+    try {
+        const studentId = req.user.id;
+        const saved = await prisma.savedPlacement.findMany({
+            where: { studentId },
+            include: {
+                placement: true
+            },
+            orderBy: { savedAt: 'desc' }
+        });
+
+        const placements = saved.map(s => ({
+            ...s.placement,
+            isSaved: true
+        }));
+
+        res.json({ placements });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to fetch saved placements' });
+    }
+};
+
+module.exports = { getAll, create, update, remove, getPublished, saveToggle, getSaved };
