@@ -3,8 +3,9 @@
 // Matches Stitch UI design exactly, all modules functional
 // ============================================================
 
+const PRODUCTION_API = 'https://college-app-production-0fd2.up.railway.app/api';
 const isMobileNative = window.Capacitor && window.Capacitor.platform !== 'web';
-const API_BASE = isMobileNative ? 'https://college-app-bx6b.onrender.com/api' : (window.API_BASE_URL || 'https://college-app-bx6b.onrender.com/api');
+const API_BASE = window.API_BASE_URL || PRODUCTION_API;
 
 let _decryptedToken = null;
 
@@ -67,11 +68,22 @@ const secureStorage = {
 
             // Step 2: Decrypt using primary hardware/software crypt layer
             if (window.Capacitor?.Plugins?.SecureKeystore && payload.ciphertext && payload.iv) {
-                const decRes = await window.Capacitor.Plugins.SecureKeystore.decrypt({
-                    ciphertext: payload.ciphertext,
-                    iv: payload.iv
-                });
-                _decryptedToken = decRes.value;
+                try {
+                    const decRes = await window.Capacitor.Plugins.SecureKeystore.decrypt({
+                        ciphertext: payload.ciphertext,
+                        iv: payload.iv
+                    });
+                    _decryptedToken = decRes.value;
+                } catch (keystoreErr) {
+                    // AndroidKeyStore key was deleted (e.g., app reinstall, device wipe, or key rotation).
+                    // The stored ciphertext is now unrecoverable — wipe it so we start clean.
+                    console.warn('[secureStorage] KeyStore decrypt failed (key deleted/reinstall?) — clearing stale token:', keystoreErr.message);
+                    localStorage.removeItem(scrambledKey);
+                    if (window.Capacitor?.Plugins?.Preferences) {
+                        await window.Capacitor.Plugins.Preferences.remove({ key: scrambledKey }).catch(() => {});
+                    }
+                    _decryptedToken = null;
+                }
             } else if (payload.data && payload.iv) {
                 // WebCrypto fallback for local/browser environments
                 let keyRaw = localStorage.getItem('_secure_entropy');

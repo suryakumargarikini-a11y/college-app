@@ -1,6 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
+    <!-- Allow cleartext only for the emulator localhost (development) -->
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="true">10.0.2.2</domain>
+        <domain includeSubdomains="true">localhost</domain>
+    </domain-config>
+    <!-- Production: HTTPS only — Railway backend (primary) -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">college-app-production-0fd2.up.railway.app</domain>
+    </domain-config>
+    <!-- Production: HTTPS only — Render backend (fallback) -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">college-app-bx6b.onrender.com</domain>
     </domain-config>
 </network-security-config>
