@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Legacy splash drawable for API < 31 (used by AppTheme.NoActionBarLaunch fallback) -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Brand blue background -->
+    <item android:drawable="@color/colorPrimary"/>
+    <!-- Centred SITAM logo foreground -->
+    <item
+        android:width="144dp"
+        android:height="144dp"
+        android:gravity="center"
+        android:drawable="@drawable/ic_launcher_foreground"/>
+</layer-list>

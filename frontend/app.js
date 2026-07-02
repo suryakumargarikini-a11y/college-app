@@ -9,6 +9,36 @@ const API_BASE = window.API_BASE_URL || PRODUCTION_API;
 
 let _decryptedToken = null;
 
+// Native Logcat Boot Logger Helper with Queue and Polling
+const bootLogQueue = [];
+function logBoot(msg) {
+    console.log(msg);
+    if (window.Capacitor?.Plugins?.SecureKeystore?.logBoot) {
+        window.Capacitor.Plugins.SecureKeystore.logBoot({ message: msg }).catch(() => {});
+    } else {
+        bootLogQueue.push(msg);
+    }
+}
+
+function flushBootLogs() {
+    if (window.Capacitor?.Plugins?.SecureKeystore?.logBoot) {
+        while (bootLogQueue.length > 0) {
+            const msg = bootLogQueue.shift();
+            window.Capacitor.Plugins.SecureKeystore.logBoot({ message: msg }).catch(() => {});
+        }
+    }
+}
+
+const bootLoggerInterval = setInterval(() => {
+    if (window.Capacitor?.Plugins?.SecureKeystore?.logBoot) {
+        clearInterval(bootLoggerInterval);
+        flushBootLogs();
+    }
+}, 30);
+setTimeout(() => clearInterval(bootLoggerInterval), 5000);
+
+logBoot("BOOT 1 - Script loaded / initializing globals");
+
 // --- Secure Persistence Service (Hybrid primary AES-GCM + secondary XOR bit-rotation obfuscation) ---
 const secureStorage = {
     _scramble(str) {
@@ -1417,18 +1447,15 @@ const pages = {
 
             // 1. Profile / greeting card
             // Time-based greeting
-            const hour = new Date().getHours();
-            const greeting = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening';
+            const hours = new Date().getHours();
+            const greeting = hours < 12 ? 'Good Morning' : hours < 17 ? 'Good Afternoon' : 'Good Evening';
+            const greetEmoji = hours < 12 ? '🌅' : hours < 17 ? '☀️' : '🌙';
             
             const indicator = $('live-indicator');
             if (indicator) {
                 indicator.classList.remove('scale-0', 'opacity-0');
                 indicator.classList.add('scale-100', 'opacity-100');
             }
-
-            const hours = new Date().getHours();
-            const greeting = hours < 12 ? 'Good Morning' : hours < 17 ? 'Good Afternoon' : 'Good Evening';
-            const greetEmoji = hours < 12 ? '🌅' : hours < 17 ? '☀️' : '🌙';
 
             api.get('/profile').then(res => {
                 const d = res.data || {};
@@ -1569,9 +1596,10 @@ const pages = {
                                 </div>
                             </div>
                         `).join('');
+                    }
                 }
             }).catch(e => {
-                console.error('[Dashboard] Placements fetch failed:', e);
+                console.error('[Dashboard] Announcements fetch failed:', e);
             });
         }
     },
@@ -4841,8 +4869,8 @@ const router = {
 // SHELL EVENT WIRING
 // ============================================================
 document.addEventListener('DOMContentLoaded', () => {
-    console.log("BOOT 2 - DOMContentLoaded fired");
-    console.log("BOOT 3 - DOM elements resolved / mock React mounted");
+    logBoot("BOOT 2 - DOMContentLoaded fired");
+    logBoot("BOOT 3 - DOM elements resolved / mock React mounted");
 
     // ── Navigation links — with haptic feedback ─────────────────────────────
     document.querySelectorAll('[data-nav-link]').forEach(el => {
@@ -5007,7 +5035,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Refactored async initialization with timeout, try/catch, and finally
     async function initializeApplication() {
-        console.log("BOOT 4 - initializeApplication() starting");
+        logBoot("BOOT 4 - initializeApplication() starting");
         let timeoutTriggered = false;
         let isDone = false;
 
@@ -5017,7 +5045,7 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('[Boot] Startup initialization exceeded 4s timeout failsafe! STAGE: Timeout triggered before bootstrap finished');
             // Safe fallback
             _splashDismiss();
-            console.log("BOOT 10 - Navigate to login (Timeout fallback)");
+            logBoot("BOOT 10 - Navigate to login (Timeout fallback)");
             router.handle();
             checkSyncStatus();
         }, 4000);
@@ -5026,7 +5054,7 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('[Boot] Running secure storage bootstrap...');
             try {
                 await secureStorage.bootstrap();
-                console.log("BOOT 5 - Secure Storage initialized");
+                logBoot("BOOT 5 - Secure Storage initialized");
             } catch (storageErr) {
                 console.error('[Boot] secureStorage.bootstrap() threw an error:', storageErr);
             }
@@ -5036,7 +5064,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            console.log("BOOT 6 - Config loaded");
+            logBoot("BOOT 6 - Config loaded");
             state.token = secureStorage.getItem('token') || null;
             console.log("[Boot] Token verified, state.token is present:", !!state.token);
             if (progressBar) progressBar.style.width = '100%';
@@ -5050,7 +5078,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error('[Boot] Animation delay failed:', delayErr);
             }
 
-            console.log("BOOT 8 - API health request starting");
+            logBoot("BOOT 8 - API health request starting");
             try {
                 // Fetch backend liveness status with 3s timeout
                 const controller = new AbortController();
@@ -5059,9 +5087,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const res = await fetch(API_BASE + '/health/liveness', { signal: controller.signal });
                 clearTimeout(id);
                 const text = await res.text();
-                console.log("BOOT 9 - API response received. Status:", res.status, "Body:", text);
+                logBoot("BOOT 9 - API response received. Status: " + res.status + " Body: " + text);
             } catch (healthErr) {
-                console.error("BOOT 9 - API response failed / connection error:", healthErr.message || healthErr);
+                logBoot("BOOT 9 - API response failed / connection error: " + (healthErr.message || healthErr));
             }
 
         } catch (err) {
@@ -5072,8 +5100,8 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (!timeoutTriggered) {
                 _splashDismiss();
-                console.log("BOOT 7 - Router initialized");
-                console.log("BOOT 10 - Navigate to login");
+                logBoot("BOOT 7 - Router initialized");
+                logBoot("BOOT 10 - Navigate to login");
                 try {
                     router.handle();
                     console.log('[Boot] router.handle() complete');

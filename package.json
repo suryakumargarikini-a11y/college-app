@@ -1,7 +1,7 @@
 {
   "name": "ethereal-scholar-erp",
   "version": "1.0.0",
-  "description": "Ethereal Scholar - Student ERP Portal",
+  "description": "SITAM Smart ERP — Student Campus Portal",
   "scripts": {
     "start": "node start.js",
     "build": "node scripts/generate-config.js && cd backend && npx prisma generate",
@@ -9,7 +9,12 @@
     "frontend": "node frontend-server.js",
     "db:setup-pg": "cd backend && npm run db:setup-pg",
     "db:setup-sqlite": "cd backend && npm run db:setup-sqlite",
-    "postinstall": "npm install --prefix backend --ignore-scripts"
+    "postinstall": "npm install --prefix backend --ignore-scripts",
+    "cap:sync": "npx cap sync android",
+    "cap:build": "npx cap build android",
+    "cap:open": "npx cap open android",
+    "apk:debug": "cd android && .\\gradlew assembleDebug",
+    "apk:release": "cd android && .\\gradlew assembleRelease"
   },
   "devDependencies": {
     "@capacitor/android": "^6.2.1",
@@ -18,9 +23,14 @@
   },
   "dependencies": {
     "@capacitor/browser": "^6.0.0",
+    "@capacitor/haptics": "^6.0.3",
+    "@capacitor/keyboard": "^6.0.4",
+    "@capacitor/network": "^6.0.4",
     "@capacitor/push-notifications": "^6.0.0",
-    "dotenv": "^17.4.2",
+    "@capacitor/splash-screen": "^6.0.4",
+    "@capacitor/status-bar": "^6.0.3",
     "@prisma/client": "5.15.0",
+    "dotenv": "^17.4.2",
     "prisma": "5.15.0"
   }
 }

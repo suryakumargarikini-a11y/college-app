@@ -40,6 +40,7 @@ app.use(helmet({
 const corsWhitelist = [
     'capacitor://localhost',
     'http://localhost',
+    'https://localhost',
     'http://localhost:5173',
     'https://sitamecap.co.in',
     'https://admin.sitamecap.co.in'

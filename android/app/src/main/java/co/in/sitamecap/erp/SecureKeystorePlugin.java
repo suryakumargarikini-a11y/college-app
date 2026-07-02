@@ -93,4 +93,13 @@ public class SecureKeystorePlugin extends Plugin {
             call.reject("Decryption failed: " + e.getMessage(), e);
         }
     }
+
+    @PluginMethod
+    public void logBoot(PluginCall call) {
+        String message = call.getString("message");
+        if (message != null) {
+            android.util.Log.d("SITAM_BOOT", message);
+        }
+        call.resolve();
+    }
 }
