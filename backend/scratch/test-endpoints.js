@@ -1,12 +1,12 @@
 const https = require('https');
 
 const endpoints = [
-    'https://college-app-bx6b.onrender.com/api/health/liveness',
-    'https://college-app-bx6b.onrender.com/api/health/readiness',
-    'https://college-app-bx6b.onrender.com/api/placements',
-    'https://college-app-bx6b.onrender.com/api/surveys',
-    'https://college-app-bx6b.onrender.com/api/help-desk',
-    'https://college-app-bx6b.onrender.com/api/lost-found'
+    'https://college-app-production-0fd2.up.railway.app/api/health/liveness',
+    'https://college-app-production-0fd2.up.railway.app/api/health/readiness',
+    'https://college-app-production-0fd2.up.railway.app/api/placements',
+    'https://college-app-production-0fd2.up.railway.app/api/surveys',
+    'https://college-app-production-0fd2.up.railway.app/api/help-desk',
+    'https://college-app-production-0fd2.up.railway.app/api/lost-found'
 ];
 
 function ping(url) {

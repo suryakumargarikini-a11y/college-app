@@ -9,8 +9,4 @@
     <domain-config cleartextTrafficPermitted="false">
         <domain includeSubdomains="true">college-app-production-0fd2.up.railway.app</domain>
     </domain-config>
-    <!-- Production: HTTPS only — Render backend (fallback) -->
-    <domain-config cleartextTrafficPermitted="false">
-        <domain includeSubdomains="true">college-app-bx6b.onrender.com</domain>
-    </domain-config>
 </network-security-config>

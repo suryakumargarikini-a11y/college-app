@@ -4969,7 +4969,6 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => { progressBar.style.width = '40%'; }, 50);
     }
 
-    // Hard-timeout failsafe: if bootstrap stalls > 4s, force dismiss and continue
     const _splashDismiss = () => {
         const splash = $('sitam-splash');
         if (splash && !splash.classList.contains('opacity-0')) {
@@ -4977,34 +4976,52 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => { if (splash.parentNode) splash.remove(); }, 700);
         }
     };
-    const _splashTimeout = setTimeout(() => {
-        console.warn('[Boot] Splash hard-timeout triggered — forcing dismiss');
-        _splashDismiss();
-        router.handle();
-        checkSyncStatus();
-    }, 4000);
 
-    secureStorage.bootstrap().then(() => {
-        clearTimeout(_splashTimeout);
-        state.token = secureStorage.getItem('token') || null;
-        if (progressBar) progressBar.style.width = '100%';
+    // Refactored async initialization with timeout, try/catch, and finally
+    async function initializeApplication() {
+        let timeoutTriggered = false;
+        let isDone = false;
 
-        setTimeout(() => {
+        const bootTimeout = setTimeout(() => {
+            if (isDone) return;
+            timeoutTriggered = true;
+            console.warn('[Boot] Startup initialization exceeded 4s timeout failsafe');
+            // Safe fallback
             _splashDismiss();
             router.handle();
             checkSyncStatus();
-            // Prefetch immediately if already logged in (returning user)
-            if (state.token) {
-                prefetchAll().catch(() => {});
+        }, 4000);
+
+        try {
+            console.log('[Boot] Running secure storage bootstrap...');
+            await secureStorage.bootstrap();
+            if (timeoutTriggered) return; // already handled by timeout failsafe
+
+            state.token = secureStorage.getItem('token') || null;
+            if (progressBar) progressBar.style.width = '100%';
+
+            // Smooth delay for progress bar completion
+            await new Promise(resolve => setTimeout(resolve, 800));
+        } catch (err) {
+            console.error('[Boot] secureStorage bootstrap failed:', err);
+        } finally {
+            isDone = true;
+            clearTimeout(bootTimeout);
+            
+            if (!timeoutTriggered) {
+                _splashDismiss();
+                router.handle();
+                checkSyncStatus();
+                // Warm cache if returning session is present
+                if (state.token) {
+                    prefetchAll().catch(() => {});
+                }
             }
-        }, 1000);
-    }).catch(err => {
-        clearTimeout(_splashTimeout);
-        console.error('[Boot] secureStorage bootstrap failed:', err);
-        _splashDismiss();
-        router.handle();
-        checkSyncStatus();
-    });
+        }
+    }
+
+    // Trigger startup audit and initialization
+    initializeApplication();
 
     window.toggleSearchOverlay = (show) => {
         const overlay = $('search-overlay');
