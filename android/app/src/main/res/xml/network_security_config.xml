@@ -5,8 +5,8 @@
         <domain includeSubdomains="true">10.0.2.2</domain>
         <domain includeSubdomains="true">localhost</domain>
     </domain-config>
-    <!-- Production: HTTPS only — Railway backend (primary) -->
+    <!-- Production: HTTPS only — Render backend (primary) -->
     <domain-config cleartextTrafficPermitted="false">
-        <domain includeSubdomains="true">college-app-production-0fd2.up.railway.app</domain>
+        <domain includeSubdomains="true">college-app-bx6b.onrender.com</domain>
     </domain-config>
 </network-security-config>

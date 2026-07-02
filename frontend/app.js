@@ -3,7 +3,7 @@
 // Matches Stitch UI design exactly, all modules functional
 // ============================================================
 
-const PRODUCTION_API = 'https://college-app-production-0fd2.up.railway.app/api';
+const PRODUCTION_API = 'https://college-app-bx6b.onrender.com/api';
 const isMobileNative = window.Capacitor && window.Capacitor.platform !== 'web';
 const API_BASE = window.API_BASE_URL || PRODUCTION_API;
 

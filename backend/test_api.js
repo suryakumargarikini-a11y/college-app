@@ -1,5 +1,5 @@
 const axios = require('axios');
-const API = process.env.API_BASE_URL || 'https://college-app-production-0fd2.up.railway.app/api';
+const API = process.env.API_BASE_URL || 'https://college-app-bx6b.onrender.com/api';
 
 async function test() {
   console.log('=== LOGIN ===');

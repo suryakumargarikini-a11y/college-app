@@ -2,7 +2,7 @@
 const axios = require('axios');
 
 async function testProdLogin() {
-    const url = 'https://college-app-production-0fd2.up.railway.app/api/admin/auth/login';
+    const url = 'https://college-app-bx6b.onrender.com/api/admin/auth/login';
     console.log('Sending login request to:', url);
     try {
         const response = await axios.post(url, {
