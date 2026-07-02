@@ -4,7 +4,7 @@
 // ============================================================
 
 const isMobileNative = window.Capacitor && window.Capacitor.platform !== 'web';
-const API_BASE = window.API_BASE_URL || 'https://college-app-production-0fd2.up.railway.app/api';
+const API_BASE = isMobileNative ? 'https://college-app-bx6b.onrender.com/api' : (window.API_BASE_URL || 'https://college-app-bx6b.onrender.com/api');
 
 let _decryptedToken = null;
 
@@ -4957,16 +4957,28 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => { progressBar.style.width = '40%'; }, 50);
     }
 
+    // Hard-timeout failsafe: if bootstrap stalls > 4s, force dismiss and continue
+    const _splashDismiss = () => {
+        const splash = $('sitam-splash');
+        if (splash && !splash.classList.contains('opacity-0')) {
+            splash.classList.add('opacity-0', 'pointer-events-none');
+            setTimeout(() => { if (splash.parentNode) splash.remove(); }, 700);
+        }
+    };
+    const _splashTimeout = setTimeout(() => {
+        console.warn('[Boot] Splash hard-timeout triggered — forcing dismiss');
+        _splashDismiss();
+        router.handle();
+        checkSyncStatus();
+    }, 4000);
+
     secureStorage.bootstrap().then(() => {
+        clearTimeout(_splashTimeout);
         state.token = secureStorage.getItem('token') || null;
         if (progressBar) progressBar.style.width = '100%';
 
         setTimeout(() => {
-            const splash = $('sitam-splash');
-            if (splash) {
-                splash.classList.add('opacity-0', 'pointer-events-none');
-                setTimeout(() => splash.remove(), 700);
-            }
+            _splashDismiss();
             router.handle();
             checkSyncStatus();
             // Prefetch immediately if already logged in (returning user)
@@ -4975,7 +4987,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }, 1000);
     }).catch(err => {
+        clearTimeout(_splashTimeout);
         console.error('[Boot] secureStorage bootstrap failed:', err);
+        _splashDismiss();
         router.handle();
         checkSyncStatus();
     });
