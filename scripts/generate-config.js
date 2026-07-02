@@ -8,12 +8,13 @@
 const fs = require('fs');
 const path = require('path');
 
-const isProduction = process.env.RAILWAY_ENVIRONMENT || process.env.NODE_ENV === 'production';
+const isProduction = process.env.RENDER || process.env.RAILWAY_ENVIRONMENT || process.env.NODE_ENV === 'production';
 const envName = isProduction ? 'production' : 'development';
 
-const apiBaseUrl = isProduction
-    ? 'https://college-app-production-0fd2.up.railway.app/api'
-    : (process.env.API_BASE_URL || 'http://localhost:3001/api');
+// Always use the production Render URL — config.js is baked into the Android APK
+// at cap sync time, so localhost would be unreachable from a physical device.
+const PRODUCTION_API_URL = 'https://college-app-bx6b.onrender.com/api';
+const apiBaseUrl = PRODUCTION_API_URL;
 
 const appVersion = process.env.APP_VERSION || '1.0.0';
 
