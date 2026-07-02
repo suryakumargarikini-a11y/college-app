@@ -44,47 +44,65 @@ const secureStorage = {
 
     // Asynchronous startup bootstrap to decrypt hardware key payloads
     async bootstrap() {
+        console.log('[Boot - secureStorage] Starting bootstrap...');
         try {
             const scrambledKey = this._scramble('token');
+            console.log('[Boot - secureStorage] Scrambled key:', scrambledKey);
             let rawData = localStorage.getItem(scrambledKey);
+            console.log('[Boot - secureStorage] localStorage token value exists:', !!rawData);
             
             // Mirror check from Capacitor Preferences sandbox
             if (!rawData && window.Capacitor?.Plugins?.Preferences) {
-                const res = await window.Capacitor.Plugins.Preferences.get({ key: scrambledKey }).catch(() => null);
-                if (res && res.value) {
-                    rawData = res.value;
+                console.log('[Boot - secureStorage] Awaiting Preferences.get...');
+                try {
+                    const res = await window.Capacitor.Plugins.Preferences.get({ key: scrambledKey });
+                    console.log('[Boot - secureStorage] Preferences.get finished successfully. Value exists:', !!res?.value);
+                    if (res && res.value) {
+                        rawData = res.value;
+                    }
+                } catch (prefErr) {
+                    console.error('[Boot - secureStorage] Preferences.get failed:', prefErr);
                 }
             }
 
             if (!rawData) {
+                console.log('[Boot - secureStorage] No raw data found, boot as anonymous/empty session');
                 _decryptedToken = null;
                 return;
             }
 
             // Step 1: Unscramble the secondary obfuscation layer
+            console.log('[Boot - secureStorage] Unscrambling payload...');
             const jsonStr = this._unscramble(rawData);
-            if (!jsonStr) return;
+            if (!jsonStr) {
+                console.log('[Boot - secureStorage] Unscrambling returned empty string');
+                return;
+            }
             const payload = JSON.parse(jsonStr);
+            console.log('[Boot - secureStorage] Payload successfully parsed, ciphertext exists:', !!payload.ciphertext, 'data exists:', !!payload.data);
 
             // Step 2: Decrypt using primary hardware/software crypt layer
             if (window.Capacitor?.Plugins?.SecureKeystore && payload.ciphertext && payload.iv) {
+                console.log('[Boot - secureStorage] SecureKeystore plugin detected. Awaiting decrypt...');
                 try {
                     const decRes = await window.Capacitor.Plugins.SecureKeystore.decrypt({
                         ciphertext: payload.ciphertext,
                         iv: payload.iv
                     });
+                    console.log('[Boot - secureStorage] SecureKeystore decryption succeeded');
                     _decryptedToken = decRes.value;
                 } catch (keystoreErr) {
-                    // AndroidKeyStore key was deleted (e.g., app reinstall, device wipe, or key rotation).
-                    // The stored ciphertext is now unrecoverable — wipe it so we start clean.
-                    console.warn('[secureStorage] KeyStore decrypt failed (key deleted/reinstall?) — clearing stale token:', keystoreErr.message);
+                    console.error('[Boot - secureStorage] KeyStore decrypt failed (key deleted/reinstall?) — clearing stale token:', keystoreErr.message);
                     localStorage.removeItem(scrambledKey);
                     if (window.Capacitor?.Plugins?.Preferences) {
+                        console.log('[Boot - secureStorage] Awaiting Preferences.remove...');
                         await window.Capacitor.Plugins.Preferences.remove({ key: scrambledKey }).catch(() => {});
+                        console.log('[Boot - secureStorage] Preferences.remove finished');
                     }
                     _decryptedToken = null;
                 }
             } else if (payload.data && payload.iv) {
+                console.log('[Boot - secureStorage] WebCrypto fallback data detected. Starting decryption...');
                 // WebCrypto fallback for local/browser environments
                 let keyRaw = localStorage.getItem('_secure_entropy');
                 if (keyRaw && keyRaw.length !== 32) {
@@ -92,23 +110,31 @@ const secureStorage = {
                     keyRaw = null;
                 }
                 if (keyRaw) {
+                    console.log('[Boot - secureStorage] Entropy key loaded. Importing WebCrypto key...');
                     const keyBuf = new TextEncoder().encode(keyRaw);
                     const cryptoKey = await crypto.subtle.importKey(
                         'raw', keyBuf, { name: 'AES-GCM', length: 256 }, false, ['decrypt']
                     );
+                    console.log('[Boot - secureStorage] Key imported successfully. Decrypting...');
                     const iv = new Uint8Array(atob(payload.iv).split('').map(c => c.charCodeAt(0)));
                     const ciphertext = new Uint8Array(atob(payload.data).split('').map(c => c.charCodeAt(0)));
                     const decrypted = await crypto.subtle.decrypt(
                         { name: 'AES-GCM', iv }, cryptoKey, ciphertext
                     );
                     _decryptedToken = new TextDecoder().decode(decrypted);
+                    console.log('[Boot - secureStorage] WebCrypto decryption succeeded');
+                } else {
+                    console.log('[Boot - secureStorage] No entropy key found for WebCrypto decryption');
                 }
             } else {
+                console.log('[Boot - secureStorage] Payload contains unscrambled raw value');
                 _decryptedToken = jsonStr;
             }
         } catch (err) {
-            console.warn('[secureStorage] Bootstrap failed:', err);
+            console.error('[secureStorage] Bootstrap failed with exception:', err);
             _decryptedToken = null;
+        } finally {
+            console.log('[Boot - secureStorage] Bootstrap completed');
         }
     },
 
@@ -4815,6 +4841,8 @@ const router = {
 // SHELL EVENT WIRING
 // ============================================================
 document.addEventListener('DOMContentLoaded', () => {
+    console.log("BOOT 2 - DOMContentLoaded fired");
+    console.log("BOOT 3 - DOM elements resolved / mock React mounted");
 
     // ── Navigation links — with haptic feedback ─────────────────────────────
     document.querySelectorAll('[data-nav-link]').forEach(el => {
@@ -4979,42 +5007,94 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Refactored async initialization with timeout, try/catch, and finally
     async function initializeApplication() {
+        console.log("BOOT 4 - initializeApplication() starting");
         let timeoutTriggered = false;
         let isDone = false;
 
         const bootTimeout = setTimeout(() => {
             if (isDone) return;
             timeoutTriggered = true;
-            console.warn('[Boot] Startup initialization exceeded 4s timeout failsafe');
+            console.error('[Boot] Startup initialization exceeded 4s timeout failsafe! STAGE: Timeout triggered before bootstrap finished');
             // Safe fallback
             _splashDismiss();
+            console.log("BOOT 10 - Navigate to login (Timeout fallback)");
             router.handle();
             checkSyncStatus();
         }, 4000);
 
         try {
             console.log('[Boot] Running secure storage bootstrap...');
-            await secureStorage.bootstrap();
-            if (timeoutTriggered) return; // already handled by timeout failsafe
+            try {
+                await secureStorage.bootstrap();
+                console.log("BOOT 5 - Secure Storage initialized");
+            } catch (storageErr) {
+                console.error('[Boot] secureStorage.bootstrap() threw an error:', storageErr);
+            }
 
+            if (timeoutTriggered) {
+                console.warn('[Boot] secureStorage.bootstrap() finished but timeout had already triggered');
+                return;
+            }
+
+            console.log("BOOT 6 - Config loaded");
             state.token = secureStorage.getItem('token') || null;
+            console.log("[Boot] Token verified, state.token is present:", !!state.token);
             if (progressBar) progressBar.style.width = '100%';
 
             // Smooth delay for progress bar completion
-            await new Promise(resolve => setTimeout(resolve, 800));
+            console.log('[Boot] Awaiting progress bar animation delay...');
+            try {
+                await new Promise(resolve => setTimeout(resolve, 800));
+                console.log('[Boot] Progress bar animation delay complete');
+            } catch (delayErr) {
+                console.error('[Boot] Animation delay failed:', delayErr);
+            }
+
+            console.log("BOOT 8 - API health request starting");
+            try {
+                // Fetch backend liveness status with 3s timeout
+                const controller = new AbortController();
+                const id = setTimeout(() => controller.abort(), 3000);
+                console.log('[Boot] Fetching liveness from endpoint:', API_BASE + '/health/liveness');
+                const res = await fetch(API_BASE + '/health/liveness', { signal: controller.signal });
+                clearTimeout(id);
+                const text = await res.text();
+                console.log("BOOT 9 - API response received. Status:", res.status, "Body:", text);
+            } catch (healthErr) {
+                console.error("BOOT 9 - API response failed / connection error:", healthErr.message || healthErr);
+            }
+
         } catch (err) {
-            console.error('[Boot] secureStorage bootstrap failed:', err);
+            console.error('[Boot] secureStorage bootstrap failed with outer exception:', err);
         } finally {
             isDone = true;
             clearTimeout(bootTimeout);
             
             if (!timeoutTriggered) {
                 _splashDismiss();
-                router.handle();
-                checkSyncStatus();
+                console.log("BOOT 7 - Router initialized");
+                console.log("BOOT 10 - Navigate to login");
+                try {
+                    router.handle();
+                    console.log('[Boot] router.handle() complete');
+                } catch (routerErr) {
+                    console.error('[Boot] router.handle() crashed:', routerErr);
+                }
+                try {
+                    checkSyncStatus();
+                    console.log('[Boot] checkSyncStatus() complete');
+                } catch (syncErr) {
+                    console.error('[Boot] checkSyncStatus() crashed:', syncErr);
+                }
+                
                 // Warm cache if returning session is present
                 if (state.token) {
-                    prefetchAll().catch(() => {});
+                    try {
+                        console.log('[Boot] Starting prefetchAll() background task...');
+                        prefetchAll().catch(e => console.error('[Boot] prefetchAll background error:', e));
+                    } catch (prefetchErr) {
+                        console.error('[Boot] prefetchAll trigger error:', prefetchErr);
+                    }
                 }
             }
         }
