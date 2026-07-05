@@ -1,5 +1,5 @@
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -221,6 +221,25 @@ model AuditLog {
   @@index([adminId])
   @@index([timestamp])
   @@index([severity])
+}
+
+// Session table — persists login tokens across Render cold starts.
+// SessionManager uses this to restore in-memory sessions after a dyno restart.
+// Without this model, prisma.session is undefined and every authenticated
+// request fails with 401 immediately after a cold start.
+model Session {
+  id          String   @id @default(uuid())
+  token       String   @unique // JWT / UUID token used as Bearer credential
+  userId      String   // Student roll number / username
+  password    String   @default("") // Encrypted — used for background ERP re-sync
+  cookies     String   @default("") // ERP session cookies for scraper reuse
+  scrapedData String   @default("{}") // JSON blob of last scraped profile data
+  lastUsed    DateTime @default(now())
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model FcmToken {

@@ -223,6 +223,22 @@ model AuditLog {
   @@index([severity])
 }
 
+// Session table — persists login tokens across Render cold starts.
+model Session {
+  id          String   @id @default(uuid())
+  token       String   @unique
+  userId      String
+  password    String   @default("")
+  cookies     String   @default("")
+  scrapedData String   @default("{}")
+  lastUsed    DateTime @default(now())
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
 model FcmToken {
   id         String   @id @default(uuid())
   studentId  String

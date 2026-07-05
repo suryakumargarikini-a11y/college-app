@@ -17,6 +17,22 @@ class SessionManager {
         this.sessions = new Map();
         // Cleanup every 30 min — removes expired in-memory sessions
         setInterval(() => this.cleanup(), 30 * 60 * 1000);
+
+        // ── Startup diagnostic: verify prisma.session exists ──────────────
+        // If this logs 'undefined', the Prisma client was not regenerated after
+        // the Session model was added to schema.prisma. Re-run: npx prisma generate
+        setImmediate(() => {
+            const prisma = getPrisma();
+            const sessionType = prisma ? typeof prisma.session : 'prisma-null';
+            console.log(`[SessionManager] Startup check — prisma.session type: ${sessionType}`);
+            if (prisma && typeof prisma.session !== 'object') {
+                console.error('[SessionManager] CRITICAL: prisma.session is undefined. ' +
+                    'The Session model is missing from the generated Prisma client. ' +
+                    'Run: npx prisma generate. All authenticated requests will fail with 401.');
+            } else {
+                console.log('[SessionManager] OK — prisma.session.findUnique:', typeof prisma?.session?.findUnique);
+            }
+        });
     }
 
     createSession(userId, password, cookies, scrapedData = {}) {
