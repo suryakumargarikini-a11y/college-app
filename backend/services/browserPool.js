@@ -87,9 +87,9 @@ function findChromiumExecutable() {
     return null;
 }
 
-const MAX_BROWSERS = parseInt(process.env.BROWSER_POOL_SIZE || '5', 10);
-const BROWSER_ACQUIRE_TIMEOUT_MS = parseInt(process.env.BROWSER_ACQUIRE_TIMEOUT_MS || '30000', 10);
-const BROWSER_IDLE_RECYCLE_MS = parseInt(process.env.BROWSER_IDLE_RECYCLE_MS || '600000', 10); // 10 min
+const MAX_BROWSERS = parseInt(process.env.BROWSER_POOL_SIZE || '1', 10);
+const BROWSER_ACQUIRE_TIMEOUT_MS = parseInt(process.env.BROWSER_ACQUIRE_TIMEOUT_MS || '60000', 10); // Increase acquire timeout to 60s
+const BROWSER_IDLE_RECYCLE_MS = parseInt(process.env.BROWSER_IDLE_RECYCLE_MS || '300000', 10); // 5 min
 
 class BrowserPool {
     constructor() {
@@ -97,7 +97,7 @@ class BrowserPool {
         this.waitQueue = []; // Queued resolve functions waiting for a free slot
         this.recycleInterval = null;
         this.isShuttingDown = false;
-        this.maxBrowsers = 2; // Start at minimum 2 (1-user load), scale up to 5 under load
+        this.maxBrowsers = MAX_BROWSERS; // Cap pool to MAX_BROWSERS directly
         this.launchArgs = [
             '--no-sandbox',
             '--disable-setuid-sandbox',
@@ -107,6 +107,10 @@ class BrowserPool {
             '--disable-backgrounding-occluded-windows',
             '--disable-renderer-backgrounding',
             '--memory-pressure-off',
+            '--single-process',       // Run in single OS process to save RAM
+            '--no-zygote',            // Disable zygote process
+            '--disable-extensions',    // Disable browser extensions
+            '--no-first-run'          // Prevent first run welcome page
         ];
     }
 
@@ -287,10 +291,11 @@ class BrowserPool {
      */
     adjustPoolSize() {
         const queueDepth = this.waitQueue.length;
-        if (queueDepth > 1 && this.maxBrowsers < 5) {
+        const minBrowsers = Math.min(1, MAX_BROWSERS);
+        if (queueDepth > 1 && this.maxBrowsers < MAX_BROWSERS) {
             this.maxBrowsers++;
             logger.info(`[BrowserPool-Sizing] Scaling UP browser pool capacity to: ${this.maxBrowsers}`);
-        } else if (queueDepth === 0 && this.maxBrowsers > 2) {
+        } else if (queueDepth === 0 && this.maxBrowsers > minBrowsers) {
             this.maxBrowsers--;
             logger.info(`[BrowserPool-Sizing] Scaling DOWN browser pool capacity to: ${this.maxBrowsers}`);
         }
