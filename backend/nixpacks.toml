@@ -37,7 +37,7 @@ cmds = ["npm install --ignore-scripts"]
 
 [phases.build]
 cmds = [
-  "npx prisma generate",
+  "node scripts/use-pg.js && npx prisma generate",
   "echo '=== Chromium Discovery ==='",
   "which chromium || true",
   "which chromium-browser || true",

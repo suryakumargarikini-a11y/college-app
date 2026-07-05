@@ -4,7 +4,7 @@
   "description": "SITAM Smart ERP — Student Campus Portal",
   "scripts": {
     "start": "node start.js",
-    "build": "node scripts/generate-config.js && cd backend && npx prisma generate",
+    "build": "node scripts/generate-config.js && cd backend && node scripts/use-pg.js && npx prisma generate",
     "backend": "cd backend && node server.js",
     "frontend": "node frontend-server.js",
     "db:setup-pg": "cd backend && npm run db:setup-pg",

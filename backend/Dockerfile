@@ -17,7 +17,8 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY prisma ./prisma
-RUN npx prisma generate
+COPY scripts ./scripts
+RUN node scripts/use-pg.js && npx prisma generate
 
 # ─── Stage 2: Runtime ─────────────────────────────────────────────────────────
 FROM node:20-slim AS runtime
