@@ -71,22 +71,39 @@ app.use(correlationMiddleware);
 
 
 // ─── Multi-Tenant Resource Sovereignty & Throttling Middleware ──────────────
+// IMPORTANT: Auth routes (/api/auth/*) are EXEMPT from tenant throttling.
+// Throttling login would add 1s+ DB latency before every authentication attempt.
+// Monitoring still tracks quota, but NEVER delays or blocks auth requests.
 const sreService = require('./services/sreService');
 app.use(async (req, res, next) => {
+    // Auth requests must never be throttled — bypass SRE tenancy middleware entirely
+    const isAuthRoute = req.path.startsWith('/auth') || req.path.startsWith('/api/auth');
+    if (isAuthRoute) {
+        return next();
+    }
+
     const userId = req.headers['x-student-id'] || (req.body && req.body.userId) || req.query.userId || req.headers['x-user-id'];
     if (userId) {
         req.tenantUserId = userId;
-        const tenantQuota = await sreService.registerTenantRequest(userId);
-        
-        if (tenantQuota.isThrottled) {
-            logger.warn(`[SRE-Tenancy] Throttling request for tenant: ${userId}`);
-            res.setHeader('Retry-After', '5');
-            await new Promise(resolve => setTimeout(resolve, 1000));
-        }
+        try {
+            const tenantQuota = await sreService.registerTenantRequest(userId);
 
-        res.on('finish', async () => {
-            await sreService.releaseTenantRequest(userId);
-        });
+            if (tenantQuota.isThrottled) {
+                // Log throttle but do NOT delay the request — only add the header
+                logger.warn(`[SRE-Tenancy] Tenant ${userId} quota exceeded — marking throttled (no artificial delay on ERP routes)`);
+                res.setHeader('Retry-After', '5');
+                res.setHeader('X-Throttled', 'true');
+            }
+
+            res.on('finish', () => {
+                sreService.releaseTenantRequest(userId).catch(err =>
+                    logger.warn(`[SRE-Tenancy] releaseTenantRequest failed: ${err.message}`)
+                );
+            });
+        } catch (sreErr) {
+            // SRE errors MUST NEVER block the request
+            logger.warn(`[SRE-Tenancy] Middleware error (non-blocking): ${sreErr.message}`);
+        }
     }
     next();
 });
@@ -295,7 +312,7 @@ app.use('/api', generalLimiter);
 
 const syncLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 20,
+    max: 60, // Raised from 20 — 20 was too low for normal usage (login + background syncs)
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Too many synchronization requests. Please throttle scraper triggers.' }
@@ -327,7 +344,14 @@ const socketService = require('./services/socketService');
 const syncQueue     = require('./services/syncQueue');
 const maintenanceMiddleware = require('./middleware/maintenance');
 
-app.use('/api', maintenanceMiddleware);
+// Auth routes are exempt from maintenance mode — students must always be able to log in
+// even if the admin places the system in maintenance mode.
+app.use('/api', (req, res, next) => {
+    if (req.path.startsWith('/auth')) {
+        return next(); // Skip maintenance check for auth
+    }
+    return maintenanceMiddleware(req, res, next);
+});
 
 app.use('/api/auth',          authRoutes);
 app.use('/api/profile',       profileRoutes);
