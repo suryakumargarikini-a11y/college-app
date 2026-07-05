@@ -429,7 +429,16 @@ if (messaging) {
 
 // --- Global State ---
 const state = {
-    token: secureStorage.getItem('token') || null,
+    get token() {
+        return secureStorage.getItem('token') || null;
+    },
+    set token(val) {
+        if (val === null) {
+            secureStorage.removeItem('token').catch(() => {});
+        } else {
+            secureStorage.setItem('token', val).catch(() => {});
+        }
+    },
     profile: null,
     _syncPollTimer: null,
     _isSyncPolling: false,
@@ -438,6 +447,7 @@ const state = {
     _lastBackPress: 0,
     isOnline: true
 };
+
 
 // --- Pulsing Real-time Live Status Indicator ---
 function updateLiveIndicator(active) {
@@ -5491,13 +5501,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const bootTimeout = setTimeout(() => {
             if (isDone) return;
             timeoutTriggered = true;
-            console.error('[Boot] Startup initialization exceeded 4s timeout failsafe! STAGE: Timeout triggered before bootstrap finished');
+            console.error('[Boot] Startup initialization exceeded 12s timeout failsafe! STAGE: Timeout triggered before bootstrap finished');
             // Safe fallback
             _splashDismiss();
             logBoot("BOOT 10 - Navigate to login (Timeout fallback)");
             router.handle();
             checkSyncStatus();
-        }, 4000);
+        }, 12000);
 
         try {
             console.log('[Boot] Running secure storage bootstrap...');
