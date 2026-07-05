@@ -27,6 +27,7 @@ const { traceSpan }   = require('../telemetry/tracing');
 const maintDetector   = require('../providers/scraper/maintenance/ERPMaintenanceDetector');
 const antiBotDetector = require('../providers/scraper/antibot/AntiBotDetector');
 const selectorOptimizer = require('../providers/scraper/selectors/AdaptiveSelectorOptimizer');
+const classifier      = require('../providers/scraper/retry/AdaptiveRetryClassifier');
 
 class PuppeteerService {
     constructor() {
@@ -157,175 +158,250 @@ class PuppeteerService {
             let browserId  = null;
             let context    = null;
             let scrapeError = null;
+            let attempts = 0;
+            const maxAttempts = 2;
 
-            try {
-                // ── Maintenance check (no browser needed) ──────────────────
-                if (await maintDetector.isInMaintenanceWindow()) {
-                    const { ERPUnavailableError } = require('../providers/errors');
-                    throw new ERPUnavailableError('ERP is undergoing scheduled maintenance.', {
-                        providerName: 'sitam-scraper',
-                        operationName: 'login'
-                    });
-                }
-
-                // ── Acquire browser ────────────────────────────────────────
-                timer.start('browserAcquire');
-                logger.info(`[Puppeteer] [${requestId}] Acquiring browser from pool for: ${userId}`);
-                ({ browserId, context } = await browserPool.acquire(requestId));
-                timer.end('browserAcquire');
-
-                parentSpan.setAttribute('browser.acquire_delay_ms', timer.get('browserAcquire'));
-                parentSpan.addEvent('browser_acquire_success', { browserId });
-                logger.info(`[Puppeteer] [${requestId}] Pool acquired browser ${browserId} in ${timer.get('browserAcquire')}ms`);
-
-                // ── Open auth page ─────────────────────────────────────────
-                const authPage = await context.newPage();
-                await authPage.setViewport({ width: 1280, height: 800 });
-                await authPage.setUserAgent(
-                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                );
-
-                // ── LOGIN (networkidle2 — required for reliable auth) ──────
-                timer.start('erpAuth');
-                await traceSpan('puppeteer.erp.login', {
-                    'dependency.type': 'external',
-                    'dependency.name': 'sitam_erp',
-                    'dependency.category': 'academic_platform',
-                    'dependency.criticality': 'high'
-                }, async (loginSpan) => {
-                    loginSpan.addEvent('erp_login_started');
-                    const loginUrl = `${this.siteBase}/SATYA/Default.aspx`;
-                    logger.info(`[Puppeteer] [${requestId}] Navigating to login: ${loginUrl}`);
-
-                    // ── networkidle2 ONLY for login page ──────────────────
-                    try {
-                        await authPage.goto(loginUrl, { waitUntil: 'networkidle2', timeout: 60000 });
-                    } catch (loginGotoErr) {
-                        logger.warn(`[Puppeteer] [${requestId}] Login navigation failed: ${loginGotoErr.message}. Retrying once with 60s timeout...`);
-                        await authPage.goto(loginUrl, { waitUntil: 'networkidle2', timeout: 60000 });
-                    }
-
-                    // Maintenance + anti-bot checks
-                    const maintResult = await maintDetector.detect(authPage);
-                    if (maintResult.detected) {
+            while (attempts < maxAttempts) {
+                attempts++;
+                try {
+                    // ── Maintenance check (no browser needed) ──────────────────
+                    if (await maintDetector.isInMaintenanceWindow()) {
                         const { ERPUnavailableError } = require('../providers/errors');
-                        throw new ERPUnavailableError(`ERP under maintenance: ${maintResult.message}`, {
+                        throw new ERPUnavailableError('ERP is undergoing scheduled maintenance.', {
                             providerName: 'sitam-scraper',
                             operationName: 'login'
                         });
                     }
-                    await antiBotDetector.assertNoBotChallenge(authPage, { pageName: 'login', requestId });
 
-                    // Fill credentials
-                    const usernameSel = await this._resolveAndInteract(authPage, 'LOGIN_USERNAME', 'click');
-                    await authPage.type(usernameSel, userId, { delay: 30 });
+                    // ── Acquire browser ────────────────────────────────────────
+                    timer.start('browserAcquire');
+                    logger.info(`[Puppeteer] [${requestId}] Acquiring browser from pool for: ${userId} (attempt ${attempts}/${maxAttempts})`);
+                    ({ browserId, context } = await browserPool.acquire(requestId));
+                    timer.end('browserAcquire');
 
-                    const passwordSel = await this._resolveAndInteract(authPage, 'LOGIN_PASSWORD', 'click');
-                    await authPage.type(passwordSel, password, { delay: 30 });
+                    parentSpan.setAttribute('browser.acquire_delay_ms', timer.get('browserAcquire'));
+                    parentSpan.addEvent('browser_acquire_success', { browserId });
+                    logger.info(`[Puppeteer] [${requestId}] Pool acquired browser ${browserId} in ${timer.get('browserAcquire')}ms`);
 
-                    await authPage.evaluate((sel) => {
-                        const el = document.querySelector(sel);
-                        if (el) el.blur();
-                    }, passwordSel);
+                    // ── Open auth page ─────────────────────────────────────────
+                    const authPage = await context.newPage();
+                    await authPage.setViewport({ width: 1280, height: 800 });
+                    await authPage.setUserAgent(
+                        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                    );
 
-                    // Small blur-settle delay (200ms instead of 500ms)
-                    await new Promise(r => setTimeout(r, 200));
+                    // ── LOGIN (networkidle2 — required for reliable auth) ──────
+                    timer.start('erpAuth');
+                    await traceSpan('puppeteer.erp.login', {
+                        'dependency.type': 'external',
+                        'dependency.name': 'sitam_erp',
+                        'dependency.category': 'academic_platform',
+                        'dependency.criticality': 'high'
+                    }, async (loginSpan) => {
+                        loginSpan.addEvent('erp_login_started');
+                        const loginUrl = `${this.siteBase}/SATYA/Default.aspx`;
+                        logger.info(`[Puppeteer] [${requestId}] Navigating to login: ${loginUrl}`);
 
-                    logger.info(`[Puppeteer] [${requestId}] Submitting login...`);
-                    const loginBtnSelector = await this._resolveAndInteract(authPage, 'LOGIN_BUTTON', 'wait');
+                        // ── networkidle2 ONLY for login page ──────────────────
+                        try {
+                            await authPage.goto(loginUrl, { waitUntil: 'networkidle2', timeout: 60000 });
+                        } catch (loginGotoErr) {
+                            logger.warn(`[Puppeteer] [${requestId}] Login navigation failed: ${loginGotoErr.message}. Retrying once with 60s timeout...`);
+                            await authPage.goto(loginUrl, { waitUntil: 'networkidle2', timeout: 60000 });
+                        }
 
-                    // ── networkidle2 for post-submit navigation ────────────
-                    await Promise.all([
-                        authPage.click(loginBtnSelector),
-                        authPage.waitForNavigation({ waitUntil: 'networkidle2', timeout: 40000 })
-                    ]).catch(e => logger.info(`[Puppeteer] [${requestId}] Nav note: ${e.message}`));
+                        // Maintenance + anti-bot checks
+                        const maintResult = await maintDetector.detect(authPage);
+                        if (maintResult.detected) {
+                            const { ERPUnavailableError } = require('../providers/errors');
+                            throw new ERPUnavailableError(`ERP under maintenance: ${maintResult.message}`, {
+                                providerName: 'sitam-scraper',
+                                operationName: 'login'
+                            });
+                        }
+                        await antiBotDetector.assertNoBotChallenge(authPage, { pageName: 'login', requestId });
 
-                    await this._recordNavigationTimings(authPage, loginSpan, 'login');
+                        // Fill credentials
+                        const usernameSel = await this._resolveAndInteract(authPage, 'LOGIN_USERNAME', 'click');
+                        await authPage.type(usernameSel, userId, { delay: 30 });
 
-                    const pageUrl = authPage.url();
-                    logger.info(`[Puppeteer] [${requestId}] Post-login URL: ${pageUrl}`);
+                        const passwordSel = await this._resolveAndInteract(authPage, 'LOGIN_PASSWORD', 'click');
+                        await authPage.type(passwordSel, password, { delay: 30 });
 
-                    await antiBotDetector.assertNoBotChallenge(authPage, { pageName: 'login_post', requestId });
+                        await authPage.evaluate((sel) => {
+                            const el = document.querySelector(sel);
+                            if (el) el.blur();
+                        }, passwordSel);
 
-                    if (pageUrl.includes('Default.aspx')) {
-                        throw new Error('Login failed — still on login page. Check credentials.');
+                        // Small blur-settle delay (200ms instead of 500ms)
+                        await new Promise(r => setTimeout(r, 200));
+
+                        logger.info(`[Puppeteer] [${requestId}] Submitting login...`);
+                        const loginBtnSelector = await this._resolveAndInteract(authPage, 'LOGIN_BUTTON', 'wait');
+
+                        // ── networkidle2 for post-submit navigation ────────────
+                        await Promise.all([
+                            authPage.click(loginBtnSelector),
+                            authPage.waitForNavigation({ waitUntil: 'networkidle2', timeout: 40000 })
+                        ]).catch(e => logger.info(`[Puppeteer] [${requestId}] Nav note: ${e.message}`));
+
+                        await this._recordNavigationTimings(authPage, loginSpan, 'login');
+
+                        const pageUrl = authPage.url();
+                        logger.info(`[Puppeteer] [${requestId}] Post-login URL: ${pageUrl}`);
+
+                        await antiBotDetector.assertNoBotChallenge(authPage, { pageName: 'login_post', requestId });
+
+                        if (pageUrl.includes('Default.aspx')) {
+                            throw new Error('Login failed — still on login page. Check credentials.');
+                        }
+                        loginSpan.addEvent('erp_login_success');
+                    });
+                    timer.end('erpAuth');
+
+                    // ── Extract cookies from auth page ─────────────────────────
+                    const browserCookies = await authPage.cookies();
+                    const cookieString   = browserCookies.map(c => `${c.name}=${c.value}`).join('; ');
+                    logger.info(`[Puppeteer] [${requestId}] Cookies (${browserCookies.length}): ${browserCookies.map(c => c.name).join(', ')}`);
+
+                    if (!cookieString.includes('ASP.NET_SessionId')) {
+                        logger.warn(`[Puppeteer] [${requestId}] WARNING: No ASP.NET_SessionId in cookies!`);
                     }
-                    loginSpan.addEvent('erp_login_success');
-                });
-                timer.end('erpAuth');
 
-                // ── Extract cookies from auth page ─────────────────────────
-                const browserCookies = await authPage.cookies();
-                const cookieString   = browserCookies.map(c => `${c.name}=${c.value}`).join('; ');
-                logger.info(`[Puppeteer] [${requestId}] Cookies (${browserCookies.length}): ${browserCookies.map(c => c.name).join(', ')}`);
+                    // ── Student name (fast, on the already-loaded page) ────────
+                    const scrapedData = {};
+                    let scrapedName = userId;
+                    try {
+                        const selector = await this._resolveAndInteract(authPage, 'LOGGED_IN_INDICATOR', 'wait', [], 5000);
+                        const nameText = await authPage.evaluate((sel) => {
+                            const el = document.querySelector(sel);
+                            return el ? el.textContent : '';
+                        }, selector);
+                        scrapedName = nameText.replace(/^Hi[.\s]*/i, '').trim();
+                        logger.info(`[Puppeteer] [${requestId}] Name: "${scrapedName}"`);
+                    } catch (e) { scrapedName = userId; }
 
-                if (!cookieString.includes('ASP.NET_SessionId')) {
-                    logger.warn(`[Puppeteer] [${requestId}] WARNING: No ASP.NET_SessionId in cookies!`);
-                }
+                    // ── Parallel scraping: 4 pages, same context ──────────────
+                    timer.start('parallelScrape');
+                    logger.info(`[Puppeteer] [${requestId}] Starting parallel/concurrency scrape...`);
 
-                // ── Student name (fast, on the already-loaded page) ────────
-                const scrapedData = {};
-                try {
-                    const selector = await this._resolveAndInteract(authPage, 'LOGGED_IN_INDICATOR', 'wait', [], 5000);
-                    const nameText = await authPage.evaluate((sel) => {
-                        const el = document.querySelector(sel);
-                        return el ? el.textContent : '';
-                    }, selector);
-                    scrapedData.studentName = nameText.replace(/^Hi[.\s]*/i, '').trim();
-                    logger.info(`[Puppeteer] [${requestId}] Name: "${scrapedData.studentName}"`);
-                } catch (e) { scrapedData.studentName = userId; }
+                    const shouldScrape = (module) => !recoveryPlan || recoveryPlan.includes(module);
 
-                // ── Parallel scraping: 4 pages, same context ──────────────
-                timer.start('parallelScrape');
-                logger.info(`[Puppeteer] [${requestId}] Starting parallel 4-page scrape...`);
+                    const scrapeResults = await this._scrapeAllModules(context, shouldScrape, requestId, timer);
 
-                const shouldScrape = (module) => !recoveryPlan || recoveryPlan.includes(module);
+                    scrapedData.studentName     = scrapedName;
+                    scrapedData.profileHtml     = scrapeResults.profileHtml;
+                    scrapedData.marksHtml       = scrapeResults.marksHtml;
+                    scrapedData.feesHtml        = scrapeResults.feesHtml;
+                    scrapedData.assignmentsHtml = scrapeResults.assignmentsHtml;
 
-                const [profileResult, marksResult, feesResult, assignmentsResult] = await Promise.all([
-                    shouldScrape('profile')     ? this._scrapePage(context, 'profile',      requestId, timer) : Promise.resolve({ html: '', key: 'profileHtml' }),
-                    shouldScrape('marks')       ? this._scrapePage(context, 'marks',        requestId, timer) : Promise.resolve({ html: '', key: 'marksHtml' }),
-                    shouldScrape('fees')        ? this._scrapePage(context, 'fees',         requestId, timer) : Promise.resolve({ html: '', key: 'feesHtml' }),
-                    shouldScrape('assignments') ? this._scrapePage(context, 'assignments',  requestId, timer) : Promise.resolve({ html: '', key: 'assignmentsHtml' })
-                ]);
+                    timer.end('parallelScrape');
 
-                scrapedData.profileHtml     = profileResult.html;
-                scrapedData.marksHtml       = marksResult.html;
-                scrapedData.feesHtml        = feesResult.html;
-                scrapedData.assignmentsHtml = assignmentsResult.html;
+                    // ── Close auth page (context remains alive for pool reuse) ──
+                    try { await authPage.close(); } catch (_) {}
 
-                timer.end('parallelScrape');
+                    const report = timer.report({
+                        loginType: 'full',
+                        cookieCount: browserCookies.length,
+                        profileLen: scrapedData.profileHtml?.length || 0,
+                        marksLen:   scrapedData.marksHtml?.length   || 0,
+                        feesLen:    scrapedData.feesHtml?.length     || 0,
+                        assignmentsLen: scrapedData.assignmentsHtml?.length || 0
+                    });
 
-                // ── Close auth page (context remains alive for pool reuse) ──
-                try { await authPage.close(); } catch (_) {}
+                    logger.info(
+                        `[Puppeteer] [${requestId}] SCRAPE COMPLETE in ${report.totalMs}ms — ` +
+                        `auth=${timer.get('erpAuth')}ms parallel=${timer.get('parallelScrape')}ms`
+                    );
 
-                const report = timer.report({
-                    loginType: 'full',
-                    cookieCount: browserCookies.length,
-                    profileLen: scrapedData.profileHtml?.length || 0,
-                    marksLen:   scrapedData.marksHtml?.length   || 0,
-                    feesLen:    scrapedData.feesHtml?.length     || 0,
-                    assignmentsLen: scrapedData.assignmentsHtml?.length || 0
-                });
+                    // Successfully completed full scrape - release back to pool as clean
+                    if (browserId !== null) {
+                        try {
+                            await browserPool.release(browserId, context, requestId, null);
+                        } catch (_) {}
+                        browserId = null;
+                        context = null;
+                    }
 
-                logger.info(
-                    `[Puppeteer] [${requestId}] SCRAPE COMPLETE in ${report.totalMs}ms — ` +
-                    `auth=${timer.get('erpAuth')}ms parallel=${timer.get('parallelScrape')}ms`
-                );
+                    return { cookieString, scrapedData, perfReport: report };
 
-                return { cookieString, scrapedData, perfReport: report };
+                } catch (error) {
+                    scrapeError = error;
+                    logger.error(`[Puppeteer] [${requestId}] Login/scrape FAILED (attempt ${attempts}/${maxAttempts}): ${error.message}`, { stack: error.stack });
+                    
+                    if (browserId !== null) {
+                        try {
+                            await browserPool.release(browserId, context, requestId, error);
+                        } catch (_) {}
+                        browserId = null;
+                        context = null;
+                    }
 
-            } catch (error) {
-                scrapeError = error;
-                // Check if failure page is a maintenance page
-                logger.error(`[Puppeteer] [${requestId}] Login/scrape FAILED: ${error.message}`, { stack: error.stack });
-                throw error;
-            } finally {
-                timer.end('total');
-                if (browserId !== null) {
-                    await browserPool.release(browserId, context, requestId, scrapeError);
+                    const strategy = classifier.classify(error, { attempt: attempts });
+                    if (!strategy.retry || attempts >= maxAttempts) {
+                        throw error;
+                    }
+                    
+                    logger.warn(`[Puppeteer] [${requestId}] Retrying login/scrape with a fresh browser...`);
                 }
             }
         });
+    }
+
+    async _scrapeAllModules(context, shouldScrape, requestId, timer) {
+        const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
+        const limit = isProduction ? 2 : 4;
+
+        const tasks = [
+            { name: 'profile', key: 'profileHtml' },
+            { name: 'fees', key: 'feesHtml' },
+            { name: 'marks', key: 'marksHtml' },
+            { name: 'assignments', key: 'assignmentsHtml' }
+        ].filter(t => shouldScrape(t.name));
+
+        const results = {
+            profileHtml: '',
+            marksHtml: '',
+            feesHtml: '',
+            assignmentsHtml: ''
+        };
+
+        const os = require('os');
+
+        logger.info(`[Puppeteer] [${requestId}] Starting scraping batch: modules=[${tasks.map(t=>t.name).join(', ')}], concurrencyLimit=${limit}`);
+
+        for (let i = 0; i < tasks.length; i += limit) {
+            const chunk = tasks.slice(i, i + limit);
+            
+            // Log memory usage before chunk execution
+            const memBefore = process.memoryUsage();
+            const sysFreeBefore = Math.round(os.freemem() / 1024 / 1024);
+            logger.info(`[Puppeteer] [${requestId}] Scraping chunk starting: [${chunk.map(t=>t.name).join(', ')}] | Node RSS: ${Math.round(memBefore.rss/1024/1024)}MB | SysFree: ${sysFreeBefore}MB`);
+
+            const startTime = Date.now();
+            await Promise.all(chunk.map(async (task) => {
+                const res = await this._scrapePage(context, task.name, requestId, timer);
+                results[task.key] = res.html;
+            }));
+
+            const duration = Date.now() - startTime;
+            // Log memory usage after chunk execution
+            const memAfter = process.memoryUsage();
+            const sysFreeAfter = Math.round(os.freemem() / 1024 / 1024);
+            logger.info(`[Puppeteer] [${requestId}] Scraping chunk completed in ${duration}ms: [${chunk.map(t=>t.name).join(', ')}] | Node RSS: ${Math.round(memAfter.rss/1024/1024)}MB | SysFree: ${sysFreeAfter}MB`);
+        }
+
+        // Trigger garbage collection if available
+        if (global.gc) {
+            try {
+                logger.info(`[Puppeteer] [${requestId}] Triggering manual garbage collection...`);
+                global.gc();
+                const memPostGc = process.memoryUsage();
+                logger.info(`[Puppeteer] [${requestId}] GC complete. Node RSS: ${Math.round(memPostGc.rss/1024/1024)}MB`);
+            } catch (_) {}
+        }
+
+        return results;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -384,64 +460,103 @@ class PuppeteerService {
         const stepLabel = `scrape:${module}`;
         timer.start(stepLabel);
 
+        const os = require('os');
+        const startMem = process.memoryUsage();
+        const startSysFree = Math.round(os.freemem() / 1024 / 1024);
+        const startTime = Date.now();
+        logger.info(`[Puppeteer] [${requestId}] [${module}] Start scrape task | Node RSS: ${Math.round(startMem.rss/1024/1024)}MB | SysFree: ${startSysFree}MB`);
+
+        const SCRAPE_TIMEOUT = 45000;
         let page = null;
+        let timeoutId = null;
+
         try {
-            page = await context.newPage();
-
-            return await traceSpan(`puppeteer.erp.scrape${module.charAt(0).toUpperCase() + module.slice(1)}`, {
-                'dependency.type': 'external',
-                'dependency.name': 'sitam_erp',
-                'dependency.category': 'academic_platform',
-                'dependency.criticality': 'high'
-            }, async (span) => {
-                logger.info(`[Puppeteer] [${requestId}] [${module}] Navigating to ${cfg.url}`);
-
-                try {
-                    await page.goto(cfg.url, { waitUntil: 'domcontentloaded', timeout: 60000 });
-                } catch (gotoErr) {
-                    logger.warn(`[Puppeteer] [${requestId}] [${module}] Navigation failed: ${gotoErr.message}. Retrying with 60s timeout...`);
-                    await page.goto(cfg.url, { waitUntil: 'domcontentloaded', timeout: 60000 });
-                }
-
-                await antiBotDetector.assertNoBotChallenge(page, { pageName: cfg.pageName, requestId });
-                await this._recordNavigationTimings(page, span, module);
-
-                // ── Wait for actual data selector (AJAX-aware) ─────────────
-                let loaded = await this._waitForContent(page, cfg.selectorKey, 15000, requestId);
-
-                // If selector not yet populated, trigger the page's JS render function
-                if (!loaded && cfg.triggerFn) {
-                    logger.info(`[Puppeteer] [${requestId}] [${module}] Triggering JS render function`);
-                    await page.evaluate((fnCode) => {
-                        try { eval(fnCode); } catch (_) {}
-                    }, cfg.triggerFn);
-                    loaded = await this._waitForContent(page, cfg.selectorKey, 10000, requestId);
-                }
-
-                // ── Extract HTML ───────────────────────────────────────────
-                let html = '';
-                if (cfg.htmlExtract === 'fullPage') {
-                    html = await page.content();
-                } else {
-                    const sel = await this._resolveAndInteract(page, cfg.selectorKey, 'wait');
-                    html = await page.evaluate((s) => {
-                        const el = document.querySelector(s);
-                        return el ? el.innerHTML : '';
-                    }, sel);
-                }
-
-                logger.info(`[Puppeteer] [${requestId}] [${module}] Scraped ${html.length} chars`);
-                this._saveDebug(module, html);
-
-                span.addEvent(`${module}_scraped`, { htmlLength: html.length });
-                return { html, key: cfg.key };
+            const timeoutPromise = new Promise((_, reject) => {
+                timeoutId = setTimeout(() => {
+                    reject(new Error(`Scrape timeout after ${SCRAPE_TIMEOUT}ms for module ${module}`));
+                }, SCRAPE_TIMEOUT);
             });
+
+            const scrapePromise = (async () => {
+                page = await context.newPage();
+
+                return await traceSpan(`puppeteer.erp.scrape${module.charAt(0).toUpperCase() + module.slice(1)}`, {
+                    'dependency.type': 'external',
+                    'dependency.name': 'sitam_erp',
+                    'dependency.category': 'academic_platform',
+                    'dependency.criticality': 'high'
+                }, async (span) => {
+                    logger.info(`[Puppeteer] [${requestId}] [${module}] Navigating to ${cfg.url}`);
+
+                    try {
+                        await page.goto(cfg.url, { waitUntil: 'domcontentloaded', timeout: 40000 });
+                    } catch (gotoErr) {
+                        logger.warn(`[Puppeteer] [${requestId}] [${module}] Navigation failed: ${gotoErr.message}. Retrying with 40000ms timeout...`);
+                        await page.goto(cfg.url, { waitUntil: 'domcontentloaded', timeout: 40000 });
+                    }
+
+                    await antiBotDetector.assertNoBotChallenge(page, { pageName: cfg.pageName, requestId });
+                    await this._recordNavigationTimings(page, span, module);
+
+                    // ── Wait for actual data selector (AJAX-aware) ─────────────
+                    let loaded = await this._waitForContent(page, cfg.selectorKey, 15000, requestId);
+
+                    // If selector not yet populated, trigger the page's JS render function
+                    if (!loaded && cfg.triggerFn) {
+                        logger.info(`[Puppeteer] [${requestId}] [${module}] Triggering JS render function`);
+                        await page.evaluate((fnCode) => {
+                            try { eval(fnCode); } catch (_) {}
+                        }, cfg.triggerFn);
+                        loaded = await this._waitForContent(page, cfg.selectorKey, 10000, requestId);
+                    }
+
+                    // ── Extract HTML ───────────────────────────────────────────
+                    let html = '';
+                    if (cfg.htmlExtract === 'fullPage') {
+                        html = await page.content();
+                    } else {
+                        const sel = await this._resolveAndInteract(page, cfg.selectorKey, 'wait');
+                        html = await page.evaluate((s) => {
+                            const el = document.querySelector(s);
+                            return el ? el.innerHTML : '';
+                        }, sel);
+                    }
+
+                    logger.info(`[Puppeteer] [${requestId}] [${module}] Scraped ${html.length} chars`);
+                    this._saveDebug(module, html);
+
+                    span.addEvent(`${module}_scraped`, { htmlLength: html.length });
+                    return { html, key: cfg.key };
+                });
+            })();
+
+            const res = await Promise.race([scrapePromise, timeoutPromise]);
+            return res;
 
         } catch (e) {
             logger.error(`[Puppeteer] [${requestId}] [${module}] Error: ${e.message}`);
+            const isTimeoutOrDisconnect = e.message.toLowerCase().includes('timeout') || e.message.toLowerCase().includes('target closed') || e.message.toLowerCase().includes('disconnected');
+            if (isTimeoutOrDisconnect) {
+                throw e; // Propagate for retry
+            }
             return { html: '', key: cfg.key };
         } finally {
+            if (timeoutId) clearTimeout(timeoutId);
             timer.end(stepLabel);
+            const duration = Date.now() - startTime;
+            const endMem = process.memoryUsage();
+            const endSysFree = Math.round(os.freemem() / 1024 / 1024);
+            
+            let openPagesCount = 'unknown';
+            try {
+                const browser = typeof context.browser === 'function' ? context.browser() : null;
+                if (browser && typeof browser.pages === 'function') {
+                    openPagesCount = browser._targets ? Object.keys(browser._targets).length : 'unknown';
+                }
+            } catch (_) {}
+            
+            logger.info(`[Puppeteer] [${requestId}] [${module}] End scrape task | Duration: ${duration}ms | Node RSS: ${Math.round(endMem.rss/1024/1024)}MB | SysFree: ${endSysFree}MB | OpenPages: ${openPagesCount}`);
+            
             try { if (page) await page.close(); } catch (_) {}
         }
     }
@@ -453,88 +568,110 @@ class PuppeteerService {
     async _scrapeWithCookies(userId, cookieString, requestId) {
         const timer = new PerformanceTimer(requestId, userId);
         timer.start('total');
-        timer.start('browserAcquire');
 
         logger.info(`[Puppeteer] [${requestId}] Cookie-based incremental scrape for: ${userId}`);
 
         let browserId  = null;
         let context    = null;
         let scrapeError = null;
+        let attempts = 0;
+        const maxAttempts = 2;
 
-        try {
-            ({ browserId, context } = await browserPool.acquire(requestId));
-            timer.end('browserAcquire');
-
-            // Inject cookies into the context via a temporary page
-            const cookiePage = await context.newPage();
+        while (attempts < maxAttempts) {
+            attempts++;
             try {
-                // Navigate to a base URL so we can set domain cookies
+                // ── Acquire browser ────────────────────────────────────────
+                timer.start('browserAcquire');
+                logger.info(`[Puppeteer] [${requestId}] [CookieScrape] Acquiring browser from pool (attempt ${attempts}/${maxAttempts})`);
+                ({ browserId, context } = await browserPool.acquire(requestId));
+                timer.end('browserAcquire');
+
+                // Inject cookies into the context via a temporary page
+                const cookiePage = await context.newPage();
                 try {
-                    await cookiePage.goto(`${this.siteBase}/SATYA/Default.aspx`, {
-                        waitUntil: 'domcontentloaded',
-                        timeout: 30000
-                    });
-                } catch (cookieGotoErr) {
-                    logger.warn(`[Puppeteer] [${requestId}] Cookie page navigation failed: ${cookieGotoErr.message}. Retrying once with 30s timeout...`);
-                    await cookiePage.goto(`${this.siteBase}/SATYA/Default.aspx`, {
-                        waitUntil: 'domcontentloaded',
-                        timeout: 30000
-                    });
+                    // Navigate to a base URL so we can set domain cookies
+                    try {
+                        await cookiePage.goto(`${this.siteBase}/SATYA/Default.aspx`, {
+                            waitUntil: 'domcontentloaded',
+                            timeout: 30000
+                        });
+                    } catch (cookieGotoErr) {
+                        logger.warn(`[Puppeteer] [${requestId}] Cookie page navigation failed: ${cookieGotoErr.message}. Retrying once with 30s timeout...`);
+                        await cookiePage.goto(`${this.siteBase}/SATYA/Default.aspx`, {
+                            waitUntil: 'domcontentloaded',
+                            timeout: 30000
+                        });
+                    }
+
+                    // Parse and set cookies from cookie string
+                    const cookiePairs = cookieString.split(';').map(s => s.trim());
+                    const domain = new URL(`${this.siteBase}`).hostname;
+                    const cookieObjects = cookiePairs
+                        .filter(p => p.includes('='))
+                        .map(p => {
+                            const [name, ...rest] = p.split('=');
+                            return { name: name.trim(), value: rest.join('=').trim(), domain, path: '/' };
+                        });
+
+                    await context.setCookie(...cookieObjects);
+                    logger.info(`[Puppeteer] [${requestId}] Injected ${cookieObjects.length} cookies into context`);
+
+                    // Check if the session is valid (not redirected to login page)
+                    const currentUrl = cookiePage.url();
+                    if (currentUrl.includes('Default.aspx') && cookiePairs.length < 2) {
+                        throw new Error('Session expired — login page detected after cookie injection');
+                    }
+                } finally {
+                    try { await cookiePage.close(); } catch (_) {}
                 }
 
-                // Parse and set cookies from cookie string
-                const cookiePairs = cookieString.split(';').map(s => s.trim());
-                const domain = new URL(`${this.siteBase}`).hostname;
-                const cookieObjects = cookiePairs
-                    .filter(p => p.includes('='))
-                    .map(p => {
-                        const [name, ...rest] = p.split('=');
-                        return { name: name.trim(), value: rest.join('=').trim(), domain, path: '/' };
-                    });
+                // Now scrape all pages in parallel with injected cookies
+                timer.start('parallelScrape');
+                const scrapeResults = await this._scrapeAllModules(context, () => true, requestId, timer);
+                timer.end('parallelScrape');
 
-                await context.setCookie(...cookieObjects);
-                logger.info(`[Puppeteer] [${requestId}] Injected ${cookieObjects.length} cookies into context`);
+                const scrapedData = {
+                    studentName:     userId,
+                    profileHtml:     scrapeResults.profileHtml,
+                    marksHtml:       scrapeResults.marksHtml,
+                    feesHtml:        scrapeResults.feesHtml,
+                    assignmentsHtml: scrapeResults.assignmentsHtml
+                };
 
-                // Check if the session is valid (not redirected to login page)
-                const currentUrl = cookiePage.url();
-                if (currentUrl.includes('Default.aspx') && cookiePairs.length < 2) {
-                    throw new Error('Session expired — login page detected after cookie injection');
+                const report = timer.report({ loginType: 'cookie-incremental' });
+                logger.info(`[Puppeteer] [${requestId}] Cookie-scrape COMPLETE in ${report.totalMs}ms`);
+
+                // Successfully completed incremental scrape - release back to pool as clean
+                if (browserId !== null) {
+                    try {
+                        await browserPool.release(browserId, context, requestId, null);
+                    } catch (_) {}
+                    browserId = null;
+                    context = null;
                 }
+
+                return { scrapedData, perfReport: report };
+
+            } catch (error) {
+                scrapeError = error;
+                logger.error(`[Puppeteer] [${requestId}] Cookie-based scrape FAILED (attempt ${attempts}/${maxAttempts}): ${error.message}`);
+                
+                if (browserId !== null) {
+                    try {
+                        await browserPool.release(browserId, context, requestId, error);
+                    } catch (_) {}
+                    browserId = null;
+                    context = null;
+                }
+
+                const strategy = classifier.classify(error, { attempt: attempts });
+                if (!strategy.retry || attempts >= maxAttempts) {
+                    throw error;
+                }
+                
+                logger.warn(`[Puppeteer] [${requestId}] Retrying cookie-based scrape with a fresh browser...`);
             } finally {
-                try { await cookiePage.close(); } catch (_) {}
-            }
-
-            // Now scrape all pages in parallel with injected cookies
-            timer.start('parallelScrape');
-            const [profileResult, marksResult, feesResult, assignmentsResult] = await Promise.all([
-                this._scrapePage(context, 'profile',     requestId, timer),
-                this._scrapePage(context, 'marks',       requestId, timer),
-                this._scrapePage(context, 'fees',        requestId, timer),
-                this._scrapePage(context, 'assignments', requestId, timer)
-            ]);
-            timer.end('parallelScrape');
-
-            const scrapedData = {
-                studentName:     userId,
-                profileHtml:     profileResult.html,
-                marksHtml:       marksResult.html,
-                feesHtml:        feesResult.html,
-                assignmentsHtml: assignmentsResult.html
-            };
-
-            const report = timer.report({ loginType: 'cookie-incremental' });
-            logger.info(`[Puppeteer] [${requestId}] Cookie-scrape COMPLETE in ${report.totalMs}ms`);
-
-            return { scrapedData, perfReport: report };
-
-        } catch (error) {
-            scrapeError = error;
-            logger.error(`[Puppeteer] [${requestId}] Cookie-based scrape FAILED: ${error.message}`);
-            throw error;
-        } finally {
-            timer.end('total');
-            if (browserId !== null) {
-                await browserPool.release(browserId, context, requestId, scrapeError);
+                timer.end('total');
             }
         }
     }

@@ -87,7 +87,8 @@ function findChromiumExecutable() {
     return null;
 }
 
-const MAX_BROWSERS = parseInt(process.env.BROWSER_POOL_SIZE || '1', 10);
+const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
+const MAX_BROWSERS = isProduction ? 1 : parseInt(process.env.BROWSER_POOL_SIZE || '1', 10);
 const BROWSER_ACQUIRE_TIMEOUT_MS = parseInt(process.env.BROWSER_ACQUIRE_TIMEOUT_MS || '60000', 10); // Increase acquire timeout to 60s
 const BROWSER_IDLE_RECYCLE_MS = parseInt(process.env.BROWSER_IDLE_RECYCLE_MS || '300000', 10); // 5 min
 
@@ -110,8 +111,13 @@ class BrowserPool {
             '--no-zygote',            // Disable zygote process
             '--disable-extensions',    // Disable browser extensions
             '--no-first-run',         // Prevent first run welcome page
-            '--disable-background-networking' // Disable background network activity
+            '--disable-background-networking', // Disable background network activity
+            '--disable-features=SitePerProcess', // Avoid spawning nested renderer processes
+            '--disable-software-rasterizer'
         ];
+        if (process.env.PUPPETEER_SINGLE_PROCESS === 'true') {
+            this.launchArgs.push('--single-process');
+        }
     }
 
     /**
@@ -351,18 +357,25 @@ class BrowserPool {
 
     _logBrowserInfo(entry, prefix = 'Diagnostics', reason = '') {
         try {
-            const pid = entry.browser.process() ? entry.browser.process().pid : 'unknown';
+            const proc = typeof entry.browser.process === 'function' ? entry.browser.process() : null;
+            const pid = proc ? proc.pid : 'unknown';
+            const exitCode = proc ? proc.exitCode : 'N/A';
+            const signalCode = proc ? proc.signalCode : 'N/A';
             const uptime = Math.round((Date.now() - (entry.createdAt || entry.lastUsed)) / 1000);
-            const connected = entry.browser.isConnected();
+            const connected = typeof entry.browser.isConnected === 'function' ? entry.browser.isConnected() : true;
             let openPagesCount = 'unknown';
             try {
-                if (connected) {
+                if (connected && typeof entry.browser.pages === 'function') {
                     openPagesCount = entry.browser._targets ? Object.keys(entry.browser._targets).length : 'unknown';
                 }
             } catch (_) {}
             
+            const os = require('os');
             const mem = process.memoryUsage();
-            logger.info(`[BrowserPool] [${prefix}] ID: ${entry.id} | PID: ${pid} | Connected: ${connected} | OpenPages: ${openPagesCount} | Uptime: ${uptime}s | Reason: ${reason || 'N/A'} | System RSS: ${Math.round(mem.rss/1024/1024)}MB`);
+            const sysFree = Math.round(os.freemem() / 1024 / 1024);
+            const sysTotal = Math.round(os.totalmem() / 1024 / 1024);
+            
+            logger.info(`[BrowserPool] [${prefix}] ID: ${entry.id} | PID: ${pid} | Connected: ${connected} | ExitCode: ${exitCode} | SignalCode: ${signalCode} | OpenPages: ${openPagesCount} | Uptime: ${uptime}s | Reason: ${reason || 'N/A'} | Node RSS: ${Math.round(mem.rss/1024/1024)}MB | SysFree: ${sysFree}MB/${sysTotal}MB`);
         } catch (err) {
             logger.warn(`[BrowserPool] Error gathering browser diagnostics: ${err.message}`);
         }
@@ -391,10 +404,25 @@ class BrowserPool {
                 args: this.launchArgs,
             });
 
+            const proc = typeof browser.process === 'function' ? browser.process() : null;
+            if (proc) {
+                proc.on('exit', (code, signal) => {
+                    logger.warn(`[BrowserPool] Browser process exited: id=${id} | PID=${proc.pid} | exitCode=${code} | signal=${signal}`);
+                });
+            }
+
+            let version = 'unknown';
+            try {
+                if (typeof browser.version === 'function') {
+                    version = await browser.version();
+                }
+            } catch (_) {}
+            logger.info(`[BrowserPool] Browser ${id} version: ${version}`);
+
             const entry = { id, browser, lastUsed: Date.now(), createdAt: Date.now(), inUse: false };
             repMgr.registerBrowser(id);
 
-            this._logBrowserInfo(entry, 'LAUNCH', 'Browser launched successfully');
+            this._logBrowserInfo(entry, 'LAUNCH', `Browser launched successfully. Version: ${version}`);
 
             // Detect unexpected browser disconnect — auto-recover
             browser.on('disconnected', async () => {
@@ -455,7 +483,7 @@ class BrowserPool {
             entry.lastUsed = Date.now();
 
             // Validate browser is still healthy and not quarantined or retired
-            const isConnected = entry.browser.isConnected();
+            const isConnected = typeof entry.browser.isConnected === 'function' ? entry.browser.isConnected() : true;
             const healthPassed = await this._healthCheck(entry);
             const quarantined = repMgr.isQuarantined(entry.id);
             const retired = repMgr.isRetired(entry.id);
@@ -477,7 +505,25 @@ class BrowserPool {
             }
 
             // Create a fresh incognito context — zero shared state with other students
-            let context = await entry.browser.createBrowserContext();
+            let context;
+            try {
+                context = await entry.browser.createBrowserContext();
+            } catch (contextErr) {
+                logger.error(`[BrowserPool] [${requestId}] Failed to create browser context: ${contextErr.message}. Re-launching browser...`);
+                // Destroy current browser
+                const idx = this.pool.findIndex(b => b.id === entry.id);
+                if (idx >= 0) this.pool.splice(idx, 1);
+                repMgr.retire(entry.id);
+                try { await entry.browser.close(); } catch (_) {}
+
+                // Launch replacement
+                const newEntry = await this._launchBrowser();
+                newEntry.inUse = true;
+                entry = newEntry;
+
+                // Retry context creation
+                context = await entry.browser.createBrowserContext();
+            }
             
             // Anti-bot stealth user-agent rotation
             const uas = [
@@ -490,30 +536,57 @@ class BrowserPool {
             // Wrap context.newPage to apply anti-bot profiles, logging, and retry logic
             let originalNewPage = context.newPage.bind(context);
             context.newPage = async () => {
-                const browserProcess = entry.browser.process();
-                const pid = browserProcess ? browserProcess.pid : 'unknown';
-                const connected = entry.browser.isConnected();
+                const proc = typeof entry.browser.process === 'function' ? entry.browser.process() : null;
+                const pid = proc ? proc.pid : 'unknown';
+                const connected = typeof entry.browser.isConnected === 'function' ? entry.browser.isConnected() : true;
                 const uptime = Math.round((Date.now() - (entry.createdAt || entry.lastUsed)) / 1000);
+                
                 let openPagesCount = 'unknown';
                 try {
-                    if (connected) {
+                    if (connected && typeof entry.browser.pages === 'function') {
                         openPagesCount = entry.browser._targets ? Object.keys(entry.browser._targets).length : 'unknown';
                     }
                 } catch (_) {}
 
-                logger.info(`[BrowserPool] [${requestId}] newPage called: browserId=${entry.id}, PID=${pid}, connected=${connected}, openPages=${openPagesCount}, uptime=${uptime}s`);
+                // Log memory before page creation
+                const os = require('os');
+                const memBefore = process.memoryUsage();
+                const sysFreeBefore = Math.round(os.freemem() / 1024 / 1024);
+                logger.info(`[BrowserPool] [${requestId}] newPage called: browserId=${entry.id}, PID=${pid}, connected=${connected}, openPages=${openPagesCount}, uptime=${uptime}s | Node RSS Before: ${Math.round(memBefore.rss/1024/1024)}MB | SysFree Before: ${sysFreeBefore}MB`);
 
                 if (!connected) {
-                    logger.error(`[BrowserPool] [${requestId}] Browser disconnected before page creation. Forcing recreation.`);
-                    throw new Error('Target closed (browser disconnected before newPage)');
+                    logger.error(`[BrowserPool] [${requestId}] Browser disconnected before page creation. Destroying and launching a fresh browser...`);
+                    
+                    // Destroy current browser
+                    const idx = this.pool.findIndex(b => b.id === entry.id);
+                    if (idx >= 0) this.pool.splice(idx, 1);
+                    repMgr.retire(entry.id);
+                    try { await entry.browser.close(); } catch (_) {}
+
+                    // Launch replacement browser
+                    const newEntry = await this._launchBrowser();
+                    
+                    // Borrow the new browser's details for this active checkout session
+                    entry.id = newEntry.id;
+                    entry.browser = newEntry.browser;
+                    entry.lastUsed = newEntry.lastUsed;
+                    entry.createdAt = newEntry.createdAt;
+                    entry.inUse = true;
+
+                    logger.info(`[BrowserPool] [${requestId}] Re-creating context on replacement browser: ${newEntry.id}`);
+
+                    // Recreate context and originalNewPage bound to new context
+                    context = await entry.browser.createBrowserContext();
+                    originalNewPage = context.newPage.bind(context);
                 }
 
                 try {
                     const page = await originalNewPage();
                     
                     const postPagesCount = entry.browser._targets ? Object.keys(entry.browser._targets).length : 'unknown';
-                    const mem = process.memoryUsage();
-                    logger.info(`[BrowserPool] [${requestId}] newPage success: browserId=${entry.id}, PID=${pid}, openPages=${postPagesCount}, RSS=${Math.round(mem.rss/1024/1024)}MB`);
+                    const memAfter = process.memoryUsage();
+                    const sysFreeAfter = Math.round(os.freemem() / 1024 / 1024);
+                    logger.info(`[BrowserPool] [${requestId}] newPage success: browserId=${entry.id}, PID=${pid}, openPages=${postPagesCount} | Node RSS After: ${Math.round(memAfter.rss/1024/1024)}MB | SysFree After: ${sysFreeAfter}MB`);
 
                     await page.setUserAgent(selectedUa);
                     await page.setViewport({
@@ -607,9 +680,14 @@ class BrowserPool {
     async _healthCheck(entry) {
         try {
             // Simple check: can we query target list or open a blank page?
-            const connected = entry.browser.isConnected();
+            const connected = typeof entry.browser.isConnected === 'function' ? entry.browser.isConnected() : true;
             if (!connected) return false;
-            const pages = await entry.browser.pages();
+            if (typeof entry.browser.pages === 'function') {
+                await entry.browser.pages();
+            }
+            if (typeof entry.browser.version === 'function') {
+                await entry.browser.version();
+            }
             return true;
         } catch (err) {
             return false;
