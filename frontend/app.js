@@ -2613,7 +2613,7 @@ const pages = {
 
                         <!-- ID Grid Content -->
                         <div class="relative z-10 flex items-center gap-4 mb-4">
-                            <div class="w-20 h-20 bg-slate-900 border border-white/20 rounded-2xl flex items-center justify-center shadow-md">
+                            <div id="id-avatar-container" class="w-20 h-20 bg-slate-900 border border-white/20 rounded-2xl flex items-center justify-center shadow-md overflow-hidden flex-shrink-0">
                                 <span class="material-symbols-outlined text-white/95 text-4xl">person</span>
                             </div>
                             <div class="text-left text-white">
@@ -2672,7 +2672,7 @@ const pages = {
                     </div>
 
                     <div class="flex flex-col items-center my-6 space-y-3 text-white">
-                        <div class="w-24 h-24 bg-slate-900 border-2 border-white/20 rounded-3xl flex items-center justify-center shadow-lg relative overflow-hidden">
+                        <div id="fs-avatar-container" class="w-24 h-24 bg-slate-900 border-2 border-white/20 rounded-3xl flex items-center justify-center shadow-lg relative overflow-hidden flex-shrink-0">
                             <span class="material-symbols-outlined text-white/95 text-5xl">person</span>
                         </div>
                         <div>
@@ -2752,14 +2752,18 @@ const pages = {
                     seatType:        d.seatType,
                     entranceType:    d.entranceType,
                     entranceRank:    d.entranceRank,
-                    aadhar:          d.aadhar
+                    aadhar:          d.aadhar,
+                    photoUrl:        d.photoUrl,
+                    guardianName:    d.guardianName,
+                    guardianPhone:   d.guardianPhone,
+                    guardianAddress: d.guardianAddress
                 }, null, 2));
 
                 setEl('id-name', 'innerText', d.name || 'Student');
                 setEl('id-roll', 'innerText', d.roll || d.userId || '---');
                 setEl('id-dept', 'innerText', `Dept: ${d.branch || d.program || 'CSE'}`);
+                
                 // Semester: use exact ERP value — no hardcoded fallback ever.
-                // Prefer semester field directly; chain through known aliases before giving up.
                 const _displaySemester = d.semester ?? d.currentSemester ?? d.erpSemester ?? '';
                 setEl('id-year', 'innerText', _displaySemester ? `Semester: ${_displaySemester}` : 'Semester: —');
                 
@@ -2770,6 +2774,14 @@ const pages = {
                 setEl('fs-adm', 'innerText', `Admission No: ${d.admissionNo || 'N/A'}`);
                 setEl('fs-blood', 'innerText', `Blood Group: ${d.bloodGroup || 'Not Provided'}`);
                 setEl('fs-emergency', 'innerText', `Emergency: ${d.emergencyContact || d.phone || d.fatherMobile || 'N/A'}`);
+
+                // Student Photo rendering
+                if (d.photoUrl && d.photoUrl.trim().length > 0) {
+                    const avatarHtml = `<img src="${d.photoUrl}" class="w-full h-full object-cover rounded-2xl" alt="Photo" onerror="this.style.display='none'">`;
+                    const fsAvatarHtml = `<img src="${d.photoUrl}" class="w-full h-full object-cover rounded-3xl" alt="Photo" onerror="this.style.display='none'">`;
+                    setEl('id-avatar-container', 'innerHTML', avatarHtml);
+                    setEl('fs-avatar-container', 'innerHTML', fsAvatarHtml);
+                }
 
                 $('id-card-element')?.addEventListener('click', () => {
                     haptic();
@@ -2801,6 +2813,10 @@ const pages = {
                 if (d.motherName) fields.push(['supervisor_account', 'Mother Name', d.motherName]);
                 if (d.fatherMobile) fields.push(['contact_phone', 'Father Mobile', d.fatherMobile]);
                 
+                if (d.guardianName) fields.push(['shield_with_heart', 'Guardian Name', d.guardianName]);
+                if (d.guardianPhone) fields.push(['phone_in_talk', 'Guardian Contact', d.guardianPhone]);
+                if (d.guardianAddress) fields.push(['pin_drop', 'Guardian Address', d.guardianAddress]);
+
                 // Hostel / Day scholar status
                 fields.push(['home', 'Accommodation Status', d.hostel ? `${d.hostel} · Room ${d.roomNo}` : 'Day Scholar']);
                 

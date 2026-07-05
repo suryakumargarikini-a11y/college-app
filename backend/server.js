@@ -532,6 +532,16 @@ const server = app.listen(PORT, '0.0.0.0', async () => {
     logger.info(`[Server] SITAM Smart ERP Backend running on port ${PORT}`);
     console.log(`[Server] SITAM Smart ERP Backend running on port ${PORT}`);
 
+    // Reset stuck sync locks on boot
+    try {
+        await prisma.student.updateMany({
+            data: { isSyncing: false }
+        });
+        logger.info('[Startup] Successfully reset all stuck student isSyncing states.');
+    } catch (lockErr) {
+        logger.warn(`[Startup] Failed to reset isSyncing states: ${lockErr.message}`);
+    }
+
     // Validate Chromium — degraded mode if unavailable (no crash-loop)
     const browserReady = await validateChromiumStartup();
 
@@ -546,6 +556,16 @@ const server = app.listen(PORT, '0.0.0.0', async () => {
     // Start WebSockets and background sync scheduler
     socketService.init(server);
     syncQueue.start();
+
+    // Start inline queue worker if Redis is alive
+    if (redisService.isAlive()) {
+        try {
+            const { startInlineWorker } = require('./services/inlineWorker');
+            startInlineWorker();
+        } catch (err) {
+            logger.error(`[Server] Failed to start inline worker: ${err.message}`);
+        }
+    }
 
     // Update WebSocket metrics on connect/disconnect
     socketService.wss && socketService.wss.on('connection', () => {

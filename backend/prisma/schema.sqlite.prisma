@@ -44,6 +44,10 @@ model Student {
   entranceType       String?             @default("")
   entranceRank       String?             @default("")
   aadhar             String?             @default("")
+  photoUrl           String?             @default("")
+  guardianName       String?             @default("")
+  guardianPhone      String?             @default("")
+  guardianAddress    String?             @default("")
   lastSync           DateTime? // Track when this student was last sync-scraped
   isSyncing          Boolean             @default(false)
   marks              MarkRecord[]

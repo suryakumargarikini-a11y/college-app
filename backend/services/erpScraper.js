@@ -187,6 +187,55 @@ class ERPScraper {
                 profile.address = addrTd.text().trim().replace(/\n+/g, ', ').replace(/\s+/g, ' ');
             }
 
+            // Guardian Details parsing
+            let guardianSectionStarted = false;
+            $('tr').each((i, tr) => {
+                const text = $(tr).text().toLowerCase();
+                if (text.includes('guardian details')) {
+                    guardianSectionStarted = true;
+                    return;
+                }
+                if (guardianSectionStarted && text.includes("parent's details")) {
+                    guardianSectionStarted = false;
+                    return;
+                }
+
+                if (guardianSectionStarted) {
+                    const tds = $(tr).find('td');
+                    for (let j = 0; j < tds.length - 2; j++) {
+                        const label = $(tds[j]).text().trim().toLowerCase();
+                        const sep   = $(tds[j + 1]).text().trim();
+                        if (sep === ':') {
+                            const value = $(tds[j + 2]).text().trim();
+                            if (value) {
+                                if (label === 'name') {
+                                    profile.guardianName = value;
+                                } else if (label === 'phone' || label === 'mobile') {
+                                    profile.guardianPhone = value;
+                                } else if (label === 'address') {
+                                    profile.guardianAddress = value.replace(/\n+/g, ', ').replace(/\s+/g, ' ');
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Student Photo parsing
+            try {
+                const photoImg = $('img[src*="images/StudentPhotos"], img[src*="StudentPhotos/"], img[src*="/images/"], img[src*="images/"]');
+                if (photoImg.length) {
+                    const src = photoImg.attr('src');
+                    if (src && !src.includes('imgna.gif')) {
+                        const base = (process.env.ERP_BASE_URL || 'https://sitamecap.co.in/SATYA').replace(/\/$/, '');
+                        const cleanSrc = src.replace(/^\.\.\//, '').replace(/^\//, '');
+                        profile.photoUrl = src.startsWith('http') ? src : `${base}/${cleanSrc}`;
+                    }
+                }
+            } catch (photoErr) {
+                logger.warn(`[Scraper] Photo url extraction failed: ${photoErr.message}`);
+            }
+
             logger.info('[Scraper] Successfully parsed profile for student: %s (%s)', profile.name, profile.roll);
         } catch (e) {
             logger.error('[Scraper] Profile parsing error: %s', e.message, { stack: e.stack });

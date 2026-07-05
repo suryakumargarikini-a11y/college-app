@@ -65,7 +65,11 @@ const studentRepository = {
                 seatType: data.seatType || '',
                 entranceType: data.entranceType || '',
                 entranceRank: data.entranceRank || '',
-                aadhar: data.aadhar || ''
+                aadhar: data.aadhar || '',
+                photoUrl: data.photoUrl || '',
+                guardianName: data.guardianName || '',
+                guardianPhone: data.guardianPhone || '',
+                guardianAddress: data.guardianAddress || ''
             },
             create: {
                 userId,
@@ -103,7 +107,11 @@ const studentRepository = {
                 seatType: data.seatType || '',
                 entranceType: data.entranceType || '',
                 entranceRank: data.entranceRank || '',
-                aadhar: data.aadhar || ''
+                aadhar: data.aadhar || '',
+                photoUrl: data.photoUrl || '',
+                guardianName: data.guardianName || '',
+                guardianPhone: data.guardianPhone || '',
+                guardianAddress: data.guardianAddress || ''
             }
         });
     },

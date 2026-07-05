@@ -427,8 +427,13 @@ class SyncService {
         }, async (span) => {
             let student = await studentRepository.findByUserId(userId);
             if (student && student.isSyncing) {
-                logger.info(`[SyncService] Sync already active for ${userId}. Skipping.`);
-                return student;
+                const isStuck = student.lastSync && (Date.now() - new Date(student.lastSync).getTime() > 5 * 60 * 1000);
+                if (forceFullSync || isStuck || !student.lastSync) {
+                    logger.warn(`[SyncService] Bypassing stuck/forced sync lock for ${userId} (forceFullSync: ${forceFullSync}, lastSync: ${student.lastSync})`);
+                } else {
+                    logger.info(`[SyncService] Sync already active for ${userId}. Skipping.`);
+                    return student;
+                }
             }
 
             const studentId = student ? student.id : null;
