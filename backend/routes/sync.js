@@ -8,7 +8,7 @@ router.get('/debug', requireAuth, async (req, res) => {
     try {
         const logs = await prisma.auditLog.findMany({
             where: { studentId: req.user.id },
-            orderBy: { createdAt: 'desc' },
+            orderBy: { timestamp: 'desc' },
             take: 20
         });
         res.json({ success: true, logs });
