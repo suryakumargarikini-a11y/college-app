@@ -162,12 +162,19 @@ const getAttendance = async (req, res, next) => {
 
 // Fees controller (supports parsing session scrape, with highly detailed dynamic fallbacks)
 const getFees = async (req, res, next) => {
+    console.log(`[FEES-FLOW] [dataControllers.getFees] Entering getFees for userId: ${req.session?.userId}`);
     try {
-        const student = await studentRepository.findByUserId(req.session.userId);
+        const userId = req.session?.userId;
+        console.log(`[FEES-FLOW] [dataControllers.getFees] Querying studentRepository.findByUserId for: ${userId}`);
+        const student = await studentRepository.findByUserId(userId);
+        console.log(`[FEES-FLOW] [dataControllers.getFees] Student lookup found: ${!!student}`);
+        
         if (student) {
+            console.log(`[FEES-FLOW] [dataControllers.getFees] Querying prisma.fee.findMany for studentId: ${student.id}`);
             const feesList = await prisma.fee.findMany({
                 where: { studentId: student.id }
             });
+            console.log(`[FEES-FLOW] [dataControllers.getFees] prisma.fee.findMany count: ${feesList ? feesList.length : 0}`);
             
             if (feesList && feesList.length > 0) {
                 let totalAmountVal = 0;
@@ -201,6 +208,7 @@ const getFees = async (req, res, next) => {
                 const totalDue = dueAmount;
                 const paidProgress = totalAmountVal > 0 ? Math.min(100, Math.max(0, Math.round((paidAmountVal / totalAmountVal) * 100))) : 0;
 
+                console.log(`[FEES-FLOW] [dataControllers.getFees] Successfully returning database fees statement`);
                 return res.ok({
                     totalAmount,
                     paidAmount,
@@ -211,6 +219,8 @@ const getFees = async (req, res, next) => {
                 }, 'Fees statement fetched successfully from database');
             }
         }
+
+        console.log(`[FEES-FLOW] [dataControllers.getFees] No database records found. Returning fallbacks.`);
 
 
 
@@ -266,6 +276,8 @@ const getFees = async (req, res, next) => {
         }, 'Fees statement generated successfully');
         try { const bc = getBusinessCollector(); if (bc) bc.trackFeatureAccess('fees').catch(() => {}); } catch (_) {}
     } catch (error) {
+        console.error(`[FEES-FLOW] [dataControllers.getFees] Thrown exception: ${error.message}`);
+        console.error(`[FEES-FLOW] [dataControllers.getFees] Stack trace: ${error.stack}`);
         next(error);
     }
 };

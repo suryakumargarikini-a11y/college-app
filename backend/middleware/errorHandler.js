@@ -27,7 +27,15 @@ const responseStandardizer = (req, res, next) => {
 
 // Centralized error handling middleware
 const errorHandler = (err, req, res, next) => {
+    const isFeesOrNotices = req.originalUrl && (req.originalUrl.includes('fees') || req.originalUrl.includes('fee-notices'));
+    if (isFeesOrNotices) {
+        console.error(`[FEES-FLOW] [4] Error Handler Caught Exception`);
+        console.error(`[FEES-FLOW] Thrown exception: ${err.message}`);
+        console.error(`[FEES-FLOW] Stack trace: ${err.stack}`);
+        console.log(`==================================================\n`);
+    }
     logger.error(`Unhandled API Error: ${err.message}`, { stack: err.stack });
+
 
     if (err instanceof SessionExpiredError) {
         return res.status(401).json({

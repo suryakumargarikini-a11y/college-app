@@ -944,6 +944,14 @@ const api = {
         const mergedHeaders = { ...headers, ...(options.headers || {}) };
 
         try {
+            const isFeesOrNotices = endpoint && (endpoint.includes('fees') || endpoint.includes('fee-notices'));
+            if (isFeesOrNotices) {
+                console.log(`[FEES-FLOW] [Frontend Request] URL: ${fullUrl}`);
+                console.log(`[FEES-FLOW] [Frontend Request] Method: ${method}`);
+                console.log(`[FEES-FLOW] [Frontend Request] Authorization header: ${mergedHeaders.Authorization || 'NONE'}`);
+                console.log(`[FEES-FLOW] [Frontend Request] Token prefix: ${(mergedHeaders.Authorization || '').substring(0, 15)}`);
+            }
+
             console.log(`\n--- NETWORK REQUEST START ---`);
             console.log(`METHOD: ${method}`);
             console.log(`Full URL: ${fullUrl}`);
@@ -964,6 +972,13 @@ const api = {
             console.log(`---------------------------------\n`);
 
             const text = await resp.text();
+
+            if (isFeesOrNotices) {
+                console.log(`[FEES-FLOW] [Frontend Response] Status: ${resp.status}`);
+                console.log(`[FEES-FLOW] [Frontend Response] Time: ${duration} ms`);
+                console.log(`[FEES-FLOW] [Frontend Response] Body: ${text.slice(0, 1000)}`);
+            }
+
 
             // ── 429 Too Many Requests — exponential backoff retry ───────────
             if (resp.status === 429 && attempt < MAX_RETRIES) {

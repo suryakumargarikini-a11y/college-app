@@ -388,7 +388,8 @@ class SITAMScraperProvider extends ERPProvider {
             try {
                 // Try cookie-based scraping first
                 if (typeof puppeteerService.loginWithCookies === 'function') {
-                    scrapedData = await puppeteerService.loginWithCookies(userId, session.cookies);
+                    const result = await puppeteerService.loginWithCookies(userId, session.cookies);
+                    scrapedData = result.scrapedData;
                 } else {
                     // PuppeteerService doesn't support cookie-based scraping — fallback to full
                     logger.info(`[SITAMScraper] Cookie-based scrape not available, using full sync for ${userId}`);

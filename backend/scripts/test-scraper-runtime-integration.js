@@ -207,7 +207,14 @@ const mockBrowserInstance = {
     createBrowserContext: async () => {
         return {
             newPage: async () => {
-                return activePageInstance;
+                const page = new MockPage();
+                page._failMarks = activePageInstance._failMarks;
+                page._isCaptcha = activePageInstance._isCaptcha;
+                page._selectors = activePageInstance._selectors;
+                if (activePageInstance._isCaptcha) {
+                    page._html = activePageInstance._html;
+                }
+                return page;
             },
             close: async () => {}
         };
