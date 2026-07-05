@@ -938,13 +938,31 @@ const api = {
             options.signal = controller.signal;
         }
 
+        const startTime = Date.now();
+        const fullUrl = API_BASE + endpoint;
+        const method = options.method || 'GET';
+        const mergedHeaders = { ...headers, ...(options.headers || {}) };
+
         try {
-            console.log(`[API Request] Attempting ${options.method || 'GET'} to: ${API_BASE + endpoint}`);
+            console.log(`\n--- NETWORK REQUEST START ---`);
+            console.log(`METHOD: ${method}`);
+            console.log(`Full URL: ${fullUrl}`);
+            console.log(`Headers: ${JSON.stringify(mergedHeaders)}`);
+            console.log(`-----------------------------\n`);
+
             const resp = await RequestQueue.enqueue(
-                () => fetch(API_BASE + endpoint, { ...options, headers: { ...headers, ...(options.headers || {}) } }),
+                () => fetch(fullUrl, { ...options, headers: mergedHeaders }),
                 endpoint
             );
-            console.log(`[API Request] Received response from: ${API_BASE + endpoint} with Status: ${resp.status}`);
+
+            const duration = Date.now() - startTime;
+            console.log(`\n--- NETWORK RESPONSE RECEIVED ---`);
+            console.log(`METHOD: ${method}`);
+            console.log(`Full URL: ${fullUrl}`);
+            console.log(`Response Status: ${resp.status}`);
+            console.log(`Response Time: ${duration} ms`);
+            console.log(`---------------------------------\n`);
+
             const text = await resp.text();
 
             // ── 429 Too Many Requests — exponential backoff retry ───────────
@@ -959,8 +977,11 @@ const api = {
             }
 
             // Detect if the response is HTML and contains login page elements (ERP session expired)
-            const isHtml = text.trim().startsWith('<') || text.includes('Default.aspx') || text.includes('imgBtn2') || text.includes('txtId2');
-            if (isHtml) {
+            // Only perform logout/refresh if it is actually the ERP login page (redirect due to session expiry)
+            // Generic HTML error responses (e.g. 502/504 Bad Gateway from hosting provider) should not trigger logout
+            const isHtml = text.trim().startsWith('<');
+            const isErpLogin = text.includes('Default.aspx') || text.includes('imgBtn2') || text.includes('txtId2');
+            if (isHtml && isErpLogin) {
                 console.warn(`[API] HTML login page detected on endpoint: ${endpoint}`);
                 // Attempt to re-authenticate and retry the request once
                 if (!options._retried) {
@@ -980,6 +1001,16 @@ const api = {
                     }
                 }
                 // If retry failed or already retried, perform logout
+                const _tokenExpiry  = secureStorage.getItem('tokenExpiry');
+                const _nowMs        = Date.now();
+                console.error(
+                    '[LOGOUT-TRIGGER] Reason: ERP login page detected (HTML redirect)\n' +
+                    `  Endpoint:     ${endpoint}\n` +
+                    `  Token expiry: ${_tokenExpiry ? new Date(Number(_tokenExpiry)).toISOString() : 'unknown'}\n` +
+                    `  Current time: ${new Date(_nowMs).toISOString()}\n` +
+                    `  Expired:      ${_tokenExpiry ? (_nowMs > Number(_tokenExpiry) ? 'YES' : 'NO') : 'unknown'}\n` +
+                    `  Stack: ${new Error().stack}`
+                );
                 api.logout();
                 throw new Error('ERP session expired. Please re-login.');
             }
@@ -1002,18 +1033,39 @@ const api = {
             }
 
             if (!resp.ok) {
-                if (resp.status === 401) { api.logout(); }
+                if (resp.status === 401) {
+                    const _tokenExpiry  = secureStorage.getItem('tokenExpiry');
+                    const _nowMs        = Date.now();
+                    console.error(
+                        '[LOGOUT-TRIGGER] Reason: HTTP 401 Unauthorized\n' +
+                        `  Endpoint:     ${endpoint}\n` +
+                        `  Method:       ${method}\n` +
+                        `  Token expiry: ${_tokenExpiry ? new Date(Number(_tokenExpiry)).toISOString() : 'unknown'}\n` +
+                        `  Current time: ${new Date(_nowMs).toISOString()}\n` +
+                        `  Expired:      ${_tokenExpiry ? (_nowMs > Number(_tokenExpiry) ? 'YES' : 'NO') : 'unknown'}\n` +
+                        `  Response body: ${text.slice(0, 300)}\n` +
+                        `  Stack: ${new Error().stack}`
+                    );
+                    api.logout();
+                }
                 throw new Error(data.error || data.message || `HTTP ${resp.status}`);
             }
             return data;
         } catch (err) {
-            console.error(`[API Request] Request to ${API_BASE + endpoint} failed:`, err);
+            const duration = Date.now() - startTime;
+            console.error(`\n--- NETWORK REQUEST FAILED ---`);
+            console.error(`METHOD: ${method}`);
+            console.error(`Full URL: ${fullUrl}`);
+            console.error(`Response Time: ${duration} ms`);
+            console.error(`Error: ${err.message || err}`);
+            console.error(`------------------------------\n`);
+
             if (err.name === 'AbortError') {
                 console.warn(`[API] Request to ${endpoint} was aborted.`);
                 throw err;
             }
             if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
-                console.warn(`[API Request] TypeError/Failed to fetch on ${API_BASE + endpoint} - forcing OFFLINE error`);
+                console.warn(`[API Request] TypeError/Failed to fetch on ${fullUrl} - forcing OFFLINE error`);
                 throw new Error('OFFLINE');
             }
             throw err;
@@ -2482,7 +2534,7 @@ const pages = {
                                 <h3 class="text-base font-black tracking-tight" id="id-name">---</h3>
                                 <p class="text-xs font-bold text-blue-200 mt-0.5" id="id-roll">---</p>
                                 <p class="text-[10px] text-slate-300 mt-1" id="id-dept">Dept: CSE</p>
-                                <p class="text-[10px] text-slate-300" id="id-year">Year: 3rd Year</p>
+                                <p class="text-[10px] text-slate-300" id="id-year">Semester: 3rd Semester</p>
                             </div>
                         </div>
 
@@ -2571,13 +2623,21 @@ const pages = {
             try {
                 const res = await api.get('/profile');
                 const d = res.data || {};
-                
+
+                // ── EVIDENCE LOG: print every field we received from /api/profile ──
+                // This is the authoritative diagnostic for N/A fields.
+                // Compare against the ERP scraper label table in Render logs.
+                console.log('[Profile] Raw /api/profile response:', JSON.stringify(d, null, 2));
+
                 state.profile = d;
 
                 setEl('id-name', 'innerText', d.name || 'Student');
                 setEl('id-roll', 'innerText', d.roll || d.userId || '---');
                 setEl('id-dept', 'innerText', `Dept: ${d.branch || d.program || 'CSE'}`);
-                setEl('id-year', 'innerText', `Year: ${d.year || '3rd Year'}`);
+                // Semester: use exact ERP value — no hardcoded fallback ever.
+                // Prefer semester field directly; chain through known aliases before giving up.
+                const _displaySemester = d.semester ?? d.currentSemester ?? d.erpSemester ?? '';
+                setEl('id-year', 'innerText', _displaySemester ? `Semester: ${_displaySemester}` : 'Semester: —');
                 
                 setEl('fs-name', 'innerText', d.name || 'Student');
                 setEl('fs-roll', 'innerText', d.roll || d.userId || '---');
@@ -5378,8 +5438,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Refactored async initialization with timeout, try/catch, and finally
     async function initializeApplication() {
-        logBoot("BOOT 4 - initializeApplication() starting");
-        logBoot(`BOOT 4.1 - Resolved API_BASE: ${API_BASE}`);
+        logBoot("\n====================================");
+        logBoot("BOOT START");
+        logBoot(`Platform: ${window.Capacitor ? 'Capacitor native' : 'Web Browser'}`);
+        logBoot(`Resolved API_BASE: ${API_BASE}`);
+        logBoot(`Capacitor Platform: ${window.Capacitor?.platform || 'N/A'}`);
+        logBoot(`window.API_BASE_URL: ${window.API_BASE_URL || 'undefined'}`);
+        logBoot(`navigator.onLine: ${navigator.onLine}`);
+        logBoot("====================================\n");
         let timeoutTriggered = false;
         let isDone = false;
 
@@ -5588,6 +5654,12 @@ document.addEventListener('DOMContentLoaded', () => {
             `).join('');
         });
     }
+
+    // Expose globals for remote DevTools / testing automation
+    window.api = api;
+    window.router = router;
+    window.state = state;
+    window.secureStorage = secureStorage;
 
     window.addEventListener('hashchange', () => router.handle());
 });

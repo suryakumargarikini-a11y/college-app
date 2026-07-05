@@ -38,62 +38,135 @@ class ERPScraper {
         try {
             const $ = cheerio.load(scrapedData.profileHtml);
             const fields = {};
+            // Also collect the ORIGINAL (un-lowercased) label so we can log exact ERP text
+            const rawLabels = {};
 
             $('tr').each((i, tr) => {
                 const tds = $(tr).find('td');
                 for (let j = 0; j < tds.length - 2; j++) {
-                    const label = $(tds[j]).text().trim().toLowerCase();
-                    const sep = $(tds[j + 1]).text().trim();
+                    const rawLabel = $(tds[j]).text().trim();
+                    const label    = rawLabel.toLowerCase();
+                    const sep      = $(tds[j + 1]).text().trim();
                     if (sep === ':') {
                         const value = $(tds[j + 2]).text().trim();
                         if (label && value) {
                             // Normalize duplicate whitespace
-                            fields[label] = value.replace(/\s+/g, ' ');
+                            fields[label]    = value.replace(/\s+/g, ' ');
+                            rawLabels[label] = rawLabel;   // preserve original casing
                         }
                     }
                 }
             });
 
-            logger.info('[Scraper] Profile labels parsed: %s', Object.keys(fields).join(', '));
+            // ── EVIDENCE LOG ─────────────────────────────────────────────────
+            // Log EVERY label exactly as it appears in the ERP HTML (original casing).
+            // This lets us verify parser mappings against real ERP data.
+            const labelTable = Object.keys(rawLabels)
+                .map(k => `  "${rawLabels[k]}" → "${fields[k]}"`)
+                .join('\n');
+            logger.info(`[Scraper] Raw ERP profile labels (exact):\n${labelTable}`);
+            console.log(`[Scraper] Raw ERP profile labels:\n${labelTable}`);
 
-            profile.admissionNo = fields['admission.no'] || fields['admission no'] || '';
-            profile.roll = fields['rollno'] || fields['roll no'] || fields['roll_no'] || '';
-            profile.name = fields['name'] || profile.name;
-            profile.program = fields['course'] || fields['program'] || '';
-            profile.branch = fields['branch'] || fields['department'] || '';
-            profile.semester = fields['semester'] || fields['current semester'] || '';
-            profile.gender = fields['gender'] || '';
-            profile.dob = fields['dob'] || fields['date of birth'] || '';
-            profile.email = fields['email'] || fields['e-mail'] || '';
-            profile.phone = fields['mobile.no'] || fields['mobile no'] || fields['phone'] || '';
-            profile.fatherName = fields['father name'] || '';
-            profile.motherName = fields['mother name'] || '';
-            profile.fatherMobile = fields['father mobile.no'] || fields['father mobile no'] || '';
-            profile.hostel = fields['hostel'] || '';
-            profile.roomNo = fields['room.no'] || fields['room no'] || '';
-            profile.caste = fields['caste'] || '';
-            profile.joiningDate = fields['joining date'] || '';
-            profile.nationality = fields['nationality'] || '';
-            profile.religion = fields['religion'] || '';
-            profile.sscMarks = fields[' marks, %'] || fields['marks, %'] || fields['ssc %'] || '';
-            profile.interMarks = fields['inter marks, %'] || fields['inter %'] || '';
-            profile.scholarship = fields['scholarship'] || '';
-            profile.seatType = fields['seat type'] || '';
-            profile.entranceType = fields['entrance type'] || '';
-            profile.entranceRank = fields['eamcet/ecet rank'] || fields['rank'] || '';
-            profile.aadhar = fields['aadhar.no'] || fields['aadhar no'] || fields['aadhar'] || '';
-            
+            // ── Field mappings — ordered most-likely to least-likely per SITAM ERP observation ──
+            // Multiple label variants per field to handle ERP label drift across semesters / portal updates.
+
+            profile.admissionNo = fields['admission.no']
+                || fields['admission no']  || fields['admission number']
+                || fields['adm.no']        || fields['adm no']  || '';
+
+            profile.roll = fields['rollno']   || fields['roll no']
+                || fields['roll number']      || fields['roll_no']
+                || fields['roll.no']          || '';
+
+            profile.name = fields['name']     || fields['student name']
+                || fields['student_name']     || profile.name;
+
+            profile.program = fields['course'] || fields['program']
+                || fields['programme']         || fields['degree']
+                || fields['course name']       || '';
+
+            profile.branch = fields['branch']     || fields['department']
+                || fields['dept']                 || fields['specialization']
+                || fields['stream']               || '';
+
+            // Semester: do NOT fall back to a hardcoded value — keep empty so the UI can
+            // distinguish "not synced yet" from a real ERP semester string.
+            profile.semester = fields['semester']          || fields['current semester']
+                || fields['currentsemester']               || fields['sem']
+                || fields['semester no']                   || fields['semester number']
+                || fields['academic semester']             || '';
+
+            profile.gender = fields['gender'] || fields['sex'] || '';
+
+            profile.dob = fields['dob']           || fields['date of birth']
+                || fields['birth date']            || fields['birthdate']
+                || fields['d.o.b']                 || fields['d.o.b.']  || '';
+
+            profile.email = fields['email']        || fields['e-mail']
+                || fields['email id']              || fields['emailid']
+                || fields['email address']         || fields['mail']  || '';
+
+            profile.phone = fields['mobile.no']    || fields['mobile no']
+                || fields['mobile no.']            || fields['mobile number']
+                || fields['mobilenumber']          || fields['phone']
+                || fields['phone number']          || fields['contact number']
+                || fields['contact no']            || fields['contact.no']  || '';
+
+            profile.fatherName = fields['father name']   || fields['father\'s name']
+                || fields['fathername']                  || fields['father']
+                || fields['father name.']                || '';
+
+            profile.motherName = fields['mother name']   || fields['mother\'s name']
+                || fields['mothername']                  || fields['mother']
+                || fields['mother name.']                || '';
+
+            profile.fatherMobile = fields['father mobile.no'] || fields['father mobile no']
+                || fields['father mobile']                    || fields['father contact']
+                || fields['father phone']                     || '';
+
+            profile.hostel = fields['hostel']       || fields['hostel name']
+                || fields['hostel block']           || '';
+
+            profile.roomNo = fields['room.no']      || fields['room no']
+                || fields['room number']            || fields['room no.']
+                || fields['roomno']                 || '';
+
+            profile.caste    = fields['caste']      || fields['caste category'] || '';
+            profile.joiningDate = fields['joining date'] || fields['date of joining']
+                || fields['doj']                         || '';
+            profile.nationality = fields['nationality']  || '';
+            profile.religion    = fields['religion']     || '';
+
+            profile.sscMarks  = fields[' marks, %'] || fields['marks, %']
+                || fields['ssc %']              || fields['ssc marks']
+                || fields['ssc marks, %']       || '';
+            profile.interMarks= fields['inter marks, %'] || fields['inter %']
+                || fields['inter marks']             || fields['intermediate marks'] || '';
+
+            profile.scholarship  = fields['scholarship'] || fields['scholarship type'] || '';
+            profile.seatType     = fields['seat type']   || fields['type of seat']     || '';
+            profile.entranceType = fields['entrance type'] || fields['entrance exam']  || '';
+            profile.entranceRank = fields['eamcet/ecet rank'] || fields['rank']
+                || fields['eamcet rank']  || fields['ecet rank']  || '';
+            profile.aadhar = fields['aadhar.no'] || fields['aadhar no']
+                || fields['aadhar']         || fields['aadhaar']  || '';
+
+            profile.bloodGroup = fields['blood group']   || fields['bloodgroup']
+                || fields['blood grp']      || fields['blood type'] || '';
+
             // Default section parsing
             profile.section = fields['section'] || 'A';
 
-            // Extract Year (e.g. "I/IV B.Tech II Semester" -> "Year 1")
+            // Extract academic year from semester string (e.g. "II/IV B.Tech II Semester" → "Year 2").
+            // If semester is blank, leave year blank too — never invent a value.
             const semText = profile.semester;
             const yearMatch = semText.match(/^(I{1,4}|IV|V|VI|VII|VIII)\/IV/i);
             if (yearMatch) {
                 const romanMap = { 'I': 1, 'II': 2, 'III': 3, 'IV': 4 };
                 profile.year = `Year ${romanMap[yearMatch[1].toUpperCase()] || yearMatch[1]}`;
             } else {
-                profile.year = 'Year 1';
+                // Do NOT hardcode 'Year 1' — keep empty so callers know it wasn't extracted
+                profile.year = '';
             }
 
             // Extract CGPA using HTML match stubs

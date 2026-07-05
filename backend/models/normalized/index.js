@@ -97,6 +97,8 @@ class ProfileRecord {
         this.entranceType = safeStr(data.entranceType);
         this.entranceRank = safeStr(data.entranceRank);
         this.aadhar       = safeStr(data.aadhar);
+        this.bloodGroup   = safeStr(data.bloodGroup);
+        this.emergencyContact = safeStr(data.emergencyContact);
         // Internal — never serialized
         this._password    = data.password || null;
     }

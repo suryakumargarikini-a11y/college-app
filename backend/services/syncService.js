@@ -84,7 +84,9 @@ class SyncService {
                     roomNo: norm.profile?.roomNo || '',
                     cgpa: norm.profile?.cgpa || '--',
                     percentage: norm.profile?.percentage || '--',
-                    address: norm.profile?.address || ''
+                    address: norm.profile?.address || '',
+                    bloodGroup: norm.profile?.bloodGroup || '',
+                    emergencyContact: norm.profile?.emergencyContact || ''
                 };
                 profile.password = password; // Ensure we cache credentials safely for re-login
 

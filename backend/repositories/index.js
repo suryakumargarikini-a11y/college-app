@@ -51,7 +51,9 @@ const studentRepository = {
                 roomNo: data.roomNo,
                 cgpa: data.cgpa,
                 percentage: data.percentage,
-                address: data.address
+                address: data.address,
+                bloodGroup: data.bloodGroup || '',
+                emergencyContact: data.emergencyContact || ''
             },
             create: {
                 userId,
@@ -75,7 +77,9 @@ const studentRepository = {
                 roomNo: data.roomNo,
                 cgpa: data.cgpa,
                 percentage: data.percentage,
-                address: data.address
+                address: data.address,
+                bloodGroup: data.bloodGroup || '',
+                emergencyContact: data.emergencyContact || ''
             }
         });
     },
