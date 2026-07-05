@@ -93,7 +93,7 @@ const BROWSER_IDLE_RECYCLE_MS = parseInt(process.env.BROWSER_IDLE_RECYCLE_MS || 
 
 class BrowserPool {
     constructor() {
-        this.pool = []; // Array of { id, browser, lastUsed, inUse }
+        this.pool = []; // Array of { id, browser, lastUsed, inUse, createdAt }
         this.waitQueue = []; // Queued resolve functions waiting for a free slot
         this.recycleInterval = null;
         this.isShuttingDown = false;
@@ -107,10 +107,10 @@ class BrowserPool {
             '--disable-backgrounding-occluded-windows',
             '--disable-renderer-backgrounding',
             '--memory-pressure-off',
-            '--single-process',       // Run in single OS process to save RAM
             '--no-zygote',            // Disable zygote process
             '--disable-extensions',    // Disable browser extensions
-            '--no-first-run'          // Prevent first run welcome page
+            '--no-first-run',         // Prevent first run welcome page
+            '--disable-background-networking' // Disable background network activity
         ];
     }
 
@@ -349,6 +349,27 @@ class BrowserPool {
 
     // ─── Private Methods ──────────────────────────────────────────────────────
 
+    _logBrowserInfo(entry, prefix = 'Diagnostics', reason = '') {
+        try {
+            const pid = entry.browser.process() ? entry.browser.process().pid : 'unknown';
+            const uptime = Math.round((Date.now() - (entry.createdAt || entry.lastUsed)) / 1000);
+            const connected = entry.browser.isConnected();
+            let openPagesCount = 'unknown';
+            try {
+                if (connected) {
+                    openPagesCount = entry.browser._targets ? Object.keys(entry.browser._targets).length : 'unknown';
+                }
+            } catch (_) {}
+            
+            const mem = process.memoryUsage();
+            logger.info(`[BrowserPool] [${prefix}] ID: ${entry.id} | PID: ${pid} | Connected: ${connected} | OpenPages: ${openPagesCount} | Uptime: ${uptime}s | Reason: ${reason || 'N/A'} | System RSS: ${Math.round(mem.rss/1024/1024)}MB`);
+        } catch (err) {
+            logger.warn(`[BrowserPool] Error gathering browser diagnostics: ${err.message}`);
+        }
+    }
+
+    // ─── Private Methods ──────────────────────────────────────────────────────
+
     async _launchBrowser() {
         return traceSpan('puppeteer.pool.launch', {
             'dependency.type': 'external',
@@ -370,12 +391,14 @@ class BrowserPool {
                 args: this.launchArgs,
             });
 
-            const entry = { id, browser, lastUsed: Date.now(), inUse: false };
+            const entry = { id, browser, lastUsed: Date.now(), createdAt: Date.now(), inUse: false };
             repMgr.registerBrowser(id);
+
+            this._logBrowserInfo(entry, 'LAUNCH', 'Browser launched successfully');
 
             // Detect unexpected browser disconnect — auto-recover
             browser.on('disconnected', async () => {
-                logger.error(`[BrowserPool] Browser ${id} disconnected unexpectedly. Removing from pool.`);
+                this._logBrowserInfo(entry, 'DISCONNECTED', 'Browser disconnected unexpectedly');
                 repMgr.recordCrash(id);
                 repMgr.retire(id);
                 
@@ -432,9 +455,17 @@ class BrowserPool {
             entry.lastUsed = Date.now();
 
             // Validate browser is still healthy and not quarantined or retired
-            const healthy = (await this._healthCheck(entry)) && !repMgr.isQuarantined(entry.id) && !repMgr.isRetired(entry.id);
+            const isConnected = entry.browser.isConnected();
+            const healthPassed = await this._healthCheck(entry);
+            const quarantined = repMgr.isQuarantined(entry.id);
+            const retired = repMgr.isRetired(entry.id);
+            const healthy = isConnected && healthPassed && !quarantined && !retired;
+
+            this._logBrowserInfo(entry, 'CHECKOUT_PRECHECK', `healthPassed=${healthPassed}, connected=${isConnected}, quarantined=${quarantined}, retired=${retired}`);
+
             if (!healthy) {
-                logger.warn(`[BrowserPool] Browser ${entry.id} failed health check, is quarantined, or is retired. Replacing...`);
+                const reason = `failed precheck: connected=${isConnected}, healthPassed=${healthPassed}, quarantined=${quarantined}, retired=${retired}`;
+                this._logBrowserInfo(entry, 'RETIRE', reason);
                 span.setAttribute('browser.healthy', false);
                 const idx = this.pool.findIndex(b => b.id === entry.id);
                 if (idx >= 0) this.pool.splice(idx, 1);
@@ -446,7 +477,7 @@ class BrowserPool {
             }
 
             // Create a fresh incognito context — zero shared state with other students
-            const context = await entry.browser.createBrowserContext();
+            let context = await entry.browser.createBrowserContext();
             
             // Anti-bot stealth user-agent rotation
             const uas = [
@@ -456,28 +487,107 @@ class BrowserPool {
             ];
             const selectedUa = uas[Math.floor(Math.random() * uas.length)];
 
-            // Wrap context.newPage to apply anti-bot profiles and SSRF validation checks
-            const originalNewPage = context.newPage.bind(context);
+            // Wrap context.newPage to apply anti-bot profiles, logging, and retry logic
+            let originalNewPage = context.newPage.bind(context);
             context.newPage = async () => {
-                const page = await originalNewPage();
-                await page.setUserAgent(selectedUa);
-                await page.setViewport({
-                    width: 1280 + Math.floor(Math.random() * 100),
-                    height: 800 + Math.floor(Math.random() * 100)
-                });
-
-                // SSRF Interceptor hook
-                const securityService = require('./securityService');
-                const originalGoto = page.goto.bind(page);
-                page.goto = async (urlStr, options) => {
-                    const valid = await securityService.validateUrlForScraping(urlStr);
-                    if (!valid) {
-                        throw new Error(`[Security-SSRF] Blocked suspicious loopback/metadata scraper request to: ${urlStr}`);
+                const browserProcess = entry.browser.process();
+                const pid = browserProcess ? browserProcess.pid : 'unknown';
+                const connected = entry.browser.isConnected();
+                const uptime = Math.round((Date.now() - (entry.createdAt || entry.lastUsed)) / 1000);
+                let openPagesCount = 'unknown';
+                try {
+                    if (connected) {
+                        openPagesCount = entry.browser._targets ? Object.keys(entry.browser._targets).length : 'unknown';
                     }
-                    return originalGoto(urlStr, options);
-                };
+                } catch (_) {}
 
-                return page;
+                logger.info(`[BrowserPool] [${requestId}] newPage called: browserId=${entry.id}, PID=${pid}, connected=${connected}, openPages=${openPagesCount}, uptime=${uptime}s`);
+
+                if (!connected) {
+                    logger.error(`[BrowserPool] [${requestId}] Browser disconnected before page creation. Forcing recreation.`);
+                    throw new Error('Target closed (browser disconnected before newPage)');
+                }
+
+                try {
+                    const page = await originalNewPage();
+                    
+                    const postPagesCount = entry.browser._targets ? Object.keys(entry.browser._targets).length : 'unknown';
+                    const mem = process.memoryUsage();
+                    logger.info(`[BrowserPool] [${requestId}] newPage success: browserId=${entry.id}, PID=${pid}, openPages=${postPagesCount}, RSS=${Math.round(mem.rss/1024/1024)}MB`);
+
+                    await page.setUserAgent(selectedUa);
+                    await page.setViewport({
+                        width: 1280 + Math.floor(Math.random() * 100),
+                        height: 800 + Math.floor(Math.random() * 100)
+                    });
+
+                    // SSRF Interceptor hook
+                    const securityService = require('./securityService');
+                    const originalGoto = page.goto.bind(page);
+                    page.goto = async (urlStr, options) => {
+                        const valid = await securityService.validateUrlForScraping(urlStr);
+                        if (!valid) {
+                            throw new Error(`[Security-SSRF] Blocked suspicious loopback/metadata scraper request to: ${urlStr}`);
+                        }
+                        return originalGoto(urlStr, options);
+                    };
+
+                    return page;
+                } catch (pageErr) {
+                    const errMsg = pageErr.message.toLowerCase();
+                    const isTargetClosed = errMsg.includes('target closed') || errMsg.includes('createtarget') || errMsg.includes('disconnected') || errMsg.includes('target.createtarget');
+                    
+                    if (isTargetClosed) {
+                        logger.error(`[BrowserPool] [${requestId}] Target closed / disconnected during newPage: ${pageErr.message}. Destroying browser and retrying...`);
+                        this._logBrowserInfo(entry, 'DESTROY', `Target closed during page creation: ${pageErr.message}`);
+                        
+                        // Destroy current browser
+                        const idx = this.pool.findIndex(b => b.id === entry.id);
+                        if (idx >= 0) this.pool.splice(idx, 1);
+                        repMgr.retire(entry.id);
+                        try { await entry.browser.close(); } catch (_) {}
+
+                        // Launch replacement browser
+                        const newEntry = await this._launchBrowser();
+                        
+                        // Borrow the new browser's details for this active checkout session
+                        entry.id = newEntry.id;
+                        entry.browser = newEntry.browser;
+                        entry.lastUsed = newEntry.lastUsed;
+                        entry.createdAt = newEntry.createdAt;
+                        entry.inUse = true;
+
+                        logger.info(`[BrowserPool] [${requestId}] Re-creating context and retrying newPage on replacement browser: ${newEntry.id}`);
+
+                        // Recreate context and page
+                        context = await entry.browser.createBrowserContext();
+                        const freshNewPage = context.newPage.bind(context);
+                        const page = await freshNewPage();
+
+                        const finalPagesCount = entry.browser._targets ? Object.keys(entry.browser._targets).length : 'unknown';
+                        logger.info(`[BrowserPool] [${requestId}] newPage retry success: browserId=${entry.id}, openPages=${finalPagesCount}`);
+
+                        await page.setUserAgent(selectedUa);
+                        await page.setViewport({
+                            width: 1280 + Math.floor(Math.random() * 100),
+                            height: 800 + Math.floor(Math.random() * 100)
+                        });
+
+                        const securityService = require('./securityService');
+                        const originalGoto = page.goto.bind(page);
+                        page.goto = async (urlStr, options) => {
+                            const valid = await securityService.validateUrlForScraping(urlStr);
+                            if (!valid) {
+                                throw new Error(`[Security-SSRF] Blocked suspicious loopback/metadata scraper request to: ${urlStr}`);
+                            }
+                            return originalGoto(urlStr, options);
+                        };
+
+                        return page;
+                    } else {
+                        throw pageErr;
+                    }
+                }
             };
 
             span.addEvent('browser_context_created', { browserId: entry.id });
@@ -496,9 +606,10 @@ class BrowserPool {
 
     async _healthCheck(entry) {
         try {
-            // Simple check: can we open a blank page?
+            // Simple check: can we query target list or open a blank page?
+            const connected = entry.browser.isConnected();
+            if (!connected) return false;
             const pages = await entry.browser.pages();
-            // If browser is disconnected, .pages() will throw
             return true;
         } catch (err) {
             return false;
@@ -515,6 +626,7 @@ class BrowserPool {
             if (this.pool.length <= 1) break;
 
             logger.info(`[BrowserPool] Recycling idle browser ${entry.id} (idle ${Math.round((now - entry.lastUsed) / 1000)}s).`);
+            this._logBrowserInfo(entry, 'RETIRE', `Idle browser recycling (idle for ${Math.round((now - entry.lastUsed) / 1000)}s)`);
             
             try {
                 const metricsService = require('./metricsService');
