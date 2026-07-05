@@ -141,8 +141,63 @@ class SyncService {
                 throw new Error('[SyncService] Missing normalized sync payload. All sync operations must route through active provider.');
             }
 
+            // ── EVIDENCE LOG: Normalized profile object BEFORE DB write ──────────────────
+            // Stage 3 of 5: Scraper → [Normalized Object] → DB → API → Frontend
+            // Compare with [Scraper] Raw ERP profile labels to identify scraper→normalizer gaps.
+            logger.info('[PROFILE-NORMALIZED] Profile object before DB upsert:\n' + JSON.stringify({
+                name:            profile.name,
+                roll:            profile.roll,
+                admissionNo:     profile.admissionNo,
+                program:         profile.program,
+                branch:          profile.branch,
+                semester:        profile.semester,
+                year:            profile.year,
+                gender:          profile.gender,
+                dob:             profile.dob,
+                email:           profile.email,
+                phone:           profile.phone,
+                fatherName:      profile.fatherName,
+                motherName:      profile.motherName,
+                fatherMobile:    profile.fatherMobile,
+                hostel:          profile.hostel,
+                roomNo:          profile.roomNo,
+                cgpa:            profile.cgpa,
+                percentage:      profile.percentage,
+                address:         profile.address,
+                bloodGroup:      profile.bloodGroup,
+                emergencyContact:profile.emergencyContact
+            }, null, 2));
+            console.log('[PROFILE-NORMALIZED]', JSON.stringify(profile, null, 2));
+
             // 2. Transactionally update student profile
             const student = await studentRepository.upsertStudent(userId, profile);
+
+            // ── EVIDENCE LOG: DB record AFTER write ──────────────────────────────────────
+            // Stage 4 of 5: Scraper → Normalized Object → [Database] → API → Frontend
+            // If a field is blank here but was present in [PROFILE-NORMALIZED], the
+            // repository upsert is dropping it. If blank here AND in [PROFILE-NORMALIZED],
+            // the loss is upstream in the scraper or normalizer.
+            logger.info('[PROFILE-DB] Record after upsert:\n' + JSON.stringify({
+                studentId:       student.id,
+                userId:          student.userId,
+                semester:        student.semester,
+                email:           student.email,
+                phone:           student.phone,
+                fatherName:      student.fatherName,
+                motherName:      student.motherName,
+                dob:             student.dob,
+                bloodGroup:      student.bloodGroup,
+                address:         student.address,
+                branch:          student.branch,
+                cgpa:            student.cgpa
+            }, null, 2));
+            console.log('[PROFILE-DB]', JSON.stringify({
+                studentId: student.id, userId: student.userId,
+                semester: student.semester, email: student.email,
+                phone: student.phone, fatherName: student.fatherName,
+                motherName: student.motherName, dob: student.dob,
+                bloodGroup: student.bloodGroup, address: student.address
+            }, null, 2));
 
             // 3. Save Marks (Results)
             if (marksData.subjects && marksData.subjects.length > 0) {

@@ -2631,6 +2631,30 @@ const pages = {
 
                 state.profile = d;
 
+                // ── EVIDENCE LOG: Frontend profile object BEFORE rendering ──
+                // Stage 5 of 5: ERP → Scraper → DB → API → [Frontend]
+                // If a field is blank here but present in [Profile] Raw /api/profile,
+                // the loss is in the frontend data-binding. If blank in both,
+                // the loss is upstream (scraper, DB, or API serialization).
+                console.log('[PROFILE-UI] Object used to render profile page:', JSON.stringify({
+                    name:            d.name,
+                    roll:            d.roll,
+                    userId:          d.userId,
+                    branch:          d.branch,
+                    program:         d.program,
+                    semester:        d.semester,
+                    year:            d.year,
+                    dob:             d.dob,
+                    email:           d.email,
+                    phone:           d.phone,
+                    fatherName:      d.fatherName,
+                    motherName:      d.motherName,
+                    hostel:          d.hostel,
+                    address:         d.address,
+                    bloodGroup:      d.bloodGroup,
+                    emergencyContact:d.emergencyContact
+                }, null, 2));
+
                 setEl('id-name', 'innerText', d.name || 'Student');
                 setEl('id-roll', 'innerText', d.roll || d.userId || '---');
                 setEl('id-dept', 'innerText', `Dept: ${d.branch || d.program || 'CSE'}`);
