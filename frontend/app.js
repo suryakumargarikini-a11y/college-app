@@ -1004,9 +1004,11 @@ const api = {
             // Detect if the response is HTML and contains login page elements (ERP session expired)
             // Only perform logout/refresh if it is actually the ERP login page (redirect due to session expiry)
             // Generic HTML error responses (e.g. 502/504 Bad Gateway from hosting provider) should not trigger logout
+            // ASP.NET pages (like the ERP portal) uniquely contain __VIEWSTATE or __EVENTVALIDATION.
+            // Our SPA index.html contains imgBtn2/txtId2, so we must avoid matching them.
             const isHtml = text.trim().startsWith('<');
-            const isErpLogin = text.includes('Default.aspx') || text.includes('imgBtn2') || text.includes('txtId2');
-            if (isHtml && isErpLogin) {
+            const isErpLogin = isHtml && (text.includes('__VIEWSTATE') || text.includes('__EVENTVALIDATION'));
+            if (isErpLogin) {
                 console.warn(`[API] HTML login page detected on endpoint: ${endpoint}`);
                 // Attempt to re-authenticate and retry the request once
                 if (!options._retried) {
@@ -2321,7 +2323,7 @@ const pages = {
             try {
                 const [res, noticesRes] = await Promise.all([
                     api.get('/fees'),
-                    api.get('/fee-notices').catch(() => ({ notices: [] }))
+                    api.get('/fee-notices/active').catch(() => ({ notices: [] }))
                 ]);
                 const d = res.data || {};
                 const activeNotices = noticesRes.notices || [];
