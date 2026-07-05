@@ -198,7 +198,12 @@ class PuppeteerService {
                     logger.info(`[Puppeteer] [${requestId}] Navigating to login: ${loginUrl}`);
 
                     // ── networkidle2 ONLY for login page ──────────────────
-                    await authPage.goto(loginUrl, { waitUntil: 'networkidle2', timeout: 30000 });
+                    try {
+                        await authPage.goto(loginUrl, { waitUntil: 'networkidle2', timeout: 60000 });
+                    } catch (loginGotoErr) {
+                        logger.warn(`[Puppeteer] [${requestId}] Login navigation failed: ${loginGotoErr.message}. Retrying once with 60s timeout...`);
+                        await authPage.goto(loginUrl, { waitUntil: 'networkidle2', timeout: 60000 });
+                    }
 
                     // Maintenance + anti-bot checks
                     const maintResult = await maintDetector.detect(authPage);
@@ -232,7 +237,7 @@ class PuppeteerService {
                     // ── networkidle2 for post-submit navigation ────────────
                     await Promise.all([
                         authPage.click(loginBtnSelector),
-                        authPage.waitForNavigation({ waitUntil: 'networkidle2', timeout: 20000 })
+                        authPage.waitForNavigation({ waitUntil: 'networkidle2', timeout: 40000 })
                     ]).catch(e => logger.info(`[Puppeteer] [${requestId}] Nav note: ${e.message}`));
 
                     await this._recordNavigationTimings(authPage, loginSpan, 'login');
@@ -391,8 +396,12 @@ class PuppeteerService {
             }, async (span) => {
                 logger.info(`[Puppeteer] [${requestId}] [${module}] Navigating to ${cfg.url}`);
 
-                // ── domcontentloaded for all post-login data pages ─────────
-                await page.goto(cfg.url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+                try {
+                    await page.goto(cfg.url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+                } catch (gotoErr) {
+                    logger.warn(`[Puppeteer] [${requestId}] [${module}] Navigation failed: ${gotoErr.message}. Retrying with 60s timeout...`);
+                    await page.goto(cfg.url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+                }
 
                 await antiBotDetector.assertNoBotChallenge(page, { pageName: cfg.pageName, requestId });
                 await this._recordNavigationTimings(page, span, module);
@@ -460,10 +469,18 @@ class PuppeteerService {
             const cookiePage = await context.newPage();
             try {
                 // Navigate to a base URL so we can set domain cookies
-                await cookiePage.goto(`${this.siteBase}/SATYA/Default.aspx`, {
-                    waitUntil: 'domcontentloaded',
-                    timeout: 15000
-                });
+                try {
+                    await cookiePage.goto(`${this.siteBase}/SATYA/Default.aspx`, {
+                        waitUntil: 'domcontentloaded',
+                        timeout: 30000
+                    });
+                } catch (cookieGotoErr) {
+                    logger.warn(`[Puppeteer] [${requestId}] Cookie page navigation failed: ${cookieGotoErr.message}. Retrying once with 30s timeout...`);
+                    await cookiePage.goto(`${this.siteBase}/SATYA/Default.aspx`, {
+                        waitUntil: 'domcontentloaded',
+                        timeout: 30000
+                    });
+                }
 
                 // Parse and set cookies from cookie string
                 const cookiePairs = cookieString.split(';').map(s => s.trim());
