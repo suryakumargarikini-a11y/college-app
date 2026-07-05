@@ -32,6 +32,18 @@ model Student {
   cgpa               String
   percentage         String
   address            String
+  admissionNo        String?             @default("")
+  joiningDate        String?             @default("")
+  caste              String?             @default("")
+  nationality        String?             @default("")
+  religion           String?             @default("")
+  sscMarks           String?             @default("")
+  interMarks         String?             @default("")
+  scholarship        String?             @default("")
+  seatType           String?             @default("")
+  entranceType       String?             @default("")
+  entranceRank       String?             @default("")
+  aadhar             String?             @default("")
   lastSync           DateTime? // Track when this student was last sync-scraped
   isSyncing          Boolean             @default(false)
   marks              MarkRecord[]

@@ -1924,34 +1924,94 @@ const pages = {
                 if (day === 'Sunday') day = 'Monday';
                 
                 const todaySlots = slots.filter(s => s.day === day).sort((a, b) => (parseInt(a.period)||0) - (parseInt(b.period)||0));
-                const widget = $('dash-live-schedule-widget');
                 
+                // 1. Next Class Widget
+                const widget = $('dash-upcoming-class-container');
                 if (widget) {
                     if (todaySlots.length === 0) {
                         widget.innerHTML = `
-                            <div class="glass-card p-4 border border-white/40 flex items-center justify-between bg-white/40 text-center py-6 text-slate-400 text-xs font-bold">
-                                No classes scheduled today
+                            <div class="glass-card p-3 rounded-2xl border border-white/40 shadow-sm bg-white/40 flex flex-col justify-center items-center h-20">
+                                <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest">No classes today</span>
                             </div>
                         `;
                     } else {
                         const nextClass = todaySlots[0]; 
                         widget.innerHTML = `
-                            <div class="glass-panel p-4 flex items-center justify-between bg-white border border-slate-200/50 hover:shadow-md transition-all cursor-pointer" onclick="router.navigate('/timetable')">
-                                <div class="flex items-center gap-3">
-                                    <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center">
-                                        <span class="material-symbols-outlined text-base">school</span>
-                                    </div>
-                                    <div>
-                                        <h4 class="text-xs font-black text-slate-800">${nextClass.subjectName || nextClass.subjectCode}</h4>
-                                        <p class="text-[10px] text-slate-400 font-bold mt-0.5">Room ${nextClass.room || 'C-204'} · ${nextClass.time || ''}</p>
-                                    </div>
+                            <div class="glass-card p-3 rounded-2xl border border-white/40 shadow-sm bg-white/45 flex flex-col justify-between h-20 active-scale transition-transform cursor-pointer" onclick="router.navigate('/timetable')">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-[8px] font-black text-[#2563EB] uppercase tracking-wider">Next Class</span>
+                                    <span class="text-[8px] font-black text-slate-400 uppercase tracking-widest">${(nextClass.time || '').replace(/^"|"$/g, '').trim()}</span>
                                 </div>
-                                <span class="px-2.5 py-1 bg-blue-50 text-blue-600 border border-blue-100 rounded-lg text-[9px] font-black uppercase tracking-wide">Next Class</span>
+                                <h4 class="text-xs font-bold text-slate-800 truncate mt-1">${nextClass.subjectName || nextClass.subjectCode}</h4>
+                                <p class="text-[9px] text-slate-400 mt-1">📍 Room ${nextClass.room || '--'}</p>
                             </div>
                         `;
                     }
                 }
+
+                // 2. Horizontal scrolling slots list
+                const timetableContainer = $('dash-timetable');
+                if (timetableContainer) {
+                    if (todaySlots.length === 0) {
+                        timetableContainer.innerHTML = `<div class="text-center py-6 w-full text-slate-400 text-xs font-bold uppercase tracking-wider">No classes today</div>`;
+                    } else {
+                        const colors = ['border-l-secondary', 'border-l-emerald-500', 'border-l-amber-500', 'border-l-rose-500', 'border-l-violet-500', 'border-l-indigo-500'];
+                        timetableContainer.innerHTML = todaySlots.map((s, i) => {
+                            const timeVal = (s.time || '--').replace(/^"|"$/g, '').trim();
+                            const subjectDisplay = (s.subjectName && s.subjectName !== s.subjectCode)
+                                ? s.subjectName
+                                : (s.subjectCode || 'Class');
+                            return `
+                                <div class="min-w-[190px] max-w-[190px] flex-shrink-0 p-3.5 bg-white/60 border border-white/20 border-l-4 ${colors[i % colors.length]} rounded-2xl flex flex-col justify-between h-24 active-scale transition-transform cursor-pointer" onclick="router.navigate('/timetable')">
+                                    <div class="min-w-0">
+                                        <div class="flex justify-between items-center mb-1">
+                                            <span class="text-[9px] font-black text-slate-400 uppercase tracking-wider">${s.subjectCode || '--'}</span>
+                                            <span class="text-[9px] font-black text-secondary uppercase bg-blue-50/50 px-1.5 py-0.5 rounded-md">P${s.period}</span>
+                                        </div>
+                                        <h4 class="text-xs font-bold text-slate-800 truncate">${subjectDisplay}</h4>
+                                    </div>
+                                    <div class="flex justify-between items-center mt-2.5 text-[8px] font-bold text-slate-500">
+                                        <span class="truncate max-w-[90px]">👤 ${s.facultyName || '--'}</span>
+                                        <span>📍 ${s.room || '--'}</span>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('');
+                    }
+                }
             }).catch(() => {});
+
+            // Fetch exams to populate upcoming exam card and count
+            api.get('/exams').then(res => {
+                const data = res.data || {};
+                const list = data.schedules || [];
+                setEl('dash-exams-count', 'innerText', `${list.length} Exam${list.length !== 1 ? 's' : ''}`);
+                
+                const examWidget = $('dash-upcoming-exam-container');
+                if (examWidget) {
+                    if (list.length === 0) {
+                        examWidget.innerHTML = `
+                            <div class="glass-card p-3 rounded-2xl border border-white/40 shadow-sm bg-white/40 flex flex-col justify-center items-center h-20">
+                                <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest">No exams</span>
+                            </div>
+                        `;
+                    } else {
+                        const nextExam = list[0]; 
+                        examWidget.innerHTML = `
+                            <div class="glass-card p-3 rounded-2xl border border-white/40 shadow-sm bg-white/45 flex flex-col justify-between h-20 active-scale transition-transform cursor-pointer" onclick="router.navigate('/exams')">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-[8px] font-black text-[#E11D48] uppercase tracking-wider">Upcoming Exam</span>
+                                    <span class="text-[8px] font-black text-slate-400 uppercase tracking-widest">${nextExam.date || ''}</span>
+                                </div>
+                                <h4 class="text-xs font-bold text-slate-800 truncate mt-1">${nextExam.subjectName || nextExam.subjectCode}</h4>
+                                <p class="text-[9px] text-slate-400 mt-1">💺 Seat ${nextExam.seatNumber || '--'} · ${nextExam.hall || ''}</p>
+                            </div>
+                        `;
+                    }
+                }
+            }).catch(e => {
+                console.error('[Dashboard] Exams fetch error:', e);
+            });
 
             api.get('/announcements').then(res => {
                 const list = res.announcements || [];
@@ -2511,14 +2571,13 @@ const pages = {
                         <div class="flex items-center justify-between gap-3">
                             <div class="flex items-center gap-4 min-w-0 flex-1">
                                 <div class="w-11 h-11 rounded-xl bg-surface-container-high flex items-center justify-center group-hover:bg-white transition-colors flex-shrink-0">
-                                    <span class="material-symbols-outlined text-on-surface-variant text-lg">\${txn.icon || 'receipt_long'}</span>
+                                    <span class="material-symbols-outlined text-on-surface-variant text-lg">${txn.icon || 'receipt_long'}</span>
                                 </div>
-                                <div class="min-w-0 flex-1">
-                                    <p class="font-bold text-on-surface text-sm leading-tight truncate" title="\${txn.title}">\${txn.title}</p>
+                                <div class="min-w-0 flex-1 mr-2">
                                     <p class="font-bold text-on-surface text-sm leading-tight truncate" title="${txn.title}">${txn.title}</p>
                                 </div>
                             </div>
-                            <div class="text-right flex-shrink-0">
+                            <div class="text-right flex-shrink-0 flex flex-col items-end">
                                 <p class="font-extrabold text-on-surface text-sm leading-tight">${txn.amount}</p>
                                 <span class="text-[9px] px-2 py-0.5 ${sc} rounded-full font-bold uppercase tracking-tighter mt-1 inline-block">${txn.status}</span>
                             </div>
@@ -2676,10 +2735,24 @@ const pages = {
                     phone:           d.phone,
                     fatherName:      d.fatherName,
                     motherName:      d.motherName,
+                    fatherMobile:    d.fatherMobile,
                     hostel:          d.hostel,
+                    roomNo:          d.roomNo,
                     address:         d.address,
                     bloodGroup:      d.bloodGroup,
-                    emergencyContact:d.emergencyContact
+                    emergencyContact:d.emergencyContact,
+                    admissionNo:     d.admissionNo,
+                    joiningDate:     d.joiningDate,
+                    caste:           d.caste,
+                    nationality:     d.nationality,
+                    religion:        d.religion,
+                    sscMarks:        d.sscMarks,
+                    interMarks:      d.interMarks,
+                    scholarship:     d.scholarship,
+                    seatType:        d.seatType,
+                    entranceType:    d.entranceType,
+                    entranceRank:    d.entranceRank,
+                    aadhar:          d.aadhar
                 }, null, 2));
 
                 setEl('id-name', 'innerText', d.name || 'Student');
@@ -2693,10 +2766,10 @@ const pages = {
                 setEl('fs-name', 'innerText', d.name || 'Student');
                 setEl('fs-roll', 'innerText', d.roll || d.userId || '---');
                 setEl('fs-dept', 'innerText', `Department: ${d.branch || d.program || 'CSE'}`);
-                setEl('fs-batch', 'innerText', `Batch: ${d.batch || '2023 - 2027'}`);
-                setEl('fs-adm', 'innerText', `Admission No: ${d.admissionNo || 'ADM-2023-0098'}`);
-                setEl('fs-blood', 'innerText', `Blood Group: ${d.bloodGroup || 'B+'}`);
-                setEl('fs-emergency', 'innerText', `Emergency: ${d.emergencyContact || '+91-9988776655'}`);
+                setEl('fs-batch', 'innerText', `Year: ${d.year || 'I/IV B.Tech'}`);
+                setEl('fs-adm', 'innerText', `Admission No: ${d.admissionNo || 'N/A'}`);
+                setEl('fs-blood', 'innerText', `Blood Group: ${d.bloodGroup || 'Not Provided'}`);
+                setEl('fs-emergency', 'innerText', `Emergency: ${d.emergencyContact || d.phone || d.fatherMobile || 'N/A'}`);
 
                 $('id-card-element')?.addEventListener('click', () => {
                     haptic();
@@ -2720,15 +2793,48 @@ const pages = {
                 const list = $('profile-fields-container');
                 if (!list) return;
 
-                const fields = [
-                    ['cake', 'Date of Birth', d.dob],
-                    ['mail', 'Email Address', d.email],
-                    ['phone', 'Mobile Number', d.phone],
-                    ['supervisor_account', 'Father Name', d.fatherName],
-                    ['supervisor_account', 'Mother Name', d.motherName],
-                    ['home', 'Hostel Assigned', d.hostel ? `${d.hostel} · Room ${d.roomNo}` : 'Day Scholar'],
-                    ['location_on', 'Home Address', d.address]
-                ];
+                const fields = [];
+                if (d.dob) fields.push(['cake', 'Date of Birth', d.dob]);
+                if (d.email) fields.push(['mail', 'Email Address', d.email]);
+                if (d.phone) fields.push(['phone', 'Mobile Number', d.phone]);
+                if (d.fatherName) fields.push(['supervisor_account', 'Father Name', d.fatherName]);
+                if (d.motherName) fields.push(['supervisor_account', 'Mother Name', d.motherName]);
+                if (d.fatherMobile) fields.push(['contact_phone', 'Father Mobile', d.fatherMobile]);
+                
+                // Hostel / Day scholar status
+                fields.push(['home', 'Accommodation Status', d.hostel ? `${d.hostel} · Room ${d.roomNo}` : 'Day Scholar']);
+                
+                if (d.address) fields.push(['location_on', 'Home Address', d.address]);
+                if (d.aadhar) fields.push(['fingerprint', 'Aadhaar Number', d.aadhar]);
+                if (d.admissionNo) fields.push(['badge', 'Admission Number', d.admissionNo]);
+                if (d.caste) fields.push(['group', 'Caste Category', d.caste]);
+                
+                if (d.entranceType && d.entranceRank) {
+                    fields.push(['military_tech', 'Entrance Rank', `${d.entranceType} · Rank ${d.entranceRank}`]);
+                } else if (d.entranceType) {
+                    fields.push(['military_tech', 'Entrance Type', d.entranceType]);
+                }
+                
+                if (d.joiningDate) fields.push(['calendar_today', 'Date of Joining', d.joiningDate]);
+                
+                if (d.nationality || d.religion) {
+                    const parts = [];
+                    if (d.nationality) parts.push(d.nationality);
+                    if (d.religion) parts.push(d.religion);
+                    fields.push(['public', 'Nationality & Religion', parts.join(' · ')]);
+                }
+                
+                if (d.sscMarks || d.interMarks) {
+                    const parts = [];
+                    if (d.sscMarks) parts.push(`SSC: ${d.sscMarks}`);
+                    if (d.interMarks) parts.push(`Inter: ${d.interMarks}`);
+                    fields.push(['grade', 'Prior Qualifications', parts.join(' · ')]);
+                }
+                
+                if (d.scholarship) fields.push(['payments', 'Scholarship Status', d.scholarship]);
+                if (d.seatType) fields.push(['chair', 'Seat Category', d.seatType]);
+                if (d.bloodGroup) fields.push(['water_drop', 'Blood Group', d.bloodGroup]);
+                if (d.emergencyContact) fields.push(['emergency', 'Emergency Contact', d.emergencyContact]);
 
                 list.innerHTML = fields.map(([icon, label, val]) => `
                     <div class="flex items-center gap-4 p-4 bg-white border border-slate-200/50 rounded-2xl shadow-sm">

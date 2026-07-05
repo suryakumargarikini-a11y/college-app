@@ -53,7 +53,19 @@ const studentRepository = {
                 percentage: data.percentage,
                 address: data.address,
                 bloodGroup: data.bloodGroup || '',
-                emergencyContact: data.emergencyContact || ''
+                emergencyContact: data.emergencyContact || '',
+                admissionNo: data.admissionNo || '',
+                joiningDate: data.joiningDate || '',
+                caste: data.caste || '',
+                nationality: data.nationality || '',
+                religion: data.religion || '',
+                sscMarks: data.sscMarks || '',
+                interMarks: data.interMarks || '',
+                scholarship: data.scholarship || '',
+                seatType: data.seatType || '',
+                entranceType: data.entranceType || '',
+                entranceRank: data.entranceRank || '',
+                aadhar: data.aadhar || ''
             },
             create: {
                 userId,
@@ -79,7 +91,19 @@ const studentRepository = {
                 percentage: data.percentage,
                 address: data.address,
                 bloodGroup: data.bloodGroup || '',
-                emergencyContact: data.emergencyContact || ''
+                emergencyContact: data.emergencyContact || '',
+                admissionNo: data.admissionNo || '',
+                joiningDate: data.joiningDate || '',
+                caste: data.caste || '',
+                nationality: data.nationality || '',
+                religion: data.religion || '',
+                sscMarks: data.sscMarks || '',
+                interMarks: data.interMarks || '',
+                scholarship: data.scholarship || '',
+                seatType: data.seatType || '',
+                entranceType: data.entranceType || '',
+                entranceRank: data.entranceRank || '',
+                aadhar: data.aadhar || ''
             }
         });
     },

@@ -32,6 +32,18 @@ model Student {
   cgpa               String
   percentage         String
   address            String
+  admissionNo        String?             @default("")
+  joiningDate        String?             @default("")
+  caste              String?             @default("")
+  nationality        String?             @default("")
+  religion           String?             @default("")
+  sscMarks           String?             @default("")
+  interMarks         String?             @default("")
+  scholarship        String?             @default("")
+  seatType           String?             @default("")
+  entranceType       String?             @default("")
+  entranceRank       String?             @default("")
+  aadhar             String?             @default("")
   lastSync           DateTime? // Track when this student was last sync-scraped
   isSyncing          Boolean             @default(false)
   marks              MarkRecord[]
@@ -224,16 +236,13 @@ model AuditLog {
 }
 
 // Session table — persists login tokens across Render cold starts.
-// SessionManager uses this to restore in-memory sessions after a dyno restart.
-// Without this model, prisma.session is undefined and every authenticated
-// request fails with 401 immediately after a cold start.
 model Session {
   id          String   @id @default(uuid())
-  token       String   @unique // JWT / UUID token used as Bearer credential
-  userId      String   // Student roll number / username
-  password    String   @default("") // Encrypted — used for background ERP re-sync
-  cookies     String   @default("") // ERP session cookies for scraper reuse
-  scrapedData String   @default("{}") // JSON blob of last scraped profile data
+  token       String   @unique
+  userId      String
+  password    String   @default("")
+  cookies     String   @default("")
+  scrapedData String   @default("{}")
   lastUsed    DateTime @default(now())
   expiresAt   DateTime
   createdAt   DateTime @default(now())
