@@ -650,21 +650,86 @@ function clearUserCache() {
     });
 }
 
-// --- Prefetch Engine: fire all 6 primary endpoints in parallel after login ---
+// --- Prefetch Engine: sequential priority-grouped warm-up after login --------
+//
+// WHY sequential groups instead of Promise.allSettled(all):
+//   Firing 8 requests simultaneously from a mobile device on a shared NAT can
+//   consume the IP rate-limit bucket instantly and 429-block all peers.
+//   Sequential groups with a 150ms gap between them spread load over ~600ms
+//   while still completing the full warm-up in under 2 seconds.
+//
+// Priority order (highest → lowest):
+//   Group 1 — profile      (needed for greeting, drawer, WebSocket userId)
+//   Group 2 — attendance, marks, fees  (dashboard hero metrics)
+//   Group 3 — timetable, assignments, notifications  (secondary dashboard)
+//   Group 4 — exams        (tertiary, rarely visible on dashboard)
+//
+// Deduplication: a singleton _prefetchInFlight promise prevents the boot
+// re-prefetch (state.token already set) from doubling up with the post-login
+// prefetch that fires within milliseconds of each other.
+
+let _prefetchInFlight = null;
+
 async function prefetchAll() {
-    const endpoints = ['/attendance', '/marks', '/fees', '/assignments', '/timetable', '/notifications', '/profile', '/exams'];
-    console.log('[Prefetch] Warming IndexedDB with all ERP endpoints...');
-    await Promise.allSettled(
-        endpoints.map(ep =>
-            api.request(ep)
-               .then(data => SITAMDb.set('erp_cache', ep, data, 10 * 60 * 1000))
-               .catch(() => {}) // silent — offline or stale is acceptable
-        )
-    );
-    // Record prefetch timestamp → feeds 'last synced' chip
-    SITAMDb.set('session', 'last_synced', Date.now(), 7 * 24 * 60 * 60 * 1000).catch(() => {});
-    _updateLastSyncedChip();
-    console.log('[Prefetch] All endpoints warmed.');
+    // Return the existing in-flight promise so callers share a single warm-up
+    if (_prefetchInFlight) return _prefetchInFlight;
+
+    const _doFetch = async (ep) => {
+        try {
+            // Use _inflight dedup so dashboard api.get() calls that fire
+            // concurrently share the same network request.
+            if (_inflight[ep]) return await _inflight[ep];
+            // Route through RequestQueue with dynamic priority matching
+            const promise = RequestQueue.enqueue(
+                () => api.request(ep),
+                ep
+            ).then(data => {
+                // Persist with the correct per-endpoint TTL (not a flat 10 min)
+                SITAMDb.set('erp_cache', ep, data, getTTL(ep)).catch(() => {});
+                return data;
+            }).catch(() => {}).finally(() => { delete _inflight[ep]; });
+            _inflight[ep] = promise;
+            return await promise;
+        } catch { /* silent — offline or stale is acceptable */ }
+    };
+
+    _prefetchInFlight = (async () => {
+        console.log('[Prefetch] Starting sequential warm-up (4 priority groups)...');
+
+        // Group 1 — profile: needed immediately for greeting + WebSocket
+        await _doFetch('/profile');
+
+        await new Promise(r => setTimeout(r, 150));
+
+        // Group 2 — dashboard hero metrics
+        for (const ep of ['/attendance', '/marks', '/fees']) {
+            await _doFetch(ep);
+            await new Promise(r => setTimeout(r, 80));
+        }
+
+        await new Promise(r => setTimeout(r, 150));
+
+        // Group 3 — secondary dashboard widgets
+        for (const ep of ['/timetable', '/assignments', '/notifications']) {
+            await _doFetch(ep);
+            await new Promise(r => setTimeout(r, 80));
+        }
+
+        await new Promise(r => setTimeout(r, 150));
+
+        // Group 4 — tertiary
+        await _doFetch('/exams');
+
+        // Record prefetch timestamp → feeds 'last synced' chip
+        SITAMDb.set('session', 'last_synced', Date.now(), 7 * 24 * 60 * 60 * 1000).catch(() => {});
+        _updateLastSyncedChip();
+        console.log('[Prefetch] Sequential warm-up complete.');
+    })();
+
+    // Clear the singleton once done so the next explicit refresh works
+    _prefetchInFlight.finally(() => { _prefetchInFlight = null; });
+
+    return _prefetchInFlight;
 }
 
 // --- Last-Synced chip updater ---
@@ -705,11 +770,143 @@ function setEl(id, prop, val) {
     else el[prop] = val;
 }
 
+// ─── Per-Endpoint Cache TTL Map ─────────────────────────────────────────────
+// Controls how long each endpoint's response is considered fresh in IndexedDB.
+// Longer TTLs reduce network traffic for rarely-changing data (timetable);
+// shorter TTLs ensure time-sensitive data (notifications, exit passes) stays current.
+const EP_TTL = {
+    '/profile':          5 * 60 * 1000,   //  5 min  — name/branch/year rarely change
+    '/attendance':       5 * 60 * 1000,   //  5 min  — updates after faculty marks
+    '/marks':           10 * 60 * 1000,   // 10 min  — updated per exam cycle
+    '/fees':            10 * 60 * 1000,   // 10 min  — updated after payment
+    '/timetable':       30 * 60 * 1000,   // 30 min  — changes only with schedule edits
+    '/notifications':    1 * 60 * 1000,   //  1 min  — near-realtime; backed by WebSocket
+    '/placements':       5 * 60 * 1000,   //  5 min  — new drives are infrequent
+    '/exit-passes/my':  30 * 1000,        // 30 sec  — status changes quickly after approval
+    '/surveys':          5 * 60 * 1000,   //  5 min
+    '/assignments':      5 * 60 * 1000,   //  5 min
+    '/exams':           10 * 60 * 1000,   // 10 min
+    '/syllabus':        30 * 60 * 1000,   // 30 min
+    '/lost-found':       5 * 60 * 1000,   //  5 min
+};
+// Default TTL for any endpoint not listed above
+const DEFAULT_TTL = 5 * 60 * 1000;
+function getTTL(ep) { return EP_TTL[ep] ?? DEFAULT_TTL; }
+
+// ─── Request Queue Priority Levels ───────────────────────────────────────────
+const EP_PRIORITY = {
+    '/profile':          3, // High: core identification
+    '/attendance':       3, // High: status display
+    '/fees':            3, // High: outstanding dues / alerts
+    '/marks':           2, // Medium: grades
+    '/timetable':       2, // Medium: calendar
+    '/assignments':     2, // Medium: homework
+    '/notifications':    1, // Low: unread items
+    '/placements':       1, // Low
+    '/surveys':          1, // Low
+    '/lost-found':       1, // Low
+    '/exit-passes/my':   1  // Low
+};
+function getPriority(ep) {
+    if (!ep) return 1;
+    const baseEp = ep.split('?')[0];
+    return EP_PRIORITY[baseEp] ?? 1;
+}
+
+// ─── Request Queue — Adaptive Concurrency & Priority Limiter ────────────────
+// Caps concurrent outgoing network requests based on connection speed:
+//  • Fast Wi-Fi / Ethernet / Downlink >= 5 Mbps: MAX = 4
+//  • 4G / Downlink >= 1.5 Mbps: MAX = 3
+//  • Poor network / 2G / 3G / Data Saver: MAX = 2
+// Automatically re-sorts queued requests by priority (High -> Medium -> Low)
+// with a stable FIFO fallback index to ensure users see critical data first.
+const RequestQueue = (() => {
+    let _active = 0;
+    const _queue = [];
+    let _nextId = 0;
+
+    function getLimit() {
+        const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+        if (!conn) return 3; // Default fallback
+        if (conn.saveData) return 2;
+        const type = conn.effectiveType;
+        if (type === '2g' || type === '3g') return 2;
+        if (conn.downlink >= 5 || conn.type === 'wifi' || conn.type === 'ethernet') return 4;
+        if (conn.downlink >= 1.5) return 3;
+        return 2;
+    }
+
+    function _drain() {
+        const limit = getLimit();
+        while (_active < limit && _queue.length > 0) {
+            const { fn, resolve, reject } = _queue.shift();
+            _active++;
+            fn()
+                .then(resolve)
+                .catch(reject)
+                .finally(() => { _active--; _drain(); });
+        }
+    }
+
+    /**
+     * Enqueue a network call with priority sorting.
+     * @param {() => Promise<*>} fn  Zero-argument async factory
+     * @param {string} endpoint The endpoint string to look up priority
+     */
+    function enqueue(fn, endpoint = '') {
+        const priority = getPriority(endpoint);
+        const id = _nextId++;
+        return new Promise((resolve, reject) => {
+            _queue.push({ fn, resolve, reject, priority, id });
+            // Sort queue: highest priority first. If same priority, preserve insertion order (FIFO)
+            _queue.sort((a, b) => {
+                if (b.priority !== a.priority) {
+                    return b.priority - a.priority;
+                }
+                return a.id - b.id;
+            });
+            _drain();
+        });
+    }
+
+    function cancelLowPriority() {
+        // Cancel and reject all low/medium priority requests still waiting in the queue
+        for (let i = _queue.length - 1; i >= 0; i--) {
+            const item = _queue[i];
+            if (item.priority < 3) {
+                _queue.splice(i, 1);
+                item.reject(new DOMException('Aborted due to route change', 'AbortError'));
+            }
+        }
+    }
+
+    return { enqueue, cancelLowPriority };
+})();
+
 // --- In-flight Request Deduplication ---
 const _inflight = {};
 
+// --- AbortController tracker per active GET endpoint ---
+const _abortControllers = {};
+
 // --- Core API Service ---
 const api = {
+    // ── Route Change Request Cancellation ────────────────────────────────────
+    abortLowPriorityRequests() {
+        for (const endpoint in _abortControllers) {
+            const priority = getPriority(endpoint);
+            if (priority < 3) {
+                try {
+                    _abortControllers[endpoint].abort();
+                    console.log(`[API] Route change: Aborted in-flight GET request: ${endpoint}`);
+                } catch (_) {}
+                delete _abortControllers[endpoint];
+            }
+        }
+    },
+    // ── Internal fetch with 429 exponential-backoff retry ────────────────────
+    // Retries up to MAX_RETRIES times on HTTP 429 with increasing delay.
+    // All other errors are re-thrown immediately.
     async request(endpoint, options = {}) {
         if (!navigator.onLine) {
             throw new Error('OFFLINE');
@@ -717,11 +914,44 @@ const api = {
 
         const headers = { 'Content-Type': 'application/json' };
         if (state.token) headers['Authorization'] = `Bearer ${state.token}`;
-        
+
+        const MAX_RETRIES = 2;
+        const attempt = options._retryAttempt || 0;
+
+        const isGet = !options.method || options.method.toUpperCase() === 'GET';
+        let controller = null;
+
+        if (isGet) {
+            // Abort previous in-flight request for the exact same endpoint
+            if (_abortControllers[endpoint]) {
+                try {
+                    _abortControllers[endpoint].abort();
+                    console.log(`[API] Aborted previous in-flight GET request: ${endpoint}`);
+                } catch (_) {}
+            }
+            controller = new AbortController();
+            _abortControllers[endpoint] = controller;
+            options.signal = controller.signal;
+        }
+
         try {
-            const resp = await fetch(API_BASE + endpoint, { ...options, headers: { ...headers, ...(options.headers || {}) } });
+            const resp = await RequestQueue.enqueue(
+                () => fetch(API_BASE + endpoint, { ...options, headers: { ...headers, ...(options.headers || {}) } }),
+                endpoint
+            );
             const text = await resp.text();
-            
+
+            // ── 429 Too Many Requests — exponential backoff retry ───────────
+            if (resp.status === 429 && attempt < MAX_RETRIES) {
+                const retryAfterSec = parseInt(resp.headers.get('Retry-After') || '0', 10);
+                const backoffMs = retryAfterSec > 0
+                    ? retryAfterSec * 1000
+                    : Math.pow(2, attempt + 1) * 500; // 1s, 2s
+                console.warn(`[API] 429 on ${endpoint} — retrying in ${backoffMs}ms (attempt ${attempt + 1}/${MAX_RETRIES})`);
+                await new Promise(r => setTimeout(r, backoffMs));
+                return this.request(endpoint, { ...options, _retryAttempt: attempt + 1 });
+            }
+
             // Detect if the response is HTML and contains login page elements (ERP session expired)
             const isHtml = text.trim().startsWith('<') || text.includes('Default.aspx') || text.includes('imgBtn2') || text.includes('txtId2');
             if (isHtml) {
@@ -730,13 +960,11 @@ const api = {
                 if (!options._retried) {
                     options._retried = true;
                     console.log('[API] Attempting auto-reauthentication and request retry...');
-                    
                     try {
                         const refreshRes = await fetch(API_BASE + '/sync', {
                             method: 'GET',
                             headers: { 'Authorization': `Bearer ${state.token}` }
                         });
-                        
                         if (refreshRes.ok) {
                             console.log('[API] Session refreshed successfully. Retrying original request...');
                             return await this.request(endpoint, options);
@@ -745,7 +973,6 @@ const api = {
                         console.error('[API] Auto-reauthentication failed:', refreshErr);
                     }
                 }
-                
                 // If retry failed or already retried, perform logout
                 api.logout();
                 throw new Error('ERP session expired. Please re-login.');
@@ -774,10 +1001,18 @@ const api = {
             }
             return data;
         } catch (err) {
+            if (err.name === 'AbortError') {
+                console.warn(`[API] Request to ${endpoint} was aborted.`);
+                throw err;
+            }
             if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
                 throw new Error('OFFLINE');
             }
             throw err;
+        } finally {
+            if (isGet && _abortControllers[endpoint] === controller) {
+                delete _abortControllers[endpoint];
+            }
         }
     },
 
@@ -787,14 +1022,22 @@ const api = {
 
     // SWR: returns IndexedDB cache immediately, revalidates from network in background
     async get(ep, { bypassCache = false, onRevalidate } = {}) {
-        // 1. Check IndexedDB first (5-min default TTL)
+        const ttl = getTTL(ep);
+
+        // 1. Check IndexedDB first (per-endpoint TTL)
         if (!bypassCache) {
-            const idbCached = await SITAMDb.get('erp_cache', ep, 5 * 60 * 1000);
+            const idbCached = await SITAMDb.get('erp_cache', ep, ttl);
             if (idbCached) {
-                // Trigger silent background revalidation for next navigation
-                if (navigator.onLine && !_inflight[ep]) {
+                // Trigger silent background revalidation ONLY if cache is getting stale.
+                // Guard: skip bg fetch if the cache was written < half the endpoint TTL ago.
+                // This prevents a request storm where dashboard's api.get() calls each
+                // spawn a background request seconds after prefetchAll() already fetched them.
+                const cacheAge = Date.now() - (await SITAMDb.getTimestamp('erp_cache', ep).catch(() => 0) || 0);
+                const halfTTL  = ttl / 2;
+                if (navigator.onLine && !_inflight[ep] && cacheAge > halfTTL) {
                     const bgPromise = this.request(ep).then(fresh => {
-                        setCachedData(ep, fresh);
+                        SITAMDb.set('erp_cache', ep, fresh, ttl).catch(() => {});
+                        try { localStorage.setItem(getCacheKey(ep), JSON.stringify(fresh)); } catch {}
                         if (onRevalidate) onRevalidate(fresh);
                     }).catch(() => {}).finally(() => { delete _inflight[ep]; });
                     _inflight[ep] = bgPromise;
@@ -821,12 +1064,20 @@ const api = {
             }
         }
 
-        // 4. Network fetch + cache write
+        // 4. Network fetch + cache write (using per-endpoint TTL)
         const promise = this.request(ep).then(fresh => {
-            setCachedData(ep, fresh);
+            // Write with the endpoint-specific TTL so e.g. timetable stays cached 30 min
+            SITAMDb.set('erp_cache', ep, fresh, ttl).catch(() => {});
+            try {
+                localStorage.setItem(getCacheKey(ep), JSON.stringify(fresh));
+                localStorage.setItem(getCacheKey(ep) + '_ts', Date.now().toString());
+            } catch {}
             if (onRevalidate) onRevalidate(fresh);
             return fresh;
         }).catch(async err => {
+            if (err.name === 'AbortError') {
+                throw err;
+            }
             const idbFallback = await SITAMDb.get('erp_cache', ep, 7 * 24 * 60 * 60 * 1000);
             const lsFallback  = getCachedData(ep);
             const fallback = idbFallback || lsFallback;
@@ -922,7 +1173,13 @@ const loading = {
 // --- Sync Status Banner (non-blocking, one-shot check) ---
 function checkSyncStatus() {
     if (!state.token) return;
-    api.get('/profile', { bypassCache: true }).then(res => {
+    // NOTE: Do NOT use bypassCache:true here.
+    // The profile is already being fetched by prefetchAll() Group 1 and cached in
+    // IndexedDB. bypassCache:true would issue a duplicate network request within
+    // milliseconds of prefetchAll, doubling the post-login request count and
+    // contributing to 429 bursts. Reading from cache is sufficient for the
+    // drawer label and WebSocket userId — both are non-critical for first render.
+    api.get('/profile').then(res => {
         if (res && res.data && res.data.userId) {
             // Establish real-time sync socket connection
             wsService.connect(res.data.userId);
@@ -3368,7 +3625,7 @@ const pages = {
                         <h3 class="font-extrabold text-slate-800 text-lg">Apply for Exit Pass</h3>
                         <button id="close-ep-sheet" class="p-2 hover:bg-slate-100 rounded-full transition-colors"><span class="material-symbols-outlined text-slate-500">close</span></button>
                     </div>
-                    <form id="ep-form" class="p-6 space-y-4 overflow-y-auto">
+                    <form id="ep-form" class="p-6 pb-8 space-y-4 overflow-y-auto">
                         <div class="space-y-1">
                             <label class="text-xs font-bold text-slate-500 uppercase tracking-wide">Destination</label>
                             <input type="text" id="ep-destination" required placeholder="e.g. Home, Hospital, Bank" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary transition-all" />
@@ -3400,6 +3657,22 @@ const pages = {
 
             const openSheet = () => {
                 haptic();
+
+                // ── Compute bottom clearance above the floating dock ──────────────────
+                // Measure the dock's actual position so we handle all Android nav modes
+                // (gesture navigation, 3-button bar) and safe-area insets correctly.
+                const dock = document.getElementById('bottom-dock');
+                if (dock) {
+                    const dockRect = dock.getBoundingClientRect();
+                    // Distance from the dock's top edge to the viewport bottom
+                    const dockClearance = window.innerHeight - dockRect.top;
+                    // Add 16px breathing room between the sheet and the dock
+                    const sheetBottom = Math.max(dockClearance + 16, 80);
+                    document.documentElement.style.setProperty(
+                        '--bottom-sheet-bottom', `${sheetBottom}px`
+                    );
+                }
+
                 backdrop.classList.remove('hidden');
                 sheet.classList.remove('hidden');
                 setTimeout(() => {
@@ -4788,6 +5061,10 @@ const router = {
         if (!state.token && hash !== '/login' && hash !== '/maintenance') return this.navigate('/login');
         if (state.token && hash === '/login') return this.navigate('/dashboard');
 
+        // Cancel all pending/in-flight low/medium priority requests on route change
+        RequestQueue.cancelLowPriority();
+        api.abortLowPriorityRequests();
+
         // Save scroll position of the route being LEFT
         if (this.currentRoute) {
             this.scrollPositions[this.currentRoute] = window.scrollY;
@@ -5165,10 +5442,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     console.error('[Boot] checkSyncStatus() crashed:', syncErr);
                 }
                 
-                // Warm cache if returning session is present
+                // Warm cache for returning users (token already set from a previous session).
+                // _prefetchInFlight deduplication in prefetchAll() ensures that if the
+                // post-login path already triggered prefetchAll (e.g. fresh login), this
+                // call joins that same promise instead of spawning a second request storm.
                 if (state.token) {
                     try {
-                        console.log('[Boot] Starting prefetchAll() background task...');
+                        console.log('[Boot] Warming cache for returning session via prefetchAll()...');
                         prefetchAll().catch(e => console.error('[Boot] prefetchAll background error:', e));
                     } catch (prefetchErr) {
                         console.error('[Boot] prefetchAll trigger error:', prefetchErr);

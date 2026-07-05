@@ -109,7 +109,13 @@ const remove = async (req, res) => {
 // Student-facing: published only, ordered by drive date ascending
 const getPublished = async (req, res) => {
     try {
-        const studentId = req.user.id;
+        let studentId = req.session?.studentId;
+        if (!studentId && req.session?.userId) {
+            const student = await prisma.student.findUnique({ where: { userId: req.session.userId } });
+            studentId = student?.id;
+        }
+        if (!studentId) return res.status(401).json({ error: 'Not authenticated' });
+
         const placements = await prisma.placement.findMany({
             where: { status: 'PUBLISHED' },
             include: {
@@ -134,7 +140,13 @@ const getPublished = async (req, res) => {
 
 const saveToggle = async (req, res) => {
     try {
-        const studentId = req.user.id;
+        let studentId = req.session?.studentId;
+        if (!studentId && req.session?.userId) {
+            const student = await prisma.student.findUnique({ where: { userId: req.session.userId } });
+            studentId = student?.id;
+        }
+        if (!studentId) return res.status(401).json({ error: 'Not authenticated' });
+        
         const { id } = req.params;
 
         const existing = await prisma.savedPlacement.findUnique({
@@ -167,7 +179,13 @@ const saveToggle = async (req, res) => {
 
 const getSaved = async (req, res) => {
     try {
-        const studentId = req.user.id;
+        let studentId = req.session?.studentId;
+        if (!studentId && req.session?.userId) {
+            const student = await prisma.student.findUnique({ where: { userId: req.session.userId } });
+            studentId = student?.id;
+        }
+        if (!studentId) return res.status(401).json({ error: 'Not authenticated' });
+
         const saved = await prisma.savedPlacement.findMany({
             where: { studentId },
             include: {

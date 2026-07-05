@@ -1,5 +1,6 @@
 try {
-    require('dotenv').config();
+    const path = require('path');
+    require('dotenv').config({ path: path.join(__dirname, '.env'), override: true });
 } catch (err) {
     console.warn('[Server] Note: dotenv module not found. Relying on system environment variables.');
 }
@@ -42,6 +43,7 @@ const corsWhitelist = [
     'http://localhost',
     'https://localhost',
     'http://localhost:5173',
+    'http://localhost:3000',
     'https://sitamecap.co.in',
     'https://admin.sitamecap.co.in'
 ];
@@ -301,11 +303,59 @@ const sreRoutes = require('./routes/sre');
 app.use('/api/sre', sreRoutes);
 
 // ─── Rate Limiting (applied AFTER infra routes) ───────────────────────────────
+//
+// Dual-key strategy:
+//  • Authenticated requests (verified Bearer token): 300 req / 15 min PER STUDENT ID
+//    → the stable userId is extracted from the in-memory session map (O(1) Map.get).
+//      This is safe because the auth middleware's getSessionAsync() already restores
+//      cold-start sessions from DB before any /api route handler runs.
+//    → Using userId instead of token tail means token refreshes for the same student
+//      continue sharing the same rate-limit bucket instead of creating a new one.
+//  • Unauthenticated requests: 60 req / 15 min PER IP
+//    → still protects against scrapers / bots on public endpoints.
+//
+// Skip list (never rate-limited):
+//  • /api/health, /api/health/*, /api/health/liveness, /api/health/readiness
+//  • /api/metrics  — Prometheus scraper
+//  • /favicon.ico  — browser pre-fetch; not an API call
+//  These are registered before this middleware, but the skip guard provides an
+//  extra safety net so monitoring systems can never consume rate-limit quotas.
+const sessionManagerForLimiter = require('./services/sessionManager');
+
 const generalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 100,
+    max: 300,                        // per-student bucket — generous for normal ERP usage
     standardHeaders: true,
     legacyHeaders: false,
+    validate: false,
+    // ── Key generator: stable userId for authenticated sessions ─────────────
+    keyGenerator: (req) => {
+        const auth = req.headers.authorization || '';
+        if (auth.startsWith('Bearer ')) {
+            const token = auth.slice(7); // strip "Bearer "
+            // Synchronous in-memory lookup — O(1) Map.get.
+            // Sessions are already restored from DB by auth middleware before this runs.
+            const session = sessionManagerForLimiter.getSession(token);
+            if (session && session.userId) {
+                // Prefix prevents accidental collision with raw IP strings
+                return 'uid_' + session.userId;
+            }
+            // Token present but not yet in memory (unauthenticated route, no requireAuth):
+            // fall back to token suffix so it still gets an isolated bucket
+            return 'tok_' + token.slice(-32);
+        }
+        return req.ip;
+    },
+    // ── Skip list: monitoring endpoints must never consume rate-limit quota ──
+    skip: (req) => {
+        const p = req.path;
+        return (
+            p === '/api/health'            ||
+            p.startsWith('/api/health/')   ||  // /api/health/liveness, /api/health/readiness, etc.
+            p === '/api/metrics'           ||
+            p === '/favicon.ico'
+        );
+    },
     message: { error: 'Too many requests. Please try again after 15 minutes.' }
 });
 app.use('/api', generalLimiter);
@@ -315,10 +365,13 @@ const syncLimiter = rateLimit({
     max: 60, // Raised from 20 — 20 was too low for normal usage (login + background syncs)
     standardHeaders: true,
     legacyHeaders: false,
+    validate: false,
     message: { error: 'Too many synchronization requests. Please throttle scraper triggers.' }
 });
 app.use('/api/auth/login', syncLimiter);
 app.use('/api/sync', syncLimiter);
+
+
 
 // ─── Standard Response Middleware ─────────────────────────────────────────────
 app.use(responseStandardizer);

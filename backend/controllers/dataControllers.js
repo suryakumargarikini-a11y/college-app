@@ -1,4 +1,4 @@
-const { studentRepository, syllabusRepository, auditLogRepository } = require('../repositories');
+const { studentRepository, syllabusRepository, auditLogRepository, notificationRepository } = require('../repositories');
 const syncService = require('../services/syncService');
 const prisma = require('../services/dbService');
 const logger = require('../services/logger');

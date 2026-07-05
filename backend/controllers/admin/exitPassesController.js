@@ -200,7 +200,11 @@ const markUsed = async (req, res) => {
 // Student: submit a new exit pass application
 const apply = async (req, res) => {
     try {
-        const studentId = req.session?.studentId || req.body.studentId;
+        let studentId = req.session?.studentId || req.body.studentId;
+        if (!studentId && req.session?.userId) {
+            const student = await prisma.student.findUnique({ where: { userId: req.session.userId } });
+            studentId = student?.id;
+        }
         if (!studentId) return res.status(401).json({ error: 'Not authenticated' });
 
         const { reason, destination, requestedDate } = req.body;
@@ -224,7 +228,11 @@ const apply = async (req, res) => {
 // Student: fetch own exit pass history
 const getMyPasses = async (req, res) => {
     try {
-        const studentId = req.session?.studentId;
+        let studentId = req.session?.studentId;
+        if (!studentId && req.session?.userId) {
+            const student = await prisma.student.findUnique({ where: { userId: req.session.userId } });
+            studentId = student?.id;
+        }
         if (!studentId) return res.status(401).json({ error: 'Not authenticated' });
 
         const passes = await prisma.exitPass.findMany({

@@ -29,7 +29,24 @@ const requireAuth = async (req, res, next) => {
         return res.status(401).json({ error: 'Unauthorized: Session expired or invalid' });
     }
 
-    // Attach session data and token to request object for use in controllers
+    // Resolve studentId (database UUID) from userId (roll number) dynamically and cache it in-memory
+    if (!session.studentId && session.userId) {
+        try {
+            const db = require('../services/dbService');
+            const student = await db.student.findUnique({
+                where: { userId: session.userId },
+                select: { id: true }
+            });
+            if (student) {
+                session.studentId = student.id;
+            }
+        } catch (dbErr) {
+            logger.error(`[AuthMiddleware] Failed to resolve student UUID for ${session.userId}: ${dbErr.message}`);
+        }
+    }
+
+    // Attach compatibility objects for controllers expecting req.user or req.session.studentId
+    req.user = { id: session.studentId };
     req.session = session;
     req.token = token;
 

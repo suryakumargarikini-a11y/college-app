@@ -45,6 +45,12 @@ model Student {
   fcmTokens          FcmToken[]
   exitPasses         ExitPass[]
   feeReminderLogs    FeeReminderLog[]
+  bloodGroup         String?             @default("")
+  emergencyContact   String?             @default("")
+  surveyResponses    SurveyResponse[]
+  helpTickets        HelpTicket[]
+  savedPlacements    SavedPlacement[]
+  lostFoundClaims    LostFoundClaim[]
 
   @@index([email])
   @@index([roll])
@@ -291,6 +297,7 @@ model Announcement {
   title       String
   description String
   priority    String   @default("NORMAL")
+  category    String   @default("GENERAL")
   link        String?
   status      String   @default("DRAFT")
   createdAt   DateTime @default(now())
@@ -310,11 +317,15 @@ model Placement {
   description         String
   registrationLink    String
   driveDate           String
+  type                String   @default("PLACEMENT")
+  location            String?  @default("")
+  lastDate            String?  @default("")
   status              String   @default("DRAFT")
   notificationSent    Boolean  @default(false)
   companyArrivedToday Boolean  @default(false)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
+  savedPlacements     SavedPlacement[]
 
   @@index([status])
   @@index([driveDate])
@@ -418,4 +429,140 @@ model FeeReminderLog {
   @@unique([studentId, feeId, reminderStage])
   @@index([studentId])
   @@index([feeId])
+}
+
+model SavedPlacement {
+  id          String    @id @default(uuid())
+  studentId   String
+  student     Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  placementId String
+  placement   Placement @relation(fields: [placementId], references: [id], onDelete: Cascade)
+  savedAt     DateTime  @default(now())
+
+  @@unique([studentId, placementId])
+  @@index([studentId])
+}
+
+model Survey {
+  id          String           @id @default(uuid())
+  title       String
+  description String
+  status      String           @default("ACTIVE") // DRAFT, ACTIVE, CLOSED
+  isAnonymous Boolean          @default(false)
+  expiresAt   DateTime?
+  createdBy   String
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  questions   SurveyQuestion[]
+  responses   SurveyResponse[]
+
+  @@index([status])
+  @@index([expiresAt])
+}
+
+model SurveyQuestion {
+  id       String         @id @default(uuid())
+  surveyId String
+  survey   Survey         @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  text     String
+  type     String         // MCQ, RATING, TEXT
+  options  String?        // JSON array for MCQ
+  order    Int
+  answers  SurveyAnswer[]
+
+  @@index([surveyId])
+}
+
+model SurveyResponse {
+  id          String         @id @default(uuid())
+  surveyId    String
+  survey      Survey         @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  studentId   String
+  student     Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  submittedAt DateTime       @default(now())
+  answers     SurveyAnswer[]
+
+  @@unique([surveyId, studentId])
+  @@index([surveyId])
+  @@index([studentId])
+}
+
+model SurveyAnswer {
+  id         String         @id @default(uuid())
+  responseId String
+  response   SurveyResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  questionId String
+  question   SurveyQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answer     String
+
+  @@index([responseId])
+}
+
+model HelpTicket {
+  id                   String        @id @default(uuid())
+  studentId            String
+  student              Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  ticketNumber         String        @unique // formatted HD-YYYY-XXXXXX
+  subject              String
+  description          String
+  category             String        // ACADEMIC, FEES, TECHNICAL, HOSTEL, GENERAL
+  priority             String        @default("NORMAL") // LOW, NORMAL, HIGH, URGENT
+  status               String        @default("OPEN") // OPEN, IN_PROGRESS, RESOLVED, CLOSED
+  estimatedResponseTime String?      // e.g. "24 hours"
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  replies              TicketReply[]
+
+  @@index([studentId])
+  @@index([status])
+  @@index([priority])
+  @@index([createdAt])
+}
+
+model TicketReply {
+  id         String     @id @default(uuid())
+  ticketId   String
+  ticket     HelpTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  message    String
+  senderType String     // STUDENT, ADMIN
+  senderId   String
+  senderName String
+  createdAt  DateTime   @default(now())
+
+  @@index([ticketId])
+}
+
+model LostFoundItem {
+  id          String           @id @default(uuid())
+  title       String
+  description String
+  location    String
+  type        String           // LOST, FOUND
+  imageUrls   String?          @default("") // JSON string array of up to 3 image URLs
+  status      String           @default("ACTIVE") // ACTIVE, CLAIM_REQUESTED, CLAIMED, CLOSED
+  ownerName   String
+  studentId   String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  claims      LostFoundClaim[]
+
+  @@index([type])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model LostFoundClaim {
+  id        String        @id @default(uuid())
+  itemId    String
+  item      LostFoundItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  studentId String
+  student   Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  message   String?
+  status    String        @default("PENDING") // PENDING, VERIFIED, CONFIRMED, REJECTED
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@unique([itemId, studentId])
+  @@index([itemId])
+  @@index([studentId])
 }

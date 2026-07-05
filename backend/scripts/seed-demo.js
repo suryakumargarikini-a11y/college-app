@@ -957,8 +957,8 @@ async function main() {
     try {
       await prisma.auditLog.create({
         data: {
-          adminId:   admin.id,
-          studentId: student ? student.id : null,
+          admin: { connect: { id: admin.id } },
+          student: student ? { connect: { id: student.id } } : undefined,
           action:    entry.action,
           details:   entry.detail,
           severity:  entry.severity,

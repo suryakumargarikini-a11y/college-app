@@ -334,6 +334,16 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* ── Bottom Sheet Form Container ── */
+/*
+ * --bottom-sheet-bottom is set dynamically by JS (openSheet) to:
+ *   dockRect.height + safeAreaBottom + 16px
+ * This ensures the sheet always sits above the floating dock regardless
+ * of device safe-area (Android gesture nav, 3-button nav, notch phones).
+ * Falls back to 80px which is safe for most devices without JS measurement.
+ */
+:root {
+    --bottom-sheet-bottom: 80px;
+}
 .bottom-sheet-backdrop {
     position: fixed;
     inset: 0;
@@ -344,9 +354,10 @@ h1, h2, h3, h4, h5, h6 {
 }
 .bottom-sheet {
     position: fixed;
-    bottom: 0;
+    /* Raise the sheet so it sits above the floating dock + safe area */
+    bottom: var(--bottom-sheet-bottom, 80px);
     left: 50%;
-    transform: translate(-50%, 100%);
+    transform: translate(-50%, calc(100% + var(--bottom-sheet-bottom, 80px)));
     width: 100%;
     max-width: 500px;
     background: white;
@@ -355,12 +366,26 @@ h1, h2, h3, h4, h5, h6 {
     box-shadow: 0 -10px 40px rgba(0,0,0,0.15);
     z-index: 101;
     transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-    max-height: 85vh;
+    /* Leave room below for the dock so max-height counts from the raised bottom */
+    max-height: calc(85vh - var(--bottom-sheet-bottom, 80px));
     display: flex;
     flex-direction: column;
+    /* Prevent the sheet itself from overflowing */
+    overflow: hidden;
 }
 .bottom-sheet.open {
     transform: translate(-50%, 0);
+}
+/* Inner scroll container — the form (or any direct scrollable child) fills
+ * available height and scrolls independently so the Submit button is always
+ * reachable without the sheet growing behind the navigation bar. */
+.bottom-sheet > form,
+.bottom-sheet > .sheet-scroll-body {
+    flex: 1 1 auto;
+    min-height: 0;       /* required for flex children to honour overflow */
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
 }
 
 /* ── Star Rating ── */

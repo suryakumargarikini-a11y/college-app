@@ -513,8 +513,8 @@ const auditLogRepository = {
         logger.debug(`AuditLog: [${action}] Student: ${studentId || 'None'} | Admin: ${adminId || 'None'} | Severity: ${severity} - ${details}`);
         return prisma.auditLog.create({
             data: {
-                studentId,
-                adminId,
+                student: studentId ? { connect: { id: studentId } } : undefined,
+                admin: adminId ? { connect: { id: adminId } } : undefined,
                 action,
                 details,
                 severity
