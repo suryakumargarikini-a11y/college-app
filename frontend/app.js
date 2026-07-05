@@ -5,7 +5,7 @@
 
 const PRODUCTION_API = 'https://college-app-bx6b.onrender.com/api';
 const isMobileNative = window.Capacitor && window.Capacitor.platform !== 'web';
-const API_BASE = window.API_BASE_URL || PRODUCTION_API;
+const API_BASE = isMobileNative ? PRODUCTION_API : (window.API_BASE_URL || PRODUCTION_API);
 
 let _decryptedToken = null;
 
@@ -435,7 +435,8 @@ const state = {
     _isSyncPolling: false,
     navHistory: [],
     paymentTimeout: null,
-    _lastBackPress: 0
+    _lastBackPress: 0,
+    isOnline: true
 };
 
 // --- Pulsing Real-time Live Status Indicator ---
@@ -908,7 +909,10 @@ const api = {
     // Retries up to MAX_RETRIES times on HTTP 429 with increasing delay.
     // All other errors are re-thrown immediately.
     async request(endpoint, options = {}) {
-        if (!navigator.onLine) {
+        // Critical request exemption (login, sync, and health checks bypass local offline check)
+        const isCritical = endpoint.includes('/auth') || endpoint.includes('/health') || endpoint.includes('/sync');
+        if (!state.isOnline && !isCritical) {
+            console.warn(`[API Request] Offline check failed for: ${endpoint} — throwing OFFLINE`);
             throw new Error('OFFLINE');
         }
 
@@ -935,10 +939,12 @@ const api = {
         }
 
         try {
+            console.log(`[API Request] Attempting ${options.method || 'GET'} to: ${API_BASE + endpoint}`);
             const resp = await RequestQueue.enqueue(
                 () => fetch(API_BASE + endpoint, { ...options, headers: { ...headers, ...(options.headers || {}) } }),
                 endpoint
             );
+            console.log(`[API Request] Received response from: ${API_BASE + endpoint} with Status: ${resp.status}`);
             const text = await resp.text();
 
             // ── 429 Too Many Requests — exponential backoff retry ───────────
@@ -1001,11 +1007,13 @@ const api = {
             }
             return data;
         } catch (err) {
+            console.error(`[API Request] Request to ${API_BASE + endpoint} failed:`, err);
             if (err.name === 'AbortError') {
                 console.warn(`[API] Request to ${endpoint} was aborted.`);
                 throw err;
             }
             if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
+                console.warn(`[API Request] TypeError/Failed to fetch on ${API_BASE + endpoint} - forcing OFFLINE error`);
                 throw new Error('OFFLINE');
             }
             throw err;
@@ -1034,7 +1042,7 @@ const api = {
                 // spawn a background request seconds after prefetchAll() already fetched them.
                 const cacheAge = Date.now() - (await SITAMDb.getTimestamp('erp_cache', ep).catch(() => 0) || 0);
                 const halfTTL  = ttl / 2;
-                if (navigator.onLine && !_inflight[ep] && cacheAge > halfTTL) {
+                if (state.isOnline && !_inflight[ep] && cacheAge > halfTTL) {
                     const bgPromise = this.request(ep).then(fresh => {
                         SITAMDb.set('erp_cache', ep, fresh, ttl).catch(() => {});
                         try { localStorage.setItem(getCacheKey(ep), JSON.stringify(fresh)); } catch {}
@@ -1047,7 +1055,7 @@ const api = {
         }
 
         // 2. Offline fallback: return stale IndexedDB data or localStorage data
-        if (!navigator.onLine) {
+        if (!state.isOnline) {
             const idbStale = await SITAMDb.get('erp_cache', ep, 7 * 24 * 60 * 60 * 1000);
             if (idbStale) return idbStale;
             const lsStale = getCachedData(ep);
@@ -5216,18 +5224,41 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Connectivity Status alert handlers
-    const handleConnectivityChange = () => {
+    const handleConnectivityChange = (connected) => {
+        if (typeof connected === 'boolean') {
+            state.isOnline = connected;
+        } else {
+            state.isOnline = navigator.onLine;
+        }
+        
         const offlineBanner = $('offline-banner');
         if (!offlineBanner) return;
-        if (navigator.onLine) {
+        
+        if (state.isOnline) {
             offlineBanner.classList.add('-translate-y-full');
         } else {
             offlineBanner.classList.remove('-translate-y-full');
         }
     };
-    window.addEventListener('online', handleConnectivityChange);
-    window.addEventListener('offline', handleConnectivityChange);
-    handleConnectivityChange();
+    window.addEventListener('online', () => handleConnectivityChange(true));
+    window.addEventListener('offline', () => handleConnectivityChange(false));
+
+    if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Network) {
+        const { Network } = window.Capacitor.Plugins;
+        Network.getStatus().then(status => {
+            console.log('[Network] Initial status:', status);
+            handleConnectivityChange(status.connected);
+        }).catch(err => {
+            console.error('[Network] Failed to get status:', err);
+            handleConnectivityChange(navigator.onLine);
+        });
+        Network.addListener('networkStatusChange', status => {
+            console.log('[Network] Status changed:', status);
+            handleConnectivityChange(status.connected);
+        });
+    } else {
+        handleConnectivityChange(navigator.onLine);
+    }
 
     // ── Pull-to-refresh gesture ─────────────────────────────────────────────
     (() => {
@@ -5348,6 +5379,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Refactored async initialization with timeout, try/catch, and finally
     async function initializeApplication() {
         logBoot("BOOT 4 - initializeApplication() starting");
+        logBoot(`BOOT 4.1 - Resolved API_BASE: ${API_BASE}`);
         let timeoutTriggered = false;
         let isDone = false;
 
