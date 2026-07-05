@@ -1,5 +1,18 @@
 'use strict';
-require('dotenv').config();
+try {
+    require('dotenv').config();
+} catch (err) {
+    console.warn('[Seed] Note: dotenv module not found. Relying on system environment variables.');
+}
+
+if (process.env.NODE_ENV === 'production' || process.env.RENDER) {
+    try {
+        require('./use-pg');
+    } catch (err) {
+        console.error('[Startup] Failed to switch database provider to PostgreSQL in seeding:', err.message);
+    }
+}
+
 const crypto = require('crypto');
 
 const SALT = process.env.ADMIN_PASSWORD_SALT || 'sitam-admin-salt';

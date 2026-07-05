@@ -3,6 +3,15 @@ try {
 } catch (err) {
     console.warn('[DB-Validation] Note: dotenv module not found. Relying on system environment variables.');
 }
+
+if (process.env.NODE_ENV === 'production' || process.env.RENDER) {
+    try {
+        require('./use-pg');
+    } catch (err) {
+        console.error('[Startup] Failed to switch database provider to PostgreSQL in validation:', err.message);
+    }
+}
+
 const { PrismaClient } = require('@prisma/client');
 const logger = require('../services/logger');
 

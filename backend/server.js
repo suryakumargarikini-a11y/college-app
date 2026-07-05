@@ -4,6 +4,15 @@ try {
 } catch (err) {
     console.warn('[Server] Note: dotenv module not found. Relying on system environment variables.');
 }
+
+if (process.env.NODE_ENV === 'production' || process.env.RENDER) {
+    try {
+        require('./scripts/use-pg');
+    } catch (err) {
+        console.error('[Startup] Failed to switch database provider to PostgreSQL:', err.message);
+    }
+}
+
 require('./telemetry/tracing');
 const express = require('express');
 const cors = require('cors');
