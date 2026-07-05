@@ -568,3 +568,20 @@ model LostFoundClaim {
   @@index([itemId])
   @@index([studentId])
 }
+
+// Persistent session store \u2014 survives Render cold starts
+// Sessions are written to this table on login and read back on cold start
+// TTL: 7 days. Expired sessions are cleaned up by SessionManager.cleanup()
+model Session {
+  token       String   @id                    // UUID token issued to client
+  userId      String                          // Student roll number
+  password    String   @default("")           // Encrypted ERP password for auto-reauth
+  cookies     String   @default("")           // ERP session cookies (encrypted)
+  scrapedData String   @default("{}")         // JSON: last scraped student data
+  lastUsed    DateTime @default(now())
+  expiresAt   DateTime                        // When this session expires (7 days from last login)
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}

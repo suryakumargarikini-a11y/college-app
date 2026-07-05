@@ -853,9 +853,14 @@ const api = {
         const performLogout = () => {
             clearUserCache();
             secureStorage.removeItem('token');
+            secureStorage.removeItem('tokenExpiry');
+            secureStorage.removeItem('studentName');
             state.token = null;
             state.profile = null;
             if (state._syncPollTimer) clearInterval(state._syncPollTimer);
+            // Clear the entire page cache so nothing from the previous session leaks
+            _pageCache.forEach(entry => { if (entry.node?.parentNode) entry.node.parentNode.removeChild(entry.node); });
+            _pageCache.clear();
             router.navigate('/login');
         };
 
@@ -1195,7 +1200,11 @@ const pages = {
                     const res = await api.post('/auth/login', { userId: uid, password: pwd });
                     if (res.success && res.token) {
                         state.token = res.token;
+                        // Store token + expiry (7 days) so session survives app restarts
+                        const SESSION_7_DAYS = 7 * 24 * 60 * 60 * 1000;
                         await secureStorage.setItem('token', res.token);
+                        await secureStorage.setItem('tokenExpiry', String(Date.now() + SESSION_7_DAYS));
+                        await secureStorage.setItem('studentName', res.studentName || '');
                         // ── DASHBOARD-FIRST: navigate immediately, sync in background ──
                         router.navigate('/dashboard');
                         // Fire push registration and full prefetch asynchronously
@@ -1433,7 +1442,28 @@ const pages = {
                             <p class="text-[9px] text-slate-400">Full Schedule</p>
                         </div>
                     </div>
-                    <!-- Clubs — Full Width -->
+                    <!-- Exit Gate -->
+                    <div class="bg-emerald-50/70 p-4 sm:p-5 rounded-3xl flex flex-col justify-between h-32 sm:h-36 cursor-pointer hover:scale-[1.02] active-scale transition-all border border-emerald-100" onclick="haptic(); router.navigate('/exit-pass')">
+                        <div class="flex justify-between items-start">
+                            <span class="material-symbols-outlined text-emerald-500" style="font-variation-settings:'FILL' 1">badge</span>
+                            <span class="text-[11px] font-black text-emerald-600" id="dash-ep-status">--</span>
+                        </div>
+                        <div>
+                            <h4 class="text-sm font-bold text-emerald-900">Exit Gate</h4>
+                            <p class="text-[9px] text-emerald-500/80">Campus pass</p>
+                        </div>
+                    </div>
+                    <!-- Career -->
+                    <div class="bg-violet-50/70 p-4 sm:p-5 rounded-3xl flex flex-col justify-between h-32 sm:h-36 cursor-pointer hover:scale-[1.02] active-scale transition-all border border-violet-100" onclick="haptic(); router.navigate('/career')">
+                        <div class="flex justify-between items-start">
+                            <span class="material-symbols-outlined text-violet-500" style="font-variation-settings:'FILL' 1">work</span>
+                            <span class="text-[11px] font-black text-violet-600" id="dash-placements-count">--</span>
+                        </div>
+                        <div>
+                            <h4 class="text-sm font-bold text-violet-900">Career</h4>
+                            <p class="text-[9px] text-violet-500/80">Placements</p>
+                        </div>
+                    </div>
                 </section>
             </main>
         </div>`,
@@ -4790,8 +4820,11 @@ const router = {
 
         if (isKeepAlive) {
             // ── keepAlive path: swap DOM nodes, no innerHTML destroy ──────────
-            // Hide all cached pages
+            // Hide ALL other nodes — including the non-cached login/profile node
+            // This is critical: the login page must NEVER remain visible after navigation to dashboard
             _pageCache.forEach(entry => { if (entry.node) entry.node.style.display = 'none'; });
+            const _nonCached = this.app.querySelector('.sitam-page-non-cached');
+            if (_nonCached) _nonCached.style.display = 'none';
 
             if (_pageCache.has(route)) {
                 // ── CACHE HIT: instant restore <5ms ──────────────────────────
@@ -4837,16 +4870,18 @@ const router = {
             }
         } else {
             // ── Non-cached pages: full re-render (login, profile, syllabus, etc.) ──
-            // Clear any keepAlive nodes visibility
+            // Clear all keepAlive nodes — hide them all
             _pageCache.forEach(entry => { if (entry.node) entry.node.style.display = 'none'; });
 
-            // Create a fresh non-cached container that overlays the app
-            let nonCachedNode = this.app.querySelector('.sitam-page-non-cached');
-            if (!nonCachedNode) {
-                nonCachedNode = document.createElement('div');
-                nonCachedNode.className = 'sitam-page-non-cached';
-                this.app.appendChild(nonCachedNode);
+            // Destroy and recreate the non-cached container on every non-cached navigation.
+            // This ensures the login DOM is COMPLETELY REMOVED from memory on any navigation away from it.
+            const existingNonCached = this.app.querySelector('.sitam-page-non-cached');
+            if (existingNonCached) {
+                existingNonCached.remove();
             }
+            const nonCachedNode = document.createElement('div');
+            nonCachedNode.className = 'sitam-page-non-cached';
+            this.app.appendChild(nonCachedNode);
             nonCachedNode.style.display = '';
             nonCachedNode.innerHTML = page.render();
 
@@ -5066,6 +5101,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
             logBoot("BOOT 6 - Config loaded");
             state.token = secureStorage.getItem('token') || null;
+            // Validate token expiry — invalidate if older than 7 days
+            if (state.token) {
+                const expiryRaw = secureStorage.getItem('tokenExpiry');
+                const expiry = expiryRaw ? parseInt(expiryRaw, 10) : 0;
+                if (expiry > 0 && Date.now() > expiry) {
+                    console.warn('[Boot] Stored token has expired — clearing session');
+                    state.token = null;
+                    await secureStorage.removeItem('token');
+                    await secureStorage.removeItem('tokenExpiry');
+                } else if (expiry === 0) {
+                    // Legacy token with no expiry — stamp it with 7-day window from now
+                    const SESSION_7_DAYS = 7 * 24 * 60 * 60 * 1000;
+                    await secureStorage.setItem('tokenExpiry', String(Date.now() + SESSION_7_DAYS));
+                }
+            }
             console.log("[Boot] Token verified, state.token is present:", !!state.token);
             if (progressBar) progressBar.style.width = '100%';
 
