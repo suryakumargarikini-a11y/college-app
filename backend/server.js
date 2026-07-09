@@ -283,12 +283,35 @@ app.get('/api/metrics', async (req, res) => {
     }
     const browserPool = require('./services/browserPool');
     const poolStatus = browserPool.getStatus();
-    
-    // Set Gauges
+
+    // ── Backward-compat unlabelled gauges (combined totals) ───────────────
     metricsService.metrics.browserPoolActiveBrowsers.set(poolStatus.total);
     metricsService.metrics.browserPoolActiveContexts.set(poolStatus.active);
-    metricsService.metrics.browserPoolTimeoutsTotal.inc(poolStatus.queued); // queued represents timeouts/wait depth
-    
+
+    // ── Per-pool labeled gauges (AUTH_POOL / SYNC_POOL) ───────────────────
+    if (poolStatus.authPool) {
+        const auth = poolStatus.authPool;
+        metricsService.metrics.browserPoolBrowsersByPool.set({ pool: 'auth' }, auth.total);
+        metricsService.metrics.browserPoolActiveByPool.set({ pool: 'auth' }, auth.active);
+        metricsService.metrics.browserPoolQueueDepthByPool.set({ pool: 'auth' }, auth.queued);
+        if (auth.metrics) {
+            metricsService.metrics.browserPoolAvgWaitMsByPool.set(
+                { pool: 'auth' }, auth.metrics.avgWaitMs || 0
+            );
+        }
+    }
+    if (poolStatus.syncPool) {
+        const sync = poolStatus.syncPool;
+        metricsService.metrics.browserPoolBrowsersByPool.set({ pool: 'sync' }, sync.total);
+        metricsService.metrics.browserPoolActiveByPool.set({ pool: 'sync' }, sync.active);
+        metricsService.metrics.browserPoolQueueDepthByPool.set({ pool: 'sync' }, sync.queued);
+        if (sync.metrics) {
+            metricsService.metrics.browserPoolAvgWaitMsByPool.set(
+                { pool: 'sync' }, sync.metrics.avgWaitMs || 0
+            );
+        }
+    }
+
     const socketService = require('./services/socketService');
     const activeWs = socketService.wss ? socketService.wss.clients.size : 0;
     metricsService.metrics.websocketConnectionsActive.set(activeWs);
@@ -310,6 +333,13 @@ app.post('/api/health/circuit/reset', (req, res) => {
 // ─── SRE Control Plane ────────────────────────────────────────────────────────
 const sreRoutes = require('./routes/sre');
 app.use('/api/sre', sreRoutes);
+
+// ─── Browser Pool Metrics ─────────────────────────────────────────────────────
+// GET  /api/browserpool        — full pool status (auth + sync pool metrics)
+// GET  /api/browserpool/health — lightweight health check for uptime monitors
+// POST /api/browserpool/drain  — operator: graceful drain + reinitialize
+const browserPoolRoutes = require('./routes/browserPool');
+app.use('/api/browserpool', browserPoolRoutes);
 
 // ─── Rate Limiting (applied AFTER infra routes) ───────────────────────────────
 //

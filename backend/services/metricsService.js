@@ -117,6 +117,33 @@ const browserPoolTimeoutsTotal = new promClient.Counter({
     help: 'Total number of browser pool checkout timeouts',
 });
 
+// ─── Dual-Pool Labeled Gauges (AUTH_POOL / SYNC_POOL) ────────────────────────
+// These complement the above unlabelled gauges with per-pool resolution.
+// Label values: pool='auth' | pool='sync'
+const browserPoolBrowsersByPool = new promClient.Gauge({
+    name: 'browser_pool_browsers_by_pool',
+    help: 'Number of non-retired Chromium browsers per pool',
+    labelNames: ['pool'],
+});
+
+const browserPoolActiveByPool = new promClient.Gauge({
+    name: 'browser_pool_active_by_pool',
+    help: 'Number of browsers actively serving a job per pool',
+    labelNames: ['pool'],
+});
+
+const browserPoolQueueDepthByPool = new promClient.Gauge({
+    name: 'browser_pool_queue_depth_by_pool',
+    help: 'Current number of requests waiting in the priority queue per pool',
+    labelNames: ['pool'],
+});
+
+const browserPoolAvgWaitMsByPool = new promClient.Gauge({
+    name: 'browser_pool_avg_wait_ms_by_pool',
+    help: 'Exponential moving average of browser acquire wait time per pool (ms)',
+    labelNames: ['pool'],
+});
+
 const syncDurationSeconds = new promClient.Histogram({
     name: 'sync_duration_seconds',
     help: 'Puppeteer sync execution duration in seconds',
@@ -198,6 +225,10 @@ register.registerMetric(browserPoolActiveContexts);
 register.registerMetric(browserCrashesTotal);
 register.registerMetric(browserPoolRecycleTotal);
 register.registerMetric(browserPoolTimeoutsTotal);
+register.registerMetric(browserPoolBrowsersByPool);
+register.registerMetric(browserPoolActiveByPool);
+register.registerMetric(browserPoolQueueDepthByPool);
+register.registerMetric(browserPoolAvgWaitMsByPool);
 register.registerMetric(syncDurationSeconds);
 register.registerMetric(postgresPoolActiveConnections);
 register.registerMetric(postgresQueryDuration);
@@ -402,6 +433,10 @@ module.exports = {
         browserCrashesTotal,
         browserPoolRecycleTotal,
         browserPoolTimeoutsTotal,
+        browserPoolBrowsersByPool,
+        browserPoolActiveByPool,
+        browserPoolQueueDepthByPool,
+        browserPoolAvgWaitMsByPool,
         syncDurationSeconds,
         postgresPoolActiveConnections,
         postgresQueryDuration,
