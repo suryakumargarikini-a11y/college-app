@@ -40,7 +40,7 @@ const IDLE_RECYCLE_MS = parseInt(
 );
 
 /** Minimum free system memory % required to auto-scale up */
-const MEM_SAFE_FREE_PERCENT = 30;
+const DEFAULT_MEM_SAFE_FREE_PERCENT = 30;
 /** How often to check auto-scale conditions */
 const SCALE_CHECK_INTERVAL_MS = 5_000;
 /** How long idle must persist before scaling down (hysteresis) */
@@ -64,6 +64,12 @@ class BrowserPool {
         this.autoScale   = config.autoScale !== false;
         this.launchArgs  = config.launchArgs || [];
 
+        /**
+         * Configurable free-memory % threshold for auto-scaling.
+         * Default 30%; pass 15% for small-RAM plans (Render free = 512 MB).
+         */
+        this._memSafePercent = config.memSafePercent || DEFAULT_MEM_SAFE_FREE_PERCENT;
+
         /** Current effective cap (grows from minBrowsers up to maxBrowsers) */
         this.currentMax = config.minBrowsers;
 
@@ -82,7 +88,10 @@ class BrowserPool {
         this._recycleInterval = null;
         this._scaleDownTimer = null;
 
-        // Guard against concurrent browser launches racing each other
+        /**
+         * In-flight launch counter — counts browsers currently being launched.
+         * Used in the capacity check: live.length + _launching must stay <= maxBrowsers.
+         */
         this._launching = 0;
     }
 
@@ -164,10 +173,13 @@ class BrowserPool {
         const immediate = await this._tryImmediateCheckout(userId, requestId, jobType, enqueuedAt);
         if (immediate) return immediate;
 
-        // 2. Try to scale up with a new browser (if within cap and memory is safe)
+        // 2. Try to scale up with a new browser (if within hard cap and memory is safe)
+        //    CRITICAL: count live browsers (non-retired) PLUS in-flight launches.
+        //    Bug: old code used this.instances.length which includes retired instances
+        //    that haven't been spliced yet, causing the pool to exceed maxBrowsers.
+        const liveCount = this.instances.filter(b => !b.retired).length;
         if (
-            this.instances.length < this.maxBrowsers &&
-            this._launching < 2 &&              // max 2 concurrent launches at once
+            (liveCount + this._launching) < this.maxBrowsers &&
             this._isMemorySafe()
         ) {
             try {
@@ -177,7 +189,7 @@ class BrowserPool {
                 this.metrics.recordJobStarted(waitMs, this.queue.length);
                 logger.info(
                     `[POOL][${this.name}] Job Started (cold launch): ` +
-                    `type=${jobType} wait=${waitMs}ms`
+                    `type=${jobType} wait=${waitMs}ms browsers=${liveCount + 1}/${this.maxBrowsers}`
                 );
                 return result;
             } catch (launchErr) {
@@ -245,6 +257,8 @@ class BrowserPool {
             try {
                 if (context && !context._closed) await context.close();
             } catch (_) {}
+            // Count the destruction even on the crash path — keeps leak counter accurate
+            this.metrics.recordContextDestroyed();
             return;
         }
 
@@ -260,6 +274,9 @@ class BrowserPool {
 
         // Checkin: close context, update reputation
         await instance.checkin(context, error);
+
+        // Record context destruction AFTER checkin closes it
+        this.metrics.recordContextDestroyed();
 
         // If the browser needs recycling, replace it and drain queue from replacement
         if (instance.needsRecycle()) {
@@ -292,6 +309,7 @@ class BrowserPool {
             active,
             idle,
             queued:        this.queue.length,
+            launching:     this._launching,
             minBrowsers:   this.minBrowsers,
             maxBrowsers:   this.maxBrowsers,
             currentCap:    this.currentMax,
@@ -394,6 +412,9 @@ class BrowserPool {
         // Record affinity so this student prefers this browser next time
         if (userId) sessionAffinity.record(userId, instance.id);
 
+        // Track context lifecycle for leak detection
+        this.metrics.recordContextCreated();
+
         return {
             browserId: instance.id,
             context,
@@ -405,7 +426,15 @@ class BrowserPool {
 
     /**
      * Launch a new BrowserInstance and add it to the pool.
-     * Guards against concurrent excess launches.
+     *
+     * BUG 5 FIX: Removed the shared _launchPromise pattern.
+     * When two concurrent callers shared one promise, both received the same
+     * BrowserInstance ref. The first caller checked it out; the second caller
+     * then tried to checkout the now-inUse instance, causing a silent race
+     * condition where the second caller's acquire() returned an inUse browser.
+     * The capacity check (liveCount + _launching < maxBrowsers) is the correct
+     * throttle — concurrent callers naturally queue via the PriorityQueue
+     * and are served by _drainQueue when the new browser is ready.
      */
     async _launchAndAdd() {
         this._launching++;
@@ -419,14 +448,20 @@ class BrowserPool {
             await instance.launch(this._executablePath);
             this.instances.push(instance);
             this._updatePrometheus();
+
+            const live = this.instances.filter(b => !b.retired).length;
             logger.info(
-                `[POOL][${this.name}] Pool size: ` +
-                `${this.instances.filter(b => !b.retired).length}/${this.maxBrowsers}`
+                `[POOL][${this.name}] Pool size: ${live}/${this.maxBrowsers} ` +
+                `(id=${instance.id})`
             );
+
+            return instance;
+        } catch (err) {
+            logger.error(`[POOL][${this.name}] Browser launch FAILED: ${err.message}`);
+            throw err;
         } finally {
             this._launching--;
         }
-        return instance;
     }
 
     /**
@@ -519,21 +554,22 @@ class BrowserPool {
         if (this.isShuttingDown) return;
 
         const queueDepth = this.queue.length;
-        const activeCount = this.instances.filter(b => !b.retired).length;
-        const idleCount   = this.instances.filter(b => !b.inUse && !b.retired).length;
+        const liveCount  = this.instances.filter(b => !b.retired).length;
+        const idleCount  = this.instances.filter(b => !b.inUse && !b.retired).length;
 
-        // Scale UP
+        // Scale UP: only if there's room in both the cap AND memory is safe AND no launch in progress
         if (
             queueDepth > 0 &&
             this.currentMax < this.maxBrowsers &&
-            this._isMemorySafe() &&
-            this._launching === 0
+            liveCount < this.maxBrowsers &&
+            this._launching === 0 &&
+            this._isMemorySafe()
         ) {
             const newMax = Math.min(this.currentMax + 1, this.maxBrowsers);
             logger.info(
                 `[POOL][${this.name}] Auto-scaling UP: ` +
                 `currentMax ${this.currentMax} → ${newMax} ` +
-                `(queueDepth=${queueDepth} freeMem=${this._freeMemPercent()}%)`
+                `(queueDepth=${queueDepth} freeMem=${this._freeMemPercent()}% live=${liveCount})`
             );
             this.currentMax = newMax;
 
@@ -552,11 +588,17 @@ class BrowserPool {
         }
 
         // Scale DOWN (with hysteresis)
+        // BUG 4 FIX: `activeCount` was never declared in this scope — caused a
+        // ReferenceError crashing the auto-scale setInterval every 5 seconds.
+        // The correct guard is: no queued work, excess idle browsers above minimum.
+        // We compute activeCount from the instance list, consistent with the rest
+        // of _adjustPoolSize.
+        const activeCount = this.instances.filter(b => b.inUse && !b.retired).length;
         if (
             queueDepth === 0 &&
             idleCount > this.minBrowsers &&
             this.currentMax > this.minBrowsers &&
-            activeCount > 0
+            activeCount === 0
         ) {
             if (!this._scaleDownTimer) {
                 this._scaleDownTimer = setTimeout(async () => {
@@ -627,6 +669,10 @@ class BrowserPool {
             sessionAffinity.evictBrowser(inst.id);
             await this._replaceInstance(inst);
         }
+
+        // Periodic context leak check — runs every 2 min (RECYCLE_INTERVAL_MS)
+        // Logs CRITICAL if any context was created but never destroyed.
+        this.metrics.detectLeaks();
     }
 
     // ─── Private — Queue persistence ─────────────────────────────────────────
@@ -653,7 +699,7 @@ class BrowserPool {
     // ─── Private — Helpers ────────────────────────────────────────────────────
 
     _isMemorySafe() {
-        return this._freeMemPercent() > MEM_SAFE_FREE_PERCENT;
+        return this._freeMemPercent() > this._memSafePercent;
     }
 
     _freeMemPercent() {

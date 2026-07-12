@@ -157,12 +157,12 @@ class PuppeteerService {
         }, async (parentSpan) => {
             let browserId  = null;
             let context    = null;
-            let scrapeError = null;
             let attempts = 0;
             const maxAttempts = 2;
 
             while (attempts < maxAttempts) {
                 attempts++;
+                let releaseError = null;
                 try {
                     // ── Maintenance check (no browser needed) ──────────────────
                     if (await maintDetector.isInMaintenanceWindow()) {
@@ -173,15 +173,31 @@ class PuppeteerService {
                         });
                     }
 
-                    // ── Acquire browser ────────────────────────────────────────
+                    // ── BUG 1 FIX: Use AUTH_POOL for login jobs, not SYNC_POOL ──
+                    // browserPool.acquire() routes to SYNC_POOL at BACKGROUND_SYNC
+                    // priority. Login must use AUTH_POOL (dedicated, high-priority).
+                    // Using SYNC_POOL means a login request waits behind 4 background
+                    // scrapes — causing 60s timeouts and "Target closed" errors.
                     timer.start('browserAcquire');
-                    logger.info(`[Puppeteer] [${requestId}] Acquiring browser from pool for: ${userId} (attempt ${attempts}/${maxAttempts})`);
-                    ({ browserId, context } = await browserPool.acquire(requestId));
+                    logger.info(
+                        `[Puppeteer] [${requestId}] Acquiring browser from AUTH_POOL for: ${userId} ` +
+                        `(attempt ${attempts}/${maxAttempts})`
+                    );
+                    const { JOB_PRIORITY } = require('./browserPool/PriorityQueue');
+                    ({ browserId, context } = await browserPool.authPool.acquire({
+                        priority:  JOB_PRIORITY.LOGIN,
+                        requestId,
+                        jobType:   'LOGIN',
+                        userId,
+                    }));
                     timer.end('browserAcquire');
 
                     parentSpan.setAttribute('browser.acquire_delay_ms', timer.get('browserAcquire'));
                     parentSpan.addEvent('browser_acquire_success', { browserId });
-                    logger.info(`[Puppeteer] [${requestId}] Pool acquired browser ${browserId} in ${timer.get('browserAcquire')}ms`);
+                    logger.info(
+                        `[Puppeteer] [${requestId}] AUTH_POOL acquired browser ${browserId} ` +
+                        `in ${timer.get('browserAcquire')}ms`
+                    );
 
                     // ── Open auth page ─────────────────────────────────────────
                     const authPage = await context.newPage();
@@ -314,35 +330,50 @@ class PuppeteerService {
                         `auth=${timer.get('erpAuth')}ms parallel=${timer.get('parallelScrape')}ms`
                     );
 
-                    // Successfully completed full scrape - release back to pool as clean
-                    if (browserId !== null) {
-                        try {
-                            await browserPool.release(browserId, context, requestId, null);
-                        } catch (_) {}
-                        browserId = null;
-                        context = null;
-                    }
-
+                    // BUG 2 FIX: Release is now ONLY in the finally block.
+                    // Previously, releasing here on success AND then the catch block
+                    // could also release if the try-release itself threw — causing a
+                    // double-release that corrupts browser state and triggers
+                    // "Protocol error (Target.createTarget): Target closed" on the
+                    // next acquire. The finally block below guarantees exactly-once
+                    // release regardless of success, failure, or error-in-release.
                     return { cookieString, scrapedData, perfReport: report };
 
                 } catch (error) {
-                    scrapeError = error;
-                    logger.error(`[Puppeteer] [${requestId}] Login/scrape FAILED (attempt ${attempts}/${maxAttempts}): ${error.message}`, { stack: error.stack });
-                    
-                    if (browserId !== null) {
-                        try {
-                            await browserPool.release(browserId, context, requestId, error);
-                        } catch (_) {}
-                        browserId = null;
-                        context = null;
-                    }
+                    releaseError = error;
+                    logger.error(
+                        `[Puppeteer] [${requestId}] Login/scrape FAILED ` +
+                        `(attempt ${attempts}/${maxAttempts}): ${error.message}`,
+                        { stack: error.stack }
+                    );
 
                     const strategy = classifier.classify(error, { attempt: attempts });
                     if (!strategy.retry || attempts >= maxAttempts) {
                         throw error;
                     }
-                    
+
                     logger.warn(`[Puppeteer] [${requestId}] Retrying login/scrape with a fresh browser...`);
+                } finally {
+                    // BUG 2 FIX: Exactly-once release, always in finally.
+                    // browserId is non-null only when acquire() succeeded and we
+                    // haven't released yet. We null it immediately after to prevent
+                    // any second release path.
+                    if (browserId !== null) {
+                        const ctxToRelease = context;
+                        const bidToRelease = browserId;
+                        browserId = null;
+                        context   = null;
+                        try {
+                            await browserPool.authPool.release(
+                                bidToRelease, ctxToRelease, requestId, releaseError
+                            );
+                        } catch (releaseErr) {
+                            logger.warn(
+                                `[Puppeteer] [${requestId}] Browser release warning (non-fatal): ` +
+                                `${releaseErr.message}`
+                            );
+                        }
+                    }
                 }
             }
         });
@@ -573,106 +604,123 @@ class PuppeteerService {
 
         let browserId  = null;
         let context    = null;
-        let scrapeError = null;
         let attempts = 0;
         const maxAttempts = 2;
 
-        while (attempts < maxAttempts) {
-            attempts++;
-            try {
-                // ── Acquire browser ────────────────────────────────────────
-                timer.start('browserAcquire');
-                logger.info(`[Puppeteer] [${requestId}] [CookieScrape] Acquiring browser from pool (attempt ${attempts}/${maxAttempts})`);
-                ({ browserId, context } = await browserPool.acquire(requestId));
-                timer.end('browserAcquire');
-
-                // Inject cookies into the context via a temporary page
-                const cookiePage = await context.newPage();
+        try {
+            while (attempts < maxAttempts) {
+                attempts++;
+                let releaseError = null;
                 try {
-                    // Navigate to a base URL so we can set domain cookies
+                    // ── Acquire browser (SYNC_POOL — incremental, not a login) ─
+                    timer.start('browserAcquire');
+                    logger.info(
+                        `[Puppeteer] [${requestId}] [CookieScrape] Acquiring browser ` +
+                        `from SYNC_POOL (attempt ${attempts}/${maxAttempts})`
+                    );
+                    ({ browserId, context } = await browserPool.acquire(requestId));
+                    timer.end('browserAcquire');
+
+                    // Inject cookies into the context via a temporary page
+                    const cookiePage = await context.newPage();
                     try {
-                        await cookiePage.goto(`${this.siteBase}/SATYA/Default.aspx`, {
-                            waitUntil: 'domcontentloaded',
-                            timeout: 30000
-                        });
-                    } catch (cookieGotoErr) {
-                        logger.warn(`[Puppeteer] [${requestId}] Cookie page navigation failed: ${cookieGotoErr.message}. Retrying once with 30s timeout...`);
-                        await cookiePage.goto(`${this.siteBase}/SATYA/Default.aspx`, {
-                            waitUntil: 'domcontentloaded',
-                            timeout: 30000
-                        });
+                        // Navigate to a base URL so we can set domain cookies
+                        try {
+                            await cookiePage.goto(`${this.siteBase}/SATYA/Default.aspx`, {
+                                waitUntil: 'domcontentloaded',
+                                timeout: 30000
+                            });
+                        } catch (cookieGotoErr) {
+                            logger.warn(
+                                `[Puppeteer] [${requestId}] Cookie page navigation failed: ` +
+                                `${cookieGotoErr.message}. Retrying once...`
+                            );
+                            await cookiePage.goto(`${this.siteBase}/SATYA/Default.aspx`, {
+                                waitUntil: 'domcontentloaded',
+                                timeout: 30000
+                            });
+                        }
+
+                        // Parse and set cookies from cookie string
+                        const cookiePairs = cookieString.split(';').map(s => s.trim());
+                        const domain = new URL(`${this.siteBase}`).hostname;
+                        const cookieObjects = cookiePairs
+                            .filter(p => p.includes('='))
+                            .map(p => {
+                                const [name, ...rest] = p.split('=');
+                                return { name: name.trim(), value: rest.join('=').trim(), domain, path: '/' };
+                            });
+
+                        await context.setCookie(...cookieObjects);
+                        logger.info(
+                            `[Puppeteer] [${requestId}] Injected ${cookieObjects.length} cookies into context`
+                        );
+
+                        // Check if the session is valid (not redirected to login page)
+                        const currentUrl = cookiePage.url();
+                        if (currentUrl.includes('Default.aspx') && cookiePairs.length < 2) {
+                            throw new Error('Session expired — login page detected after cookie injection');
+                        }
+                    } finally {
+                        try { await cookiePage.close(); } catch (_) {}
                     }
 
-                    // Parse and set cookies from cookie string
-                    const cookiePairs = cookieString.split(';').map(s => s.trim());
-                    const domain = new URL(`${this.siteBase}`).hostname;
-                    const cookieObjects = cookiePairs
-                        .filter(p => p.includes('='))
-                        .map(p => {
-                            const [name, ...rest] = p.split('=');
-                            return { name: name.trim(), value: rest.join('=').trim(), domain, path: '/' };
-                        });
+                    // Now scrape all pages in parallel with injected cookies
+                    timer.start('parallelScrape');
+                    const scrapeResults = await this._scrapeAllModules(context, () => true, requestId, timer);
+                    timer.end('parallelScrape');
 
-                    await context.setCookie(...cookieObjects);
-                    logger.info(`[Puppeteer] [${requestId}] Injected ${cookieObjects.length} cookies into context`);
+                    const scrapedData = {
+                        studentName:     userId,
+                        profileHtml:     scrapeResults.profileHtml,
+                        marksHtml:       scrapeResults.marksHtml,
+                        feesHtml:        scrapeResults.feesHtml,
+                        assignmentsHtml: scrapeResults.assignmentsHtml
+                    };
 
-                    // Check if the session is valid (not redirected to login page)
-                    const currentUrl = cookiePage.url();
-                    if (currentUrl.includes('Default.aspx') && cookiePairs.length < 2) {
-                        throw new Error('Session expired — login page detected after cookie injection');
+                    const report = timer.report({ loginType: 'cookie-incremental' });
+                    logger.info(`[Puppeteer] [${requestId}] Cookie-scrape COMPLETE in ${report.totalMs}ms`);
+
+                    // BUG 3 FIX: return here; finally block releases the browser.
+                    return { scrapedData, perfReport: report };
+
+                } catch (error) {
+                    releaseError = error;
+                    logger.error(
+                        `[Puppeteer] [${requestId}] Cookie-based scrape FAILED ` +
+                        `(attempt ${attempts}/${maxAttempts}): ${error.message}`
+                    );
+
+                    const strategy = classifier.classify(error, { attempt: attempts });
+                    if (!strategy.retry || attempts >= maxAttempts) {
+                        throw error;
                     }
+
+                    logger.warn(`[Puppeteer] [${requestId}] Retrying cookie-based scrape with a fresh browser...`);
                 } finally {
-                    try { await cookiePage.close(); } catch (_) {}
+                    // BUG 2 FIX (cookie path): Exactly-once release, always in finally.
+                    if (browserId !== null) {
+                        const ctxToRelease = context;
+                        const bidToRelease = browserId;
+                        browserId = null;
+                        context   = null;
+                        try {
+                            await browserPool.release(bidToRelease, ctxToRelease, requestId, releaseError);
+                        } catch (releaseErr) {
+                            logger.warn(
+                                `[Puppeteer] [${requestId}] Cookie-scrape release warning: ` +
+                                `${releaseErr.message}`
+                            );
+                        }
+                    }
                 }
-
-                // Now scrape all pages in parallel with injected cookies
-                timer.start('parallelScrape');
-                const scrapeResults = await this._scrapeAllModules(context, () => true, requestId, timer);
-                timer.end('parallelScrape');
-
-                const scrapedData = {
-                    studentName:     userId,
-                    profileHtml:     scrapeResults.profileHtml,
-                    marksHtml:       scrapeResults.marksHtml,
-                    feesHtml:        scrapeResults.feesHtml,
-                    assignmentsHtml: scrapeResults.assignmentsHtml
-                };
-
-                const report = timer.report({ loginType: 'cookie-incremental' });
-                logger.info(`[Puppeteer] [${requestId}] Cookie-scrape COMPLETE in ${report.totalMs}ms`);
-
-                // Successfully completed incremental scrape - release back to pool as clean
-                if (browserId !== null) {
-                    try {
-                        await browserPool.release(browserId, context, requestId, null);
-                    } catch (_) {}
-                    browserId = null;
-                    context = null;
-                }
-
-                return { scrapedData, perfReport: report };
-
-            } catch (error) {
-                scrapeError = error;
-                logger.error(`[Puppeteer] [${requestId}] Cookie-based scrape FAILED (attempt ${attempts}/${maxAttempts}): ${error.message}`);
-                
-                if (browserId !== null) {
-                    try {
-                        await browserPool.release(browserId, context, requestId, error);
-                    } catch (_) {}
-                    browserId = null;
-                    context = null;
-                }
-
-                const strategy = classifier.classify(error, { attempt: attempts });
-                if (!strategy.retry || attempts >= maxAttempts) {
-                    throw error;
-                }
-                
-                logger.warn(`[Puppeteer] [${requestId}] Retrying cookie-based scrape with a fresh browser...`);
-            } finally {
-                timer.end('total');
             }
+        } finally {
+            // BUG 3 FIX: timer.end('total') MUST be outside the retry loop.
+            // Previously it was in a per-iteration finally block — ending the timer
+            // on every attempt, including retries, causing corrupted timing data
+            // and premature cleanup signals.
+            timer.end('total');
         }
     }
 }

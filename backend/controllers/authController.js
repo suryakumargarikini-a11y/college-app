@@ -10,6 +10,57 @@ const getBusinessCollector = () => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// ERROR SANITIZER
+// Translates raw internal errors (Puppeteer protocol errors, network errors,
+// ERP HTML scraping errors) into clean, user-safe messages for the Android app.
+// The raw error is always logged on the backend at ERROR level.
+// ─────────────────────────────────────────────────────────────────────────────
+function sanitizeErrorForClient(error) {
+    const msg = (error?.message || '').toLowerCase();
+
+    // Chromium / Puppeteer protocol errors
+    if (msg.includes('target closed') || msg.includes('session closed') || msg.includes('browser closed')) {
+        return 'Unable to connect to the SITAM ERP server. Please try again in a few moments.';
+    }
+    if (msg.includes('protocol error')) {
+        return 'A browser session error occurred. Please try again.';
+    }
+
+    // Network / connectivity errors
+    if (msg.includes('net::err') || msg.includes('econnrefused') || msg.includes('econnreset') ||
+        msg.includes('enotfound') || msg.includes('etimedout') || msg.includes('socket hang up')) {
+        return 'Cannot reach the SITAM ERP server. Please check your internet connection and try again.';
+    }
+    if (msg.includes('timeout') || msg.includes('timed out') || msg.includes('navigation timeout')) {
+        return 'The SITAM ERP server is taking too long to respond. Please try again in a moment.';
+    }
+
+    // Circuit breaker open
+    if (msg.includes('circuit breaker') || msg.includes('service unavailable')) {
+        return 'The SITAM ERP server is currently unavailable. Your cached data is being shown. Please try again in a few minutes.';
+    }
+
+    // Authentication errors — pass these through (user needs to know)
+    if (msg.includes('invalid') || msg.includes('incorrect password') || msg.includes('wrong') ||
+        msg.includes('check your credentials') || msg.includes('login failed')) {
+        return error.message; // intentionally pass through — user action required
+    }
+
+    // Captcha
+    if (msg.includes('captcha')) {
+        return 'SITAM ERP is showing a CAPTCHA. Please try again in a few minutes.';
+    }
+
+    // DB write failure
+    if (msg.includes('db write failed') || msg.includes('upsert')) {
+        return 'Login succeeded but your data could not be saved. Please try again.';
+    }
+
+    // Generic fallback — never expose stack traces or internal class names
+    return 'Login failed. Please check your credentials and try again.';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // LOGIN CONTROLLER — with per-stage timing + detailed diagnostic logs
 // Every step is instrumented so logcat shows exactly where execution stops.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -93,9 +144,18 @@ const login = async (req, res) => {
                 } catch (_) {}
 
                 // ── STAGE 7: Background Sync Trigger (non-blocking) ───────
-                logger.info(`[LOGIN-7] Triggering background provider sync for: ${userId}`);
-                console.log(`[LOGIN-7] Triggering background provider sync for: ${userId}`);
-                syncService.triggerProviderSync(userId, password);
+                const lastSync = cachedStudent.lastSync;
+                const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+                const isStale = !lastSync || new Date(lastSync) < thirtyMinutesAgo;
+
+                if (isStale) {
+                    logger.info(`[LOGIN-7] Cached data stale (lastSync: ${lastSync || 'never'}). Triggering background provider sync for: ${userId}`);
+                    console.log(`[LOGIN-7] Cached data stale. Triggering background provider sync for: ${userId}`);
+                    syncService.triggerProviderSync(userId, password);
+                } else {
+                    logger.info(`[LOGIN-7] Cached data is fresh (lastSync: ${lastSync}). Skipping background sync.`);
+                    console.log(`[LOGIN-7] Cached data is fresh. Skipping background sync.`);
+                }
 
                 // ── STAGE 8: Send Response ─────────────────────────────────
                 const totalMs = Date.now() - loginStart;
@@ -180,12 +240,15 @@ const login = async (req, res) => {
 
     } catch (error) {
         const totalMs = Date.now() - loginStart;
+        // Log the full internal error (real Puppeteer/network/DB details) for backend debugging
         logger.error(`[LOGIN-ERR] ✗ Login FAILED for ${userId} after ${totalMs}ms — ${error.message}`, { stack: error.stack });
         console.error(`[LOGIN-ERR] ✗ Login FAILED for ${userId} after ${totalMs}ms — ${error.message}`);
-        console.error(`[LOGIN-ERR] Stack: ${error.stack}`);
+
+        // Return a sanitized message to the client — never expose protocol errors or stack traces
+        const clientMessage = sanitizeErrorForClient(error);
         return res.status(401).json({
             success: false,
-            message: error.message || 'Login failed. Please check your credentials.',
+            message: clientMessage,
             timestamp: new Date().toISOString()
         });
     }

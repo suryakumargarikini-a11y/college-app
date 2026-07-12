@@ -148,18 +148,24 @@ class BrowserInstance {
 
     /**
      * Check if the browser process is still alive and responsive.
-     * Performs an async ping (pages() list) to confirm responsiveness.
-     * @returns {Promise<boolean>}
+     *
+     * IMPORTANT: We intentionally do NOT call browser.pages() here.
+     * Reason: pages() is an async RPC call that can itself throw
+     * "Target closed" if the browser process dies between the isConnected()
+     * check and the pages() call — creating a TOCTOU race condition that
+     * causes exactly the "Protocol error: Target closed" errors we saw.
+     *
+     * isConnected() is synchronous and checks the underlying WebSocket state.
+     * It is sufficient for our health-gate purpose.
+     *
+     * @returns {boolean}
      */
-    async isHealthy() {
+    isHealthy() {
         if (this.retired || !this.browser) return false;
         try {
-            const connected = typeof this.browser.isConnected === 'function'
+            return typeof this.browser.isConnected === 'function'
                 ? this.browser.isConnected()
                 : true;
-            if (!connected) return false;
-            if (typeof this.browser.pages === 'function') await this.browser.pages();
-            return true;
         } catch (_) {
             return false;
         }
@@ -198,23 +204,44 @@ class BrowserInstance {
             `job=#${this.jobCount} req=${requestId}`
         );
 
-        // Final health gate — last chance to catch a zombie
-        const alive = await this.isHealthy();
-        if (!alive) {
+        // Final health gate — isConnected() is synchronous; no RPC race possible
+        if (!this.isHealthy()) {
             this.inUse = false;
             throw new Error(
-                `[BrowserInstance] ${this.id} failed health check at checkout (req=${requestId})`
+                `[BrowserInstance] ${this.id} is not connected at checkout (req=${requestId})`
             );
         }
 
         // Create isolated context
+        // Wrapping in try/catch: if the browser process dies between isHealthy() and
+        // createBrowserContext(), we get "Target closed". We trigger onCrash() here
+        // so the pool replaces the browser immediately rather than leaving it as a zombie.
         let context;
         try {
             context = await this.browser.createBrowserContext();
         } catch (ctxErr) {
             this.inUse = false;
+            this.healthy = false;
+
+            const isTargetClosed =
+                ctxErr.message.includes('Target closed') ||
+                ctxErr.message.includes('Session closed') ||
+                ctxErr.message.includes('Browser closed');
+
+            if (isTargetClosed) {
+                logger.warn(
+                    `[POOL][${this.poolName}] createBrowserContext() → Target closed ` +
+                    `on ${this.id}. Triggering crash recovery. req=${requestId}`
+                );
+                // Trigger crash recovery in the pool — replace this browser, drain queue
+                if (!this.retired) {
+                    this.retired = true;
+                    try { this.onCrash(this); } catch (_) {}
+                }
+            }
+
             throw new Error(
-                `[BrowserInstance] ${this.id} createBrowserContext failed: ${ctxErr.message}`
+                `[BrowserInstance] ${this.id} createBrowserContext() failed: ${ctxErr.message} (req=${requestId})`
             );
         }
 

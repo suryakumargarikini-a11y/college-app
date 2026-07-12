@@ -19,6 +19,23 @@ const {
 class SyncService {
     constructor() {
         this.activeSyncs = new Set();
+
+        /**
+         * Per-student sync deduplication map.
+         *
+         * Problem: when the same student logs in twice concurrently (or a login
+         * triggers runProviderSync while a background triggerProviderSync is already
+         * in flight), two Chromium sessions open, two ERP logins execute, and two
+         * parallel DB writes race each other. This causes corrupted data and wastes
+         * the entire browser pool.
+         *
+         * Fix: Map<userId, Promise>. When a sync starts, store its promise here.
+         * Any concurrent caller for the same userId awaits the existing promise
+         * instead of starting a new one. The entry is removed when the sync settles.
+         *
+         * @type {Map<string, Promise>}
+         */
+        this._syncInFlight = new Map();
     }
 
     /**
@@ -45,7 +62,6 @@ class SyncService {
                 const syncTimer = new PerformanceTimer('db-sync', userId);
                 syncTimer.start('dbSync:total');
                 logger.info(`[SyncService] Starting transactional DB sync for Student: ${userId}`);
-                console.time(`[SyncService] dbSync:${userId}`);
 
             const prisma = require('./dbService');
             const studentBefore = await prisma.student.findUnique({
@@ -167,37 +183,40 @@ class SyncService {
                 bloodGroup:      profile.bloodGroup,
                 emergencyContact:profile.emergencyContact
             }, null, 2));
-            console.log('[PROFILE-NORMALIZED]', JSON.stringify(profile, null, 2));
+            // Remove redundant console.log — logger already captured the normalized profile above.
+            // console.log was creating noisy duplicate output and masking real errors.
 
             // 2. Transactionally update student profile
             const student = await studentRepository.upsertStudent(userId, profile);
 
-            // ── EVIDENCE LOG: DB record AFTER write ──────────────────────────────────────
-            // Stage 4 of 5: Scraper → Normalized Object → [Database] → API → Frontend
-            // If a field is blank here but was present in [PROFILE-NORMALIZED], the
-            // repository upsert is dropping it. If blank here AND in [PROFILE-NORMALIZED],
-            // the loss is upstream in the scraper or normalizer.
-            logger.info('[PROFILE-DB] Record after upsert:\n' + JSON.stringify({
-                studentId:       student.id,
-                userId:          student.userId,
-                semester:        student.semester,
-                email:           student.email,
-                phone:           student.phone,
-                fatherName:      student.fatherName,
-                motherName:      student.motherName,
-                dob:             student.dob,
-                bloodGroup:      student.bloodGroup,
-                address:         student.address,
-                branch:          student.branch,
-                cgpa:            student.cgpa
-            }, null, 2));
-            console.log('[PROFILE-DB]', JSON.stringify({
-                studentId: student.id, userId: student.userId,
-                semester: student.semester, email: student.email,
-                phone: student.phone, fatherName: student.fatherName,
-                motherName: student.motherName, dob: student.dob,
-                bloodGroup: student.bloodGroup, address: student.address
-            }, null, 2));
+            // ── DB WRITE VERIFICATION ─────────────────────────────────────────────────────
+            // Never assume Prisma succeeded. A failed transaction can return null silently.
+            // If the record is missing after upsert, log ERROR so we know the exact failure
+            // point (Prisma, network, constraint violation) rather than debugging "found:false"
+            // on the next login.
+            if (!student || !student.id) {
+                logger.error(
+                    `[SyncService] CRITICAL: upsertStudent returned no record for ${userId}. ` +
+                    `This student will hit ERP on every login until this is resolved. ` +
+                    `Check for Prisma constraint violations or connection errors above.`
+                );
+                throw new Error(`DB write failed for ${userId} — upsertStudent returned empty`);
+            }
+
+            // Read back to confirm the write is visible to subsequent queries
+            const prismaCheck = require('./dbService');
+            const verification = await prismaCheck.student.findUnique({ where: { userId } });
+            if (!verification) {
+                logger.error(
+                    `[SyncService] CRITICAL: DB write verification FAILED for ${userId}. ` +
+                    `Record not found after upsert. Possible replication lag or transaction rollback.`
+                );
+            } else {
+                logger.info(
+                    `[SyncService] DB write verified for ${userId} — studentId=${verification.id} ` +
+                    `name="${verification.name}" cgpa=${verification.cgpa}`
+                );
+            }
 
             // 3. Save Marks (Results)
             if (marksData.subjects && marksData.subjects.length > 0) {
@@ -356,7 +375,6 @@ class SyncService {
             cacheService.invalidate('marks', userId);
             cacheService.invalidate('fees', userId);
             cacheService.invalidate('assignments', userId);
-            console.timeEnd(`[SyncService] dbSync:${userId}`);
             syncTimer.end('dbSync:total');
             logger.info(`[SyncService] DB sync complete for ${userId} in ${syncTimer.get('dbSync:total')}ms`);
 
@@ -419,6 +437,35 @@ class SyncService {
      * @returns {Promise<object>} Updated student DB record
      */
     async runProviderSync(userId, password, forceFullSync = false) {
+        // ── Per-student sync deduplication ────────────────────────────────────
+        // If a sync is already running for this student, return the existing
+        // Promise. This prevents two concurrent logins from opening two Chromium
+        // sessions, performing two ERP logins, and racing each other on DB writes.
+        if (this._syncInFlight.has(userId)) {
+            logger.info(
+                `[SyncService] Dedup: sync already in-flight for ${userId}. ` +
+                `Awaiting existing Promise instead of starting a new ERP session.`
+            );
+            return this._syncInFlight.get(userId);
+        }
+
+        const syncPromise = this._runProviderSyncInternal(userId, password, forceFullSync);
+
+        this._syncInFlight.set(userId, syncPromise);
+
+        // Clean up the map entry when the sync settles (success OR error)
+        syncPromise.finally(() => {
+            this._syncInFlight.delete(userId);
+        }).catch(() => {}); // prevent unhandled rejection on the cleanup chain
+
+        return syncPromise;
+    }
+
+    /**
+     * Internal implementation of runProviderSync.
+     * Never call this directly — always go through runProviderSync() to get dedup.
+     */
+    async _runProviderSyncInternal(userId, password, forceFullSync = false) {
         const { traceSpan } = require('../telemetry/tracing');
         return traceSpan('sync.provider.full', {
             'user.id':       userId,
@@ -468,10 +515,8 @@ class SyncService {
                 }
 
                 // Build a scrapedData-compatible object from normalized result
-                // so we can reuse the existing syncStudentData() persistence logic
                 const syntheticScrapedData = {
                     studentName:     syncResult.profile?.name || userId,
-                    // Pass through pre-parsed normalized data for direct use
                     _normalizedSync: syncResult
                 };
 

@@ -1,42 +1,31 @@
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 async function main() {
-    const student = await prisma.student.findFirst({
-        include: {
-            attendance: {
-                include: { subject: true }
-            },
-            fees: true
-        }
-    });
-
+    const student = await prisma.student.findFirst();
     if (!student) {
-        console.log('No student found in the database.');
-        return;
+        console.log('No student record found!');
+    } else {
+        console.log('--- STUDENT CORE FIELDS ---');
+        console.log({
+            userId: student.userId,
+            name: student.name,
+            dob: student.dob,
+            email: student.email,
+            phone: student.phone,
+            fatherName: student.fatherName,
+            motherName: student.motherName,
+            fatherMobile: student.fatherMobile,
+            hostel: student.hostel,
+            roomNo: student.roomNo,
+            address: student.address,
+            bloodGroup: student.bloodGroup,
+            emergencyContact: student.emergencyContact
+        });
     }
-
-    console.log('--- STUDENT ---');
-    console.log('ID:', student.id);
-    console.log('Name:', student.name);
-    console.log('UserId:', student.userId);
-    console.log('Roll Number:', student.roll_number);
-    console.log('Semester:', student.semester);
-    console.log('Branch:', student.branch);
-
-    console.log('--- ATTENDANCE ---');
-    console.log('Records count:', student.attendance.length);
-    student.attendance.forEach(a => {
-        console.log(`- ${a.subject.code}: Held=${a.held}, Attended=${a.attended}, Pct=${a.percentage}%`);
-    });
-
-    console.log('--- FEES ---');
-    console.log('Fees count:', student.fees.length);
-    student.fees.forEach(f => {
-        console.log(`- ${f.feeType}: Amount=${f.amount}, Paid=${f.paidAmount}, Due=${f.dueAmount}, Status=${f.paymentStatus}`);
-    });
+    await prisma.$disconnect();
 }
 
-main()
-    .catch(console.error)
-    .finally(() => prisma.$disconnect());
+main().catch(console.error);

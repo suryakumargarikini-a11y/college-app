@@ -58,46 +58,84 @@ const SYNC_POOL_SIZE = parseInt(
 );
 
 /**
- * Chromium launch flags — tuned for Render's container environment.
- * Disables GPU, sandbox, and background processes to minimise memory footprint.
+ * Chromium launch flags — tuned for Render/gVisor container environment.
+ *
+ * REMOVED intentionally:
+ *   --memory-pressure-off : suppresses OOM signals → Chromium crashes hard (SIGTRAP)
+ *                           instead of degrading gracefully when RAM is low
+ *   --no-zygote           : conflicts with --single-process on many Chromium builds,
+ *                           causes SIGTRAP during renderer initialization
+ *
+ * ADDED:
+ *   --disable-crash-reporter  : no secondary crash-upload process eating memory
+ *   --disable-breakpad        : disables Breakpad crash handler (saves ~20 MB)
+ *   --js-flags=...            : caps V8 heap at 100 MB per browser process
  */
+const isSingleProcess = process.env.PUPPETEER_SINGLE_PROCESS === 'true';
+
 const LAUNCH_ARGS = [
     '--no-sandbox',
     '--disable-setuid-sandbox',
-    '--disable-dev-shm-usage',
+    '--disable-dev-shm-usage',    // Use /tmp instead of /dev/shm (Render has tiny /dev/shm)
     '--disable-gpu',
     '--disable-background-timer-throttling',
     '--disable-backgrounding-occluded-windows',
     '--disable-renderer-backgrounding',
-    '--memory-pressure-off',
-    '--no-zygote',
     '--disable-extensions',
     '--no-first-run',
     '--disable-background-networking',
     '--disable-features=SitePerProcess',
     '--disable-software-rasterizer',
+    '--disable-crash-reporter',
+    '--disable-breakpad',
+    '--js-flags=--max-old-space-size=100',
 ];
 
-if (process.env.PUPPETEER_SINGLE_PROCESS === 'true') {
+// ─── --no-zygote flag: testable, not assumed ─────────────────────────────────
+//
+// Whether --no-zygote improves stability depends on the Chromium build,
+// kernel version, and the gVisor sandbox used by Render. We do NOT assert
+// a universal cause — instead we make it configurable so you can test both:
+//
+//   Test A (current default):  CHROMIUM_NO_ZYGOTE=true  → --no-zygote included
+//   Test B:                    CHROMIUM_NO_ZYGOTE=false → --no-zygote excluded
+//
+// Deploy each, observe 24h of Render logs, keep whichever has zero SIGTRAP.
+// Change the env var in the Render dashboard — no code deploy needed.
+//
+// Default: true (previous stable configuration)
+const useNoZygote = process.env.CHROMIUM_NO_ZYGOTE !== 'false';
+
+if (isSingleProcess) {
     LAUNCH_ARGS.push('--single-process');
+}
+if (useNoZygote) {
+    LAUNCH_ARGS.push('--no-zygote');
+    logger.info('[BrowserPool] Chromium flag: --no-zygote ENABLED (set CHROMIUM_NO_ZYGOTE=false to test without)');
+} else {
+    logger.info('[BrowserPool] Chromium flag: --no-zygote DISABLED (CHROMIUM_NO_ZYGOTE=false)');
 }
 
 // ─── Pool Instantiation ───────────────────────────────────────────────────────
 
+// minBrowsers must never exceed maxBrowsers.
+// On Render free plan (SIZE=1), pre-warming exactly 1 browser per pool is correct.
 const authPool = new BrowserPool({
-    name:        'AUTH_POOL',
-    minBrowsers: Math.min(AUTH_POOL_SIZE, 2),   // pre-warm up to 2 auth browsers
-    maxBrowsers: AUTH_POOL_SIZE,
-    autoScale:   false,                          // AUTH_POOL is fixed — no auto-scale
-    launchArgs:  LAUNCH_ARGS,
+    name:           'AUTH_POOL',
+    minBrowsers:    Math.min(AUTH_POOL_SIZE, 1), // pre-warm exactly 1 auth browser
+    maxBrowsers:    AUTH_POOL_SIZE,
+    autoScale:      false,                        // AUTH_POOL is fixed — no auto-scale
+    launchArgs:     LAUNCH_ARGS,
+    memSafePercent: 15,                           // lower threshold for small-RAM plans
 });
 
 const syncPool = new BrowserPool({
-    name:        'SYNC_POOL',
-    minBrowsers: Math.min(SYNC_POOL_SIZE, 2),   // pre-warm 2 sync browsers minimum
-    maxBrowsers: SYNC_POOL_SIZE,
-    autoScale:   true,                           // SYNC_POOL scales dynamically
-    launchArgs:  LAUNCH_ARGS,
+    name:           'SYNC_POOL',
+    minBrowsers:    Math.min(SYNC_POOL_SIZE, 1), // pre-warm exactly 1 sync browser
+    maxBrowsers:    SYNC_POOL_SIZE,
+    autoScale:      SYNC_POOL_SIZE > 1,           // only scale if there is room to grow
+    launchArgs:     LAUNCH_ARGS,
+    memSafePercent: 15,
 });
 
 const scheduler = new JobScheduler({ authPool, syncPool });

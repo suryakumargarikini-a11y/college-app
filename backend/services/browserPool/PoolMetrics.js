@@ -54,6 +54,14 @@ class PoolMetrics {
         this.timeoutsTotal = 0;
         this.jobsStartedTotal = 0;
         this.jobsFinishedTotal = 0;
+
+        // ── Context lifecycle counters ─────────────────────────────────────────
+        // A context is "created" when checkout() calls createBrowserContext().
+        // A context is "destroyed" when checkin() calls context.close().
+        // If created != destroyed over time, memory is leaking.
+        this.contextsCreated   = 0;
+        this.contextsDestroyed = 0;
+        this.contextsPeak      = 0; // high-water mark of simultaneously live contexts
     }
 
     /**
@@ -99,6 +107,57 @@ class PoolMetrics {
     }
 
     /**
+     * Call when a browser context is created (checkout).
+     */
+    recordContextCreated() {
+        this.contextsCreated++;
+        const live = this.contextsCreated - this.contextsDestroyed;
+        if (live > this.contextsPeak) this.contextsPeak = live;
+    }
+
+    /**
+     * Call when a browser context is destroyed (checkin or crash cleanup).
+     */
+    recordContextDestroyed() {
+        this.contextsDestroyed++;
+    }
+
+    /**
+     * Detect and report context leaks.
+     *
+     * A context is "leaked" if it was created but never destroyed.
+     * Over time this causes Chromium to hold open tabs and consume memory.
+     *
+     * Returns { leaked, created, destroyed, peak, critical }
+     * where critical=true means a leak has been detected.
+     *
+     * Call this from a periodic maintenance interval.
+     *
+     * @returns {{ leaked: number, created: number, destroyed: number, peak: number, critical: boolean }}
+     */
+    detectLeaks() {
+        const leaked = this.contextsCreated - this.contextsDestroyed;
+        const critical = leaked > 0;
+        if (critical) {
+            const logger = require('../logger');
+            logger.error(
+                `[POOL][${this.poolName}] CRITICAL: Browser Context Leak Detected! ` +
+                `created=${this.contextsCreated} destroyed=${this.contextsDestroyed} ` +
+                `leaked=${leaked} peak=${this.contextsPeak}. ` +
+                `Memory will grow until these contexts are closed. ` +
+                `Check for missing checkin() calls or crash paths that skip context.close().`
+            );
+        }
+        return {
+            leaked,
+            created:   this.contextsCreated,
+            destroyed: this.contextsDestroyed,
+            peak:      this.contextsPeak,
+            critical
+        };
+    }
+
+    /**
      * Call when a browser process crashes unexpectedly.
      */
     recordCrash() {
@@ -121,6 +180,7 @@ class PoolMetrics {
      * @returns {Object}
      */
     snapshot() {
+        const leaked = this.contextsCreated - this.contextsDestroyed;
         return {
             poolName:           this.poolName,
             avgWaitMs:          Math.round(this.avgWaitMs),
@@ -131,6 +191,12 @@ class PoolMetrics {
             timeoutsTotal:      this.timeoutsTotal,
             jobsStartedTotal:   this.jobsStartedTotal,
             jobsFinishedTotal:  this.jobsFinishedTotal,
+            contexts: {
+                created:   this.contextsCreated,
+                destroyed: this.contextsDestroyed,
+                peak:      this.contextsPeak,
+                leaked,
+            }
         };
     }
 }

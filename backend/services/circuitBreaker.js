@@ -17,7 +17,7 @@
 const logger = require('./logger');
 
 const FAILURE_THRESHOLD = parseInt(process.env.CIRCUIT_FAILURE_THRESHOLD || '5', 10);
-const COOLDOWN_MS = parseInt(process.env.CIRCUIT_COOLDOWN_MS || '60000', 10);
+const COOLDOWN_MS = parseInt(process.env.CIRCUIT_COOLDOWN_MS || String(5 * 60 * 1000), 10); // 5 min default
 
 const STATE = {
     CLOSED: 'CLOSED',
@@ -33,6 +33,7 @@ class CircuitBreaker {
         this.lastFailureTime = null;
         this.cooldownMs = COOLDOWN_MS;
         this.successCount = 0; // Track successes in HALF_OPEN state
+        this.windowHistory = []; // sliding window of { timestamp, success }
     }
 
     /**
@@ -126,11 +127,27 @@ class CircuitBreaker {
         this.failureCount = 0;
         this.lastFailureTime = null;
         this.cooldownMs = COOLDOWN_MS;
+        this.windowHistory = [];
+    }
+
+    _cleanWindowHistory() {
+        const twoMinutesAgo = Date.now() - 2 * 60 * 1000;
+        this.windowHistory = this.windowHistory.filter(e => e.timestamp >= twoMinutesAgo);
+    }
+
+    _getFailureRate() {
+        this._cleanWindowHistory();
+        if (this.windowHistory.length === 0) return 0;
+        const failures = this.windowHistory.filter(e => !e.success).length;
+        return failures / this.windowHistory.length;
     }
 
     // ─── Private ──────────────────────────────────────────────────────────────
 
     _onSuccess(requestId) {
+        this.windowHistory.push({ timestamp: Date.now(), success: true });
+        this._cleanWindowHistory();
+
         if (this.state === STATE.HALF_OPEN) {
             logger.info(`[CircuitBreaker:${this.name}] Probe succeeded. Transitioning HALF_OPEN → CLOSED.`, {
                 tag: 'CIRCUIT_BREAKER_STATE_CHANGE',
@@ -150,10 +167,14 @@ class CircuitBreaker {
     _onFailure(err, requestId) {
         this.failureCount++;
         this.lastFailureTime = Date.now();
+        this.windowHistory.push({ timestamp: this.lastFailureTime, success: false });
+        this._cleanWindowHistory();
 
-        logger.error(`[CircuitBreaker:${this.name}] Failure #${this.failureCount}/${FAILURE_THRESHOLD}: ${err.message}`, {
+        const failureRate = this._getFailureRate();
+        logger.error(`[CircuitBreaker:${this.name}] Failure #${this.failureCount}/${FAILURE_THRESHOLD} (Rate: ${(failureRate * 100).toFixed(1)}% in last 2m): ${err.message}`, {
             tag: 'ERP_OUTAGE_FAILURE',
             failureCount: this.failureCount,
+            failureRate,
             error: err.message
         });
 
@@ -181,13 +202,14 @@ class CircuitBreaker {
             return;
         }
 
-        if (this.failureCount >= FAILURE_THRESHOLD && this.state === STATE.CLOSED) {
+        // Trip ONLY if consecutive failure threshold is reached AND failure rate within last 2 minutes is > 70%
+        if (this.failureCount >= FAILURE_THRESHOLD && failureRate > 0.70 && this.state === STATE.CLOSED) {
             this.state = STATE.OPEN;
             try {
                 require('./metricsService').metrics.circuitBreakerState.set({ breaker: this.name }, 1);
                 require('./metricsService').metrics.circuitBreakerFailuresTotal.inc({ breaker: this.name });
             } catch (_) {}
-            logger.error(`[CircuitBreaker:${this.name}] Threshold reached (${FAILURE_THRESHOLD} failures). Transitioning CLOSED → OPEN. Cooldown: ${this.cooldownMs / 1000}s`, {
+            logger.error(`[CircuitBreaker:${this.name}] Threshold reached (${FAILURE_THRESHOLD} failures, Rate: ${(failureRate * 100).toFixed(1)}%). Transitioning CLOSED → OPEN. Cooldown: ${this.cooldownMs / 1000}s`, {
                 tag: 'CIRCUIT_BREAKER_STATE_CHANGE',
                 from: STATE.CLOSED,
                 to: STATE.OPEN,

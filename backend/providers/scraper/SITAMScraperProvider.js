@@ -213,6 +213,8 @@ class SITAMScraperProvider extends ERPProvider {
         const healthScorer = require('./health/ERPHealthScorer');
         const qpm = require('./throttle/QueuePressureManager');
         const shedder = require('./throttle/AdaptiveLoadShedding');
+        // Circuit breaker — lazy-loaded to avoid circular dependency at startup
+        const circuitBreaker = require('../../services/circuitBreaker');
 
         // Record sync attempt in forecaster
         forecaster.recordSyncAttempt();
@@ -222,6 +224,16 @@ class SITAMScraperProvider extends ERPProvider {
             'sync.type':       'full',
             'user.id':         userId
         }, async (span) => {
+            // ── Circuit breaker guard ──────────────────────────────────────────
+            // If the ERP has failed 5 consecutive times (Chromium crash, network
+            // timeout, etc.), the circuit opens for up to 5 minutes. During that
+            // window, sync calls fail fast without launching Chromium. This prevents
+            // the browser pool from being flooded with doomed requests during an
+            // ERP outage.
+            //
+            // Auth errors (wrong password) are NOT counted as ERP failures \u2014 the
+            // circuit breaker already handles this in its _onFailure logic.
+            return circuitBreaker.execute(async () => {
             try {
                 logger.info(`[SITAMScraper] Starting full sync for ${userId}`);
 
@@ -355,6 +367,7 @@ class SITAMScraperProvider extends ERPProvider {
                 // Re-throw as classified provider error
                 throw (err instanceof Error ? classifyError(err, { providerName: this.providerName, operationName: 'syncStudent' }) : err);
             }
+            }, userId); // ← closes circuitBreaker.execute()
         });
     }
 

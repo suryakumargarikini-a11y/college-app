@@ -284,6 +284,48 @@ app.get('/api/metrics', async (req, res) => {
     const browserPool = require('./services/browserPool');
     const poolStatus = browserPool.getStatus();
 
+    const isJson = req.query.format === 'json' || (req.headers.accept && req.headers.accept.includes('application/json'));
+    if (isJson) {
+        try {
+            const syncService = require('./services/syncService');
+            const cachedCount = await prisma.student.count().catch(() => 0);
+            const heapUsedMB = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
+            const rssMB = Math.round(process.memoryUsage().rss / 1024 / 1024);
+
+            const authQueued = poolStatus.authPool ? poolStatus.authPool.queued : 0;
+            const syncQueued = poolStatus.syncPool ? poolStatus.syncPool.queued : 0;
+
+            const authActive = poolStatus.authPool ? poolStatus.authPool.active : 0;
+            const syncActive = poolStatus.syncPool ? poolStatus.syncPool.active : 0;
+
+            const authLaunching = poolStatus.authPool ? poolStatus.authPool.launching : 0;
+            const syncLaunching = poolStatus.syncPool ? poolStatus.syncPool.launching : 0;
+
+            return res.json({
+                browserPool: {
+                    active: authActive + syncActive,
+                    launching: authLaunching + syncLaunching,
+                    waiting: authQueued + syncQueued
+                },
+                sync: {
+                    running: syncService._syncInFlight ? syncService._syncInFlight.size : 0,
+                    cached: cachedCount,
+                    scraping: syncActive
+                },
+                circuitBreaker: {
+                    state: circuitBreaker.state
+                },
+                memory: {
+                    heapUsedMB,
+                    rssMB
+                }
+            });
+        } catch (err) {
+            logger.error(`[Metrics] JSON metrics build failed: ${err.message}`);
+            return res.status(500).json({ error: 'Failed to collect JSON metrics' });
+        }
+    }
+
     // ── Backward-compat unlabelled gauges (combined totals) ───────────────
     metricsService.metrics.browserPoolActiveBrowsers.set(poolStatus.total);
     metricsService.metrics.browserPoolActiveContexts.set(poolStatus.active);
