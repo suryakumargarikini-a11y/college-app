@@ -473,6 +473,7 @@ const syncRoutes        = require('./routes/sync');
 const studentRoutes     = require('./routes/student');
 const notificationsRoutes = require('./routes/notifications');
 const examsRoutes       = require('./routes/exams');
+const lmsRoutes         = require('./routes/lms');
 
 const socketService = require('./services/socketService');
 const syncQueue     = require('./services/syncQueue');
@@ -499,10 +500,14 @@ app.use('/api/sync',          syncRoutes);
 app.use('/api/student',       studentRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/exams',         examsRoutes);
+app.use('/api/lms',           lmsRoutes);
 
 // ─── Admin Portal Routes ──────────────────────────────────────────────────────
 const adminRoutes = require('./routes/admin/index');
+const demoRoutes  = require('./routes/demo');
+
 app.use('/api/admin', adminRoutes);
+app.use('/api/demo',  demoRoutes);
 
 // ─── New Student-Facing Routes (V1.0 Features) ───────────────────────────────
 const announcementsRoutes = require('./routes/announcements');
@@ -649,20 +654,15 @@ const server = app.listen(PORT, '0.0.0.0', async () => {
     // Start all observability intervals (SLO, Synthetic, Business Metrics).
     // Must be called AFTER Redis is connected so BusinessMetricsCollector can
     // access HyperLogLog keys and SyntheticMonitor can probe queue health.
-    observabilityScheduler.start();
+    if (process.env.DISABLE_SCHEDULERS !== 'true') {
+        observabilityScheduler.start();
+        sreScheduler.start();
+        devSecOpsScheduler.start();
+        feeReminderScheduler.start();
+    } else {
+        logger.info('[Server] Background schedulers are disabled (DISABLE_SCHEDULERS=true).');
+    }
 
-    // ── SRE Control Plane Runtime ───────────────────────────────────────────
-    sreScheduler.start();
-
-    // ── DevSecOps Control Plane Runtime ────────────────────────────────────
-    // Activates SecretGovernanceManager, KeyRotationScheduler,
-    // VulnerabilityScanner, SecurityReportAggregator on startup,
-    // then SBOMGenerator/ArtifactSigner/ProvenanceVerifier every 24 h.
-    // SecurityTestRunner (DAST) activates on 6h interval.
-    devSecOpsScheduler.start();
-
-    // ── Fee Reminder Runtime ───────────────────────────────────────────────
-    feeReminderScheduler.start();
 
     // ── Security Posture → Deployment Gate Cross-Wire ───────────────────────
     // After both schedulers are up, inject the live SecurityReportAggregator

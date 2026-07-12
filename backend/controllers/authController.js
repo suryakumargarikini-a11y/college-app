@@ -343,4 +343,58 @@ const removeFcmToken = async (req, res) => {
     }
 };
 
-module.exports = { login, registerFcmToken, removeFcmToken };
+
+const logout = async (req, res) => {
+    const token = req.token;          // set by requireAuth middleware
+    const { userId } = req.session;
+
+    try {
+        logger.info(`[LOGOUT] ▶ Logout request — userId: ${userId || 'UNKNOWN'} | ip: ${req.ip}`);
+
+        // 1. Remove from in-memory session store + DB
+        sessionManager.deleteSession(token);
+        logger.info(`[LOGOUT] Session deleted from store for: ${userId}`);
+
+        // 2. Invalidate provider (ERP) session so no background sync re-uses it
+        try {
+            const ProviderSessionManager = require('../providers/session/ProviderSessionManager');
+            await ProviderSessionManager.invalidate(userId);
+            logger.info(`[LOGOUT] Provider session invalidated for: ${userId}`);
+        } catch (provErr) {
+            logger.warn(`[LOGOUT] Provider session invalidation failed (non-blocking): ${provErr.message}`);
+        }
+
+        // 3. Audit log (non-blocking)
+        if (userId) {
+            try {
+                const student = await prisma.student.findUnique({
+                    where: { userId },
+                    select: { id: true }
+                });
+                if (student) {
+                    auditLogRepository.log(student.id, 'LOGOUT', `Student logged out successfully`)
+                        .catch(e => logger.warn(`[LOGOUT] Audit log failed: ${e.message}`));
+                }
+            } catch (_) {}
+        }
+
+        logger.info(`[LOGOUT] ✓ Logout complete for: ${userId}`);
+        return res.json({
+            success: true,
+            message: 'Logged out successfully',
+            timestamp: new Date().toISOString()
+        });
+
+    } catch (error) {
+        logger.error(`[LOGOUT] Error during logout for ${userId}: ${error.message}`);
+        // Always return success on logout — don't block the client
+        return res.json({
+            success: true,
+            message: 'Logged out',
+            timestamp: new Date().toISOString()
+        });
+    }
+};
+
+module.exports = { login, logout, registerFcmToken, removeFcmToken };
+

@@ -64,11 +64,20 @@ class SyntheticMonitor {
     const start = Date.now();
     const type = 'erp_availability';
     try {
-      const res = await axios.head(this.erpUrl, { timeout: 8000, validateStatus: () => true });
+      // Force IPv4-only (family: 4) to avoid Node.js 20 ERR_INTERNAL_ASSERTION
+      // triggered by happy-eyeballs dual-stack racing in internalConnectMultiple.
+      // Without this, the assertion propagates as uncaughtException and kills the server.
+      const res = await axios.head(this.erpUrl, {
+        timeout: 5000,
+        validateStatus: () => true,
+        // Node.js 20 + ioredis/axios dual-stack happy-eyeballs assertion workaround:
+        // Force IPv4 to prevent ERR_INTERNAL_ASSERTION at node:net:1118
+        family: 4
+      });
       const duration = (Date.now() - start) / 1000;
-      
+
       if (this.probeDuration) this.probeDuration.labels(type).observe(duration);
-      
+
       const success = res.status < 500;
       if (success) {
         if (this.probeSuccess) this.probeSuccess.labels(type).inc();
@@ -80,6 +89,14 @@ class SyntheticMonitor {
     } catch (err) {
       const duration = (Date.now() - start) / 1000;
       if (this.probeFailure) this.probeFailure.labels(type).inc();
+      // ERR_INTERNAL_ASSERTION is a Node.js 20 happy-eyeballs bug — log at debug level
+      // to avoid polluting error logs with noise on every 60s probe tick.
+      const isAssertionError = err.code === 'ERR_INTERNAL_ASSERTION' || err.message?.includes('ERR_INTERNAL_ASSERTION');
+      if (isAssertionError) {
+        logger.debug(`[SyntheticMonitor] ERP probe suppressed Node.js assertion error (IPv4 family forced, retry on next tick): ${err.message}`);
+      } else {
+        logger.debug(`[SyntheticMonitor] ERP availability probe failed (non-critical): ${err.message}`);
+      }
       return { success: false, duration, error: err.message };
     }
   }

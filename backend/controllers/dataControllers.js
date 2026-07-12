@@ -5,6 +5,7 @@ const logger = require('../services/logger');
 const cacheService = require('../services/cacheService');
 const workerService = require('../services/workerService');
 const PerformanceTimer = require('../services/performanceTimer');
+const dataProvider = require('../adapters/dataProvider');
 
 // Helper to map grade string to a realistic numeric percentage and display marks
 const mapGradeToPercentage = (grade) => {
@@ -27,11 +28,10 @@ const mapGradeToPercentage = (grade) => {
 // Profile controller
 const getProfile = async (req, res, next) => {
     try {
-        const student = await studentRepository.findByUserId(req.session.userId);
+        const student = await dataProvider.getProfile(req.session.userId);
         if (!student) {
-            return res.fail('Student profile not found in local cache', null, 404);
+            return res.fail('Student profile not found', null, 404);
         }
-        try { const bc = getBusinessCollector(); if (bc) bc.trackFeatureAccess('profile').catch(() => {}); } catch (_) {}
         res.ok(student, 'Profile fetched successfully');
     } catch (error) {
         next(error);
@@ -41,20 +41,19 @@ const getProfile = async (req, res, next) => {
 // Marks / Results controller
 const getMarks = async (req, res, next) => {
     try {
-        const student = await studentRepository.findByUserId(req.session.userId);
+        const student = await dataProvider.getMarks(req.session.userId);
         if (!student) {
-            return res.fail('Student marks not found in local cache', null, 404);
+            return res.fail('Student marks not found', null, 404);
         }
 
         const subjects = student.marks.map(m => {
             const gradeInfo = mapGradeToPercentage(m.grade);
-            // Use full subject name if available, fall back to code
-            const subjectName = (m.subject.name && m.subject.name !== m.subject.code)
+            const subjectName = (m.subject && m.subject.name && m.subject.name !== m.subject.code)
                 ? m.subject.name
-                : m.subject.code;
+                : (m.subject ? m.subject.code : (m.subjectCode || ''));
             return {
                 name: subjectName,
-                code: m.subject.code,
+                code: m.subject ? m.subject.code : (m.subjectCode || ''),
                 grade: m.grade,
                 credits: m.credits,
                 type: m.type || 'Core',
@@ -63,12 +62,13 @@ const getMarks = async (req, res, next) => {
             };
         });
 
-        // Compute overall attendance from DB records to maintain strict consistency using total basis
         let totalHeld = 0;
         let totalAttended = 0;
-        for (const a of student.attendance) {
-            totalHeld += a.held;
-            totalAttended += a.attended;
+        if (student.attendance) {
+            for (const a of student.attendance) {
+                totalHeld += a.held;
+                totalAttended += a.attended;
+            }
         }
         const overallAttendance = totalHeld > 0
             ? ((totalAttended / totalHeld) * 100).toFixed(2) + '%'
@@ -76,12 +76,11 @@ const getMarks = async (req, res, next) => {
 
         res.ok({
             cgpa: student.cgpa,
-            sgpa: student.marks.find(m => m.subject.code === 'SGPA')?.grade || 'N/A',
+            sgpa: student.marks.find(m => (m.subject && m.subject.code === 'SGPA') || m.subjectCode === 'SGPA')?.grade || 'N/A',
             percentage: student.percentage,
             subjects,
             overallAttendance
         }, 'Marks fetched successfully');
-        try { const bc = getBusinessCollector(); if (bc) bc.trackFeatureAccess('marks').catch(() => {}); } catch (_) {}
     } catch (error) {
         next(error);
     }
@@ -94,7 +93,6 @@ const getAttendance = async (req, res, next) => {
     timer.start('getAttendance:total');
     console.time(`[Controller] getAttendance:${userId}`);
     try {
-        // 1. Check in-memory Cache first (FIX: was cacheService.get(userId) — missing namespace)
         const cachedData = await cacheService.get('attendance', userId);
         if (cachedData) {
             logger.info(`[DataController] Attendance cache HIT for: ${userId}`);
@@ -102,57 +100,34 @@ const getAttendance = async (req, res, next) => {
             return res.status(200).json(cachedData);
         }
 
-        const student = await prisma.student.findUnique({
-            where: { userId },
-            select: { id: true }
-        });
-        if (!student) {
-            console.timeEnd(`[Controller] getAttendance:${userId}`);
-            return res.status(404).json({
-                success: false,
-                message: 'Student attendance not found in local cache',
-                timestamp: new Date().toISOString()
-            });
-        }
-
-        // 3. Query exactly the attendance records for this student
-        const records = await prisma.attendanceRecord.findMany({
-            where: { studentId: student.id },
-            include: {
-                subject: {
-                    select: {
-                        code: true
-                    }
-                }
-            }
-        });
-
-        // 4. Map to dynamic color-coded statuses
+        const records = await dataProvider.getAttendance(userId);
         const getStatus = (pct) => {
             if (pct >= 75) return 'Safe';
             if (pct >= 65) return 'Warning';
             return 'Critical';
         };
 
-        const attendance = records.map(a => ({
-            subject: a.subject.code,
-            present: a.attended,
-            total: a.held,
-            percentage: a.percentage,
-            status: getStatus(a.percentage)
-        }));
+        const attendance = records.map(a => {
+            const subjectCode = a.subject ? a.subject.code : (a.subjectCode || '');
+            return {
+                subject: subjectCode,
+                present: a.attended,
+                total: a.held,
+                percentage: a.percentage,
+                status: getStatus(a.percentage)
+            };
+        });
 
         const responsePayload = {
             success: true,
             attendance
         };
 
-        // 5. Store formatted payload in cache (FIX: was cacheService.set(userId, ...) — missing namespace)
         await cacheService.set('attendance', userId, responsePayload);
 
         console.timeEnd(`[Controller] getAttendance:${userId}`);
         timer.end('getAttendance:total');
-        logger.info(`[DataController] Attendance fetched from DB for ${userId} in ${timer.get('getAttendance:total')}ms`);
+        logger.info(`[DataController] Attendance fetched for ${userId} in ${timer.get('getAttendance:total')}ms`);
         res.status(200).json(responsePayload);
     } catch (error) {
         console.timeEnd(`[Controller] getAttendance:${userId}`);
@@ -165,66 +140,53 @@ const getFees = async (req, res, next) => {
     console.log(`[FEES-FLOW] [dataControllers.getFees] Entering getFees for userId: ${req.session?.userId}`);
     try {
         const userId = req.session?.userId;
-        console.log(`[FEES-FLOW] [dataControllers.getFees] Querying studentRepository.findByUserId for: ${userId}`);
-        const student = await studentRepository.findByUserId(userId);
-        console.log(`[FEES-FLOW] [dataControllers.getFees] Student lookup found: ${!!student}`);
+        const feesList = await dataProvider.getFees(userId);
         
-        if (student) {
-            console.log(`[FEES-FLOW] [dataControllers.getFees] Querying prisma.fee.findMany for studentId: ${student.id}`);
-            const feesList = await prisma.fee.findMany({
-                where: { studentId: student.id }
+        if (feesList && feesList.length > 0) {
+            let totalAmountVal = 0;
+            let paidAmountVal = 0;
+            let dueAmountVal = 0;
+
+            const transactions = feesList.map(fee => {
+                totalAmountVal += fee.amount;
+                paidAmountVal += fee.paidAmount;
+                dueAmountVal += fee.dueAmount;
+
+                const feeName = fee.feeType;
+                return {
+                    title: feeName,
+                    amount: '₹' + fee.amount.toLocaleString('en-IN'),
+                    paid: '₹' + fee.paidAmount.toLocaleString('en-IN'),
+                    due: '₹' + fee.dueAmount.toLocaleString('en-IN'),
+                    ref: fee.id.substring(0, 8).toUpperCase(),
+                    date: fee.dueDate,
+                    icon: feeName.toLowerCase().includes('hostel') ? 'hotel' :
+                          feeName.toLowerCase().includes('tuition') ? 'school' :
+                          feeName.toLowerCase().includes('crt') ? 'terminal' : 'receipt_long',
+                    status: fee.paymentStatus,
+                    isRefund: false
+                };
             });
-            console.log(`[FEES-FLOW] [dataControllers.getFees] prisma.fee.findMany count: ${feesList ? feesList.length : 0}`);
-            
-            if (feesList && feesList.length > 0) {
-                let totalAmountVal = 0;
-                let paidAmountVal = 0;
-                let dueAmountVal = 0;
 
-                const transactions = feesList.map(fee => {
-                    totalAmountVal += fee.amount;
-                    paidAmountVal += fee.paidAmount;
-                    dueAmountVal += fee.dueAmount;
+            const totalAmount = '₹' + totalAmountVal.toLocaleString('en-IN');
+            const paidAmount = '₹' + paidAmountVal.toLocaleString('en-IN');
+            const dueAmount = '₹' + dueAmountVal.toLocaleString('en-IN');
+            const totalDue = dueAmount;
+            const paidProgress = totalAmountVal > 0 ? Math.min(100, Math.max(0, Math.round((paidAmountVal / totalAmountVal) * 100))) : 0;
 
-                    const feeName = fee.feeType;
-                    return {
-                        title: feeName,
-                        amount: '₹' + fee.amount.toLocaleString('en-IN'),
-                        paid: '₹' + fee.paidAmount.toLocaleString('en-IN'),
-                        due: '₹' + fee.dueAmount.toLocaleString('en-IN'),
-                        ref: fee.id.substring(0, 8).toUpperCase(),
-                        date: fee.dueDate,
-                        icon: feeName.toLowerCase().includes('hostel') ? 'hotel' :
-                              feeName.toLowerCase().includes('tuition') ? 'school' :
-                              feeName.toLowerCase().includes('crt') ? 'terminal' : 'receipt_long',
-                        status: fee.paymentStatus,
-                        isRefund: false
-                      };
-                });
-
-                const totalAmount = '₹' + totalAmountVal.toLocaleString('en-IN');
-                const paidAmount = '₹' + paidAmountVal.toLocaleString('en-IN');
-                const dueAmount = '₹' + dueAmountVal.toLocaleString('en-IN');
-                const totalDue = dueAmount;
-                const paidProgress = totalAmountVal > 0 ? Math.min(100, Math.max(0, Math.round((paidAmountVal / totalAmountVal) * 100))) : 0;
-
-                console.log(`[FEES-FLOW] [dataControllers.getFees] Successfully returning database fees statement`);
-                return res.ok({
-                    totalAmount,
-                    paidAmount,
-                    dueAmount,
-                    totalDue,
-                    paidProgress,
-                    transactions
-                }, 'Fees statement fetched successfully from database');
-            }
+            console.log(`[FEES-FLOW] [dataControllers.getFees] Successfully returning database fees statement`);
+            return res.ok({
+                totalAmount,
+                paidAmount,
+                dueAmount,
+                totalDue,
+                paidProgress,
+                transactions
+            }, 'Fees statement fetched successfully');
         }
 
         console.log(`[FEES-FLOW] [dataControllers.getFees] No database records found. Returning fallbacks.`);
 
-
-
-        // Return beautiful, premium fallback fee structure if scraper has not loaded fee table yet
         const totalAmount = "₹98,000";
         const paidAmount = "₹73,500";
         const dueAmount = "₹24,500";
@@ -274,10 +236,8 @@ const getFees = async (req, res, next) => {
             paidProgress,
             transactions
         }, 'Fees statement generated successfully');
-        try { const bc = getBusinessCollector(); if (bc) bc.trackFeatureAccess('fees').catch(() => {}); } catch (_) {}
     } catch (error) {
         console.error(`[FEES-FLOW] [dataControllers.getFees] Thrown exception: ${error.message}`);
-        console.error(`[FEES-FLOW] [dataControllers.getFees] Stack trace: ${error.stack}`);
         next(error);
     }
 };
@@ -285,12 +245,12 @@ const getFees = async (req, res, next) => {
 // Assignments controller
 const getAssignments = async (req, res, next) => {
     try {
-        const student = await studentRepository.findByUserId(req.session.userId);
-        if (!student) {
-            return res.fail('Student assignments not found in local cache', null, 404);
+        const listRaw = await dataProvider.getAssignments(req.session.userId);
+        if (!listRaw) {
+            return res.fail('Student assignments not found', null, 404);
         }
 
-        const list = student.assignments.map(asn => {
+        const list = listRaw.map(asn => {
             const isSubmitted = asn.status.toLowerCase() === 'submitted';
             const isUrgent = asn.status.toLowerCase() === 'urgent';
             return {
@@ -307,7 +267,6 @@ const getAssignments = async (req, res, next) => {
             activeCount: list.filter(a => a.status.toLowerCase() !== 'submitted').length,
             list
         }, 'Assignments fetched successfully');
-        try { const bc = getBusinessCollector(); if (bc) bc.trackFeatureAccess('assignments').catch(() => {}); } catch (_) {}
     } catch (error) {
         next(error);
     }
@@ -316,23 +275,23 @@ const getAssignments = async (req, res, next) => {
 // Timetable controller
 const getTimetable = async (req, res, next) => {
     try {
-        const student = await studentRepository.findByUserId(req.session.userId);
+        const student = await dataProvider.getProfile(req.session.userId);
         if (!student) {
-            return res.fail('Student timetable not found in local cache', null, 404);
+            return res.fail('Student timetable not found', null, 404);
         }
 
-        const slots = student.timetable.map(t => ({
+        const slotsRaw = await dataProvider.getTimetable(req.session.userId);
+        const slots = slotsRaw.map(t => ({
             day: t.day,
             period: parseInt(t.period),
             room: t.room,
-            section: t.section,
-            facultyName: t.facultyName,
-            time: t.time,
-            subjectCode: t.subject.code,
-            subjectName: (t.subject.name && t.subject.name !== t.subject.code) ? t.subject.name : t.subject.code
+            section: t.section || 'A',
+            facultyName: t.facultyName || 'N/A',
+            time: t.time || '09:00 AM',
+            subjectCode: t.subject ? t.subject.code : (t.subjectCode || ''),
+            subjectName: (t.subject && t.subject.name && t.subject.name !== t.subject.code) ? t.subject.name : (t.subject ? t.subject.code : (t.subjectCode || ''))
         }));
 
-        // Return raw array so frontend can use Array.isArray() check
         res.status(200).json(slots);
     } catch (error) {
         next(error);
@@ -342,23 +301,12 @@ const getTimetable = async (req, res, next) => {
 // Syllabus controller
 const getSyllabus = async (req, res, next) => {
     try {
-        const student = await studentRepository.findByUserId(req.session.userId);
+        const student = await dataProvider.getProfile(req.session.userId);
         if (!student) {
-            return res.fail('Student data not found in local cache', null, 404);
+            return res.fail('Student data not found', null, 404);
         }
 
-        const subjectIds = [
-            ...new Set([
-                ...student.marks.map(m => m.subjectId),
-                ...student.attendance.map(a => a.subjectId)
-            ])
-        ];
-
-        const subjectsWithSyllabus = await prisma.subject.findMany({
-            where: { id: { in: subjectIds } },
-            include: { syllabus: true }
-        });
-
+        const subjectsWithSyllabus = await dataProvider.getSyllabus(req.session.userId);
         res.ok(subjectsWithSyllabus, 'Syllabus fetched successfully');
     } catch (error) {
         next(error);
@@ -375,8 +323,7 @@ const toggleSyllabusUnit = async (req, res, next) => {
 
         const updated = await syllabusRepository.updateUnitCompletion(unitId, completed === true);
         
-        // Log transaction audit trail
-        const student = await studentRepository.findByUserId(req.session.userId);
+        const student = await dataProvider.getProfile(req.session.userId);
         if (student) {
             await auditLogRepository.log(student.id, 'SYLLABUS_UPDATE', `Updated syllabus unit ${unitId} completion status to: ${completed}`);
         }
@@ -390,7 +337,7 @@ const toggleSyllabusUnit = async (req, res, next) => {
 // Notifications controller
 const getNotifications = async (req, res, next) => {
     try {
-        const student = await studentRepository.findByUserId(req.session.userId);
+        const student = await dataProvider.getProfile(req.session.userId);
         if (!student) {
             return res.ok({ notifications: [], total: 0, page: 1, totalPages: 0 }, 'No student profile');
         }
@@ -398,15 +345,8 @@ const getNotifications = async (req, res, next) => {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
         const type = req.query.type || 'all';
-        const unreadOnly = req.query.unreadOnly === 'true';
 
-        const result = await notificationRepository.getNotifications(student.id, {
-            page,
-            limit,
-            type,
-            unreadOnly
-        });
-
+        const result = await dataProvider.getNotifications(req.session.userId, page, limit, type);
         res.ok(result, 'Notifications fetched successfully');
     } catch (error) {
         next(error);
@@ -415,7 +355,7 @@ const getNotifications = async (req, res, next) => {
 
 const getUnreadCount = async (req, res, next) => {
     try {
-        const student = await studentRepository.findByUserId(req.session.userId);
+        const student = await dataProvider.getProfile(req.session.userId);
         if (!student) {
             return res.ok({ count: 0 });
         }
@@ -432,7 +372,7 @@ const markRead = async (req, res, next) => {
         if (!notificationId) {
             return res.fail('notificationId is required');
         }
-        const student = await studentRepository.findByUserId(req.session.userId);
+        const student = await dataProvider.getProfile(req.session.userId);
         if (!student) {
             return res.fail('Student not found', null, 404);
         }
@@ -445,7 +385,7 @@ const markRead = async (req, res, next) => {
 
 const markAllRead = async (req, res, next) => {
     try {
-        const student = await studentRepository.findByUserId(req.session.userId);
+        const student = await dataProvider.getProfile(req.session.userId);
         if (!student) {
             return res.fail('Student not found', null, 404);
         }
@@ -462,7 +402,7 @@ const deleteNotification = async (req, res, next) => {
         if (!id) {
             return res.fail('id parameter is required');
         }
-        const student = await studentRepository.findByUserId(req.session.userId);
+        const student = await dataProvider.getProfile(req.session.userId);
         if (!student) {
             return res.fail('Student not found', null, 404);
         }
@@ -751,6 +691,64 @@ const paymentRedirect = async (req, res, next) => {
     }
 };
 
+
+
+// LMS Courses controller
+const getLmsCourses = async (req, res, next) => {
+    try {
+        const lmsData = await dataProvider.getLmsCourses(req.session.userId);
+        const courses = Array.isArray(lmsData) ? lmsData : (lmsData?.courses || []);
+        const certificates = Array.isArray(lmsData) ? [] : (lmsData?.certificates || []);
+
+        res.ok({
+            courses: courses.map(c => ({
+                id: c.id,
+                code: c.code,
+                name: c.name,
+                credits: c.credits,
+                faculty: c.faculty ? {
+                    name: c.faculty.name,
+                    email: c.faculty.email
+                } : null,
+                progress: c.progress && c.progress[0] ? {
+                    progressPct: c.progress[0].progressPct,
+                    completed: c.progress[0].completed
+                } : { progressPct: 0, completed: false },
+                assignments: c.assignments ? c.assignments.map(a => ({
+                    id: a.id,
+                    title: a.title,
+                    dueDate: a.dueDate,
+                    maxPoints: a.maxPoints,
+                    submission: a.submissions && a.submissions[0] ? {
+                        status: a.submissions[0].status,
+                        submittedAt: a.submissions[0].submittedAt,
+                        points: a.submissions[0].points,
+                        feedback: a.submissions[0].feedback
+                    } : null
+                })) : [],
+                quizzes: c.quizzes ? c.quizzes.map(q => ({
+                    id: q.id,
+                    title: q.title,
+                    maxPoints: q.maxPoints,
+                    result: q.results && q.results[0] ? {
+                        score: q.results[0].score,
+                        completedAt: q.results[0].completedAt
+                    } : null
+                })) : []
+            })),
+            certificates: certificates.map(cert => ({
+                id: cert.id,
+                certNumber: cert.certNumber,
+                issuedAt: cert.issuedAt,
+                courseName: cert.course?.name || 'Course',
+                courseCode: cert.course?.code || ''
+            }))
+        }, 'LMS courses and certificates fetched successfully');
+    } catch (error) {
+        next(error);
+    }
+};
+
 module.exports = {
     getProfile,
     getMarks,
@@ -770,5 +768,6 @@ module.exports = {
     clearAttendanceCache,
     getExams,
     openPaymentWindow,
-    paymentRedirect
+    paymentRedirect,
+    getLmsCourses
 };

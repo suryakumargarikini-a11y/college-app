@@ -365,6 +365,29 @@ const AUDIT_ENTRIES = [
 async function main() {
   console.log('🌱 Starting SITAM Smart ERP demo data seed...\n');
 
+  // ── Database Cleanup ──────────────────────────
+  console.log('🧹 Cleaning existing demo data from database...');
+  try {
+    await prisma.courseEnrollment.deleteMany({});
+    await prisma.courseProgress.deleteMany({});
+    await prisma.certificate.deleteMany({});
+    await prisma.lmsSubmission.deleteMany({});
+    await prisma.quizResult.deleteMany({});
+    await prisma.lmsAssignment.deleteMany({});
+    await prisma.lmsQuiz.deleteMany({});
+    await prisma.course.deleteMany({});
+    await prisma.faculty.deleteMany({});
+    await prisma.department.deleteMany({});
+    await prisma.fee.deleteMany({});
+    await prisma.attendanceRecord.deleteMany({});
+    await prisma.markRecord.deleteMany({});
+    await prisma.notification.deleteMany({});
+    await prisma.exitPass.deleteMany({});
+    console.log('   ✅ Clean completed.');
+  } catch (cleanErr) {
+    console.warn('   ⚠️  Cleanup warning (could be empty or table lock): ' + cleanErr.message);
+  }
+
   // ── 0. System Setting ────────────────────────
   console.log('⚙️  Upserting SystemSetting...');
   await prisma.systemSetting.upsert({
@@ -410,23 +433,139 @@ async function main() {
   const subjectList = Object.values(subjectMap);
   console.log('   ✅ ' + subjectList.length + ' subjects ready');
 
-  // ── 3. Students (100) ────────────────────────
-  console.log('\n🎓  Creating 100 students...');
+  // ── 2.5 Departments, Faculty, Courses ────────
+  console.log('\n🏫  Creating departments...');
+  const departmentMap = {};
+  const deptData = [
+    { code: 'CSE', name: 'Computer Science & Engineering' },
+    { code: 'ECE', name: 'Electronics & Communication Engineering' },
+    { code: 'MECH', name: 'Mechanical Engineering' },
+    { code: 'CIVIL', name: 'Civil Engineering' },
+    { code: 'EEE', name: 'Electrical & Electronics Engineering' },
+    { code: 'IT', name: 'Information Technology' },
+    { code: 'AI&ML', name: 'Artificial Intelligence & Machine Learning' },
+    { code: 'DATA_SCIENCE', name: 'Data Science' },
+  ];
+  for (const d of deptData) {
+    const dept = await prisma.department.upsert({
+      where: { code: d.code },
+      update: { name: d.name },
+      create: { code: d.code, name: d.name },
+    });
+    departmentMap[d.code] = dept;
+  }
+  console.log('   ✅ ' + Object.keys(departmentMap).length + ' departments ready');
+
+  console.log('\n🧑‍🏫  Creating faculty...');
+  const facultyList = [];
+  const facultyNames = [
+    'Dr. K. Srinivas Rao', 'Dr. M. Lakshmi Prasanna', 'Dr. P. Venkatesh', 'Dr. S. Ramesh Babu',
+    'Dr. V. Radha Krishna', 'Dr. G. Anitha', 'Prof. A. Sandeep Kumar', 'Prof. R. Harish Reddy',
+    'Prof. T. Divya Varma', 'Prof. D. Rajendra Prasad', 'Mr. B. Ravindra Goud', 'Mr. Ch. Lokesh',
+    'Mr. K. Sai Kiran', 'Mrs. M. Anjali Reddy', 'Mrs. P. Swathi', 'Mrs. S. Sowmya Naidu',
+    'Mrs. T. Bhavana Varma', 'Ms. K. Haritha Nair', 'Ms. S. Kavya Reddy', 'Ms. V. Sneha Pillai'
+  ];
+  for (let i = 0; i < facultyNames.length; i++) {
+    const name = facultyNames[i];
+    const email = `faculty${i+1}@sitamecap.co.in`;
+    const passwordHash = hashPassword('Faculty@1234');
+    const deptCode = Object.keys(departmentMap)[i % Object.keys(departmentMap).length];
+    const department = departmentMap[deptCode];
+    
+    const faculty = await prisma.faculty.upsert({
+      where: { email },
+      update: { name, departmentId: department.id },
+      create: {
+        email,
+        passwordHash,
+        name,
+        phone: '98480' + String(rndInt(10000, 99999)),
+        departmentId: department.id
+      }
+    });
+    facultyList.push(faculty);
+  }
+  console.log('   ✅ ' + facultyList.length + ' faculty members ready');
+
+  console.log('\n📖  Creating courses...');
+  const coursesList = [];
+  const courseDefs = [];
+  for (const bs of SUBJECTS_DATA) {
+    const deptCode = bs.branch || 'CSE';
+    courseDefs.push({
+      code: bs.code,
+      name: bs.name,
+      credits: bs.credits,
+      deptCode
+    });
+  }
+  const extraCourseNames = [
+    { code: 'CS-504', name: 'Design & Analysis of Algorithms', credits: '4', deptCode: 'CSE' },
+    { code: 'CS-505', name: 'Formal Languages & Automata Theory', credits: '4', deptCode: 'CSE' },
+    { code: 'CS-603', name: 'Information Security & Cryptography', credits: '3', deptCode: 'CSE' },
+    { code: 'CS-604', name: 'Software Project Management', credits: '3', deptCode: 'CSE' },
+    { code: 'CS-702', name: 'Big Data Analytics', credits: '4', deptCode: 'CSE' },
+    { code: 'CS-703', name: 'Internet of Things (IoT)', credits: '3', deptCode: 'CSE' },
+    { code: 'CS-801', name: 'Mobile Application Development', credits: '3', deptCode: 'CSE' },
+    { code: 'CS-802', name: 'Advanced Java Programming', credits: '4', deptCode: 'CSE' },
+    { code: 'ECE-302', name: 'Analog Electronic Circuits', credits: '4', deptCode: 'ECE' },
+    { code: 'ECE-303', name: 'Signals & Systems', credits: '3', deptCode: 'ECE' },
+    { code: 'ECE-501', name: 'Antennas & Wave Propagation', credits: '4', deptCode: 'ECE' },
+    { code: 'ECE-502', name: 'Linear IC Applications', credits: '3', deptCode: 'ECE' },
+    { code: 'IT-301', name: 'Python Programming', credits: '3', deptCode: 'IT' },
+    { code: 'IT-401', name: 'Java Programming', credits: '4', deptCode: 'IT' },
+    { code: 'ME-301', name: 'Thermodynamics', credits: '4', deptCode: 'MECH' },
+    { code: 'ME-401', name: 'Kinematics of Machinery', credits: '4', deptCode: 'MECH' },
+    { code: 'CE-301', name: 'Strength of Materials', credits: '4', deptCode: 'CIVIL' },
+    { code: 'CE-401', name: 'Fluid Mechanics', credits: '4', deptCode: 'CIVIL' },
+    { code: 'EE-301', name: 'Network Theory', credits: '4', deptCode: 'EEE' },
+    { code: 'EE-401', name: 'Electrical Machines - I', credits: '4', deptCode: 'EEE' },
+    { code: 'AI-301', name: 'Introduction to AI', credits: '3', deptCode: 'AI&ML' },
+    { code: 'AI-401', name: 'Deep Learning', credits: '4', deptCode: 'AI&ML' },
+    { code: 'DS-301', name: 'Data Wrangling', credits: '3', deptCode: 'DATA_SCIENCE' },
+    { code: 'DS-401', name: 'Data Visualization', credits: '4', deptCode: 'DATA_SCIENCE' },
+    { code: 'CS-803', name: 'Distributed Systems', credits: '3', deptCode: 'CSE' }
+  ];
+  courseDefs.push(...extraCourseNames);
+  const finalCourseDefs = courseDefs.slice(0, 40);
+
+  for (let i = 0; i < finalCourseDefs.length; i++) {
+    const c = finalCourseDefs[i];
+    const dept = departmentMap[c.deptCode] || departmentMap['CSE'];
+    const faculty = facultyList[i % facultyList.length];
+    
+    const course = await prisma.course.upsert({
+      where: { code: c.code },
+      update: { name: c.name, credits: c.credits, departmentId: dept.id, facultyId: faculty.id },
+      create: {
+        code: c.code,
+        name: c.name,
+        credits: c.credits,
+        departmentId: dept.id,
+        facultyId: faculty.id
+      }
+    });
+    coursesList.push(course);
+  }
+  console.log('   ✅ ' + coursesList.length + ' courses ready');
+
+  // ── 3. Students (500) ────────────────────────
+  console.log('\n🎓  Creating 500 students...');
 
   const studentPassword = hashPassword('Student@123');
   const FEE_TYPES   = ['Tuition Fee', 'Hostel Fee', 'Exam Fee', 'Library Fine', 'Bus Fee', 'Lab Fee'];
   const MARK_TYPES  = ['Core', 'Lab'];
 
-  // Student distribution: [branch, year, count] – totals 100
+  // Student distribution: [branch, year, count] – totals 500
   const DIST = [
-    ['CSE',          1, 8], ['CSE',          2, 7], ['CSE',          3, 7], ['CSE',          4, 6],
-    ['ECE',          1, 6], ['ECE',          2, 5], ['ECE',          3, 5], ['ECE',          4, 4],
-    ['IT',           1, 4], ['IT',           2, 3], ['IT',           3, 3], ['IT',           4, 3],
-    ['AI&ML',        1, 5], ['AI&ML',        2, 4],
-    ['DATA_SCIENCE', 1, 4], ['DATA_SCIENCE', 2, 3],
-    ['MECH',         1, 4], ['MECH',         2, 3], ['MECH',         3, 3],
-    ['EEE',          1, 3], ['EEE',          2, 3],
-    ['CIVIL',        1, 3], ['CIVIL',        2, 3],
+    ['CSE',          1, 40], ['CSE',          2, 35], ['CSE',          3, 35], ['CSE',          4, 30],
+    ['ECE',          1, 30], ['ECE',          2, 25], ['ECE',          3, 25], ['ECE',          4, 25],
+    ['IT',           1, 20], ['IT',           2, 15], ['IT',           3, 15], ['IT',           4, 15],
+    ['AI&ML',        1, 25], ['AI&ML',        2, 20],
+    ['DATA_SCIENCE', 1, 20], ['DATA_SCIENCE', 2, 15],
+    ['MECH',         1, 20], ['MECH',         2, 15], ['MECH',         3, 15],
+    ['EEE',          1, 15], ['EEE',          2, 15],
+    ['CIVIL',        1, 15], ['CIVIL',        2, 15],
   ];
 
   const ADDRESSES = [
@@ -505,14 +644,14 @@ async function main() {
     }
   }
 
-  // Ensure exactly 100
-  const finalStudents = studentProfiles.slice(0, 100);
+  // Ensure exactly 500
+  const finalStudents = studentProfiles.slice(0, 500);
   const createdStudents = [];
 
   for (let idx = 0; idx < finalStudents.length; idx++) {
     const sp = finalStudents[idx];
-    if ((idx + 1) % 10 === 0) {
-      console.log('   ... seeded ' + (idx + 1) + '/100 students');
+    if ((idx + 1) % 50 === 0) {
+      console.log('   ... seeded ' + (idx + 1) + '/500 students');
     }
     try {
       const student = await prisma.student.upsert({
@@ -557,6 +696,154 @@ async function main() {
     }
   }
   console.log('   ✅ ' + createdStudents.length + ' students ready\n');
+
+  // ── 3.5 LMS Seeding (Enrollments, Assignments, Quizzes, Progress, Certificates) ───
+  console.log('📚  Creating LMS Enrollments & Course Progress...');
+  let enrollmentCount = 0;
+  let progressCount = 0;
+  let certificateCount = 0;
+  let lmsAsnCount = 0;
+  let lmsQuizCount = 0;
+  let submissionCount = 0;
+  let resultCount = 0;
+
+  const courseAssignments = [];
+  const courseQuizzes = [];
+
+  for (const c of coursesList) {
+    // Generate 5 assignments per course (40 courses * 5 = 200 assignments)
+    for (let j = 1; j <= 5; j++) {
+      const lmsAsn = await prisma.lmsAssignment.create({
+        data: {
+          courseId: c.id,
+          title: `${c.name} - Assignment ${j}`,
+          description: `Description for ${c.name} Assignment ${j}. Please submit your solutions by the due date.`,
+          dueDate: dateStr(daysFromNow(j * 5)),
+          maxPoints: 100
+        }
+      });
+      courseAssignments.push(lmsAsn);
+      lmsAsnCount++;
+    }
+
+    // Generate 2-3 quizzes per course (40 courses * ~2.5 = ~100 quizzes)
+    const quizCountLimit = Math.random() < 0.5 ? 2 : 3;
+    for (let k = 1; k <= quizCountLimit; k++) {
+      const lmsQuiz = await prisma.lmsQuiz.create({
+        data: {
+          courseId: c.id,
+          title: `${c.name} - Quiz ${k}`,
+          description: `Attempt the quiz on key topics of ${c.name}. Multiple choice questions.`,
+          durationMin: 30,
+          maxPoints: 100
+        }
+      });
+      courseQuizzes.push(lmsQuiz);
+      lmsQuizCount++;
+    }
+  }
+  console.log(`   ✅ Created ${lmsAsnCount} LMS Assignments and ${lmsQuizCount} LMS Quizzes`);
+
+  // Now enroll students and generate progress, submissions, results
+  for (const s of createdStudents) {
+    // Enroll student in 4-6 random courses matching their department/branch if possible, or general ones
+    const deptCourses = coursesList.filter(c => {
+      const dept = Object.values(departmentMap).find(d => d.id === c.departmentId);
+      return dept && dept.code === s.branch;
+    });
+    const enrollCandidates = deptCourses.length > 0 ? deptCourses : coursesList;
+    const enrollCourses = [];
+    const usedEnroll = new Set();
+    const numEnroll = Math.min(rndInt(4, 6), enrollCandidates.length);
+    
+    for (let e = 0; e < numEnroll; e++) {
+      let c;
+      let tries = 0;
+      do { c = rnd(enrollCandidates); tries++; } while (usedEnroll.has(c.id) && tries < 30);
+      if (!usedEnroll.has(c.id)) {
+        usedEnroll.add(c.id);
+        enrollCourses.push(c);
+      }
+    }
+
+    for (const c of enrollCourses) {
+      // 1. Course Enrollment
+      await prisma.courseEnrollment.create({
+        data: {
+          studentId: s.id,
+          courseId: c.id
+        }
+      });
+      enrollmentCount++;
+
+      // 2. Course Progress
+      const isCompleted = Math.random() < 0.1;
+      const progressPct = isCompleted ? 100.0 : rndFloat(10, 95, 2);
+
+      await prisma.courseProgress.create({
+        data: {
+          studentId: s.id,
+          courseId: c.id,
+          progressPct,
+          completed: isCompleted
+        }
+      });
+      progressCount++;
+
+      // 3. Certificates
+      if (isCompleted) {
+        const certNumber = 'CERT-' + crypto.randomBytes(4).toString('hex').toUpperCase();
+        await prisma.certificate.create({
+          data: {
+            studentId: s.id,
+            courseId: c.id,
+            certNumber
+          }
+        });
+        certificateCount++;
+      }
+
+      // 4. Create submissions for assignments of this course
+      const courseAsns = courseAssignments.filter(a => a.courseId === c.id);
+      for (const asn of courseAsns) {
+        const submitChance = Math.random();
+        if (submitChance < 0.8) {
+          const isGraded = submitChance < 0.6;
+          const points = isGraded ? rndInt(50, 100) : null;
+          await prisma.lmsSubmission.create({
+            data: {
+              assignmentId: asn.id,
+              studentId: s.id,
+              status: isGraded ? 'GRADED' : 'SUBMITTED',
+              points,
+              feedback: isGraded ? 'Well attempted, good standards.' : ''
+            }
+          });
+          submissionCount++;
+        }
+      }
+
+      // 5. Create results for quizzes of this course
+      const courseQzs = courseQuizzes.filter(q => q.courseId === c.id);
+      for (const qz of courseQzs) {
+        if (Math.random() < 0.7) {
+          await prisma.quizResult.create({
+            data: {
+              quizId: qz.id,
+              studentId: s.id,
+              score: rndInt(40, 100)
+            }
+          });
+          resultCount++;
+        }
+      }
+    }
+  }
+
+  console.log(`   ✅ Enrolled students: ${enrollmentCount}`);
+  console.log(`   ✅ Created progress records: ${progressCount}`);
+  console.log(`   ✅ Issued certificates: ${certificateCount}`);
+  console.log(`   ✅ Submissions: ${submissionCount}, Quiz results: ${resultCount}\n`);
 
   // ── 4. Fee Records (4–6 per student) ─────────
   console.log('💰  Creating fee records...');
@@ -977,6 +1264,14 @@ async function main() {
   console.log('✅  SITAM Smart ERP Demo Data Seeding Complete!');
   console.log('══════════════════════════════════════════════════');
   console.log('   Students:       ' + createdStudents.length);
+  console.log('   Departments:    ' + Object.keys(departmentMap).length);
+  console.log('   Faculty:        ' + facultyList.length);
+  console.log('   Courses:        ' + coursesList.length);
+  console.log('   Enrollments:    ' + enrollmentCount);
+  console.log('   LMS Progress:   ' + progressCount);
+  console.log('   Certificates:   ' + certificateCount);
+  console.log('   Assignments:    ' + lmsAsnCount + ' (Submissions: ' + submissionCount + ')');
+  console.log('   Quizzes:        ' + lmsQuizCount + ' (Results: ' + resultCount + ')');
   console.log('   Subjects:       ' + subjectList.length);
   console.log('   Fee Records:    ' + feeCount);
   console.log('   Attendance:     ' + attCount);

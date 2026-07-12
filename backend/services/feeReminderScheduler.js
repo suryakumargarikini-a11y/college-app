@@ -39,7 +39,9 @@ class FeeReminderScheduler {
             const now = new Date();
             now.setHours(0, 0, 0, 0);
 
-            // Fetch all unpaid fees with student and FCM token information
+            const REMINDER_DAYS = new Set([15, 10, 7, 5, 3, 1]);
+
+            // ── Step 1: Load all unpaid fees ─────────────────────────────────────
             const outstandingFees = await prisma.fee.findMany({
                 where: {
                     dueAmount: { gt: 0 }
@@ -58,47 +60,64 @@ class FeeReminderScheduler {
 
             logger.info(`[FeeReminderScheduler] Found ${outstandingFees.length} outstanding fee records to evaluate.`);
 
-            let reminderSentCount = 0;
+            // ── Step 2: Filter to ONLY fees that fall on a reminder day ──────────
+            // This avoids hitting feeReminderLog for fees that don't need reminders today.
+            const candidateFees = [];
+            const stageMap = new Map(); // feeId → stage
 
             for (const fee of outstandingFees) {
                 if (!fee.student || !fee.dueDate) continue;
 
-                // Parse due date and calculate remaining days
                 const due = new Date(fee.dueDate);
                 due.setHours(0, 0, 0, 0);
+                const diffDays = Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
-                const diffTime = due.getTime() - now.getTime();
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                if (!REMINDER_DAYS.has(diffDays)) continue;
 
-                let stage = null;
-                if (diffDays === 15) stage = '15_DAY';
-                else if (diffDays === 10) stage = '10_DAY';
-                else if (diffDays === 7) stage = '7_DAY';
-                else if (diffDays === 5) stage = '5_DAY';
-                else if (diffDays === 3) stage = '3_DAY';
-                else if (diffDays === 1) stage = '1_DAY';
+                const stage = `${diffDays}_DAY`;
+                stageMap.set(fee.id, stage);
+                candidateFees.push(fee);
+            }
 
-                // Skip if not on a reminder target day
-                if (!stage) continue;
+            if (candidateFees.length === 0) {
+                logger.info('[FeeReminderScheduler] No fees due on a reminder day today. Skipping.');
+                return;
+            }
+
+            // ── Step 3: SINGLE bulk query for all existing reminder logs ─────────
+            // Was: N individual findUnique calls (N+1 query problem).
+            // Now:  1 query → in-memory Set → O(1) dedup per fee.
+            const feeIds = candidateFees.map(f => f.id);
+            const existingLogs = await prisma.feeReminderLog.findMany({
+                where: {
+                    feeId: { in: feeIds }
+                },
+                select: {
+                    studentId: true,
+                    feeId: true,
+                    reminderStage: true
+                }
+            });
+
+            // Build dedup Set: key = `${studentId}:${feeId}:${stage}`
+            const sentSet = new Set(
+                existingLogs.map(l => `${l.studentId}:${l.feeId}:${l.reminderStage}`)
+            );
+
+            // ── Step 4: Process candidates ───────────────────────────────────────
+            let reminderSentCount = 0;
+
+            for (const fee of candidateFees) {
+                const stage = stageMap.get(fee.id);
+                const dedupKey = `${fee.studentId}:${fee.id}:${stage}`;
+
+                if (sentSet.has(dedupKey)) {
+                    logger.debug(`[FeeReminderScheduler] stage ${stage} already sent for fee ${fee.id}. Skipping.`);
+                    continue;
+                }
 
                 try {
-                    // Check if reminder was already sent for this stage
-                    const alreadySent = await prisma.feeReminderLog.findUnique({
-                        where: {
-                            studentId_feeId_reminderStage: {
-                                studentId: fee.studentId,
-                                feeId: fee.id,
-                                reminderStage: stage
-                            }
-                        }
-                    });
-
-                    if (alreadySent) {
-                        logger.debug(`[FeeReminderScheduler] stage ${stage} already sent for fee ${fee.id} student ${fee.studentId}. Skipping.`);
-                        continue;
-                    }
-
-                    // 1. Send push notification to all student devices
+                    // Send push notification
                     const tokens = fee.student.fcmTokens.map(t => t.token);
                     const title = '⚠️ Fee Payment Due Alert';
                     const message = `Dear ${fee.student.name}, your ${fee.feeType} fee of ₹${fee.dueAmount} is due on ${fee.dueDate}. Please clear it to avoid mid-exam ticket blocking.`;
@@ -114,7 +133,7 @@ class FeeReminderScheduler {
                         }
                     }
 
-                    // 2. Append a notification to the student's dashboard logs
+                    // Create in-app notification
                     await prisma.notification.create({
                         data: {
                             studentId: fee.studentId,
@@ -123,16 +142,16 @@ class FeeReminderScheduler {
                             type: 'fees',
                             category: 'reminder',
                             date: new Date().toISOString().split('T')[0],
-                            metadata: JSON.stringify({ 
-                                feeId: fee.id, 
-                                dueAmount: fee.dueAmount, 
+                            metadata: JSON.stringify({
+                                feeId: fee.id,
+                                dueAmount: fee.dueAmount,
                                 dueDate: fee.dueDate,
-                                hallTicketBlockWarning: true 
+                                hallTicketBlockWarning: true
                             })
                         }
                     });
 
-                    // 3. Log the send event to prevent double alerts
+                    // Log the send to prevent duplicate alerts
                     await prisma.feeReminderLog.create({
                         data: {
                             studentId: fee.studentId,
@@ -141,6 +160,8 @@ class FeeReminderScheduler {
                         }
                     });
 
+                    // Add to in-memory dedup set to prevent double-send within same run
+                    sentSet.add(dedupKey);
                     reminderSentCount++;
                     logger.info(`[FeeReminderScheduler] Dispatched stage ${stage} reminder for fee ${fee.id} to student ${fee.studentId}`);
 
@@ -157,3 +178,5 @@ class FeeReminderScheduler {
 }
 
 module.exports = new FeeReminderScheduler();
+
+

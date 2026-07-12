@@ -72,99 +72,92 @@ const secureStorage = {
         }
     },
 
-    // Asynchronous startup bootstrap to decrypt hardware key payloads
     async bootstrap() {
-        console.log('[Boot - secureStorage] Starting bootstrap...');
+        const t0 = Date.now();
+        const step = (name) => {
+            const elapsed = Date.now() - t0;
+            console.log(`[BOOT][secureStorage] ${name} (${elapsed}ms)`);
+            if (elapsed > 2000) console.warn(`[BOOT][secureStorage] ⚠️ SLOW STEP: ${name} took ${elapsed}ms total`);
+        };
+
+        step('START');
         try {
             const scrambledKey = this._scramble('token');
-            console.log('[Boot - secureStorage] Scrambled key:', scrambledKey);
+            step('Scrambled key computed');
             let rawData = localStorage.getItem(scrambledKey);
-            console.log('[Boot - secureStorage] localStorage token value exists:', !!rawData);
-            
-            // Mirror check from Capacitor Preferences sandbox
+            step(`localStorage check — token exists: ${!!rawData}`);
+
+            // Mirror check from Capacitor Preferences (2s hard timeout)
             if (!rawData && window.Capacitor?.Plugins?.Preferences) {
-                console.log('[Boot - secureStorage] Awaiting Preferences.get...');
+                step('Calling Preferences.get (2s timeout)...');
                 try {
-                    const res = await window.Capacitor.Plugins.Preferences.get({ key: scrambledKey });
-                    console.log('[Boot - secureStorage] Preferences.get finished successfully. Value exists:', !!res?.value);
-                    if (res && res.value) {
-                        rawData = res.value;
-                    }
-                } catch (prefErr) {
-                    console.error('[Boot - secureStorage] Preferences.get failed:', prefErr);
+                    const res = await Promise.race([
+                        window.Capacitor.Plugins.Preferences.get({ key: scrambledKey }),
+                        new Promise((_, rej) => setTimeout(() => rej(new Error('TIMEOUT')), 2000))
+                    ]);
+                    rawData = res?.value || null;
+                    step(`Preferences.get done — value exists: ${!!rawData}`);
+                } catch (e) {
+                    step(`Preferences.get FAILED: ${e.message} — continuing as anonymous`);
                 }
             }
 
             if (!rawData) {
-                console.log('[Boot - secureStorage] No raw data found, boot as anonymous/empty session');
+                step('No stored token — anonymous session');
                 _decryptedToken = null;
                 return;
             }
 
-            // Step 1: Unscramble the secondary obfuscation layer
-            console.log('[Boot - secureStorage] Unscrambling payload...');
+            step('Unscrambling payload...');
             const jsonStr = this._unscramble(rawData);
-            if (!jsonStr) {
-                console.log('[Boot - secureStorage] Unscrambling returned empty string');
-                return;
-            }
+            if (!jsonStr) { step('Unscramble returned empty'); return; }
             const payload = JSON.parse(jsonStr);
-            console.log('[Boot - secureStorage] Payload successfully parsed, ciphertext exists:', !!payload.ciphertext, 'data exists:', !!payload.data);
+            step(`Payload parsed — has ciphertext: ${!!payload.ciphertext}, has data: ${!!payload.data}`);
 
-            // Step 2: Decrypt using primary hardware/software crypt layer
             if (window.Capacitor?.Plugins?.SecureKeystore && payload.ciphertext && payload.iv) {
-                console.log('[Boot - secureStorage] SecureKeystore plugin detected. Awaiting decrypt...');
+                step('Calling SecureKeystore.decrypt (2s timeout)...');
                 try {
-                    const decRes = await window.Capacitor.Plugins.SecureKeystore.decrypt({
-                        ciphertext: payload.ciphertext,
-                        iv: payload.iv
-                    });
-                    console.log('[Boot - secureStorage] SecureKeystore decryption succeeded');
+                    const decRes = await Promise.race([
+                        window.Capacitor.Plugins.SecureKeystore.decrypt({ ciphertext: payload.ciphertext, iv: payload.iv }),
+                        new Promise((_, rej) => setTimeout(() => rej(new Error('TIMEOUT')), 2000))
+                    ]);
                     _decryptedToken = decRes.value;
-                } catch (keystoreErr) {
-                    console.error('[Boot - secureStorage] KeyStore decrypt failed (key deleted/reinstall?) — clearing stale token:', keystoreErr.message);
+                    step('SecureKeystore.decrypt succeeded');
+                } catch (e) {
+                    step(`SecureKeystore.decrypt FAILED: ${e.message} — clearing stale token`);
                     localStorage.removeItem(scrambledKey);
                     if (window.Capacitor?.Plugins?.Preferences) {
-                        console.log('[Boot - secureStorage] Awaiting Preferences.remove...');
-                        await window.Capacitor.Plugins.Preferences.remove({ key: scrambledKey }).catch(() => {});
-                        console.log('[Boot - secureStorage] Preferences.remove finished');
+                        await Promise.race([
+                            window.Capacitor.Plugins.Preferences.remove({ key: scrambledKey }).catch(() => {}),
+                            new Promise(r => setTimeout(r, 1000))
+                        ]);
                     }
                     _decryptedToken = null;
                 }
             } else if (payload.data && payload.iv) {
-                console.log('[Boot - secureStorage] WebCrypto fallback data detected. Starting decryption...');
-                // WebCrypto fallback for local/browser environments
+                step('WebCrypto fallback decryption...');
                 let keyRaw = localStorage.getItem('_secure_entropy');
-                if (keyRaw && keyRaw.length !== 32) {
-                    localStorage.removeItem('_secure_entropy');
-                    keyRaw = null;
-                }
+                if (keyRaw && keyRaw.length !== 32) { localStorage.removeItem('_secure_entropy'); keyRaw = null; }
                 if (keyRaw) {
-                    console.log('[Boot - secureStorage] Entropy key loaded. Importing WebCrypto key...');
                     const keyBuf = new TextEncoder().encode(keyRaw);
-                    const cryptoKey = await crypto.subtle.importKey(
-                        'raw', keyBuf, { name: 'AES-GCM', length: 256 }, false, ['decrypt']
-                    );
-                    console.log('[Boot - secureStorage] Key imported successfully. Decrypting...');
+                    const cryptoKey = await crypto.subtle.importKey('raw', keyBuf, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
                     const iv = new Uint8Array(atob(payload.iv).split('').map(c => c.charCodeAt(0)));
-                    const ciphertext = new Uint8Array(atob(payload.data).split('').map(c => c.charCodeAt(0)));
-                    const decrypted = await crypto.subtle.decrypt(
-                        { name: 'AES-GCM', iv }, cryptoKey, ciphertext
-                    );
-                    _decryptedToken = new TextDecoder().decode(decrypted);
-                    console.log('[Boot - secureStorage] WebCrypto decryption succeeded');
+                    const ct = new Uint8Array(atob(payload.data).split('').map(c => c.charCodeAt(0)));
+                    const dec = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, cryptoKey, ct);
+                    _decryptedToken = new TextDecoder().decode(dec);
+                    step('WebCrypto decryption succeeded');
                 } else {
-                    console.log('[Boot - secureStorage] No entropy key found for WebCrypto decryption');
+                    step('No entropy key — cannot decrypt');
                 }
             } else {
-                console.log('[Boot - secureStorage] Payload contains unscrambled raw value');
+                step('Using raw unscrambled value');
                 _decryptedToken = jsonStr;
             }
         } catch (err) {
-            console.error('[secureStorage] Bootstrap failed with exception:', err);
+            console.error('[BOOT][secureStorage] Bootstrap EXCEPTION:', err);
             _decryptedToken = null;
         } finally {
-            console.log('[Boot - secureStorage] Bootstrap completed');
+            console.log(`[BOOT][secureStorage] COMPLETE in ${Date.now() - t0}ms`);
         }
     },
 
@@ -1202,6 +1195,12 @@ const api = {
             router.navigate('/login');
         };
 
+        // ── Server-side session invalidation ──────────────────────────────────
+        // MUST call backend logout BEFORE clearing local token so auth header is still present.
+        // Fire-and-forget: if the request fails, local logout proceeds regardless.
+        // This prevents 7-day token reuse after logout (security fix).
+        const serverLogout = () => api.request('/auth/logout', { method: 'POST' }).catch(() => {});
+
         if (messaging) {
             messaging.getToken().then(async (currentToken) => {
                 if (currentToken) {
@@ -1210,12 +1209,16 @@ const api = {
                         body: JSON.stringify({ token: currentToken })
                     }).catch(() => {});
                 }
+                // Invalidate server session AFTER FCM cleanup but BEFORE local cleanup
+                await serverLogout();
             }).catch(() => {}).finally(performLogout);
         } else {
-            performLogout();
+            // No FCM — just invalidate server session then clear local state
+            serverLogout().finally(performLogout);
         }
     }
 };
+
 
 // --- Premium Non-blocking Top Progress Bar ---
 const loading = {
@@ -1456,8 +1459,11 @@ const pages = {
     },
 
     // ---- LOGIN ----
+    // ---- LOGIN ----
     login: {
-        render: () => `<div class="min-h-screen w-full flex flex-col items-center justify-center relative bg-[#F8FAFC] overflow-hidden">
+        render: () => {
+            console.log('[NAV] Login render started');
+            const html = `<div class="min-h-screen w-full flex flex-col items-center justify-center relative bg-[#F8FAFC] overflow-hidden">
             <!-- Organic Background Orbs -->
             <div style="filter:blur(90px);opacity:0.35;position:absolute;z-index:0;" class="w-[500px] h-[500px] rounded-full top-[-10%] left-[-10%] bg-blue-200"></div>
             <div style="filter:blur(90px);opacity:0.30;position:absolute;z-index:0;" class="w-[400px] h-[400px] rounded-full bottom-[-5%] right-[-5%] bg-indigo-200"></div>
@@ -1526,10 +1532,15 @@ const pages = {
                     </div>
                 </div>
             </main>
-        </div>`,
+        </div>`;
+            console.log('[NAV] Login render completed');
+            return html;
+        },
         afterRender: () => {
+            console.log('[NAV] Login afterRender started');
             toggleShell(false);
             const form = $('login-form');
+            console.log('[DOM] Login container found, form exists:', !!form);
             if (!form) return;
             form.addEventListener('submit', async (e) => {
                 e.preventDefault();
@@ -1554,258 +1565,149 @@ const pages = {
                         // Fire push registration and full prefetch asynchronously
                         // Dashboard will paint from IndexedDB cache in <300ms
                         Promise.all([
-                            registerPush().catch(() => {}),
-                            prefetchAll().catch(() => {})
-                        ]);
-                    } else {
-                        throw new Error(res.message || 'Login failed');
-                    }
-                } catch(err) {
-                    if(errEl){errEl.textContent=err.message||'Login failed. Check credentials.';errEl.classList.remove('hidden');}
-                } finally {
-                    if(btnText) btnText.textContent = 'Login';
-                }
-            });
-        }
-    },
-
-    // ---- DASHBOARD ----
-    dashboard: {
+                            registerPush().catc    dashboard: {
         render: () => `<div class="min-h-screen pb-32 bg-[#F8FAFC]">
-            <main class="pt-20 px-4 sm:px-6 max-w-xl mx-auto">
+            <main class="pt-20 px-4 sm:px-6 max-w-xl mx-auto space-y-6">
+                <!-- Welcome Section -->
+                <section class="flex justify-between items-start">
+                    <div>
+                        <h2 class="text-2xl font-black text-slate-800 tracking-tight" id="dash-greeting">👋 Greetings</h2>
+                        <p class="text-xs text-slate-400 mt-1" id="hero-sub">Welcome back to SITAM Smart ERP</p>
+                    </div>
+                    <div class="w-10 h-10 bg-blue-50 text-blue-600 border border-blue-100 rounded-2xl flex items-center justify-center flex-shrink-0 animate-reveal">
+                        <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1">school</span>
+                    </div>
+                </section>
 
-                <!-- ══════════════════════════════════════════ -->
-                <!-- WOW HERO CARD                             -->
-                <!-- ══════════════════════════════════════════ -->
-                <section class="mb-5">
-                    <div class="hero-card p-6 relative overflow-hidden" id="hero-card">
-                        <!-- Glass shine sweep -->
-                        <div class="hero-shine"></div>
-                        <!-- Greeting -->
-                        <div class="relative z-10 flex items-start justify-between mb-5">
+                <!-- 1. ATTENDANCE & CGPA ROW (Grid of 2) -->
+                <section class="grid grid-cols-2 gap-4">
+                    <!-- Attendance Ring Card -->
+                    <div class="glass-card p-5 rounded-3xl flex flex-col justify-between h-40 border-l-4 border-l-primary cursor-pointer hover:scale-[1.02] active-scale transition-all" onclick="router.navigate('/attendance')">
+                        <div class="flex justify-between items-center">
                             <div>
-                                <p class="text-blue-300/80 text-[11px] font-bold uppercase tracking-widest mb-1.5" id="hero-date-label">Today</p>
-                                <h2 class="text-white text-[25px] font-black tracking-tight leading-tight" id="dash-greeting">👋 Good Morning</h2>
-                                <p class="text-blue-200/90 text-sm mt-1.5 font-medium" id="hero-sub">Ready for a productive day?</p>
+                                <h4 class="text-sm font-bold text-on-surface">Attendance</h4>
+                                <p class="text-[10px] text-slate-400">Overall Ratio</p>
                             </div>
-                            <div class="w-12 h-12 bg-white/15 backdrop-blur-sm rounded-2xl flex items-center justify-center border border-white/20 flex-shrink-0 ml-3">
-                                <span class="material-symbols-outlined text-white" style="font-size:24px;font-variation-settings:'FILL' 1">school</span>
+                            <!-- Ring -->
+                            <div class="relative w-16 h-16 flex items-center justify-center flex-shrink-0">
+                                <svg class="w-full h-full transform -rotate-90">
+                                    <circle cx="32" cy="32" r="26" stroke="#f1f5f9" stroke-width="4" fill="transparent"/>
+                                    <circle cx="32" cy="32" r="26" stroke="#2563eb" stroke-width="5" fill="transparent" stroke-dasharray="163.36" stroke-dashoffset="163.36" id="dash-att-ring" class="transition-all duration-1000"/>
+                                </svg>
+                                <span class="absolute text-[11px] font-black text-slate-800" id="dash-att-val">--%</span>
                             </div>
                         </div>
-                        <!-- Stats Row -->
-                        <div class="relative z-10 grid grid-cols-4 gap-2">
-                            <!-- Attendance -->
-                            <div class="bg-white/10 backdrop-blur-sm rounded-2xl p-2.5 border border-white/15 cursor-pointer active-scale transition-all" onclick="router.navigate('/attendance')">
-                                <div class="flex items-center gap-1 mb-1">
-                                    <span class="material-symbols-outlined text-emerald-300 text-[10px]" style="font-variation-settings:'FILL' 1">check_circle</span>
-                                    <p class="text-blue-200/80 text-[8px] font-bold uppercase tracking-wider">Attend</p>
-                                </div>
-                                <p class="text-white text-lg font-black leading-none" id="hero-att">--%</p>
-                                <div class="mt-2 w-full bg-white/15 rounded-full h-1 overflow-hidden">
-                                    <div class="h-full bg-emerald-400 rounded-full progress-animated" id="hero-att-bar" style="width:0%"></div>
-                                </div>
+                        <div class="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                            <span>Status:</span>
+                            <span id="dash-att-status-text" class="text-primary font-black">--</span>
+                        </div>
+                    </div>
+
+                    <!-- CGPA Card -->
+                    <div class="bg-amber-50/60 p-5 rounded-3xl flex flex-col justify-between h-40 border border-amber-100 cursor-pointer hover:scale-[1.02] active-scale transition-all" onclick="router.navigate('/marks')">
+                        <div class="flex justify-between items-start">
+                            <span class="material-symbols-outlined text-amber-500 text-3xl">stars</span>
+                            <div class="text-right">
+                                <p class="text-[10px] text-amber-500 font-black tracking-widest uppercase">CGPA</p>
+                                <p class="text-3xl font-black text-slate-800 mt-1" id="dash-gpa-val">--</p>
                             </div>
-                            <!-- CGPA -->
-                            <div class="bg-white/10 backdrop-blur-sm rounded-2xl p-2.5 border border-white/15 cursor-pointer active-scale transition-all" onclick="router.navigate('/marks')">
-                                <div class="flex items-center gap-1 mb-1">
-                                    <span class="material-symbols-outlined text-amber-300 text-[10px]" style="font-variation-settings:'FILL' 1">stars</span>
-                                    <p class="text-blue-200/80 text-[8px] font-bold uppercase tracking-wider">CGPA</p>
-                                </div>
-                                <p class="text-white text-lg font-black leading-none" id="hero-cgpa">--</p>
-                                <p class="text-blue-200/60 text-[7px] mt-2.5 font-bold uppercase">Current</p>
-                            </div>
-                            <!-- Assignments Due -->
-                            <div class="bg-white/10 backdrop-blur-sm rounded-2xl p-2.5 border border-white/15 cursor-pointer active-scale transition-all" onclick="router.navigate('/assignments')">
-                                <div class="flex items-center gap-1 mb-1">
-                                    <span class="material-symbols-outlined text-rose-300 text-[10px]" style="font-variation-settings:'FILL' 1">assignment_late</span>
-                                    <p class="text-blue-200/80 text-[8px] font-bold uppercase tracking-wider">Due</p>
-                                </div>
-                                <p class="text-white text-lg font-black leading-none" id="hero-asn">--</p>
-                                <p class="text-blue-200/60 text-[7px] mt-2.5 font-bold uppercase">Tasks</p>
-                            </div>
-                            <!-- Academic Health -->
-                            <div class="bg-white/15 backdrop-blur-sm rounded-2xl p-2.5 border border-white/20 cursor-pointer active-scale transition-all animate-pulse" style="animation-duration:3s" onclick="showToast('Academic Health Score is calculated from CGPA and overall attendance.', 'info')">
-                                <div class="flex items-center gap-1 mb-1">
-                                    <span class="material-symbols-outlined text-blue-300 text-[10px]" style="font-variation-settings:'FILL' 1">favorite</span>
-                                    <p class="text-blue-200/80 text-[8px] font-bold uppercase tracking-wider">Health</p>
-                                </div>
-                                <p class="text-white text-lg font-black leading-none" id="dash-health-score">--</p>
-                                <p class="text-blue-200/60 text-[7px] mt-2.5 font-bold uppercase">Rating</p>
-                            </div>
+                        </div>
+                        <div class="flex justify-between items-center text-[10px] text-slate-500 font-bold uppercase">
+                            <span>SGPA:</span>
+                            <span class="font-extrabold text-amber-600" id="dash-sgpa-val">--</span>
                         </div>
                     </div>
                 </section>
 
-                <!-- Live Brief Section: Upcoming Class and Next Exam -->
-                <section class="grid grid-cols-2 gap-3 mb-6">
+                <!-- 2. TODAY'S CLASSES SECTION -->
+                <section class="space-y-3">
+                    <div class="flex justify-between items-end">
+                        <h3 class="text-[11px] font-extrabold uppercase tracking-widest text-slate-400">Today's Classes</h3>
+                        <a href="#" onclick="router.navigate('/timetable');return false;" class="text-[10px] font-bold text-primary hover:underline uppercase tracking-wider">VIEW FULL</a>
+                    </div>
+                    
+                    <!-- Next Class Widget -->
                     <div id="dash-upcoming-class-container">
-                        <div class="glass-card p-3 rounded-2xl border border-white/40 shadow-sm text-center bg-white/40 py-5 text-slate-400 text-[10px] font-bold">
+                        <div class="glass-card p-4 rounded-2xl border border-white/40 shadow-sm text-center bg-white/40 text-slate-400 text-[10px] font-bold">
                             Loading schedule...
                         </div>
                     </div>
-                    <div id="dash-upcoming-exam-container">
-                        <div class="glass-card p-3 rounded-2xl border border-white/40 shadow-sm text-center bg-white/40 py-5 text-slate-400 text-[10px] font-bold">
-                            Loading exams...
-                        </div>
+
+                    <!-- Horizontally scrolling timetable classes -->
+                    <div class="flex gap-4 pb-2 -mx-4 px-4 overflow-x-auto hide-scrollbar momentum-scroll" id="dash-timetable">
+                        <div class="min-w-[170px] h-24 bg-white/40 border border-white/20 rounded-2xl shimmer-loading"></div>
                     </div>
                 </section>
 
-                <!-- Today's Timetable -->
-                <section class="mb-7">
-                    <div class="flex justify-between items-end mb-3">
-                        <h3 class="text-[11px] font-extrabold uppercase tracking-widest text-slate-400">Today's Timetable</h3>
-                        <a href="#" onclick="router.navigate('/timetable');return false;" class="text-[10px] font-bold text-primary hover:underline uppercase tracking-wider">VIEW FULL</a>
-                    </div>
-                    <div class="flex gap-4 pb-2 -mx-4 px-4 momentum-scroll hide-scrollbar" id="dash-timetable">
-                        <div class="flex gap-3">
-                            <div class="min-w-[170px] h-24 bg-white/40 border border-white/20 rounded-2xl shimmer-loading"></div>
-                            <div class="min-w-[170px] h-24 bg-white/40 border border-white/20 rounded-2xl shimmer-loading"></div>
-                            <div class="min-w-[170px] h-24 bg-white/40 border border-white/20 rounded-2xl shimmer-loading"></div>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- Notice Banner -->
-                <section class="mb-6" id="notice-banner-section">
-                    <div class="w-full bg-amber-50 text-amber-900 p-4 rounded-2xl flex items-center gap-3.5 relative overflow-hidden border border-amber-200/60" id="notice-banner">
-                        <div class="absolute right-0 top-0 w-20 h-full bg-gradient-to-l from-amber-100/40 to-transparent"></div>
-                        <span class="material-symbols-outlined text-2xl flex-shrink-0 text-amber-500">campaign</span>
-                        <div class="min-w-0 flex-1">
-                            <p class="text-xs font-bold tracking-tight leading-snug break-words" id="notice-text">ERP sync active. Your data is being synchronized.</p>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- Companies On Campus Today Section -->
-                <section class="mb-6 hidden" id="companies-today-section">
-                    <div class="glass-card p-5 rounded-[2rem] border border-white/40 shadow-sm bg-white/60">
-                        <div class="flex items-center gap-2 mb-3">
-                            <span class="text-xl">🔥</span>
-                            <h3 class="text-xs font-extrabold uppercase tracking-widest text-slate-900">Companies On Campus Today</h3>
-                        </div>
-                        <div class="flex flex-wrap gap-2" id="companies-today-list">
-                            <!-- Company badges go here -->
-                        </div>
-                    </div>
-                </section>
-
-                <!-- Workspace Header -->
-                <div class="flex justify-between items-center mb-4">
-                    <div>
-                        <h3 class="text-[11px] font-extrabold uppercase tracking-widest text-slate-400">Workspace</h3>
-                        <p class="text-[10px] text-slate-400">Your academic quick links</p>
-                    </div>
-                    <button class="w-9 h-9 bg-slate-900 text-white rounded-full flex items-center justify-center shadow-lg active-scale transition-transform" onclick="showToast('Custom workspaces are managed by academic administration.', 'info')">
-                        <span class="material-symbols-outlined text-lg">add</span>
-                    </button>
-                </div>
-
-                <!-- Feature Bento Grid -->
-                <section class="grid grid-cols-2 gap-3 sm:gap-4 mb-10">
-                    <!-- Announce -->
-                    <div class="glass-card p-4 sm:p-5 flex flex-col justify-between h-32 sm:h-36 cursor-pointer hover:scale-[1.02] active-scale transition-all" onclick="router.navigate('/notifications')">
+                <!-- 3. WORKSPACE: Deliverables, Fees, LMS, Notice -->
+                <section class="grid grid-cols-2 gap-4">
+                    <!-- Pending Deliverables (Assignments) -->
+                    <div class="glass-card p-5 flex flex-col justify-between h-36 cursor-pointer hover:scale-[1.02] active-scale transition-all" onclick="router.navigate('/assignments')">
                         <div class="flex justify-between items-start">
-                            <span class="material-symbols-outlined text-secondary" style="font-variation-settings:'FILL' 1">campaign</span>
-                            <span class="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-[9px] font-extrabold rounded-full border border-indigo-200/50" id="dash-notif-count">--</span>
-                        </div>
-                        <div>
-                            <h4 class="text-sm font-bold text-on-surface">Announce</h4>
-                            <p class="text-[9px] text-slate-400">Campus updates</p>
-                        </div>
-                    </div>
-                    <!-- Curriculum/Syllabus -->
-                    <div class="bg-indigo-50/60 p-4 sm:p-5 rounded-3xl flex flex-col justify-between h-32 sm:h-36 cursor-pointer hover:scale-[1.02] active-scale transition-all border border-indigo-100" onclick="router.navigate('/syllabus')">
-                        <div class="flex justify-between items-start">
-                            <span class="material-symbols-outlined text-secondary" style="font-variation-settings:'FILL' 1">auto_stories</span>
-                            <span class="px-2 py-0.5 bg-white text-indigo-600 text-[9px] font-extrabold rounded-full border border-indigo-200">NEW</span>
-                        </div>
-                        <div>
-                            <h4 class="text-sm font-bold text-indigo-900">Curriculum</h4>
-                            <p class="text-[9px] text-indigo-500/70">Syllabus &amp; Books</p>
-                        </div>
-                    </div>
-                    <!-- Fee Statement -->
-                    <div class="glass-card p-4 sm:p-5 flex flex-col justify-between h-32 sm:h-36 cursor-pointer hover:scale-[1.02] active-scale transition-all" onclick="router.navigate('/fees')">
-                        <span class="material-symbols-outlined text-slate-400">account_balance_wallet</span>
-                        <div>
-                            <h4 class="text-sm font-bold text-on-surface">Fee Statement</h4>
-                            <p class="text-[9px] text-slate-400 truncate" id="dash-fee-text">Dues &amp; History</p>
-                        </div>
-                    </div>
-                    <!-- Attendance -->
-                    <div class="glass-card p-4 sm:p-5 flex flex-col justify-between h-32 sm:h-36 cursor-pointer hover:scale-[1.02] active-scale transition-all border-l-4 border-l-primary" onclick="router.navigate('/attendance')">
-                        <div class="flex justify-between items-start">
-                            <span class="material-symbols-outlined text-primary">calendar_today</span>
-                            <span class="text-[11px] font-black text-primary" id="dash-att-val">--%</span>
-                        </div>
-                        <div>
-                            <h4 class="text-sm font-bold text-on-surface">Attendance</h4>
-                            <div class="w-full bg-slate-100/80 h-1.5 rounded-full mt-2 overflow-hidden">
-                                <div class="bg-primary h-full rounded-full transition-all duration-1000 w-0" id="dash-att-bar"></div>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- Assignment -->
-                    <div class="glass-card p-4 sm:p-5 flex flex-col justify-between h-32 sm:h-36 cursor-pointer hover:scale-[1.02] active-scale transition-all" onclick="router.navigate('/assignments')">
-                        <div class="flex justify-between items-start">
-                            <span class="material-symbols-outlined text-slate-400">assignment</span>
+                            <span class="material-symbols-outlined text-slate-400 text-2xl">assignment</span>
                             <span class="px-2 py-0.5 bg-slate-100 text-slate-600 text-[9px] font-extrabold rounded-full border border-slate-200" id="dash-asn-count">--</span>
                         </div>
                         <div>
-                            <h4 class="text-sm font-bold text-on-surface">Assignment</h4>
+                            <h4 class="text-sm font-bold text-on-surface">Assignments</h4>
                             <p class="text-[9px] text-slate-400">Pending deliverables</p>
                         </div>
                     </div>
-                    <!-- Results / Marks -->
-                    <div class="bg-amber-50/60 p-4 sm:p-5 rounded-3xl flex flex-col justify-between h-32 sm:h-36 border border-amber-100 cursor-pointer hover:scale-[1.02] active-scale transition-all" onclick="router.navigate('/marks')">
+
+                    <!-- Fee Status -->
+                    <div class="glass-card p-5 flex flex-col justify-between h-36 cursor-pointer hover:scale-[1.02] active-scale transition-all" onclick="router.navigate('/fees')">
                         <div class="flex justify-between items-start">
-                            <span class="material-symbols-outlined text-amber-500">analytics</span>
-                            <span class="text-sm font-extrabold text-amber-600" id="dash-gpa-val">--</span>
+                            <span class="material-symbols-outlined text-slate-400 text-2xl">account_balance_wallet</span>
+                            <span class="px-2 py-0.5 bg-rose-50 text-rose-600 text-[9px] font-extrabold rounded-full border border-rose-200/50 hidden" id="dash-fee-alert">DUE</span>
                         </div>
                         <div>
-                            <h4 class="text-sm font-bold text-slate-800">Results</h4>
-                            <p class="text-[9px] text-amber-500 font-bold tracking-widest uppercase">CGPA</p>
+                            <h4 class="text-sm font-bold text-on-surface">Fee Status</h4>
+                            <p class="text-[9px] text-slate-400 truncate" id="dash-fee-text">Dues &amp; History</p>
                         </div>
                     </div>
-                    <!-- Exams -->
-                    <div class="glass-card p-4 sm:p-5 flex flex-col justify-between h-32 sm:h-36 cursor-pointer hover:scale-[1.02] active-scale transition-all" onclick="router.navigate('/exams')">
+
+                    <!-- LMS Shortcut -->
+                    <div class="bg-indigo-50/70 p-5 rounded-3xl flex flex-col justify-between h-36 border border-indigo-100 cursor-pointer hover:scale-[1.02] active-scale transition-all" onclick="haptic(); router.navigate('/lms')">
                         <div class="flex justify-between items-start">
-                            <span class="material-symbols-outlined text-slate-400">description</span>
-                            <span class="px-2 py-0.5 bg-rose-50 text-rose-600 text-[9px] font-extrabold rounded-full border border-rose-200" id="dash-exams-count">--</span>
+                            <span class="material-symbols-outlined text-indigo-500 text-2xl" style="font-variation-settings:'FILL' 1">menu_book</span>
+                            <span class="px-2 py-0.5 bg-white text-indigo-600 text-[9px] font-extrabold rounded-full border border-indigo-200">LMS</span>
                         </div>
                         <div>
-                            <h4 class="text-sm font-bold text-on-surface">Exams</h4>
-                            <p class="text-[9px] text-slate-400">Dates &amp; Seats</p>
+                            <h4 class="text-sm font-bold text-indigo-900">LMS Portal</h4>
+                            <p class="text-[9px] text-indigo-500/80">Courses & LMS</p>
                         </div>
                     </div>
-                    <!-- Timetable -->
-                    <div class="glass-card p-4 sm:p-5 flex flex-col justify-between h-32 sm:h-36 cursor-pointer hover:scale-[1.02] active-scale transition-all" onclick="router.navigate('/timetable')">
-                        <span class="material-symbols-outlined text-slate-400">event_note</span>
-                        <div>
-                            <h4 class="text-sm font-bold text-on-surface">Timetable</h4>
-                            <p class="text-[9px] text-slate-400">Full Schedule</p>
-                        </div>
-                    </div>
-                    <!-- Exit Gate -->
-                    <div class="bg-emerald-50/70 p-4 sm:p-5 rounded-3xl flex flex-col justify-between h-32 sm:h-36 cursor-pointer hover:scale-[1.02] active-scale transition-all border border-emerald-100" onclick="haptic(); router.navigate('/exit-pass')">
+
+                    <!-- Exit Gate Shortcut -->
+                    <div class="bg-emerald-50/70 p-5 rounded-3xl flex flex-col justify-between h-36 border border-emerald-100 cursor-pointer hover:scale-[1.02] active-scale transition-all" onclick="haptic(); router.navigate('/exit-pass')">
                         <div class="flex justify-between items-start">
-                            <span class="material-symbols-outlined text-emerald-500" style="font-variation-settings:'FILL' 1">badge</span>
-                            <span class="text-[11px] font-black text-emerald-600" id="dash-ep-status">--</span>
+                            <span class="material-symbols-outlined text-emerald-500 text-2xl" style="font-variation-settings:'FILL' 1">badge</span>
+                            <span class="text-[10px] font-black text-emerald-600" id="dash-ep-status">--</span>
                         </div>
                         <div>
                             <h4 class="text-sm font-bold text-emerald-900">Exit Gate</h4>
                             <p class="text-[9px] text-emerald-500/80">Campus pass</p>
                         </div>
                     </div>
-                    <!-- Career -->
-                    <div class="bg-violet-50/70 p-4 sm:p-5 rounded-3xl flex flex-col justify-between h-32 sm:h-36 cursor-pointer hover:scale-[1.02] active-scale transition-all border border-violet-100" onclick="haptic(); router.navigate('/career')">
-                        <div class="flex justify-between items-start">
-                            <span class="material-symbols-outlined text-violet-500" style="font-variation-settings:'FILL' 1">work</span>
-                            <span class="text-[11px] font-black text-violet-600" id="dash-placements-count">--</span>
-                        </div>
-                        <div>
-                            <h4 class="text-sm font-bold text-violet-900">Career</h4>
-                            <p class="text-[9px] text-violet-500/80">Placements</p>
+                </section>
+
+                <!-- 4. RECENT NOTIFICATIONS -->
+                <section class="space-y-3">
+                    <div class="flex justify-between items-end">
+                        <h3 class="text-[11px] font-extrabold uppercase tracking-widest text-slate-400">Recent Notices</h3>
+                        <a href="#" onclick="router.navigate('/announcements');return false;" class="text-[10px] font-bold text-primary hover:underline uppercase tracking-wider">VIEW ALL</a>
+                    </div>
+                    <div class="space-y-2.5" id="dash-ann-list">
+                        <div class="h-20 bg-slate-100 rounded-xl animate-pulse"></div>
+                    </div>
+                </section>
+
+                <!-- Notice Banner -->
+                <section id="notice-banner-section" class="pt-2">
+                    <div class="w-full bg-amber-50 text-amber-900 p-4 rounded-2xl flex items-center gap-3.5 relative overflow-hidden border border-amber-200/60" id="notice-banner">
+                        <div class="absolute right-0 top-0 w-20 h-full bg-gradient-to-l from-amber-100/40 to-transparent"></div>
+                        <span class="material-symbols-outlined text-2xl flex-shrink-0 text-amber-500">campaign</span>
+                        <div class="min-w-0 flex-1">
+                            <p class="text-xs font-bold tracking-tight leading-snug break-words" id="notice-text">ERP sync active. Your data is being synchronized.</p>
                         </div>
                     </div>
                 </section>
@@ -1817,19 +1719,9 @@ const pages = {
             checkSyncStatus();
             _updateLastSyncedChip();
 
-            // ── Dashboard-First: serve IndexedDB immediately, revalidate in background ──
-
-            // 1. Profile / greeting card
-            // Time-based greeting
             const hours = new Date().getHours();
             const greeting = hours < 12 ? 'Good Morning' : hours < 17 ? 'Good Afternoon' : 'Good Evening';
             const greetEmoji = hours < 12 ? '🌅' : hours < 17 ? '☀️' : '🌙';
-            
-            const indicator = $('live-indicator');
-            if (indicator) {
-                indicator.classList.remove('scale-0', 'opacity-0');
-                indicator.classList.add('scale-100', 'opacity-100');
-            }
 
             api.get('/profile').then(res => {
                 const d = res.data || {};
@@ -1842,54 +1734,41 @@ const pages = {
                 setEl('hero-sub', 'innerText', 'Ready for a productive day?');
             });
 
-            const animateCount = (elId, targetStr, suffix = '') => {
-                const el = $(elId);
-                if (!el) return;
-                const target = parseFloat(targetStr);
-                if (isNaN(target)) { el.innerText = targetStr; return; }
-                const duration = 800;
-                const start = Date.now();
-                const startVal = 0;
-                const tick = () => {
-                    const elapsed = Date.now() - start;
-                    const progress = Math.min(elapsed / duration, 1);
-                    const ease = 1 - Math.pow(1 - progress, 3);
-                    const current = startVal + (target - startVal) * ease;
-                    el.innerText = (Number.isInteger(target) ? Math.round(current) : current.toFixed(2)) + suffix;
-                    if (progress < 1) requestAnimationFrame(tick);
-                    else el.innerText = targetStr + suffix;
-                };
-                requestAnimationFrame(tick);
-            };
-
             api.get('/attendance').then(attRes => {
                 const attList = attRes.attendance || [];
                 const overall = calcOverallAttendance(attList);
                 setEl('dash-att-val', 'innerText', overall.text);
-                setEl('hero-att', 'innerText', overall.text);
-                setTimeout(() => {
-                    setEl('dash-att-bar', 'style.width', overall.text);
-                }, 200);
+                const pct = parseFloat(overall.text) || 0;
+                setEl('dash-att-status-text', 'innerText', pct >= 75 ? 'Safe' : 'Critical');
+                const ring = $('dash-att-ring');
+                if (ring) {
+                    ring.style.strokeDashoffset = 163.36 - (pct / 100) * 163.36;
+                }
             }).catch(() => {});
 
             api.get('/marks').then(marksRes => {
                 const cgpa = marksRes.data?.cgpa || '--';
+                const sgpa = marksRes.data?.sgpa || '--';
                 setEl('dash-gpa-val', 'innerText', cgpa);
-                animateCount('hero-cgpa', cgpa);
+                setEl('dash-sgpa-val', 'innerText', sgpa);
             }).catch(() => {});
 
             api.get('/fees').then(feesRes => {
                 const due = feesRes.data?.dueAmount || feesRes.data?.totalDue;
-                if (due) {
-                    setEl('dash-fee-text', 'innerText', due);
+                const rawDue = parseFloat((due || '').replace(/[₹,]/g, '')) || 0;
+                if (rawDue > 0) {
+                    setEl('dash-fee-text', 'innerText', due + ' Due');
+                    $('dash-fee-alert')?.classList.remove('hidden');
                 } else {
                     setEl('dash-fee-text', 'innerText', 'Cleared');
+                    $('dash-fee-alert')?.classList.add('hidden');
                 }
             }).catch(() => {});
 
-            api.get('/placements').then(res => {
-                const list = res.placements || [];
-                setEl('dash-placements-count', 'innerText', `${list.length} Drives`);
+            api.get('/assignments').then(res => {
+                const list = res.data?.list || [];
+                const pending = list.filter(a => a.status.toLowerCase() !== 'submitted');
+                setEl('dash-asn-count', 'innerText', pending.length);
             }).catch(() => {});
 
             api.get('/exit-passes/my').then(res => {
@@ -1902,21 +1781,6 @@ const pages = {
                 }
             }).catch(() => {});
 
-            api.get('/surveys').then(res => {
-                const list = res.surveys || [];
-                setEl('dash-surveys-count', 'innerText', `${list.length} Survey${list.length !== 1 ? 's' : ''}`);
-                if (list.length > 0) {
-                    $('dash-surveys-alert')?.classList.remove('hidden');
-                } else {
-                    $('dash-surveys-alert')?.classList.add('hidden');
-                }
-            }).catch(() => {});
-
-            api.get('/lost-found').then(res => {
-                const list = res.items || [];
-                setEl('dash-lf-count', 'innerText', `${list.length} Item${list.length !== 1 ? 's' : ''}`);
-            }).catch(() => {});
-
             api.get('/timetable').then(ttRes => {
                 const slots = Array.isArray(ttRes) ? ttRes : (ttRes.data || []);
                 const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
@@ -1925,7 +1789,6 @@ const pages = {
                 
                 const todaySlots = slots.filter(s => s.day === day).sort((a, b) => (parseInt(a.period)||0) - (parseInt(b.period)||0));
                 
-                // 1. Next Class Widget
                 const widget = $('dash-upcoming-class-container');
                 if (widget) {
                     if (todaySlots.length === 0) {
@@ -1949,7 +1812,6 @@ const pages = {
                     }
                 }
 
-                // 2. Horizontal scrolling slots list
                 const timetableContainer = $('dash-timetable');
                 if (timetableContainer) {
                     if (todaySlots.length === 0) {
@@ -1980,38 +1842,6 @@ const pages = {
                     }
                 }
             }).catch(() => {});
-
-            // Fetch exams to populate upcoming exam card and count
-            api.get('/exams').then(res => {
-                const data = res.data || {};
-                const list = data.schedules || [];
-                setEl('dash-exams-count', 'innerText', `${list.length} Exam${list.length !== 1 ? 's' : ''}`);
-                
-                const examWidget = $('dash-upcoming-exam-container');
-                if (examWidget) {
-                    if (list.length === 0) {
-                        examWidget.innerHTML = `
-                            <div class="glass-card p-3 rounded-2xl border border-white/40 shadow-sm bg-white/40 flex flex-col justify-center items-center h-20">
-                                <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest">No exams</span>
-                            </div>
-                        `;
-                    } else {
-                        const nextExam = list[0]; 
-                        examWidget.innerHTML = `
-                            <div class="glass-card p-3 rounded-2xl border border-white/40 shadow-sm bg-white/45 flex flex-col justify-between h-20 active-scale transition-transform cursor-pointer" onclick="router.navigate('/exams')">
-                                <div class="flex items-center justify-between">
-                                    <span class="text-[8px] font-black text-[#E11D48] uppercase tracking-wider">Upcoming Exam</span>
-                                    <span class="text-[8px] font-black text-slate-400 uppercase tracking-widest">${nextExam.date || ''}</span>
-                                </div>
-                                <h4 class="text-xs font-bold text-slate-800 truncate mt-1">${nextExam.subjectName || nextExam.subjectCode}</h4>
-                                <p class="text-[9px] text-slate-400 mt-1">💺 Seat ${nextExam.seatNumber || '--'} · ${nextExam.hall || ''}</p>
-                            </div>
-                        `;
-                    }
-                }
-            }).catch(e => {
-                console.error('[Dashboard] Exams fetch error:', e);
-            });
 
             api.get('/announcements').then(res => {
                 const list = res.announcements || [];
@@ -2129,22 +1959,28 @@ const pages = {
                 attList.forEach(sub => {
                     const p = sub.percentage || 0;
                     const statusColor = p >= 75 ? '#10b981' : p >= 65 ? '#eab308' : '#ef4444';
-                    const statusText = p >= 75 ? 'Excellent' : p >= 65 ? 'Warning' : 'Critical';
+                    const statusText = p >= 75 ? 'Safe' : p >= 65 ? 'Warning' : 'Critical';
+                    const statusBadge = p >= 75 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : p >= 65 ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-rose-50 text-rose-700 border-rose-200';
+                    
+                    const needed = 3 * (sub.total || 0) - 4 * (sub.present || 0);
+                    const reqClasses = needed > 0 ? Math.ceil(needed) : 0;
+
                     const card = document.createElement('div');
                     card.className = 'glass-card border border-white/40 p-4 rounded-2xl active-scale transition-all duration-300 shadow-sm';
                     card.innerHTML = `
-                        <div class="flex justify-between items-start mb-2 gap-2">
+                        <div class="flex justify-between items-start mb-2.5 gap-2">
                             <div class="flex-1 min-w-0">
-                                <h4 class="font-bold text-sm text-on-surface truncate" style="font-family:'Plus Jakarta Sans',sans-serif" title="${sub.subject}">${sub.subject}</h4>
+                                <h4 class="font-bold text-sm text-slate-800 truncate" style="font-family:'Plus Jakarta Sans',sans-serif" title="${sub.subject}">${sub.subject}</h4>
+                                <p class="text-[9px] text-slate-400 font-bold mt-0.5">${sub.subjectCode || 'ACAD'}</p>
                             </div>
                             <span class="text-base font-extrabold flex-shrink-0" style="color:${statusColor}">${Math.round(p)}%</span>
                         </div>
-                        <div class="w-full h-1.5 bg-surface-variant rounded-full overflow-hidden">
+                        <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
                             <div class="h-full rounded-full transition-all duration-1000" style="width:${p}%;background:${statusColor}"></div>
                         </div>
-                        <div class="flex justify-between mt-2 text-[9px] font-bold uppercase tracking-wider text-on-surface-variant/60 gap-2">
-                            <span class="truncate">${sub.present} / ${sub.total} Classes</span>
-                            <span class="flex-shrink-0">${statusText}</span>
+                        <div class="flex justify-between items-center mt-3 pt-2.5 border-t border-slate-100">
+                            <span class="px-2 py-0.5 rounded-full text-[9px] font-extrabold border ${statusBadge}">${statusText}</span>
+                            <span class="text-[9px] text-slate-400">Classes to 75%: <span class="font-extrabold text-slate-700">${reqClasses}</span></span>
                         </div>`;
                     grid.appendChild(card);
                 });
@@ -2164,17 +2000,33 @@ const pages = {
                             <p class="text-xs uppercase tracking-[0.2em] text-on-surface-variant mb-1 font-bold">Academic Standing</p>
                             <h1 class="text-4xl font-extrabold tracking-tight text-on-surface" style="font-family:'Plus Jakarta Sans',sans-serif">Marks &amp; Results</h1>
                         </div>
-                        <div class="bg-surface-container-lowest p-5 rounded-xl shadow-[0_10px_40px_rgba(48,51,55,0.04)] flex items-center gap-5 border border-outline-variant/10 w-full max-w-sm">
-                            <div class="relative flex items-center justify-center flex-shrink-0">
-                                <svg class="w-16 h-16 transform -rotate-90">
-                                    <circle class="text-surface-container-high" cx="32" cy="32" fill="transparent" r="28" stroke="currentColor" stroke-width="6"></circle>
-                                    <circle class="text-secondary" cx="32" cy="32" fill="transparent" r="28" stroke="currentColor" stroke-dasharray="175.84" stroke-dashoffset="17.58" stroke-linecap="round" stroke-width="6" id="cgpa-ring-circle"></circle>
-                                </svg>
-                                <span class="absolute text-lg font-bold text-on-surface" id="marks-cgpa-ring">--</span>
+                        <div class="grid grid-cols-2 gap-4 w-full max-w-md">
+                            <div class="bg-surface-container-lowest p-4 rounded-xl shadow-[0_10px_40px_rgba(48,51,55,0.04)] flex items-center gap-4 border border-outline-variant/10">
+                                <div class="relative flex items-center justify-center flex-shrink-0">
+                                    <svg class="w-12 h-12 transform -rotate-90">
+                                        <circle class="text-slate-100" cx="24" cy="24" fill="transparent" r="20" stroke="currentColor" stroke-width="4"></circle>
+                                        <circle class="text-secondary" cx="24" cy="24" fill="transparent" r="20" stroke="currentColor" stroke-dasharray="125.66" stroke-dashoffset="125.66" stroke-linecap="round" stroke-width="4" id="cgpa-ring-circle"></circle>
+                                    </svg>
+                                    <span class="absolute text-sm font-bold text-slate-800" id="marks-cgpa-ring">--</span>
+                                </div>
+                                <div class="space-y-0.5 min-w-0">
+                                    <p class="text-slate-400 font-bold text-[9px] uppercase tracking-wider">CGPA</p>
+                                    <p class="text-slate-800 font-extrabold text-xs truncate" id="marks-cgpa-status">Loading...</p>
+                                </div>
                             </div>
-                            <div class="space-y-0.5">
-                                <p class="text-on-surface-variant font-medium text-xs">Cumulative GPA</p>
-                                <p class="text-secondary font-bold text-base leading-tight" id="marks-cgpa-status">Loading...</p>
+                            
+                            <div class="bg-surface-container-lowest p-4 rounded-xl shadow-[0_10px_40px_rgba(48,51,55,0.04)] flex items-center gap-4 border border-outline-variant/10">
+                                <div class="relative flex items-center justify-center flex-shrink-0">
+                                    <svg class="w-12 h-12 transform -rotate-90">
+                                        <circle class="text-slate-100" cx="24" cy="24" fill="transparent" r="20" stroke="currentColor" stroke-width="4"></circle>
+                                        <circle class="text-blue-500" cx="24" cy="24" fill="transparent" r="20" stroke="currentColor" stroke-dasharray="125.66" stroke-dashoffset="125.66" stroke-linecap="round" stroke-width="4" id="sgpa-ring-circle"></circle>
+                                    </svg>
+                                    <span class="absolute text-sm font-bold text-slate-800" id="marks-sgpa-ring">--</span>
+                                </div>
+                                <div class="space-y-0.5 min-w-0">
+                                    <p class="text-slate-400 font-bold text-[9px] uppercase tracking-wider">SGPA</p>
+                                    <p class="text-slate-800 font-extrabold text-xs truncate">Current Sem</p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -2206,8 +2058,27 @@ const pages = {
                 const res = await api.get('/marks');
                 const data = res.data || {};
                 const cgpa = parseFloat(data.cgpa) || 0;
+                const sgpa = parseFloat(data.sgpa) || 0;
 
                 setEl('marks-cgpa-ring', 'innerText', data.cgpa || '--');
+                setEl('marks-sgpa-ring', 'innerText', data.sgpa || '--');
+                setEl('marks-cgpa-status', 'innerText', cgpa >= 8.5 ? "Dean's List" : cgpa >= 7 ? 'Good Standing' : cgpa >= 5 ? 'Satisfactory' : 'Needs Improve');
+
+                // Update SVG rings
+                const cgpaRing = $('cgpa-ring-circle');
+                if (cgpaRing) {
+                    const pct = Math.min(cgpa / 10, 1);
+                    const circumference = 125.66;
+                    cgpaRing.style.strokeDashoffset = circumference - pct * circumference;
+                }
+                const sgpaRing = $('sgpa-ring-circle');
+                if (sgpaRing) {
+                    const pct = Math.min(sgpa / 10, 1);
+                    const circumference = 125.66;
+                    sgpaRing.style.strokeDashoffset = circumference - pct * circumference;
+                }
+
+                const grid = $('marks-grid'); 'innerText', data.cgpa || '--');
                 setEl('marks-cgpa-status', 'innerText', cgpa >= 8.5 ? "Dean's List Status" : cgpa >= 7 ? 'Good Standing' : cgpa >= 5 ? 'Satisfactory' : 'Needs Improvement');
 
                 // Update SVG ring
@@ -2388,12 +2259,26 @@ const pages = {
                 const d = res.data || {};
                 const activeNotices = noticesRes.notices || [];
                 const hasWarning = activeNotices.some(n => n.hallTicketBlockWarning === true);
-                const dueAmount = d.dueAmount || d.totalDue || '₹0';
+                
+                const formatRupees = (val) => {
+                    if (!val) return '₹0';
+                    let clean = String(val).replace(/[₹\s,]/g, '').trim();
+                    if (clean.startsWith('Rs.')) {
+                        clean = clean.replace('Rs.', '').trim();
+                    }
+                    const num = parseFloat(clean);
+                    return isNaN(num) ? val : '₹' + num.toLocaleString('en-IN');
+                };
+
+                const dueAmount = formatRupees(d.dueAmount || d.totalDue);
+                const totalAmount = formatRupees(d.totalAmount);
+                const paidAmount = formatRupees(d.paidAmount);
+
                 setEl('fee-due', 'innerText', dueAmount);
                 setEl('fee-pct', 'innerText', `${d.paidProgress || 0}%`);
-                setEl('fee-total', 'innerText', d.totalAmount || '--');
-                setEl('fee-paid', 'innerText', d.paidAmount || '--');
-                setEl('fee-progress-text', 'innerText', `You've cleared ${d.paidAmount || '--'} of ${d.totalAmount || '--'} for the semester.`);
+                setEl('fee-total', 'innerText', totalAmount);
+                setEl('fee-paid', 'innerText', paidAmount);
+                setEl('fee-progress-text', 'innerText', `You've cleared ${paidAmount} of ${totalAmount} for the semester.`);
                 setEl('fee-hero-sub', 'innerText', `Your semester fee status: ${dueAmount} due. Ensure timely payment to avoid penalties.`);
  
                 // Ring animation (uses 402.12 radius calculations)
@@ -2578,7 +2463,7 @@ const pages = {
                                 </div>
                             </div>
                             <div class="text-right flex-shrink-0 flex flex-col items-end">
-                                <p class="font-extrabold text-on-surface text-sm leading-tight">${txn.amount}</p>
+                                <p class="font-extrabold text-on-surface text-sm leading-tight">${formatRupees(txn.amount)}</p>
                                 <span class="text-[9px] px-2 py-0.5 ${sc} rounded-full font-bold uppercase tracking-tighter mt-1 inline-block">${txn.status}</span>
                             </div>
                         </div>
@@ -2590,7 +2475,6 @@ const pages = {
         }
     },
 
-    // ---- PROFILE ----
     profile: {
         render: () => `<div class="min-h-screen pb-36 bg-[#F8FAFC]">
             <main class="pt-20 px-4 max-w-lg mx-auto space-y-6">
@@ -2620,7 +2504,7 @@ const pages = {
                                 <h3 class="text-base font-black tracking-tight" id="id-name">---</h3>
                                 <p class="text-xs font-bold text-blue-200 mt-0.5" id="id-roll">---</p>
                                 <p class="text-[10px] text-slate-300 mt-1" id="id-dept">Dept: CSE</p>
-                                <p class="text-[10px] text-slate-300" id="id-year">Semester: 3rd Semester</p>
+                                <p class="text-[10px] text-slate-300" id="id-year">Semester: —</p>
                             </div>
                         </div>
 
@@ -2646,12 +2530,9 @@ const pages = {
                     </div>
                 </section>
 
-                <!-- Detailed Personal & Academic Fields -->
-                <section class="space-y-3">
-                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Student Details</h3>
-                    <div class="space-y-2" id="profile-fields-container">
-                        <div class="h-16 bg-slate-100 rounded-xl animate-pulse"></div>
-                    </div>
+                <!-- Grouped Personal & Academic Fields -->
+                <section class="space-y-4 text-left" id="profile-sections-container">
+                    <div class="h-40 bg-slate-100 rounded-3xl animate-pulse"></div>
                 </section>
 
                 <!-- Actions -->
@@ -2682,10 +2563,10 @@ const pages = {
                         
                         <div class="flex flex-col gap-1 text-[11px] text-slate-300 pt-1 text-center font-medium">
                             <p id="fs-dept">Department: Computer Science</p>
-                            <p id="fs-batch">Batch: 2024 - 2028</p>
-                            <p id="fs-adm">Admission No: ADM-2024-0098</p>
-                            <p id="fs-blood">Blood Group: B+</p>
-                            <p id="fs-emergency">Emergency: +91-9988776655</p>
+                            <p id="fs-batch">Batch: --</p>
+                            <p id="fs-adm">Admission No: --</p>
+                            <p id="fs-blood">Blood Group: --</p>
+                            <p id="fs-emergency">Emergency: --</p>
                         </div>
                     </div>
 
@@ -2709,61 +2590,12 @@ const pages = {
             try {
                 const res = await api.get('/profile');
                 const d = res.data || {};
-
-                // ── EVIDENCE LOG: print every field we received from /api/profile ──
-                // This is the authoritative diagnostic for N/A fields.
-                // Compare against the ERP scraper label table in Render logs.
-                console.log('[Profile] Raw /api/profile response:', JSON.stringify(d, null, 2));
-
                 state.profile = d;
-
-                // ── EVIDENCE LOG: Frontend profile object BEFORE rendering ──
-                // Stage 5 of 5: ERP → Scraper → DB → API → [Frontend]
-                // If a field is blank here but present in [Profile] Raw /api/profile,
-                // the loss is in the frontend data-binding. If blank in both,
-                // the loss is upstream (scraper, DB, or API serialization).
-                console.log('[PROFILE-UI] Object used to render profile page:', JSON.stringify({
-                    name:            d.name,
-                    roll:            d.roll,
-                    userId:          d.userId,
-                    branch:          d.branch,
-                    program:         d.program,
-                    semester:        d.semester,
-                    year:            d.year,
-                    dob:             d.dob,
-                    email:           d.email,
-                    phone:           d.phone,
-                    fatherName:      d.fatherName,
-                    motherName:      d.motherName,
-                    fatherMobile:    d.fatherMobile,
-                    hostel:          d.hostel,
-                    roomNo:          d.roomNo,
-                    address:         d.address,
-                    bloodGroup:      d.bloodGroup,
-                    emergencyContact:d.emergencyContact,
-                    admissionNo:     d.admissionNo,
-                    joiningDate:     d.joiningDate,
-                    caste:           d.caste,
-                    nationality:     d.nationality,
-                    religion:        d.religion,
-                    sscMarks:        d.sscMarks,
-                    interMarks:      d.interMarks,
-                    scholarship:     d.scholarship,
-                    seatType:        d.seatType,
-                    entranceType:    d.entranceType,
-                    entranceRank:    d.entranceRank,
-                    aadhar:          d.aadhar,
-                    photoUrl:        d.photoUrl,
-                    guardianName:    d.guardianName,
-                    guardianPhone:   d.guardianPhone,
-                    guardianAddress: d.guardianAddress
-                }, null, 2));
 
                 setEl('id-name', 'innerText', d.name || 'Student');
                 setEl('id-roll', 'innerText', d.roll || d.userId || '---');
                 setEl('id-dept', 'innerText', `Dept: ${d.branch || d.program || 'CSE'}`);
                 
-                // Semester: use exact ERP value — no hardcoded fallback ever.
                 const _displaySemester = d.semester ?? d.currentSemester ?? d.erpSemester ?? '';
                 setEl('id-year', 'innerText', _displaySemester ? `Semester: ${_displaySemester}` : 'Semester: —');
                 
@@ -2775,7 +2607,6 @@ const pages = {
                 setEl('fs-blood', 'innerText', `Blood Group: ${d.bloodGroup || 'Not Provided'}`);
                 setEl('fs-emergency', 'innerText', `Emergency: ${d.emergencyContact || d.phone || d.fatherMobile || 'N/A'}`);
 
-                // Student Photo rendering
                 if (d.photoUrl && d.photoUrl.trim().length > 0) {
                     const avatarHtml = `<img src="${d.photoUrl}" class="w-full h-full object-cover rounded-2xl" alt="Photo" onerror="this.style.display='none'">`;
                     const fsAvatarHtml = `<img src="${d.photoUrl}" class="w-full h-full object-cover rounded-3xl" alt="Photo" onerror="this.style.display='none'">`;
@@ -2802,67 +2633,85 @@ const pages = {
                     setEl('prof-gpa-val', 'innerText', marksRes.data?.cgpa || '--');
                 }).catch(() => {});
 
-                const list = $('profile-fields-container');
-                if (!list) return;
-
-                const fields = [];
-                if (d.dob) fields.push(['cake', 'Date of Birth', d.dob]);
-                if (d.email) fields.push(['mail', 'Email Address', d.email]);
-                if (d.phone) fields.push(['phone', 'Mobile Number', d.phone]);
-                if (d.fatherName) fields.push(['supervisor_account', 'Father Name', d.fatherName]);
-                if (d.motherName) fields.push(['supervisor_account', 'Mother Name', d.motherName]);
-                if (d.fatherMobile) fields.push(['contact_phone', 'Father Mobile', d.fatherMobile]);
-                
-                if (d.guardianName) fields.push(['shield_with_heart', 'Guardian Name', d.guardianName]);
-                if (d.guardianPhone) fields.push(['phone_in_talk', 'Guardian Contact', d.guardianPhone]);
-                if (d.guardianAddress) fields.push(['pin_drop', 'Guardian Address', d.guardianAddress]);
-
-                // Hostel / Day scholar status
-                fields.push(['home', 'Accommodation Status', d.hostel ? `${d.hostel} · Room ${d.roomNo}` : 'Day Scholar']);
-                
-                if (d.address) fields.push(['location_on', 'Home Address', d.address]);
-                if (d.aadhar) fields.push(['fingerprint', 'Aadhaar Number', d.aadhar]);
-                if (d.admissionNo) fields.push(['badge', 'Admission Number', d.admissionNo]);
-                if (d.caste) fields.push(['group', 'Caste Category', d.caste]);
-                
-                if (d.entranceType && d.entranceRank) {
-                    fields.push(['military_tech', 'Entrance Rank', `${d.entranceType} · Rank ${d.entranceRank}`]);
-                } else if (d.entranceType) {
-                    fields.push(['military_tech', 'Entrance Type', d.entranceType]);
-                }
-                
-                if (d.joiningDate) fields.push(['calendar_today', 'Date of Joining', d.joiningDate]);
-                
-                if (d.nationality || d.religion) {
-                    const parts = [];
-                    if (d.nationality) parts.push(d.nationality);
-                    if (d.religion) parts.push(d.religion);
-                    fields.push(['public', 'Nationality & Religion', parts.join(' · ')]);
-                }
-                
-                if (d.sscMarks || d.interMarks) {
-                    const parts = [];
-                    if (d.sscMarks) parts.push(`SSC: ${d.sscMarks}`);
-                    if (d.interMarks) parts.push(`Inter: ${d.interMarks}`);
-                    fields.push(['grade', 'Prior Qualifications', parts.join(' · ')]);
-                }
-                
-                if (d.scholarship) fields.push(['payments', 'Scholarship Status', d.scholarship]);
-                if (d.seatType) fields.push(['chair', 'Seat Category', d.seatType]);
-                if (d.bloodGroup) fields.push(['water_drop', 'Blood Group', d.bloodGroup]);
-                if (d.emergencyContact) fields.push(['emergency', 'Emergency Contact', d.emergencyContact]);
-
-                list.innerHTML = fields.map(([icon, label, val]) => `
-                    <div class="flex items-center gap-4 p-4 bg-white border border-slate-200/50 rounded-2xl shadow-sm">
-                        <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-500 border border-blue-100 flex items-center justify-center flex-shrink-0">
-                            <span class="material-symbols-outlined text-sm">${icon}</span>
+                const list = $('profile-sections-container');
+                if (list) {
+                    const renderRow = (icon, label, val) => `
+                        <div class="flex items-center gap-3.5 py-3 border-b border-slate-100 last:border-0">
+                            <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-500 border border-blue-100/50 flex items-center justify-center flex-shrink-0">
+                                <span class="material-symbols-outlined text-[16px]">${icon}</span>
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <p class="text-[9px] uppercase font-bold text-slate-400 leading-none">${label}</p>
+                                <p class="text-xs font-semibold text-slate-800 mt-1 truncate">${val || '—'}</p>
+                            </div>
                         </div>
-                        <div class="min-w-0 flex-1">
-                            <p class="text-[9px] uppercase font-bold text-slate-400 leading-none">${label}</p>
-                            <p class="text-sm font-semibold text-slate-800 mt-1.5 truncate">${val || 'N/A'}</p>
+                    `;
+
+                    const personalRows = [
+                        renderRow('cake', 'Date of Birth', d.dob),
+                        renderRow('face', 'Gender', d.gender || 'Not Provided'),
+                        renderRow('fingerprint', 'Aadhaar Number', d.aadhar),
+                        renderRow('water_drop', 'Blood Group', d.bloodGroup)
+                    ].join('');
+
+                    const academicRows = [
+                        renderRow('badge', 'Admission Number', d.admissionNo),
+                        renderRow('school', 'Program', d.program),
+                        renderRow('account_tree', 'Branch', d.branch),
+                        renderRow('event_seat', 'Semester', d.semester || d.currentSemester),
+                        renderRow('calendar_today', 'Year', d.year),
+                        renderRow('calendar_month', 'Date of Joining', d.joiningDate)
+                    ].join('');
+
+                    const contactRows = [
+                        renderRow('mail', 'Email Address', d.email),
+                        renderRow('phone', 'Mobile Number', d.phone),
+                        renderRow('location_on', 'Home Address', d.address),
+                        renderRow('emergency', 'Emergency Contact', d.emergencyContact)
+                    ].join('');
+
+                    const parentRows = [
+                        renderRow('supervisor_account', 'Father Name', d.fatherName),
+                        renderRow('supervisor_account', 'Mother Name', d.motherName),
+                        renderRow('contact_phone', 'Father Mobile', d.fatherMobile),
+                        renderRow('shield_with_heart', 'Guardian Name', d.guardianName),
+                        renderRow('phone_in_talk', 'Guardian Contact', d.guardianPhone),
+                        renderRow('pin_drop', 'Guardian Address', d.guardianAddress)
+                    ].join('');
+
+                    const hostelRows = [
+                        renderRow('home', 'Accommodation Status', d.hostel ? d.hostel : 'Day Scholar'),
+                        renderRow('meeting_room', 'Room Number', d.hostel ? d.roomNo : 'N/A')
+                    ].join('');
+
+                    const scholarshipRows = [
+                        renderRow('chair', 'Seat Category', d.seatType),
+                        renderRow('military_tech', 'Entrance Type', d.entranceType),
+                        renderRow('grade', 'Entrance Rank', d.entranceRank),
+                        renderRow('payments', 'Scholarship Status', d.scholarship)
+                    ].join('');
+
+                    const renderPanel = (title, icon, rowsHtml) => `
+                        <div class="glass-card p-5 rounded-[2rem] border border-slate-200/50 shadow-sm bg-white/70 space-y-3">
+                            <div class="flex items-center gap-2 mb-1.5 pb-2.5 border-b border-slate-100">
+                                <span class="material-symbols-outlined text-blue-600 text-lg" style="font-variation-settings:'FILL' 1">${icon}</span>
+                                <h4 class="text-xs font-black text-slate-800 uppercase tracking-widest">${title}</h4>
+                            </div>
+                            <div class="flex flex-col">
+                                ${rowsHtml}
+                            </div>
                         </div>
-                    </div>
-                `).join('');
+                    `;
+
+                    list.innerHTML = [
+                        renderPanel('Personal Information', 'person', personalRows),
+                        renderPanel('Academic Information', 'school', academicRows),
+                        renderPanel('Contact Information', 'contact_phone', contactRows),
+                        renderPanel('Parent / Guardian Details', 'supervisor_account', parentRows),
+                        renderPanel('Hostel Information', 'home', hostelRows),
+                        renderPanel('Scholarship & Seat Details', 'payments', scholarshipRows)
+                    ].join('');
+                }
             } catch (err) {
                 console.error('[Profile] load failed:', err);
             } finally {
@@ -3993,16 +3842,20 @@ const pages = {
                                 </div>
                             </div>
                             
-                            ${isApproved ? `
-                            <div class="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 flex flex-col items-center gap-3">
-                                <div class="w-32 h-32 bg-white rounded-xl border border-emerald-200 flex items-center justify-center">
-                                    <span class="material-symbols-outlined text-emerald-600 text-5xl font-light">qr_code_2</span>
-                                </div>
-                                <div class="text-center">
-                                    <p class="text-[10px] font-bold text-emerald-700 uppercase tracking-widest leading-none">Security Gate Pass OTP</p>
-                                    <p class="text-2xl font-black text-emerald-800 tracking-wider mt-1 font-mono">${active.otp || '------'}</p>
-                                </div>
-                            </div>` : ''}
+                            ${isApproved ? (() => {
+                                const qrData = `PassID:${active.id}|StudentID:${active.studentId || 'STUDENT'}|Expiry:${active.requestDate || 'TODAY'} 23:59:59`;
+                                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrData)}`;
+                                return `
+                                <div class="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 flex flex-col items-center gap-3 animate-reveal">
+                                    <div class="w-32 h-32 bg-white rounded-xl border border-emerald-200 flex items-center justify-center p-2.5 overflow-hidden shadow-inner">
+                                        <img src="${qrUrl}" class="w-full h-full object-contain" alt="QR Code" />
+                                    </div>
+                                    <div class="text-center">
+                                        <p class="text-[10px] font-bold text-emerald-700 uppercase tracking-widest leading-none">Security Gate Pass OTP</p>
+                                        <p class="text-2xl font-black text-emerald-800 tracking-wider mt-1 font-mono">${active.otp || '------'}</p>
+                                    </div>
+                                </div>`;
+                            })() : ''}
 
                             ${timelineHtml}
                         </div>
@@ -5150,6 +5003,188 @@ const pages = {
 
             loadTickets();
         }
+    },
+
+    lms: {
+        render: () => `
+            <div class="min-h-screen pb-32 bg-[#F8FAFC]">
+                <main class="pt-20 px-4 max-w-lg mx-auto space-y-6">
+                    <section class="flex justify-between items-center mb-2">
+                        <div>
+                            <p class="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-1">Academic Portal</p>
+                            <h2 class="text-3xl font-extrabold tracking-tight text-slate-800" style="font-family:'Plus Jakarta Sans',sans-serif">LMS Portal</h2>
+                        </div>
+                    </section>
+
+                    <div class="flex gap-2 p-1 bg-slate-100 rounded-2xl">
+                        <button class="flex-1 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all bg-white text-slate-800 shadow-sm" id="lms-tab-courses">My Courses</button>
+                        <button class="flex-1 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all text-slate-500 hover:text-slate-700" id="lms-tab-certs">Certificates</button>
+                    </div>
+
+                    <!-- Courses Tab Content -->
+                    <div id="lms-courses-content" class="space-y-4">
+                        <div class="h-32 bg-slate-100 rounded-xl animate-pulse"></div>
+                    </div>
+
+                    <!-- Certificates Tab Content -->
+                    <div id="lms-certs-content" class="space-y-4 hidden">
+                        <div class="h-32 bg-slate-100 rounded-xl animate-pulse"></div>
+                    </div>
+                </main>
+            </div>
+        `,
+        afterRender: async () => {
+            toggleShell(true);
+            setActiveNav('lms');
+
+            const coursesContent = $('lms-courses-content');
+            const certsContent = $('lms-certs-content');
+            const tabCoursesBtn = $('lms-tab-courses');
+            const tabCertsBtn = $('lms-tab-certs');
+
+            if (!coursesContent || !certsContent || !tabCoursesBtn || !tabCertsBtn) return;
+
+            // Switch tabs
+            tabCoursesBtn.addEventListener('click', () => {
+                haptic();
+                tabCoursesBtn.className = "flex-1 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all bg-white text-slate-800 shadow-sm";
+                tabCertsBtn.className = "flex-1 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all text-slate-500 hover:text-slate-700";
+                coursesContent.classList.remove('hidden');
+                certsContent.classList.add('hidden');
+            });
+
+            tabCertsBtn.addEventListener('click', () => {
+                haptic();
+                tabCertsBtn.className = "flex-1 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all bg-white text-slate-800 shadow-sm";
+                tabCoursesBtn.className = "flex-1 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all text-slate-500 hover:text-slate-700";
+                certsContent.classList.remove('hidden');
+                coursesContent.classList.add('hidden');
+            });
+
+            loading.show('Loading LMS Data...');
+            try {
+                const res = await api.get('/lms');
+                const data = res.data || {};
+                const courses = data.courses || [];
+                const certificates = data.certificates || [];
+
+                // Render Courses
+                if (courses.length === 0) {
+                    coursesContent.innerHTML = `<div class="text-center py-12 text-slate-400 font-bold uppercase text-xs">No enrolled courses.</div>`;
+                } else {
+                    coursesContent.innerHTML = courses.map(c => {
+                        const progress = c.progress?.progressPct || 0;
+                        const assignments = c.assignments || [];
+                        const quizzes = c.quizzes || [];
+
+                        return `
+                            <div class="glass-card p-5 border border-white/40 rounded-3xl bg-white shadow-sm hover:shadow-md transition-all duration-300 space-y-4">
+                                <div class="flex justify-between items-start">
+                                    <div class="min-w-0 flex-1">
+                                        <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">${c.code}</p>
+                                        <h3 class="font-extrabold text-slate-800 text-sm mt-1 truncate" title="${c.name}">${c.name}</h3>
+                                        <div class="flex items-center gap-2 mt-1">
+                                            <span class="text-[9px] text-slate-400 font-bold">👤 ${c.faculty?.name || 'Faculty'}</span>
+                                            <span class="w-1 h-1 bg-slate-300 rounded-full"></span>
+                                            <span class="text-[9px] text-slate-400 font-bold">${c.credits || 0} Credits</span>
+                                        </div>
+                                    </div>
+                                    <span class="text-xs font-extrabold text-primary bg-blue-50 px-2 py-0.5 rounded border border-blue-100 ml-2 flex-shrink-0">${progress}%</span>
+                                </div>
+
+                                <!-- Progress Bar -->
+                                <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden border border-white">
+                                    <div class="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-500" style="width:${progress}%"></div>
+                                </div>
+
+                                <!-- Accordions -->
+                                <div class="space-y-2 pt-2">
+                                    <!-- Assignments Accordion -->
+                                    <div class="border border-slate-100 rounded-xl overflow-hidden bg-slate-50/50">
+                                        <button class="w-full px-4 py-3 flex items-center justify-between text-xs font-bold text-slate-600 uppercase tracking-wider hover:bg-slate-50 active-scale transition-all" onclick="const p = this.nextElementSibling; p.classList.toggle('hidden'); const icon = this.querySelector('.arrow-icon'); icon.textContent = p.classList.contains('hidden') ? 'keyboard_arrow_down' : 'keyboard_arrow_up';">
+                                            <span>Assignments (${assignments.length})</span>
+                                            <span class="material-symbols-outlined text-sm font-bold arrow-icon">keyboard_arrow_down</span>
+                                        </button>
+                                        <div class="hidden border-t border-slate-100 p-3 space-y-2">
+                                            ${assignments.length === 0 ? `<p class="text-[9px] text-slate-400 text-center font-bold">No assignments available</p>` : assignments.map(a => {
+                                                const sub = a.submission;
+                                                const score = sub ? (sub.points !== null ? `${sub.points}/${a.maxPoints}` : 'Submitted') : 'Pending';
+                                                const statusColor = sub ? 'text-emerald-600 bg-emerald-50 border-emerald-100' : 'text-amber-600 bg-amber-50 border-amber-100';
+                                                return `
+                                                    <div class="flex justify-between items-center p-2.5 rounded-lg bg-white border border-slate-100 text-[10px]">
+                                                        <div class="min-w-0 flex-1 mr-3">
+                                                            <p class="font-extrabold text-slate-700 truncate">${a.title}</p>
+                                                            <p class="text-[8px] text-slate-400 font-bold mt-0.5">Due: ${new Date(a.dueDate).toLocaleDateString()}</p>
+                                                        </div>
+                                                        <span class="px-2 py-0.5 rounded border text-[8px] font-black uppercase tracking-wide flex-shrink-0 ${statusColor}">${score}</span>
+                                                    </div>`;
+                                            }).join('')}
+                                        </div>
+                                    </div>
+
+                                    <!-- Quizzes Accordion -->
+                                    <div class="border border-slate-100 rounded-xl overflow-hidden bg-slate-50/50">
+                                        <button class="w-full px-4 py-3 flex items-center justify-between text-xs font-bold text-slate-600 uppercase tracking-wider hover:bg-slate-50 active-scale transition-all" onclick="const p = this.nextElementSibling; p.classList.toggle('hidden'); const icon = this.querySelector('.arrow-icon'); icon.textContent = p.classList.contains('hidden') ? 'keyboard_arrow_down' : 'keyboard_arrow_up';">
+                                            <span>Quizzes (${quizzes.length})</span>
+                                            <span class="material-symbols-outlined text-sm font-bold arrow-icon">keyboard_arrow_down</span>
+                                        </button>
+                                        <div class="hidden border-t border-slate-100 p-3 space-y-2">
+                                            ${quizzes.length === 0 ? `<p class="text-[9px] text-slate-400 text-center font-bold">No quizzes available</p>` : quizzes.map(q => {
+                                                const res = q.result;
+                                                const score = res ? `${res.score}/${q.maxPoints}` : 'Pending';
+                                                const statusColor = res ? 'text-emerald-600 bg-emerald-50 border-emerald-100' : 'text-amber-600 bg-amber-50 border-amber-100';
+                                                return `
+                                                    <div class="flex justify-between items-center p-2.5 rounded-lg bg-white border border-slate-100 text-[10px]">
+                                                        <div class="min-w-0 flex-1 mr-3">
+                                                            <p class="font-extrabold text-slate-700 truncate">${q.title}</p>
+                                                        </div>
+                                                        <span class="px-2 py-0.5 rounded border text-[8px] font-black uppercase tracking-wide flex-shrink-0 ${statusColor}">${score}</span>
+                                                    </div>`;
+                                            }).join('')}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+
+                // Render Certificates
+                if (certificates.length === 0) {
+                    certsContent.innerHTML = `
+                        <div class="text-center py-12 text-slate-400 font-bold uppercase text-xs">
+                            <span class="material-symbols-outlined text-4xl mb-2 text-slate-300">workspace_premium</span>
+                            <p>No certificates earned yet.</p>
+                        </div>`;
+                } else {
+                    certsContent.innerHTML = certificates.map(cert => {
+                        const dateStr = new Date(cert.issuedAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+                        return `
+                            <div class="glass-card p-5 border border-white/40 rounded-3xl bg-white shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden flex items-start gap-4">
+                                <div class="w-12 h-12 bg-amber-50 border border-amber-200 text-amber-600 rounded-xl flex items-center justify-center flex-shrink-0">
+                                    <span class="material-symbols-outlined text-2xl font-light">workspace_premium</span>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <h4 class="font-extrabold text-slate-800 text-sm leading-tight truncate" title="${cert.courseName}">${cert.courseName}</h4>
+                                    <p class="text-[9px] text-slate-400 font-bold mt-1 uppercase tracking-wide">${cert.courseCode}</p>
+                                    <p class="text-[9px] text-slate-500 font-bold mt-1">Issued: ${dateStr}</p>
+                                    <div class="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[9px] text-slate-400">
+                                        <span>Cert ID: <span class="font-mono font-extrabold text-slate-700 uppercase">${cert.certNumber}</span></span>
+                                        <span class="text-emerald-600 font-bold flex items-center gap-0.5"><span class="material-symbols-outlined text-[10px]" style="font-size:10px">verified</span> Verified</span>
+                                    </div>
+                                </div>
+                                <div class="absolute -right-6 -top-6 w-16 h-16 bg-amber-500/5 rounded-full blur-xl pointer-events-none"></div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+            } catch (err) {
+                console.error('[LMS] load failed:', err);
+                coursesContent.innerHTML = `<div class="text-center py-12 text-rose-500 font-bold uppercase text-xs">Failed to load LMS data.</div>`;
+            } finally {
+                loading.hide();
+            }
+        }
     }
 };
 
@@ -5287,7 +5322,8 @@ const router = {
             '/survey': pages.survey,
             '/announcements': pages.announcements,
             '/lost-found': pages['lost-found'],
-            '/help': pages.help
+            '/help': pages.help,
+            '/lms': pages.lms
         };
     },
 
@@ -5295,12 +5331,20 @@ const router = {
         let hash = (window.location.hash || '').replace('#', '') || '/login';
         if (hash.includes('sitam://')) hash = hash.replace('sitam://', '');
         if (!hash.startsWith('/')) hash = '/' + hash;
+        console.log(`[NAV] router.handle() started for hash: "${hash}"`);
 
         if (state.maintenance?.active && hash !== '/maintenance') {
+            console.log('[NAV] redirecting to /maintenance');
             return this.navigate('/maintenance');
         }
-        if (!state.token && hash !== '/login' && hash !== '/maintenance') return this.navigate('/login');
-        if (state.token && hash === '/login') return this.navigate('/dashboard');
+        if (!state.token && hash !== '/login' && hash !== '/maintenance') {
+            console.log('[NAV] redirecting to /login');
+            return this.navigate('/login');
+        }
+        if (state.token && hash === '/login') {
+            console.log('[NAV] redirecting to /dashboard');
+            return this.navigate('/dashboard');
+        }
 
         // Cancel all pending/in-flight low/medium priority requests on route change
         RequestQueue.cancelLowPriority();
@@ -5324,6 +5368,7 @@ const router = {
         this.currentRoute = hash;
         const route = hash.slice(1) || 'dashboard';
         const page  = pages[route] || pages.dashboard;
+        console.log(`[NAV] Resolved route: "${route}", page exists: ${!!page}`);
         closeDrawer();
         setActiveNav(route);
 
@@ -5335,6 +5380,7 @@ const router = {
         }
 
         const isKeepAlive = KEEP_ALIVE_PAGES.has(route);
+        console.log(`[NAV] Page isKeepAlive: ${isKeepAlive}`);
 
         if (isKeepAlive) {
             // ── keepAlive path: swap DOM nodes, no innerHTML destroy ──────────
@@ -5346,6 +5392,7 @@ const router = {
 
             if (_pageCache.has(route)) {
                 // ── CACHE HIT: instant restore <5ms ──────────────────────────
+                console.log(`[NAV] KeepAlive cache HIT for: ${route}`);
                 const cached = _pageCache.get(route);
                 cached.lastAccess = Date.now();
                 cached.node.style.display = '';
@@ -5367,6 +5414,7 @@ const router = {
                 page.revalidate?.();
             } else {
                 // ── CACHE MISS: first render, create and cache DOM node ───────
+                console.log(`[NAV] KeepAlive cache MISS for: ${route}. Creating element...`);
                 const node = document.createElement('div');
                 node.className = 'sitam-page-node';
                 node.innerHTML = page.render();
@@ -5382,7 +5430,10 @@ const router = {
                 // Evict if over LRU limit
                 _evictLRUPage();
 
-                if (page.afterRender) page.afterRender();
+                if (page.afterRender) {
+                    console.log(`[NAV] Calling page.afterRender() for ${route}`);
+                    page.afterRender();
+                }
                 const savedPos = this.scrollPositions[hash] || 0;
                 requestAnimationFrame(() => window.scrollTo(0, savedPos));
             }
@@ -5395,8 +5446,10 @@ const router = {
             // This ensures the login DOM is COMPLETELY REMOVED from memory on any navigation away from it.
             const existingNonCached = this.app.querySelector('.sitam-page-non-cached');
             if (existingNonCached) {
+                console.log(`[NAV] Evicting existing non-cached page node`);
                 existingNonCached.remove();
             }
+            console.log(`[NAV] Rendering non-cached page: ${route}`);
             const nonCachedNode = document.createElement('div');
             nonCachedNode.className = 'sitam-page-non-cached';
             this.app.appendChild(nonCachedNode);
@@ -5411,7 +5464,10 @@ const router = {
             nonCachedNode.addEventListener('animationend', () =>
                 nonCachedNode.classList.remove(animClass), { once: true });
 
-            if (page.afterRender) page.afterRender();
+            if (page.afterRender) {
+                console.log(`[NAV] Calling page.afterRender() for non-cached page: ${route}`);
+                page.afterRender();
+            }
             const savedPos = this.scrollPositions[hash] || 0;
             requestAnimationFrame(() => window.scrollTo(0, savedPos));
         }
@@ -5592,139 +5648,144 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // ── Last-synced chip refresh timer ──────────────────────────────────────
-    setInterval(_updateLastSyncedChip, 30 * 1000);
-
     // ── SITAM Splash Controller & Session Bootstrapping ────────────────────
     const progressBar = $('splash-progress-bar');
     if (progressBar) {
         setTimeout(() => { progressBar.style.width = '40%'; }, 50);
     }
 
+    // Guaranteed splash dismiss — called from finally, always runs
     const _splashDismiss = () => {
-        const splash = $('sitam-splash');
-        if (splash && !splash.classList.contains('opacity-0')) {
-            splash.classList.add('opacity-0', 'pointer-events-none');
-            setTimeout(() => { if (splash.parentNode) splash.remove(); }, 700);
+        try {
+            // Dismiss native Capacitor SplashScreen if present
+            if (window.Capacitor?.Plugins?.SplashScreen) {
+                console.log('[BOOT] Hiding native Capacitor SplashScreen...');
+                window.Capacitor.Plugins.SplashScreen.hide().catch(err => {
+                    console.warn('[BOOT] Native SplashScreen hide failed:', err);
+                });
+            }
+
+            const splash = $('sitam-splash');
+            if (splash) {
+                splash.style.opacity = '0';
+                splash.style.pointerEvents = 'none';
+                splash.classList.remove('opacity-100');
+                setTimeout(() => {
+                    if (splash.parentNode) {
+                        splash.parentNode.removeChild(splash);
+                    } else {
+                        splash.style.display = 'none';
+                    }
+                }, 750);
+            }
+            console.log('[BOOT] _splashDismiss called — splash hidden');
+        } catch (e) {
+            console.error('[BOOT] _splashDismiss error:', e);
         }
     };
 
-    // Refactored async initialization with timeout, try/catch, and finally
     async function initializeApplication() {
-        logBoot("\n====================================");
-        logBoot("BOOT START");
-        logBoot(`Platform: ${window.Capacitor ? 'Capacitor native' : 'Web Browser'}`);
-        logBoot(`Resolved API_BASE: ${API_BASE}`);
-        logBoot(`Capacitor Platform: ${window.Capacitor?.platform || 'N/A'}`);
-        logBoot(`window.API_BASE_URL: ${window.API_BASE_URL || 'undefined'}`);
-        logBoot(`navigator.onLine: ${navigator.onLine}`);
-        logBoot("====================================\n");
-        let timeoutTriggered = false;
-        let isDone = false;
+        const t0 = Date.now();
+        const step = (n) => console.log(`[BOOT] Step ${n} (+${Date.now()-t0}ms)`);
 
-        const bootTimeout = setTimeout(() => {
-            if (isDone) return;
-            timeoutTriggered = true;
-            console.error('[Boot] Startup initialization exceeded 12s timeout failsafe! STAGE: Timeout triggered before bootstrap finished');
-            // Safe fallback
-            _splashDismiss();
-            logBoot("BOOT 10 - Navigate to login (Timeout fallback)");
-            router.handle();
-            checkSyncStatus();
-        }, 12000);
+        console.log('[BOOT] ============ BOOT START ============');
+        console.log(`[BOOT] Platform: ${window.Capacitor ? 'Capacitor' : 'Web'}`);
+        console.log(`[BOOT] API_BASE: ${API_BASE}`);
+        console.log(`[BOOT] navigator.onLine: ${navigator.onLine}`);
 
         try {
-            console.log('[Boot] Running secure storage bootstrap...');
+            // ── Step 1: Secure storage bootstrap ────────────────────────────
+            step('1 — secureStorage.bootstrap START');
             try {
                 await secureStorage.bootstrap();
-                logBoot("BOOT 5 - Secure Storage initialized");
-            } catch (storageErr) {
-                console.error('[Boot] secureStorage.bootstrap() threw an error:', storageErr);
+            } catch (e) {
+                console.error('[BOOT] Step 1 EXCEPTION:', e);
             }
+            step('1 — secureStorage.bootstrap DONE');
 
-            if (timeoutTriggered) {
-                console.warn('[Boot] secureStorage.bootstrap() finished but timeout had already triggered');
-                return;
-            }
-
-            logBoot("BOOT 6 - Config loaded");
+            // ── Step 2: Read token from decrypted store ──────────────────────
+            step('2 — reading token');
             state.token = secureStorage.getItem('token') || null;
-            // Validate token expiry — invalidate if older than 7 days
+            console.log(`[BOOT] Step 2 — token present: ${!!state.token}`);
+
+            // ── Step 3: Token expiry check ───────────────────────────────────
             if (state.token) {
+                step('3 — token expiry check');
                 const expiryRaw = secureStorage.getItem('tokenExpiry');
                 const expiry = expiryRaw ? parseInt(expiryRaw, 10) : 0;
                 if (expiry > 0 && Date.now() > expiry) {
-                    console.warn('[Boot] Stored token has expired — clearing session');
+                    console.warn('[BOOT] Step 3 — token EXPIRED, clearing');
                     state.token = null;
-                    await secureStorage.removeItem('token');
-                    await secureStorage.removeItem('tokenExpiry');
+                    try { await secureStorage.removeItem('token'); } catch(_) {}
+                    try { await secureStorage.removeItem('tokenExpiry'); } catch(_) {}
                 } else if (expiry === 0) {
-                    // Legacy token with no expiry — stamp it with 7-day window from now
-                    const SESSION_7_DAYS = 7 * 24 * 60 * 60 * 1000;
-                    await secureStorage.setItem('tokenExpiry', String(Date.now() + SESSION_7_DAYS));
+                    try { await secureStorage.setItem('tokenExpiry', String(Date.now() + 7*24*60*60*1000)); } catch(_) {}
                 }
+            } else {
+                step('3 — no token, skip expiry check');
             }
-            console.log("[Boot] Token verified, state.token is present:", !!state.token);
+
+            // ── Step 4: Progress bar animation ──────────────────────────────
+            step('4 — progress bar 100%');
             if (progressBar) progressBar.style.width = '100%';
+            await new Promise(r => setTimeout(r, 400));
 
-            // Smooth delay for progress bar completion
-            console.log('[Boot] Awaiting progress bar animation delay...');
-            try {
-                await new Promise(resolve => setTimeout(resolve, 800));
-                console.log('[Boot] Progress bar animation delay complete');
-            } catch (delayErr) {
-                console.error('[Boot] Animation delay failed:', delayErr);
-            }
-
-            logBoot("BOOT 8 - API health request starting");
-            try {
-                // Fetch backend liveness status with 3s timeout
-                const controller = new AbortController();
-                const id = setTimeout(() => controller.abort(), 3000);
-                console.log('[Boot] Fetching liveness from endpoint:', API_BASE + '/health/liveness');
-                const res = await fetch(API_BASE + '/health/liveness', { signal: controller.signal });
-                clearTimeout(id);
-                const text = await res.text();
-                logBoot("BOOT 9 - API response received. Status: " + res.status + " Body: " + text);
-            } catch (healthErr) {
-                logBoot("BOOT 9 - API response failed / connection error: " + (healthErr.message || healthErr));
-            }
-
-        } catch (err) {
-            console.error('[Boot] secureStorage bootstrap failed with outer exception:', err);
+        } catch (outerErr) {
+            console.error('[BOOT] OUTER EXCEPTION in boot sequence:', outerErr);
         } finally {
-            isDone = true;
-            clearTimeout(bootTimeout);
+            // ── GUARANTEED: Always dismiss splash and navigate ───────────────
+            // This runs whether or not any step above threw, timed out, or succeeded.
+            step('FINAL — dismissing splash and navigating');
+            _splashDismiss();
+            try { router.handle(); } catch(e) { console.error('[BOOT] router.handle error:', e); }
+            try { checkSyncStatus(); } catch(e) {}
+            console.log(`[BOOT] ============ BOOT COMPLETE in ${Date.now()-t0}ms ============`);
             
-            if (!timeoutTriggered) {
-                _splashDismiss();
-                logBoot("BOOT 7 - Router initialized");
-                logBoot("BOOT 10 - Navigate to login");
-                try {
-                    router.handle();
-                    console.log('[Boot] router.handle() complete');
-                } catch (routerErr) {
-                    console.error('[Boot] router.handle() crashed:', routerErr);
+            // Detailed DOM Inspection Log
+            console.log('[DOM] sitam-splash exists:', !!document.getElementById('sitam-splash'));
+            console.log('[DOM] sitam-splash opacity:', document.getElementById('sitam-splash')?.style?.opacity);
+            console.log('[DOM] sitam-splash display:', document.getElementById('sitam-splash')?.style?.display);
+            console.log('[DOM] app-shell display:', document.getElementById('app-shell')?.style?.display);
+            console.log('[DOM] app content length:', document.getElementById('app')?.innerHTML?.length);
+            console.log('[DOM] login-form exists:', !!document.getElementById('login-form'));
+            console.log('[DOM] body child count:', document.body.children.length);
+            
+            setTimeout(() => {
+                const children = Array.from(document.body.children);
+                console.log(`[DOM-LATE] Body children total: ${children.length}`);
+                children.forEach((c, idx) => {
+                    console.log(`[DOM-LATE] child[${idx}]: tagName=${c.tagName}, id=${c.id || '(no-id)'}, class=${c.className?.substring(0, 50) || '(no-class)'}`);
+                });
+                const appNode = document.getElementById('app');
+                if (appNode) {
+                    const rect = appNode.getBoundingClientRect();
+                    const style = window.getComputedStyle(appNode);
+                    console.log(`[DOM-LATE] app dimensions: width=${rect.width}, height=${rect.height}, top=${rect.top}, left=${rect.left}`);
+                    console.log(`[DOM-LATE] app styles: display=${style.display}, opacity=${style.opacity}, visibility=${style.visibility}, zIndex=${style.zIndex}`);
+                } else {
+                    console.log('[DOM-LATE] app node not found!');
                 }
-                try {
-                    checkSyncStatus();
-                    console.log('[Boot] checkSyncStatus() complete');
-                } catch (syncErr) {
-                    console.error('[Boot] checkSyncStatus() crashed:', syncErr);
-                }
-                
-                // Warm cache for returning users (token already set from a previous session).
-                // _prefetchInFlight deduplication in prefetchAll() ensures that if the
-                // post-login path already triggered prefetchAll (e.g. fresh login), this
-                // call joins that same promise instead of spawning a second request storm.
-                if (state.token) {
-                    try {
-                        console.log('[Boot] Warming cache for returning session via prefetchAll()...');
-                        prefetchAll().catch(e => console.error('[Boot] prefetchAll background error:', e));
-                    } catch (prefetchErr) {
-                        console.error('[Boot] prefetchAll trigger error:', prefetchErr);
-                    }
-                }
+                const bodyStyle = window.getComputedStyle(document.body);
+                console.log(`[DOM-LATE] body styles: display=${bodyStyle.display}, opacity=${bodyStyle.opacity}, visibility=${bodyStyle.visibility}`);
+                console.log('[DOM-LATE] app content length:', appNode?.innerHTML?.length);
+                console.log('[DOM-LATE] login-form exists:', !!document.getElementById('login-form'));
+            }, 3000);
+
+            // ── Non-blocking: fire liveness ping AFTER login screen is shown ─
+            setTimeout(() => {
+                const ctrl = new AbortController();
+                const tid = setTimeout(() => ctrl.abort(), 5000);
+                fetch(API_BASE + '/health/liveness', { signal: ctrl.signal })
+                    .then(r => r.text())
+                    .then(t => { clearTimeout(tid); console.log('[BOOT] Liveness:', t); })
+                    .catch(e => console.log('[BOOT] Liveness check skipped:', e.message));
+            }, 0);
+
+            // ── Non-blocking: warm cache for returning session ───────────────
+            if (state.token) {
+                setTimeout(() => {
+                    prefetchAll().catch(e => console.error('[BOOT] prefetchAll error:', e));
+                }, 500);
             }
         }
     }

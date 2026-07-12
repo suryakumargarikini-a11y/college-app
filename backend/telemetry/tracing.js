@@ -21,7 +21,7 @@ const { trace, context, propagation, SpanStatusCode } = require('@opentelemetry/
 const { randomUUID } = require('crypto');
 
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
-const SERVICE_NAME = process.env.SERVICE_NAME || (process.argv[1].endsWith('worker.js') ? 'sitam-worker' : 'sitam-backend');
+const SERVICE_NAME = process.env.SERVICE_NAME || (process.argv[1] && process.argv[1].endsWith('worker.js') ? 'sitam-worker' : 'sitam-backend');
 const INSTANCE_ID = `${SERVICE_NAME}-${randomUUID().substring(0, 8)}`;
 
 // ─── Telemetry Budgets & SLO Configs ──────────────────────────────────────────
@@ -251,7 +251,8 @@ class TailSamplingSpanProcessor {
 
 // ─── OTLP Trace Exporter ────────────────────────────────────────────────────
 const exporter = new OTLPTraceExporter({
-    url: process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT || 'http://localhost:4318/v1/traces',
+    // Force 127.0.0.1 instead of localhost to bypass DNS resolution happy-eyeballs assertion crash in Node.js 20
+    url: process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT || 'http://127.0.0.1:4318/v1/traces',
     timeoutMillis: 5000,
 });
 

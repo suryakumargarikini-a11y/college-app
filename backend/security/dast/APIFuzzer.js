@@ -21,7 +21,8 @@ const logger = require('../../services/logger');
 class APIFuzzer {
   constructor(options = {}) {
     // Correct backend port is 3001; callers may override for staging targets.
-    this.baseUrl = options.baseUrl || 'http://localhost:3001';
+    // Force 127.0.0.1 instead of localhost to bypass Node 20 happy-eyeballs DNS assertion bug.
+    this.baseUrl = options.baseUrl || 'http://127.0.0.1:3001';
     this.reportsDir = options.reportsDir || path.resolve(__dirname, '../../security-reports');
     this.metrics = options.metrics || null;
     this._initMetrics();

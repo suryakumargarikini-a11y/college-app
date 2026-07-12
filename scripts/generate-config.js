@@ -12,7 +12,9 @@ const isProduction = process.env.RENDER || process.env.RAILWAY_ENVIRONMENT || pr
 const envName = isProduction ? 'production' : 'development';
 
 const PRODUCTION_API_URL = 'https://college-app-bx6b.onrender.com/api';
-const apiBaseUrl = process.env.API_BASE_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:3001/api' : PRODUCTION_API_URL);
+// Always default to production URL unless explicitly overridden.
+// Set API_BASE_URL=http://localhost:3001/api for local dev if needed.
+const apiBaseUrl = process.env.API_BASE_URL || PRODUCTION_API_URL;
 
 const appVersion = process.env.APP_VERSION || '1.0.0';
 

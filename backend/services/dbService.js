@@ -31,6 +31,14 @@ function buildDatabaseUrl() {
     }
 }
 
+// Detect the actual DB provider so telemetry labels are correct.
+// This is evaluated once at module load after dotenv has injected env.
+const _rawDbUrl = typeof process.env.DATABASE_URL === 'string' ? process.env.DATABASE_URL : '';
+const DB_SYSTEM = (_rawDbUrl.startsWith('postgresql') || _rawDbUrl.startsWith('postgres'))
+    ? 'postgresql'
+    : 'sqlite';
+
+
 const prisma = new PrismaClient({
     datasources: {
         db: { url: buildDatabaseUrl() }
@@ -86,12 +94,12 @@ prisma.$use(async (params, next) => {
     const action = params.action || 'query';
 
     return traceSpan(`db.${model.toLowerCase()}.${action}`, {
-        'db.system': 'postgresql',
+        'db.system': DB_SYSTEM,
         'db.operation': action,
         'db.model': model,
         'db.statement': `${model}.${action}`,
         'dependency.type': 'database',
-        'dependency.name': 'postgresql',
+        'dependency.name': DB_SYSTEM,
         'dependency.category': 'relational_db',
         'dependency.criticality': 'high'
     }, async (span) => {
@@ -160,4 +168,17 @@ prisma.$on('warn', (e) => {
 
 logger.info(`[DB] PrismaClient initialized (connection_limit=${CONNECTION_LIMIT}, slow_query_threshold=${SLOW_QUERY_THRESHOLD_MS}ms)`);
 
+// If SQLite, enable WAL mode for high concurrency.
+// IMPORTANT: SQLite's PRAGMA journal_mode=WAL returns a result set ({'journal_mode':'wal'}).
+// We MUST use $queryRawUnsafe (SELECT-style) NOT $executeRawUnsafe (DML-only).
+// Using $executeRawUnsafe causes: "Execute returned results, which is not allowed in SQLite"
+// Also guard typeof to prevent undefined.startsWith() when env is not yet loaded at module init.
+const _dbUrl = typeof process.env.DATABASE_URL === 'string' ? process.env.DATABASE_URL : '';
+if (_dbUrl.startsWith('file:')) {
+    prisma.$queryRawUnsafe('PRAGMA journal_mode=WAL;')
+        .then(() => logger.info('[DB] SQLite WAL (Write-Ahead Logging) mode enabled successfully.'))
+        .catch(err => logger.error(`[DB] Failed to enable SQLite WAL mode: ${err.message}`));
+}
+
 module.exports = prisma;
+
