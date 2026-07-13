@@ -4,6 +4,6 @@
   "signature": "3d2e1b04a02cc1bc906204475809b84a2d84a3dbf8bb54684f776504f7fc44a1",
   "algorithm": "HMAC-SHA256",
   "signingKeyId": "default-hmac-key",
-  "timestamp": "2026-07-13T16:08:03.303Z",
-  "provenanceId": "628ae822-3d02-496a-a06a-4d28f2d48ef6"
+  "timestamp": "2026-07-13T16:59:05.045Z",
+  "provenanceId": "72498ddc-b952-4b5c-8b9b-e4a9959dc630"
 }
