@@ -50,11 +50,11 @@ const getStats = async (req, res) => {
         const overallAttSum = await prisma.attendanceRecord.aggregate({
             _avg: { percentage: true }
         });
-        const overallAvgAttendance = overallAttSum._avg.percentage || 87.6;
+        const overallAvgAttendance = overallAttSum._avg?.percentage || 87.6;
 
         const studentAtt = {};
         attGroup.forEach(g => {
-            studentAtt[g.studentId] = g._avg.percentage || 0;
+            studentAtt[g.studentId] = g._avg?.percentage || 0;
         });
 
         // Sort students by attendance
@@ -98,9 +98,9 @@ const getStats = async (req, res) => {
             _sum: { amount: true, paidAmount: true, dueAmount: true }
         });
 
-        const totalFeesVal = feeAggregation._sum.amount || 0;
-        const collectedFeesVal = feeAggregation._sum.paidAmount || 0;
-        const pendingFeesVal = feeAggregation._sum.dueAmount || 0;
+        const totalFeesVal = feeAggregation._sum?.amount || 0;
+        const collectedFeesVal = feeAggregation._sum?.paidAmount || 0;
+        const pendingFeesVal = feeAggregation._sum?.dueAmount || 0;
         const feeCollectionPctVal = totalFeesVal > 0 ? parseFloat(((collectedFeesVal / totalFeesVal) * 100).toFixed(2)) : 0;
 
         // Fee status breakdown

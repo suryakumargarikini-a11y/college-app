@@ -172,9 +172,9 @@ const getAnalytics = async (req, res) => {
         const totalBacklogs = backlogGroup.reduce((s, g) => s + g._count.id, 0);
 
         // ── Fees Analytics ─────────────────────────────────────────────────────
-        const totalFees      = feeAgg._sum.amount    || 0;
-        const totalPaid      = feeAgg._sum.paidAmount || 0;
-        const totalDue       = feeAgg._sum.dueAmount  || 0;
+        const totalFees      = feeAgg._sum?.amount    || 0;
+        const totalPaid      = feeAgg._sum?.paidAmount || 0;
+        const totalDue       = feeAgg._sum?.dueAmount  || 0;
         const collectionPct  = totalFees > 0 ? parseFloat(((totalPaid / totalFees) * 100).toFixed(2)) : 0;
 
         const feeStatusData = {};
@@ -276,14 +276,14 @@ const getAnalytics = async (req, res) => {
                 prisma.assignmentSubmission.groupBy({ by: ['status'], _count: { id: true } }),
                 prisma.quizResult.aggregate({ _avg: { score: true } })
             ]);
-            courseProgressAvg = parseFloat((progressAgg._avg.progressPct || 72.4).toFixed(2));
+            courseProgressAvg = parseFloat((progressAgg._avg?.progressPct || 72.4).toFixed(2));
             totalEnrollments  = enrollCount;
             certificatesCount = certCount;
             asnGroup.forEach(a => {
                 assignmentStats.total += a._count.id;
                 if ((a.status || '').toLowerCase() === 'submitted') assignmentStats.submitted += a._count.id;
             });
-            quizStats.avgScore = parseFloat((quizAgg._avg.score || 72).toFixed(2));
+            quizStats.avgScore = parseFloat((quizAgg._avg?.score || 72).toFixed(2));
         } catch (_) { /* LMS tables may not all exist */ }
 
         // ── Faculty Analytics ─────────────────────────────────────────────────
@@ -409,7 +409,7 @@ const getAnalytics = async (req, res) => {
                 total: hostelMale + hostelFemale,
                 male: hostelMale, female: hostelFemale,
                 dayScholars: students.length - (hostelMale + hostelFemale),
-                pendingFees: hostelFeeAgg._sum.dueAmount || 0
+                pendingFees: hostelFeeAgg._sum?.dueAmount || 0
             },
 
             // Risk
@@ -438,7 +438,7 @@ const getAnalytics = async (req, res) => {
         });
     } catch (err) {
         logger.error('[AdminAnalytics] Error:', err);
-        res.status(500).json({ error: 'Failed to compute analytics', message: err.message, stack: err.stack });
+        res.status(500).json({ error: 'Failed to compute analytics' });
     }
 };
 
