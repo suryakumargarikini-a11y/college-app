@@ -1,9 +1,9 @@
 {
   "artifactName": "package",
-  "artifactHash": "b74b05639d1d284b9bcf62cabc5765b614bdc5d4b68d6d595e51c35d4b5c13bb",
-  "signature": "01ef64c30ae55f16f13af2627ea91b442b79cde041d38e265a31ede67aa5ab49",
+  "artifactHash": "83750b4df356f6a2ffce4a827e27671ff015ecda0de5bde5250c6f45f2e7b971",
+  "signature": "87e895bdef85752e9361ecc351aa88e4028464748f1d9ee9e6d7b606bfe77a70",
   "algorithm": "HMAC-SHA256",
   "signingKeyId": "default-hmac-key",
-  "timestamp": "2026-06-30T09:58:14.425Z",
-  "provenanceId": "e812e2d1-0190-4902-bccd-fb4046b60882"
+  "timestamp": "2026-07-13T16:08:03.309Z",
+  "provenanceId": "bad768c8-b6bd-43c8-9032-3a9658570ec1"
 }

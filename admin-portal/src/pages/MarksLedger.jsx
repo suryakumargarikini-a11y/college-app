@@ -1,148 +1,168 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
+import { Chart as ChartJS, ArcElement, CategoryScale, LinearScale, BarElement, PointElement, LineElement, Title, Tooltip, Legend, Filler } from 'chart.js';
+import { Doughnut, Bar, Line } from 'react-chartjs-2';
 import api from '../lib/api';
-import StatCard from '../components/StatCard';
-import Badge from '../components/Badge';
+
+ChartJS.register(ArcElement, CategoryScale, LinearScale, BarElement, PointElement, LineElement, Title, Tooltip, Legend, Filler);
+
+const CHART_OPTS = { responsive: true, maintainAspectRatio: false,
+  plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } } };
 
 export default function MarksLedger() {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [analytics, setAnalytics] = useState(null);
+  const [dashData, setDashData]   = useState(null);
+  const [loading, setLoading]     = useState(true);
 
-  const load = useCallback(() => {
+  const load = useCallback(async () => {
     setLoading(true);
-    setError('');
-    api.get('/admin/dashboard/stats')
-      .then(res => setData(res.data))
-      .catch(() => setError('Failed to load academic marks details.'))
-      .finally(() => setLoading(false));
+    try {
+      const [anlRes, dRes] = await Promise.all([
+        api.get('/admin/analytics'),
+        api.get('/admin/dashboard/stats')
+      ]);
+      setAnalytics(anlRes.data);
+      setDashData(dRes.data);
+    } catch(_) {}
+    setLoading(false);
   }, []);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffect(() => { load(); }, [load]);
 
-  const stats = data?.academicPerformance || {
-    topperName: 'N/A',
-    topperRoll: 'N/A',
-    topperCgpa: '0.00',
-    lowestCgpa: '0.00',
-    avgCgpa: 0,
-    totalBacklogs: 0,
-    passPct: 0,
-    failPct: 0
+  const ac = analytics?.academics || {};
+  const cgpaDist    = ac.cgpaDist || [];
+  const branchCgpa  = ac.branchAvgCgpa || [];
+  const semCgpa     = ac.semAvgCgpa || [];
+  const gradeDist   = ac.gradeDistribution || [];
+  const semToppers  = dashData?.academicPerformance || {};
+
+  const cgpaBarData = {
+    labels: cgpaDist.map(c => c.label),
+    datasets: [{ data: cgpaDist.map(c => c.value),
+      backgroundColor: ['#6366f1','#3b82f6','#10b981','#f59e0b','#ef4444'],
+      borderRadius: 8, barPercentage: 0.6 }]
   };
-
-  const cgpaBands = data?.cgpa || { above9: 0, "8to9": 0, "7to8": 0, "6to7": 0, below6: 0 };
-  const riskStudents = data?.riskStudents || { lowAttendance: [], feePending: [], backlogs: [], lowCgpa: [] };
+  const passDoughnut = {
+    labels: ['Pass','Fail / Backlog'],
+    datasets: [{ data: [ac.passPct||0, ac.failPct||0],
+      backgroundColor: ['#10b981','#ef4444'], borderWidth: 2, borderColor: '#fff', hoverOffset: 6 }]
+  };
+  const branchBarData = {
+    labels: branchCgpa.map(b => b.label),
+    datasets: [{ data: branchCgpa.map(b => b.value),
+      backgroundColor: '#6366f1', borderRadius: 6, barPercentage: 0.65 }]
+  };
+  const semLineData = {
+    labels: semCgpa.map(s => s.label),
+    datasets: [{ label: 'Avg CGPA', data: semCgpa.map(s => s.value),
+      borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.1)',
+      fill: true, tension: 0.4, pointRadius: 5, pointBackgroundColor: '#6366f1' }]
+  };
+  const gradeBarData = {
+    labels: gradeDist.slice(0,10).map(g => g.grade),
+    datasets: [{ data: gradeDist.slice(0,10).map(g => g.count),
+      backgroundColor: '#3b82f6', borderRadius: 5, barPercentage: 0.6 }]
+  };
+  const barOpts = { ...CHART_OPTS, scales: {
+    x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+    y: { grid: { color: '#f3f4f6' }, ticks: { font: { size: 10 } } }
+  }};
 
   return (
     <div className="space-y-6 fade-in">
-      <section className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-gray-200">
+      <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-gray-900 leading-tight">Academic Marks Ledger</h2>
-          <p className="text-xs text-gray-400 mt-1">Check grades, backlogs, toppers, and overall CGPA distributions</p>
+          <h2 className="text-xl font-black text-gray-900">Academic Marks Ledger</h2>
+          <p className="text-xs text-gray-400 mt-0.5">CGPA, backlogs, and grade distribution analytics</p>
         </div>
-        <button onClick={load} className="btn-icon" title="Refresh"><span className="material-symbols-outlined text-[18px]">refresh</span></button>
-      </section>
+        <button onClick={load} className="btn-icon"><span className="material-symbols-outlined text-[18px]">refresh</span></button>
+      </div>
 
-      {/* KPI Cards */}
-      {loading ? (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {[...Array(4)].map((_, i) => <StatCard key={i} loading />)}
+      {/* KPI row */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-5 gap-3">
+        {[
+          { label:'Avg CGPA',      value:(ac.avgCgpa||0).toFixed(2),           cls:'from-blue-600 to-indigo-700' },
+          { label:'Pass %',        value:`${(ac.passPct||0).toFixed(1)}%`,     cls:'from-emerald-600 to-green-700' },
+          { label:'Fail / Backlog',value:`${(ac.failPct||0).toFixed(1)}%`,     cls:'from-red-500 to-rose-600' },
+          { label:'Total Backlogs',value:(ac.totalBacklogs||0).toLocaleString(),cls:'from-amber-500 to-orange-600' },
+          { label:'Institution Topper',value:semToppers.topperCgpa ? `${semToppers.topperCgpa} CGPA` : '—', cls:'from-violet-600 to-purple-700' },
+        ].map(k => (
+          <div key={k.label} className={`rounded-2xl p-4 shadow-md bg-gradient-to-br ${k.cls} text-white`}>
+            <p className="text-[10px] font-bold uppercase opacity-70 tracking-wide">{k.label}</p>
+            <p className="text-xl font-black mt-1">{k.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* 4 charts */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        {/* CGPA Distribution */}
+        <div className="chart-container">
+          <h3 className="section-title mb-3">CGPA Distribution</h3>
+          <div style={{height:220}}>
+            {loading ? <div className="skeleton h-full rounded-xl"/> : <Bar data={cgpaBarData} options={barOpts} />}
+          </div>
         </div>
-      ) : (
-        <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard title="Average CGPA" value={stats.avgCgpa} icon="star" color="blue" />
-          <StatCard title="Institutional Pass Rate" value={`${stats.passPct}%`} icon="verified" color="green" />
-          <StatCard title="Total Backlogs Count" value={stats.totalBacklogs} icon="gavel" color="red" />
-          <StatCard title="College Topper CGPA" value={`${stats.topperCgpa} CGPA`} icon="emoji_events" color="yellow" />
-        </section>
+
+        {/* Pass / Fail Doughnut */}
+        <div className="chart-container">
+          <h3 className="section-title mb-3">Pass vs Fail / Backlog</h3>
+          <div style={{height:220}}>
+            {loading ? <div className="skeleton h-full rounded-xl"/> : (
+              <Doughnut data={passDoughnut} options={{...CHART_OPTS,cutout:'60%',
+                plugins:{...CHART_OPTS.plugins,legend:{display:true,position:'bottom',labels:{boxWidth:8,font:{size:9}}}}}} />
+            )}
+          </div>
+        </div>
+
+        {/* Branch CGPA Bar */}
+        <div className="chart-container">
+          <h3 className="section-title mb-3">Branch-wise Avg CGPA</h3>
+          <div style={{height:220}}>
+            {loading ? <div className="skeleton h-full rounded-xl"/> : <Bar data={branchBarData} options={barOpts} />}
+          </div>
+        </div>
+
+        {/* Semester CGPA Line */}
+        <div className="chart-container">
+          <h3 className="section-title mb-3">Semester-wise Avg CGPA</h3>
+          <div style={{height:220}}>
+            {loading ? <div className="skeleton h-full rounded-xl"/> : (
+              <Line data={semLineData} options={{...CHART_OPTS,
+                plugins:{...CHART_OPTS.plugins,legend:{display:true,position:'top',labels:{boxWidth:10,font:{size:10}}}},
+                scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{min:5,grid:{color:'#f3f4f6'},ticks:{font:{size:10}}}}}} />
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Grade distribution */}
+      <div className="chart-container">
+        <h3 className="section-title mb-4">Grade Distribution</h3>
+        <div style={{height:200}}>
+          {loading ? <div className="skeleton h-full rounded-xl"/> : <Bar data={gradeBarData} options={barOpts} />}
+        </div>
+      </div>
+
+      {/* Toppers summary */}
+      {semToppers.topperName && (
+        <div className="card p-5">
+          <h3 className="section-title mb-4">Academic Highlights</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { label:'Institution Topper', value: semToppers.topperName, sub: `CGPA: ${semToppers.topperCgpa}` },
+              { label:'Lowest CGPA',        value: semToppers.lowestCgpa, sub: 'Needs academic support' },
+              { label:'Average CGPA',       value: (ac.avgCgpa||0).toFixed(2), sub: 'All students' },
+              { label:'Total Backlogs',     value: (ac.totalBacklogs||0).toLocaleString(), sub: 'Across all semesters' },
+            ].map(item => (
+              <div key={item.label} className="bg-gray-50 rounded-xl p-3 border">
+                <p className="text-[10px] font-bold text-gray-400 uppercase">{item.label}</p>
+                <p className="text-sm font-black text-gray-900 mt-1 truncate">{item.value}</p>
+                <p className="text-[10px] text-gray-400">{item.sub}</p>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
-
-      {/* Main Grid */}
-      <section className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* Left: CGPA distribution and backlogs */}
-        <div className="card p-5 xl:col-span-2 space-y-6">
-          <div>
-            <h3 className="text-sm font-bold text-gray-900 mb-4">CGPA Tier Distribution Bands</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {[
-                { label: 'Tier 1: Toppers (CGPA > 9.0)', val: cgpaBands.above9, color: 'bg-indigo-600' },
-                { label: 'Tier 2: Excellent (CGPA 8.0 - 9.0)', val: cgpaBands["8to9"], color: 'bg-blue-500' },
-                { label: 'Tier 3: Good (CGPA 7.0 - 8.0)', val: cgpaBands["7to8"], color: 'bg-emerald-500' },
-                { label: 'Tier 4: Average (CGPA 6.0 - 7.0)', val: cgpaBands["6to7"], color: 'bg-yellow-500' },
-                { label: 'Tier 5: Warning (CGPA < 6.0)', val: cgpaBands.below6, color: 'bg-red-500' }
-              ].map((tier, idx) => (
-                <div key={idx} className="border rounded-xl p-3 bg-gray-50/50 flex items-center justify-between">
-                  <div>
-                    <p className="text-[10px] uppercase font-bold text-gray-400">{tier.label}</p>
-                    <p className="text-lg font-extrabold mt-1 text-gray-800">{tier.val} <span className="text-xs font-normal text-gray-400">students</span></p>
-                  </div>
-                  <div className={`w-3.5 h-3.5 rounded-full ${tier.color}`} />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="border-t pt-5">
-            <h3 className="text-sm font-bold text-gray-900 mb-3 text-red-600">Students with Active Backlogs</h3>
-            <div className="overflow-x-auto border rounded-xl divide-y">
-              {riskStudents.backlogs?.length === 0 ? (
-                <p className="text-center py-6 text-xs text-gray-400">Perfect academic ledger! Zero active backlog records.</p>
-              ) : (
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="bg-gray-50/50 font-bold uppercase text-[9px] text-gray-400 border-b">
-                      <th className="p-2.5 pl-4">Name</th>
-                      <th className="p-2.5">Roll Number</th>
-                      <th className="p-2.5 text-right pr-4">Active Backlogs Count</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y text-gray-700 font-semibold">
-                    {riskStudents.backlogs?.map((stu, i) => (
-                      <tr key={i} className="hover:bg-red-50/10">
-                        <td className="p-2.5 pl-4 text-gray-900">{stu.name}</td>
-                        <td className="p-2.5 text-gray-500">{stu.roll}</td>
-                        <td className="p-2.5 text-right pr-4 text-red-600 font-extrabold tabular-nums">{stu.value}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Right Side: Semester Toppers */}
-        <div className="space-y-6">
-          <div className="card p-5">
-            <h3 className="text-sm font-bold text-gray-900 mb-3 text-red-500">Students with Low CGPA (&lt;6.5)</h3>
-            <div className="space-y-2">
-              {riskStudents.lowCgpa?.slice(0, 5).map((stu, i) => (
-                <div key={i} className="flex justify-between items-center bg-gray-50 border rounded-lg p-2.5 text-xs">
-                  <div>
-                    <p className="font-bold text-gray-900">{stu.name}</p>
-                    <p className="text-[10px] text-gray-400 mt-0.5">{stu.roll}</p>
-                  </div>
-                  <Badge text={stu.value || 'Low CGPA'} color="red" />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="card p-5 bg-gradient-to-tr from-yellow-50 to-amber-100 border border-amber-200">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-amber-800 mb-2 flex items-center gap-1">
-              <span className="material-symbols-outlined text-[16px]">military_tech</span> Top Performer
-            </h3>
-            <p className="text-lg font-black text-gray-900 leading-tight">{stats.topperName}</p>
-            <p className="text-[10px] font-bold text-amber-700 mt-0.5">{stats.topperRoll}</p>
-            <div className="mt-4 pt-4 border-t border-amber-200/50 flex justify-between items-center">
-              <span className="text-[10px] font-bold uppercase text-gray-500">CGPA Achieved</span>
-              <span className="text-lg font-black text-amber-800 tabular-nums">{stats.topperCgpa}</span>
-            </div>
-          </div>
-        </div>
-      </section>
     </div>
   );
 }

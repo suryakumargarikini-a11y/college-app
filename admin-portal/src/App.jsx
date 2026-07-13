@@ -22,6 +22,9 @@ const MarksLedger       = lazy(() => import('./pages/MarksLedger'));
 const FeesDashboard     = lazy(() => import('./pages/FeesDashboard'));
 const PlacementsDashboard = lazy(() => import('./pages/PlacementsDashboard'));
 const LmsDashboard      = lazy(() => import('./pages/LmsDashboard'));
+const Analytics         = lazy(() => import('./pages/Analytics'));
+const RiskDashboard     = lazy(() => import('./pages/RiskDashboard'));
+const ActivityCenter    = lazy(() => import('./pages/ActivityCenter'));
 
 function PageLoader() {
   return (
@@ -142,6 +145,30 @@ export default function App() {
           element={
             <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ACCOUNTS_ADMIN', 'PLACEMENT_ADMIN']}>
               <LmsDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/analytics"
+          element={
+            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ACCOUNTS_ADMIN', 'PLACEMENT_ADMIN']}>
+              <Analytics />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/risk-dashboard"
+          element={
+            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ACCOUNTS_ADMIN', 'PLACEMENT_ADMIN']}>
+              <RiskDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/activity-center"
+          element={
+            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ACCOUNTS_ADMIN', 'PLACEMENT_ADMIN']}>
+              <ActivityCenter />
             </ProtectedRoute>
           }
         />

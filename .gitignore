@@ -14,3 +14,5 @@ backend/security/sbom/snapshots/
 backend/data/
 *.zip
 node/
+backend/prisma/dev.db-shm
+backend/prisma/dev.db-wal

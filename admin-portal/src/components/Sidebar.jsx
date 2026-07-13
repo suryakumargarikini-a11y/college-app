@@ -32,20 +32,23 @@ const NAV_BY_ROLE = {
 };
 
 const SUPER_ADMIN_NAV = [
-  { path: '/dashboard',            icon: 'dashboard',              label: 'Dashboard' },
-  { path: '/students',             icon: 'groups',                 label: 'Students' },
-  { path: '/faculty',              icon: 'school',                 label: 'Faculty' },
-  { path: '/attendance-dashboard',  icon: 'event_available',       label: 'Attendance Analytics' },
-  { path: '/marks-ledger',         icon: 'grading',                label: 'Marks Ledger' },
-  { path: '/fees-dashboard',      icon: 'account_balance_wallet', label: 'Fees Analytics' },
-  { path: '/placements-dashboard', icon: 'analytics',               label: 'Placements Analytics' },
-  { path: '/lms-dashboard',        icon: 'import_contacts',        label: 'LMS Progress' },
-  { path: '/placements',           icon: 'work',                   label: 'Placement Drives' },
-  { path: '/announcements',        icon: 'campaign',               label: 'Announcements' },
-  { path: '/fee-notices',          icon: 'receipt_long',           label: 'Fee Notices' },
-  { path: '/exit-passes',          icon: 'exit_to_app',            label: 'Exit Passes' },
-  { path: '/notifications',        icon: 'notifications',          label: 'Notifications' },
-  { path: '/settings',             icon: 'settings',               label: 'Settings' },
+  { path: '/dashboard',             icon: 'dashboard',              label: 'Dashboard' },
+  { path: '/students',              icon: 'groups',                 label: 'Students' },
+  { path: '/faculty',               icon: 'school',                 label: 'Faculty' },
+  { path: '/attendance-dashboard',  icon: 'event_available',        label: 'Attendance Analytics' },
+  { path: '/marks-ledger',          icon: 'grading',                label: 'Marks Ledger' },
+  { path: '/fees-dashboard',        icon: 'account_balance_wallet', label: 'Fees Analytics' },
+  { path: '/placements-dashboard',  icon: 'analytics',              label: 'Placements Analytics' },
+  { path: '/lms-dashboard',         icon: 'import_contacts',        label: 'LMS Progress' },
+  { path: '/analytics',             icon: 'insights',               label: 'Executive Analytics' },
+  { path: '/risk-dashboard',        icon: 'warning',                label: 'Risk Dashboard' },
+  { path: '/activity-center',       icon: 'timeline',               label: 'Activity Center' },
+  { path: '/placements',            icon: 'work',                   label: 'Placement Drives' },
+  { path: '/announcements',         icon: 'campaign',               label: 'Announcements' },
+  { path: '/fee-notices',           icon: 'receipt_long',           label: 'Fee Notices' },
+  { path: '/exit-passes',           icon: 'exit_to_app',            label: 'Exit Passes' },
+  { path: '/notifications',         icon: 'notifications',          label: 'Notifications' },
+  { path: '/settings',              icon: 'settings',               label: 'Settings' },
 ];
 
 const ROLE_LABELS = {

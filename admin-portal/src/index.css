@@ -199,4 +199,116 @@
     to   { opacity: 1; transform: translateY(0); }
   }
   .fade-in { animation: fade-in 0.2s ease forwards; }
+
+  /* Slide up */
+  @keyframes slide-up {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .slide-up { animation: slide-up 0.3s ease forwards; }
+
+  /* Counter roll */
+  @keyframes count-up {
+    from { opacity: 0; transform: scale(0.85); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+  .count-animate { animation: count-up 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+
+  /* Pulse ring */
+  @keyframes pulse-ring {
+    0%   { transform: scale(0.9); opacity: 0.6; }
+    70%  { transform: scale(1.2); opacity: 0; }
+    100% { transform: scale(1.2); opacity: 0; }
+  }
+  .pulse-ring::after {
+    content: ''; position: absolute; inset: -4px; border-radius: inherit;
+    border: 2px solid currentColor; animation: pulse-ring 1.8s ease infinite;
+  }
+}
+
+/* ─── Phase 5 Components ───────────────────────────────────────────────────── */
+@layer components {
+  /* Glassmorphism card */
+  .card-glass {
+    @apply rounded-2xl border;
+    background: rgba(255,255,255,0.72);
+    border-color: rgba(255,255,255,0.5);
+    backdrop-filter: blur(20px) saturate(180%);
+    box-shadow: 0 4px 24px 0 rgba(37,99,235,0.08), 0 1.5px 6px 0 rgba(0,0,0,0.06);
+  }
+
+  /* Health score card */
+  .health-card {
+    @apply rounded-2xl p-5 border relative overflow-hidden;
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+    border-color: #bae6fd;
+  }
+  .health-card.green  { background: linear-gradient(135deg,#f0fdf4,#dcfce7); border-color:#86efac; }
+  .health-card.yellow { background: linear-gradient(135deg,#fffbeb,#fef3c7); border-color:#fcd34d; }
+  .health-card.red    { background: linear-gradient(135deg,#fef2f2,#fee2e2); border-color:#fca5a5; }
+  .health-card.indigo { background: linear-gradient(135deg,#eef2ff,#e0e7ff); border-color:#a5b4fc; }
+  .health-card.violet { background: linear-gradient(135deg,#faf5ff,#ede9fe); border-color:#c4b5fd; }
+
+  /* Risk card */
+  .risk-card {
+    @apply card p-5 cursor-pointer transition-all duration-200;
+  }
+  .risk-card:hover { @apply shadow-lg border-gray-300 -translate-y-0.5; }
+
+  /* Chart container */
+  .chart-container {
+    @apply card p-5;
+  }
+  .chart-canvas-wrap {
+    position: relative;
+    width: 100%;
+  }
+
+  /* Command palette */
+  .cmd-backdrop {
+    position: fixed; inset: 0; z-index: 9999;
+    background: rgba(15,23,42,0.6);
+    backdrop-filter: blur(6px);
+  }
+  .cmd-box {
+    @apply bg-white rounded-2xl shadow-2xl;
+    position: fixed; top: 15vh; left: 50%; transform: translateX(-50%);
+    width: min(640px, 94vw); z-index: 10000;
+    border: 1px solid rgba(99,102,241,0.3);
+  }
+
+  /* Live indicator dot */
+  .live-dot {
+    @apply w-2 h-2 rounded-full bg-emerald-500 relative inline-block;
+  }
+  .live-dot::after {
+    content: ''; position: absolute; inset: -3px; border-radius: 50%;
+    background: #10b981; opacity: 0.35;
+    animation: pulse-ring 2s ease infinite;
+  }
+
+  /* Stat chip */
+  .stat-chip {
+    @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border;
+  }
+  .stat-chip-up   { @apply stat-chip bg-emerald-50 text-emerald-700 border-emerald-200; }
+  .stat-chip-down { @apply stat-chip bg-red-50 text-red-600 border-red-200; }
+
+  /* Section header */
+  .section-header {
+    @apply flex items-center justify-between mb-4;
+  }
+  .section-title {
+    @apply text-sm font-bold text-gray-900;
+  }
+}
+
+/* ─── Print Styles (Analytics Export) ─────────────────────────────────────── */
+@media print {
+  .no-print { display: none !important; }
+  body { background: white !important; }
+  .card, .card-glass { box-shadow: none !important; border: 1px solid #e5e7eb !important; }
+  main { margin-left: 0 !important; padding-top: 0 !important; }
+  aside, header { display: none !important; }
+  .print-break { page-break-before: always; }
 }

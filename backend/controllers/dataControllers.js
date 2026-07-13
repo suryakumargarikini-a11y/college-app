@@ -7,6 +7,11 @@ const workerService = require('../services/workerService');
 const PerformanceTimer = require('../services/performanceTimer');
 const dataProvider = require('../adapters/dataProvider');
 
+// Business metrics — lazy via scheduler singleton to avoid circular dep at startup
+const getBusinessCollector = () => {
+    try { return require('../services/ObservabilityScheduler').getBusinessCollector(); } catch (_) { return null; }
+};
+
 // Helper to map grade string to a realistic numeric percentage and display marks
 const mapGradeToPercentage = (grade) => {
     const clean = (grade || '').trim().toUpperCase();
@@ -28,6 +33,8 @@ const mapGradeToPercentage = (grade) => {
 // Profile controller
 const getProfile = async (req, res, next) => {
     try {
+        const bc = getBusinessCollector();
+        if (bc) bc.trackFeatureAccess('profile').catch(() => {});
         const student = await dataProvider.getProfile(req.session.userId);
         if (!student) {
             return res.fail('Student profile not found', null, 404);
@@ -41,6 +48,8 @@ const getProfile = async (req, res, next) => {
 // Marks / Results controller
 const getMarks = async (req, res, next) => {
     try {
+        const bc = getBusinessCollector();
+        if (bc) bc.trackFeatureAccess('marks').catch(() => {});
         const student = await dataProvider.getMarks(req.session.userId);
         if (!student) {
             return res.fail('Student marks not found', null, 404);
@@ -139,6 +148,8 @@ const getAttendance = async (req, res, next) => {
 const getFees = async (req, res, next) => {
     console.log(`[FEES-FLOW] [dataControllers.getFees] Entering getFees for userId: ${req.session?.userId}`);
     try {
+        const bc = getBusinessCollector();
+        if (bc) bc.trackFeatureAccess('fees').catch(() => {});
         const userId = req.session?.userId;
         const feesList = await dataProvider.getFees(userId);
         
@@ -245,6 +256,8 @@ const getFees = async (req, res, next) => {
 // Assignments controller
 const getAssignments = async (req, res, next) => {
     try {
+        const bc = getBusinessCollector();
+        if (bc) bc.trackFeatureAccess('assignments').catch(() => {});
         const listRaw = await dataProvider.getAssignments(req.session.userId);
         if (!listRaw) {
             return res.fail('Student assignments not found', null, 404);

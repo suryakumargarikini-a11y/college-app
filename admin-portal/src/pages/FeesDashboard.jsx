@@ -1,131 +1,169 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
+import { Chart as ChartJS, ArcElement, CategoryScale, LinearScale, BarElement, PointElement, LineElement, Title, Tooltip, Legend, Filler } from 'chart.js';
+import { Doughnut, Bar, Line } from 'react-chartjs-2';
+import ReactApexChart from 'react-apexcharts';
 import api from '../lib/api';
-import StatCard from '../components/StatCard';
-import Badge from '../components/Badge';
+
+ChartJS.register(ArcElement, CategoryScale, LinearScale, BarElement, PointElement, LineElement, Title, Tooltip, Legend, Filler);
+
+const CHART_OPTS = { responsive: true, maintainAspectRatio: false,
+  plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } } };
 
 export default function FeesDashboard() {
-  const [data, setData] = useState(null);
+  const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
 
-  const load = useCallback(() => {
+  const load = useCallback(async () => {
     setLoading(true);
-    setError('');
-    api.get('/admin/dashboard/stats')
-      .then(res => setData(res.data))
-      .catch(() => setError('Failed to load financial fees analytics.'))
-      .finally(() => setLoading(false));
+    try { const r = await api.get('/admin/analytics'); setAnalytics(r.data); }
+    catch(_) {}
+    setLoading(false);
   }, []);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffect(() => { load(); }, [load]);
 
-  const fees = data?.fees || {
-    totalFees: 0,
-    collected: 0,
-    pending: 0,
-    collectionPct: 0,
-    statusBreakdown: [],
-    monthlyCollection: []
+  const fees = analytics?.fees || {};
+  const monthly = fees.monthlyCollection || [];
+  const status  = fees.statusBreakdown || {};
+  const byType  = fees.byType || [];
+  const branchW = fees.branchWise || [];
+
+  const monthlyBarData = {
+    labels: monthly.map(m => m.month),
+    datasets: [
+      { label: 'Collected', data: monthly.map(m => m.collected), backgroundColor: '#10b981', borderRadius: 6, barPercentage: 0.5 },
+      { label: 'Pending',   data: monthly.map(m => m.pending),   backgroundColor: '#f59e0b', borderRadius: 6, barPercentage: 0.5 }
+    ]
+  };
+  const monthlyOpts = { ...CHART_OPTS,
+    plugins: { ...CHART_OPTS.plugins, legend: { display: true, position: 'top', labels: { boxWidth: 10, font: { size: 10 } } } },
+    scales: { x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+      y: { grid: { color: '#f3f4f6' }, ticks: { font: { size: 10 }, callback: v => `₹${(v/100000).toFixed(1)}L` } } }
   };
 
-  const riskStudents = data?.riskStudents || { lowAttendance: [], feePending: [], backlogs: [], lowCgpa: [] };
+  const statusLabels = ['Paid','Partial','Unpaid'];
+  const statusData = {
+    labels: statusLabels,
+    datasets: [{ data: statusLabels.map(k => (status[k.toLowerCase()]?.count || 0)),
+      backgroundColor: ['#10b981','#f59e0b','#ef4444'],
+      borderWidth: 2, borderColor: '#fff', hoverOffset: 6 }]
+  };
+
+  const typeBarData = {
+    labels: byType.map(t => t.type),
+    datasets: [
+      { label: 'Paid', data: byType.map(t => t.paid), backgroundColor: '#10b981', borderRadius: 5 },
+      { label: 'Due',  data: byType.map(t => t.due),  backgroundColor: '#ef4444', borderRadius: 5 }
+    ]
+  };
+  const typeOpts = { ...CHART_OPTS,
+    plugins: { ...CHART_OPTS.plugins, legend: { display: true, position: 'top', labels: { boxWidth: 10, font: { size: 10 } } } },
+    scales: { x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+      y: { grid: { color: '#f3f4f6' }, ticks: { font: { size: 10 }, callback: v => `₹${(v/100000).toFixed(0)}L` } } }
+  };
+
+  const branchBarData = {
+    labels: branchW.map(b => b.label),
+    datasets: [
+      { label: 'Collected', data: branchW.map(b => b.paid), backgroundColor: '#6366f1', borderRadius: 5 },
+      { label: 'Pending',   data: branchW.map(b => b.due),  backgroundColor: '#f59e0b', borderRadius: 5 }
+    ]
+  };
+
+  /* Gauge via ApexCharts */
+  const collectionPct = fees.collectionPct || 0;
 
   return (
     <div className="space-y-6 fade-in">
-      <section className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-gray-200">
+      <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-gray-900 leading-tight">Fee Collection Analytics</h2>
-          <p className="text-xs text-gray-400 mt-1">Real-time revenue demands, collections, and student balance tracking</p>
+          <h2 className="text-xl font-black text-gray-900">Fee Collection Analytics</h2>
+          <p className="text-xs text-gray-400 mt-0.5">Financial overview for all {analytics?.meta?.totalStudents || 500} students</p>
         </div>
-        <button onClick={load} className="btn-icon" title="Refresh"><span className="material-symbols-outlined text-[18px]">refresh</span></button>
-      </section>
+        <button onClick={load} className="btn-icon"><span className="material-symbols-outlined text-[18px]">refresh</span></button>
+      </div>
 
-      {/* Stats Cards */}
-      {loading ? (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {[...Array(4)].map((_, i) => <StatCard key={i} loading />)}
-        </div>
-      ) : (
-        <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard title="Total Fee Demand" value={`₹${(fees.totalFees / 10000000).toFixed(2)} Cr`} icon="payments" color="blue" />
-          <StatCard title="Total Collected" value={`₹${(fees.collected / 10000000).toFixed(2)} Cr`} icon="check_circle" color="green" />
-          <StatCard title="Pending Balance" value={`₹${(fees.pending / 100000).toFixed(1)} L`} icon="error" color="red" />
-          <StatCard title="Collection Efficiency" value={`${fees.collectionPct}%`} icon="percent" color="yellow" />
-        </section>
-      )}
-
-      {/* Main Grid */}
-      <section className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* Left: Collections timeline & Fee type breakdown */}
-        <div className="card p-5 xl:col-span-2 space-y-6">
-          <div>
-            <h3 className="text-sm font-bold text-gray-900 mb-4">Monthly Collection Ledger</h3>
-            <div className="border rounded-xl overflow-hidden">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="bg-gray-50 font-bold uppercase text-[9px] text-gray-400 border-b">
-                    <th className="p-3 pl-4">Month</th>
-                    <th className="p-3 text-right">Transactions</th>
-                    <th className="p-3 text-right pr-4">Collected Amount</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y text-gray-700 font-semibold">
-                  {fees.monthlyCollection?.map((item, i) => (
-                    <tr key={i} className="hover:bg-gray-50/40">
-                      <td className="p-3 pl-4 text-gray-900 font-bold">{item.month}</td>
-                      <td className="p-3 text-right tabular-nums">{item.count ?? '—'} payments</td>
-                      <td className="p-3 text-right text-emerald-600 font-bold tabular-nums pr-4">₹{(item.amount ?? 0).toLocaleString('en-IN')}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+      {/* KPI cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: 'Total Revenue',   value: `₹${((fees.totalFees||0)/100000).toFixed(1)}L`,   cls: 'bg-gradient-to-br from-blue-600 to-indigo-700 text-white' },
+          { label: 'Collected',       value: `₹${((fees.totalPaid||0)/100000).toFixed(1)}L`,   cls: 'bg-gradient-to-br from-emerald-600 to-green-700 text-white' },
+          { label: 'Pending',         value: `₹${((fees.totalDue||0)/100000).toFixed(1)}L`,    cls: 'bg-gradient-to-br from-amber-500 to-orange-600 text-white' },
+          { label: 'Collection Rate', value: `${collectionPct.toFixed(1)}%`,                   cls: 'bg-gradient-to-br from-violet-600 to-purple-700 text-white' },
+        ].map(k => (
+          <div key={k.label} className={`rounded-2xl p-4 shadow-md ${k.cls}`}>
+            <p className="text-[10px] font-bold uppercase opacity-70 tracking-wide">{k.label}</p>
+            <p className="text-2xl font-black mt-1">{k.value}</p>
           </div>
+        ))}
+      </div>
 
-          <div className="border-t pt-5">
-            <h3 className="text-sm font-bold text-gray-900 mb-4">Collection Status Breakdown</h3>
-            <div className="grid grid-cols-3 gap-4 text-center">
-              {fees.statusBreakdown && typeof fees.statusBreakdown === 'object' && !Array.isArray(fees.statusBreakdown)
-                ? Object.entries(fees.statusBreakdown).map(([status, data], i) => (
-                  <div key={i} className="bg-gray-50 border rounded-xl p-3">
-                    <p className="text-[10px] uppercase font-bold text-gray-400 capitalize">{status} Payments</p>
-                    <p className="text-lg font-black mt-1 text-gray-800">{data.count} <span className="text-xs font-normal text-gray-400">students</span></p>
-                    <p className="text-xs text-gray-500 mt-0.5">₹{(data.amount ?? 0).toLocaleString('en-IN')}</p>
-                  </div>
-                ))
-                : (fees.statusBreakdown || []).map((item, i) => (
-                  <div key={i} className="bg-gray-50 border rounded-xl p-3">
-                    <p className="text-[10px] uppercase font-bold text-gray-400">{item.status} Status</p>
-                    <p className="text-lg font-black mt-1 text-gray-800">{item._count?.id ?? 0} <span className="text-xs font-normal text-gray-400">students</span></p>
-                  </div>
-                ))
-              }
-            </div>
+      {/* Charts Row 1 */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        {/* Monthly Collection Bar */}
+        <div className="chart-container">
+          <h3 className="section-title mb-3">Monthly Collection</h3>
+          <div style={{height:220}}>
+            {loading ? <div className="skeleton h-full rounded-xl"/> : <Bar data={monthlyBarData} options={monthlyOpts} />}
           </div>
         </div>
 
-        {/* Right: Outstanding Dues List */}
-        <div className="card p-5">
-          <h3 className="text-sm font-bold text-gray-900 mb-3 text-red-600">Students with Pending Dues</h3>
-          <div className="space-y-2 max-h-[460px] overflow-y-auto pr-1">
-            {riskStudents.feePending?.length === 0 ? (
-              <p className="text-center py-6 text-xs text-gray-400">Zero outstanding dues! All student accounts cleared.</p>
-            ) : (
-              riskStudents.feePending?.map((stu, i) => (
-                <div key={i} className="flex justify-between items-center bg-gray-50 border rounded-lg p-2.5 text-xs">
-                  <div>
-                    <p className="font-bold text-gray-900">{stu.name}</p>
-                    <p className="text-[10px] text-gray-400 mt-0.5">{stu.roll}</p>
-                  </div>
-                  <span className="font-extrabold text-red-600 tabular-nums">{stu.value}</span>
-                </div>
-              ))
+        {/* Status Doughnut */}
+        <div className="chart-container">
+          <h3 className="section-title mb-3">Payment Status Breakdown</h3>
+          <div style={{height:220}}>
+            {loading ? <div className="skeleton h-full rounded-xl"/> : (
+              <Doughnut data={statusData} options={{...CHART_OPTS, cutout:'60%',
+                plugins:{...CHART_OPTS.plugins,legend:{display:true,position:'bottom',labels:{boxWidth:8,font:{size:9}}}}}} />
             )}
           </div>
         </div>
-      </section>
+
+        {/* Fee Type Breakdown */}
+        <div className="chart-container">
+          <h3 className="section-title mb-3">Revenue by Fee Type</h3>
+          <div style={{height:220}}>
+            {loading ? <div className="skeleton h-full rounded-xl"/> : <Bar data={typeBarData} options={typeOpts} />}
+          </div>
+        </div>
+
+        {/* Collection Gauge */}
+        <div className="chart-container">
+          <h3 className="section-title mb-3">Collection Rate</h3>
+          <div style={{height:220}}>
+            {!loading && (
+              <ReactApexChart type="radialBar" height={220}
+                series={[collectionPct]}
+                options={{
+                  chart: { toolbar: { show: false } },
+                  plotOptions: { radialBar: {
+                    startAngle: -135, endAngle: 135,
+                    track: { background: '#f3f4f6', strokeWidth: '97%' },
+                    dataLabels: { name: { fontSize:'12px',color:'#6b7280' }, value: { fontSize:'22px',fontWeight:900,color:'#111827',formatter:v=>`${v.toFixed(1)}%` } },
+                    hollow: { size: '65%' }
+                  }},
+                  colors: [collectionPct >= 90 ? '#10b981' : collectionPct >= 70 ? '#f59e0b' : '#ef4444'],
+                  labels: ['Fee Collected'],
+                  stroke: { dashArray: 4 }
+                }}
+              />
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Branch-wise collection */}
+      <div className="chart-container">
+        <h3 className="section-title mb-4">Branch-wise Fee Collection</h3>
+        <div style={{height:240}}>
+          {loading ? <div className="skeleton h-full rounded-xl"/> : (
+            <Bar data={branchBarData} options={{...CHART_OPTS,
+              plugins:{...CHART_OPTS.plugins,legend:{display:true,position:'top',labels:{boxWidth:10,font:{size:10}}}},
+              scales:{x:{grid:{display:false},ticks:{font:{size:10}}},
+                y:{grid:{color:'#f3f4f6'},ticks:{font:{size:10},callback:v=>`₹${(v/100000).toFixed(0)}L`}}}}} />
+          )}
+        </div>
+      </div>
     </div>
   );
 }

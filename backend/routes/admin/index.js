@@ -13,4 +13,8 @@ router.use('/surveys',       require('./surveys'));
 router.use('/help-desk',     require('./helpDesk'));
 router.use('/lost-found',    require('./lostFound'));
 
+// ── Phase 5: Specialized Analytics Endpoints ──────────────────────────────
+router.use('/students',      require('./students'));
+router.use('/analytics',     require('./analytics'));
+
 module.exports = router;

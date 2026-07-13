@@ -15,4 +15,11 @@
  */
 
 // Re-export the new dual-pool implementation
+const BrowserReputationManager = require('../providers/scraper/browser/BrowserReputationManager');
+// repMgr.registerBrowser()
+// repMgr.recordCaptcha()
+// repMgr.recordSuccess()
+// repMgr.recordCrash()
+// repMgr.recordTimeout()
+
 module.exports = require('./browserPool/index');
