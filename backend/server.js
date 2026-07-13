@@ -210,6 +210,24 @@ app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+app.get('/api/health/db-debug', async (req, res) => {
+    try {
+        const studentFields = await prisma.$queryRawUnsafe(`
+            SELECT column_name, data_type 
+            FROM information_schema.columns 
+            WHERE table_name = 'Student';
+        `);
+        const tables = await prisma.$queryRawUnsafe(`
+            SELECT table_name 
+            FROM information_schema.tables 
+            WHERE table_schema = 'public';
+        `);
+        res.json({ tables, studentFields });
+    } catch (err) {
+        res.status(500).json({ error: err.message, stack: err.stack });
+    }
+});
+
 // Production-ready Health Check
 app.get('/health', (req, res) => {
     res.json({
