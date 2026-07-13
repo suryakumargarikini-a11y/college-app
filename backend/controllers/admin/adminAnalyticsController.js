@@ -438,7 +438,7 @@ const getAnalytics = async (req, res) => {
         });
     } catch (err) {
         logger.error('[AdminAnalytics] Error:', err);
-        res.status(500).json({ error: 'Failed to compute analytics' });
+        res.status(500).json({ error: 'Failed to compute analytics', message: err.message, stack: err.stack });
     }
 };
 
