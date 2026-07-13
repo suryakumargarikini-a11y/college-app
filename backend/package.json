@@ -16,7 +16,9 @@
     "chaos": "node scripts/chaos-test.js",
     "validate:isolation": "node scripts/validate-session-isolation.js",
     "verify:metrics": "node scripts/verify-metrics.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "seed:demo": "node prisma/seed-demo.js",
+    "seed:demo:reset": "node prisma/seed-demo.js --reset"
   },
   "keywords": [],
   "author": "",

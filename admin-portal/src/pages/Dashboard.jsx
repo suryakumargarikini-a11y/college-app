@@ -15,6 +15,18 @@ const LOG_ICON = {
   FEE_NOTICE_CREATED:   { icon: 'receipt_long',    cls: 'text-yellow-600 bg-yellow-50 border-yellow-200' },
   OTP_VERIFIED:         { icon: 'verified_user',   cls: 'text-teal-600 bg-teal-50    border-teal-200' },
   EXIT_PASS_APPROVED:   { icon: 'check_circle',    cls: 'text-emerald-600 bg-emerald-50 border-emerald-200' },
+  EXIT_PASS_REJECTED:   { icon: 'cancel',          cls: 'text-red-600 bg-red-50 border-red-200' },
+  FEE_PAYMENT_RECEIVED: { icon: 'payments',        cls: 'text-emerald-600 bg-emerald-50 border-emerald-200' },
+  ATTENDANCE_UPDATED:   { icon: 'edit_calendar',   cls: 'text-sky-600 bg-sky-50 border-sky-200' },
+  MARKS_UPLOADED:       { icon: 'grading',         cls: 'text-amber-600 bg-amber-50 border-amber-200' },
+  NOTIFICATION_SENT:    { icon: 'notifications',   cls: 'text-blue-600 bg-blue-50 border-blue-200' },
+  ASSIGNMENT_POSTED:    { icon: 'assignment',      cls: 'text-pink-600 bg-pink-50 border-pink-200' },
+  QUIZ_PUBLISHED:       { icon: 'quiz',            cls: 'text-indigo-600 bg-indigo-50 border-indigo-200' },
+  COURSE_ENROLLED:      { icon: 'school',          cls: 'text-violet-600 bg-violet-50 border-violet-200' },
+  SURVEY_LAUNCHED:      { icon: 'poll',            cls: 'text-orange-600 bg-orange-50 border-orange-200' },
+  TICKET_CREATED:       { icon: 'support_agent',   cls: 'text-red-600 bg-red-50 border-red-200' },
+  TICKET_RESOLVED:      { icon: 'check',           cls: 'text-emerald-600 bg-emerald-50 border-emerald-200' },
+  ACHIEVEMENT_RECORDED: { icon: 'emoji_events',    cls: 'text-yellow-600 bg-yellow-50 border-yellow-200' },
 };
 
 const SEVERITY_CLS = {
@@ -30,9 +42,9 @@ const ROLE_NAMES = {
   PLACEMENT_ADMIN:'Placement Officer',
 };
 
-function SkeletonGrid({ count = 5 }) {
+function SkeletonGrid({ count = 8 }) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       {Array.from({ length: count }).map((_, i) => (
         <StatCard key={i} loading />
       ))}
@@ -42,20 +54,19 @@ function SkeletonGrid({ count = 5 }) {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const [stats,   setStats]   = useState(null);
-  const [logs,    setLogs]    = useState([]);
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState('');
+  const [error, setError] = useState('');
+  const [riskTab, setRiskTab] = useState('lowAttendance');
 
-  const user     = authStore.getUser();
+  const user = authStore.getUser();
   const userRole = user?.role || 'SUPER_ADMIN';
 
   const load = useCallback(() => {
     setLoading(true);
     api.get('/admin/dashboard/stats')
       .then(res => {
-        setStats(res.data.stats);
-        setLogs(res.data.recentActivity?.auditLogs || []);
+        setData(res.data);
       })
       .catch(() => setError('Failed to load dashboard data. Please refresh.'))
       .finally(() => setLoading(false));
@@ -65,10 +76,19 @@ export default function Dashboard() {
 
   const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
+  const kpi = data?.kpi || {};
+  const todaysOverview = data?.todaysOverview || {};
+  const riskStudents = data?.riskStudents || { lowAttendance: [], feePending: [], backlogs: [], lowCgpa: [] };
+  const attendance = data?.attendance || { overallAvg: 0, branchComparison: [], excellent: 0, good: 0, acceptable: 0, warning: 0, defaulters: 0 };
+  const fees = data?.fees || { totalFees: 0, collected: 0, pending: 0, collectionPct: 0, monthlyCollection: [] };
+  const placements = data?.placements || { placementPct: 0, highestPackage: 'N/A', avgPackage: 'N/A', lowestPackage: 'N/A', departmentWise: [] };
+  const cgpa = data?.cgpa || { above9: 0, "8to9": 0, "7to8": 0, "6to7": 0, below6: 0 };
+  const departments = data?.departments || [];
+  const logs = data?.recentActivity?.auditLogs || [];
+
   return (
     <div className="space-y-7 fade-in">
 
-      {/* ── Welcome Banner ── */}
       <section className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-5 border-b border-gray-200">
         <div>
           <h2 className="text-2xl font-bold text-gray-900 leading-tight">
@@ -79,165 +99,149 @@ export default function Dashboard() {
               <span className="material-symbols-outlined text-[16px] text-gray-400">calendar_today</span>
               <span>{today}</span>
             </div>
-            <span className="h-3 w-px bg-gray-300 hidden sm:block" />
-            <span className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 px-2.5 py-0.5 rounded-full border border-emerald-100 text-xs font-semibold">
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
-              </span>
-              Portal Online
-            </span>
           </div>
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">
           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 text-xs font-semibold rounded-lg border border-blue-100">
-            <span className="material-symbols-outlined text-[15px]">badge</span>
             {ROLE_NAMES[userRole] || userRole}
           </span>
-          <button
-            onClick={load}
-            className="btn-icon"
-            title="Refresh dashboard"
-          >
-            <span className="material-symbols-outlined text-[18px]">refresh</span>
-          </button>
+          <button onClick={load} className="btn-icon" title="Refresh"><span className="material-symbols-outlined text-[18px]">refresh</span></button>
         </div>
       </section>
 
-      {/* ── Stats Grid ── */}
-      {loading && !stats ? (
+      {loading && !data ? (
         <SkeletonGrid />
       ) : error ? (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
-          <span className="material-symbols-outlined text-[18px]">error</span>
-          {error}
-          <button onClick={load} className="ml-auto text-red-700 underline text-xs hover:no-underline">Retry</button>
+          {error} <button onClick={load} className="ml-auto underline">Retry</button>
         </div>
       ) : (
-        <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
-          {stats?.students       !== undefined && <StatCard title="Total Students"      value={stats.students}          icon="groups"       color="blue"    subtitle="Registered students" />}
-          {stats?.announcements  !== undefined && <StatCard title="Announcements"       value={stats.announcements}     icon="campaign"     color="green"   subtitle="Drafts & published" />}
-          {stats?.placements     !== undefined && <StatCard title="Placement Drives"    value={stats.placements}        icon="work"         color="indigo"  subtitle="Active drives" />}
-          {stats?.feeNotices     !== undefined && <StatCard title="Fee Notices"         value={stats.feeNotices}        icon="payments"     color="yellow"  subtitle="Active notices" />}
-          {stats?.pendingExitPasses !== undefined && <StatCard title="Pending Passes"   value={stats.pendingExitPasses} icon="exit_to_app"  color="red"     subtitle="Awaiting review" />}
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard title="Total Students" value={kpi.totalStudents} icon="groups" color="blue" />
+          <StatCard title="Faculty Count" value={kpi.totalFaculty} icon="school" color="emerald" />
+          <StatCard title="Total Courses" value={kpi.totalCourses} icon="import_contacts" color="indigo" />
+          <StatCard title="Avg Attendance" value={`${kpi.avgAttendance}%`} icon="event_available" color="green" />
+          <StatCard title="Fee Collection" value={`${kpi.feeCollectionPct}%`} icon="payments" color="yellow" />
+          <StatCard title="Placement Drives" value={kpi.publishedPlacements} icon="work" color="violet" />
+          <StatCard title="Pending Passes" value={kpi.pendingExitPasses} icon="exit_to_app" color="red" />
+          <StatCard title="Notifications Sent" value={kpi.totalNotifications} icon="notifications" color="blue" />
         </section>
       )}
 
-      {/* ── Quick Actions ── */}
-      <section>
-        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Quick Actions</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {userRole !== 'ACCOUNTS_ADMIN' && (
-            <button
-              onClick={() => navigate('/announcements')}
-              className="card-hover p-4 flex items-center gap-3 text-left group"
-            >
-              <div className="w-9 h-9 rounded-xl bg-green-50 flex items-center justify-center flex-shrink-0 group-hover:bg-green-100 transition-colors">
-                <span className="material-symbols-outlined text-green-600 text-[20px]">campaign</span>
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-gray-900">New Announcement</p>
-                <p className="text-xs text-gray-400">Post an update</p>
-              </div>
-              <span className="material-symbols-outlined text-[18px] text-gray-300 group-hover:text-gray-500 ml-auto transition-colors">arrow_forward</span>
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="card p-5 lg:col-span-2">
+          <h3 className="text-sm font-bold text-gray-900 mb-4">Today's Overview Snapshot</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            <div className="bg-gray-50 border rounded-xl p-3">
+              <p className="text-[10px] uppercase font-bold text-gray-400">Admissions</p>
+              <p className="text-lg font-extrabold">{todaysOverview.admissionsToday ?? 0}</p>
+            </div>
+            <div className="bg-gray-50 border rounded-xl p-3">
+              <p className="text-[10px] uppercase font-bold text-gray-400">Attendance</p>
+              <p className="text-lg font-extrabold">{todaysOverview.attendanceToday ?? '—'}</p>
+            </div>
+            <div className="bg-gray-50 border rounded-xl p-3">
+              <p className="text-[10px] uppercase font-bold text-gray-400">Payments</p>
+              <p className="text-base font-extrabold truncate">{todaysOverview.feePaymentsToday ?? '—'}</p>
+            </div>
+          </div>
+        </div>
+        <div className="card p-5">
+          <h3 className="text-sm font-bold text-gray-900 mb-4">Quick Operations</h3>
+          <div className="space-y-2">
+            <button onClick={() => navigate('/announcements')} className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-gray-50 text-left">
+              <span className="material-symbols-outlined text-green-600">campaign</span> New Announcement
             </button>
-          )}
-          {(userRole === 'SUPER_ADMIN' || userRole === 'PLACEMENT_ADMIN') && (
-            <button
-              onClick={() => navigate('/placements')}
-              className="card-hover p-4 flex items-center gap-3 text-left group"
-            >
-              <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center flex-shrink-0 group-hover:bg-indigo-100 transition-colors">
-                <span className="material-symbols-outlined text-indigo-600 text-[20px]">work</span>
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-gray-900">Add Placement Drive</p>
-                <p className="text-xs text-gray-400">Create a new hiring drive</p>
-              </div>
-              <span className="material-symbols-outlined text-[18px] text-gray-300 group-hover:text-gray-500 ml-auto transition-colors">arrow_forward</span>
+            <button onClick={() => navigate('/placements')} className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-gray-50 text-left">
+              <span className="material-symbols-outlined text-indigo-600">work</span> New Placement Drive
             </button>
-          )}
-          {userRole === 'SUPER_ADMIN' && (
-            <button
-              onClick={() => navigate('/exit-passes')}
-              className="card-hover p-4 flex items-center gap-3 text-left group"
-            >
-              <div className="w-9 h-9 rounded-xl bg-red-50 flex items-center justify-center flex-shrink-0 group-hover:bg-red-100 transition-colors">
-                <span className="material-symbols-outlined text-red-500 text-[20px]">exit_to_app</span>
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-gray-900">Review Exit Passes</p>
-                <p className="text-xs text-gray-400">{stats?.pendingExitPasses ?? 0} pending</p>
-              </div>
-              <span className="material-symbols-outlined text-[18px] text-gray-300 group-hover:text-gray-500 ml-auto transition-colors">arrow_forward</span>
-            </button>
-          )}
+          </div>
         </div>
       </section>
 
-      {/* ── System Log & Audit Trail ── */}
-      <section className="card">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <div>
-            <h3 className="text-sm font-bold text-gray-900">System Log &amp; Audit Trail</h3>
-            <p className="text-xs text-gray-400 mt-0.5">Recent administrative actions</p>
+      <section className="card p-5">
+        <div className="flex items-center justify-between border-b pb-3 mb-4">
+          <h3 className="text-sm font-bold text-gray-900">Student Risk Identification</h3>
+          <div className="flex gap-1 bg-gray-50 p-0.5 rounded-lg">
+            {[
+              { key: 'lowAttendance', label: 'Low Attendance' },
+              { key: 'feePending',    label: 'Fee Pending' },
+              { key: 'backlogs',      label: 'Backlogs' },
+              { key: 'lowCgpa',       label: 'Low CGPA' }
+            ].map(({ key, label }) => (
+              <button key={key} onClick={() => setRiskTab(key)} className={`px-2 py-1 text-xs font-medium rounded ${riskTab === key ? 'bg-white shadow' : ''}`}>{label}</button>
+            ))}
           </div>
-          <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-gray-400 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Live
-          </span>
         </div>
+        <table className="w-full text-left">
+          <thead><tr className="text-[10px] uppercase text-gray-400"><th>Name</th><th>Roll</th><th>Metric</th></tr></thead>
+          <tbody>
+            {riskStudents[riskTab]?.map((stu, i) => (
+              <tr key={i} className="border-t">
+                <td className="py-2 text-sm">{stu.name}</td>
+                <td className="py-2 text-sm">{stu.roll}</td>
+                <td className="py-2 text-sm text-red-600 font-bold">{stu.value}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
 
-        <div className="p-5">
-          {loading ? (
-            <div className="space-y-4">
-              {[...Array(4)].map((_, i) => (
-                <div key={i} className="flex gap-3 items-start">
-                  <div className="skeleton w-9 h-9 rounded-xl flex-shrink-0" />
-                  <div className="flex-1 space-y-2">
-                    <div className="skeleton h-3 w-3/4 rounded" />
-                    <div className="skeleton h-2.5 w-1/2 rounded" />
-                  </div>
+      <section className="card p-5 grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <div>
+          <h3 className="text-sm font-bold mb-4">Attendance Distribution</h3>
+          <div className="space-y-3">
+            {attendance.branchComparison?.map((item, idx) => (
+              <div key={idx}>
+                <div className="flex justify-between text-xs font-semibold">{item.branch} <span>{item.avgPct}%</span></div>
+                <div className="w-full bg-gray-100 h-2 rounded-full"><div className="bg-emerald-500 h-full rounded-full" style={{ width: `${item.avgPct}%` }} /></div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div>
+          <h3 className="text-sm font-bold mb-4">CGPA Distribution</h3>
+          <div className="space-y-2">
+            {[
+              { range: 'CGPA > 9', val: cgpa.above9, max: kpi.totalStudents || 500, color: 'bg-indigo-500' },
+              { range: 'CGPA 8–9', val: cgpa['8to9'], max: kpi.totalStudents || 500, color: 'bg-blue-500' },
+              { range: 'CGPA 7–8', val: cgpa['7to8'], max: kpi.totalStudents || 500, color: 'bg-emerald-500' },
+              { range: 'CGPA 6–7', val: cgpa['6to7'], max: kpi.totalStudents || 500, color: 'bg-yellow-500' },
+              { range: 'Below 6', val: cgpa.below6, max: kpi.totalStudents || 500, color: 'bg-red-500' }
+            ].map((tier, idx) => (
+              <div key={idx} className="flex items-center gap-2 text-xs">
+                <span className="w-20 shrink-0 text-gray-600">{tier.range}</span>
+                <div className="flex-1 bg-gray-100 h-2 rounded">
+                  <div className={`${tier.color} h-full rounded transition-all duration-500`} style={{ width: tier.max > 0 ? `${Math.round((tier.val / tier.max) * 100)}%` : '0%' }} />
                 </div>
-              ))}
-            </div>
-          ) : logs.length === 0 ? (
-            <div className="text-center py-10">
-              <span className="material-symbols-outlined text-4xl text-gray-300 block mb-2">assignment_late</span>
-              <p className="text-sm text-gray-500 font-medium">No activity log entries yet</p>
-            </div>
-          ) : (
-            <div className="space-y-5 relative before:absolute before:left-[17px] before:top-3 before:bottom-3 before:w-px before:bg-gray-100">
-              {logs.map(log => {
-                const cfg = LOG_ICON[log.action] || { icon: 'info', cls: 'text-blue-600 bg-blue-50 border-blue-200' };
-                return (
-                  <div key={log.id} className="relative pl-11 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                    {/* Icon */}
-                    <div className={`absolute left-0 top-0.5 w-9 h-9 rounded-xl border flex items-center justify-center z-10 ${cfg.cls}`}>
-                      <span className="material-symbols-outlined text-[17px]">{cfg.icon}</span>
-                    </div>
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-900 leading-snug">{log.details}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        By <span className="font-medium text-gray-600">{log.admin?.name || 'System'}</span>
-                        {log.admin?.email ? ` (${log.admin.email})` : ''}
-                      </p>
-                    </div>
-                    {/* Badges + time */}
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded border text-[9px] font-bold uppercase tracking-wider ${SEVERITY_CLS[log.severity] || SEVERITY_CLS.INFO}`}>
-                        {log.severity}
-                      </span>
-                      <span className="text-[10px] text-gray-400 tabular-nums whitespace-nowrap">
-                        {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}, {new Date(log.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' })}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                <span className="text-gray-500 tabular-nums w-8 text-right">{tier.val}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="card">
+        <div className="p-5 border-b flex justify-between items-center">
+          <h3 className="text-sm font-bold">System Log</h3>
+          <span className="text-[10px] font-bold uppercase text-gray-400">Live Feed</span>
+        </div>
+        <div className="p-5 space-y-4 max-h-[480px] overflow-y-auto">
+          {logs.map(log => {
+            const cfg = LOG_ICON[log.action] || { icon: 'info', cls: 'text-blue-600 bg-blue-50' };
+            return (
+              <div key={log.id} className="flex gap-3 items-center">
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${cfg.cls}`}>
+                  <span className="material-symbols-outlined text-sm">{cfg.icon}</span>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold">{log.details}</p>
+                  <p className="text-[10px] text-gray-400">{new Date(log.timestamp).toLocaleString()}</p>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </section>
     </div>

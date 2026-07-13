@@ -15,6 +15,13 @@ const Settings          = lazy(() => import('./pages/Settings'));
 const SecurityDashboard = lazy(() => import('./pages/SecurityDashboard'));
 const SecurityVerifyOtp = lazy(() => import('./pages/SecurityVerifyOtp'));
 const SecurityHistory   = lazy(() => import('./pages/SecurityHistory'));
+const Students          = lazy(() => import('./pages/Students'));
+const Faculty           = lazy(() => import('./pages/Faculty'));
+const AttendanceDashboard = lazy(() => import('./pages/AttendanceDashboard'));
+const MarksLedger       = lazy(() => import('./pages/MarksLedger'));
+const FeesDashboard     = lazy(() => import('./pages/FeesDashboard'));
+const PlacementsDashboard = lazy(() => import('./pages/PlacementsDashboard'));
+const LmsDashboard      = lazy(() => import('./pages/LmsDashboard'));
 
 function PageLoader() {
   return (
@@ -79,6 +86,62 @@ export default function App() {
           element={
             <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ACCOUNTS_ADMIN', 'PLACEMENT_ADMIN']}>
               <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/students"
+          element={
+            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ACCOUNTS_ADMIN', 'PLACEMENT_ADMIN']}>
+              <Students />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/faculty"
+          element={
+            <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+              <Faculty />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/attendance-dashboard"
+          element={
+            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ACCOUNTS_ADMIN', 'PLACEMENT_ADMIN']}>
+              <AttendanceDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/marks-ledger"
+          element={
+            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'PLACEMENT_ADMIN']}>
+              <MarksLedger />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/fees-dashboard"
+          element={
+            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ACCOUNTS_ADMIN']}>
+              <FeesDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/placements-dashboard"
+          element={
+            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'PLACEMENT_ADMIN']}>
+              <PlacementsDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/lms-dashboard"
+          element={
+            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ACCOUNTS_ADMIN', 'PLACEMENT_ADMIN']}>
+              <LmsDashboard />
             </ProtectedRoute>
           }
         />

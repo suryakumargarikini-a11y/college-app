@@ -38,14 +38,29 @@ const requireAuth = async (req, res, next) => {
         console.log(`[FEES-FLOW] Decoded JWT:`, decodedJwt ? JSON.stringify(decodedJwt) : 'N/A (UUID token)');
     }
 
-    const session = await sessionManager.getSessionAsync(token);
+    let session = await sessionManager.getSessionAsync(token);
 
-    if (isFeesOrNotices) {
-        console.log(`[FEES-FLOW] Session lookup result: ${session ? 'FOUND' : 'NOT FOUND'}`);
-        if (session) {
-            console.log(`[FEES-FLOW] Session userId: ${session.userId}`);
-            console.log(`[FEES-FLOW] Session studentId: ${session.studentId || 'UNRESOLVED'}`);
-        }
+    if (!session) {
+        try {
+            const { verifyToken } = require('./adminAuth');
+            const admin = verifyToken(token);
+            if (admin) {
+                const targetId = req.params.id;
+                let studentDb = null;
+                if (targetId) {
+                    const db = require('../services/dbService');
+                    studentDb = await db.student.findFirst({
+                        where: { OR: [{ id: targetId }, { userId: targetId }] }
+                    });
+                }
+                session = {
+                    userId: studentDb ? studentDb.userId : (targetId || admin.email),
+                    studentId: studentDb ? studentDb.id : targetId,
+                    role: admin.role,
+                    isAdmin: true
+                };
+            }
+        } catch (_) {}
     }
 
     if (!session) {
