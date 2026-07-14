@@ -356,16 +356,6 @@ input, textarea {
   user-select: auto;
 }
 
-/* ── GPU-Accelerated Page Transitions ── */
-#app {
-  will-change: transform, opacity;
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-  /* Promote to GPU compositor layer — eliminates paint jank */
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
-}
-
 /* Forward navigation: enter from right */
 @keyframes slideInRight {
   from { transform: translate3d(100%, 0, 0); opacity: 0.75; }
@@ -451,14 +441,14 @@ input, textarea {
 
   <!-- Top App Bar -->
   <header class="fixed top-0 w-full z-50 bg-white/70 backdrop-blur-3xl shadow-sm shadow-slate-200/40">
-    <div class="flex justify-between items-center px-6 h-16 w-full max-w-7xl mx-auto">
-      <div class="flex items-center gap-4">
+    <div id="top-app-bar" class="flex justify-between items-center px-6 h-16 w-full max-w-7xl mx-auto">
+      <div id="top-app-bar-brand" class="flex items-center gap-4 min-w-0">
         <button id="menu-btn" class="p-2 hover:bg-slate-100/50 transition-all active:scale-95 duration-200 rounded-full">
           <span class="material-symbols-outlined text-blue-600">menu</span>
         </button>
-        <h1 class="text-xl font-extrabold text-slate-800 tracking-tighter">SITAM Campus</h1>
+        <h1 id="top-app-bar-title" class="text-xl font-extrabold text-slate-800 tracking-tighter">SITAM Campus</h1>
       </div>
-      <div class="flex items-center gap-3">
+      <div id="top-app-bar-actions" class="flex items-center gap-3 flex-shrink-0">
         <!-- Pulsing Real-time Live Status Indicator -->
         <div id="live-indicator" class="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 text-emerald-600 rounded-full border border-emerald-500/20 text-[9px] font-headline font-extrabold uppercase tracking-widest transition-all duration-500 scale-0 opacity-0 select-none">
            <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping"></span>

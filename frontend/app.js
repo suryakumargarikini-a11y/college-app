@@ -1358,6 +1358,9 @@ function setActiveNav(route) {
         appEl.classList.remove('page-enter');
         void appEl.offsetWidth; // force reflow
         appEl.classList.add('page-enter');
+        appEl.addEventListener('animationend', () => {
+            appEl.classList.remove('page-enter');
+        }, { once: true });
     }
 }
 
@@ -2042,9 +2045,9 @@ const pages = {
 
     // ---- MARKS ----
     marks: {
-        render: () => `<body class="bg-background text-on-background min-h-screen pb-32">
+        render: () => `<body class="bg-background text-on-background min-h-screen pb-32 overflow-x-hidden">
             <main class="pt-24 px-6 max-w-4xl mx-auto space-y-8">
-                <section class="relative">
+                <section class="relative overflow-hidden">
                     <div class="absolute -top-12 -right-8 w-48 h-48 bg-secondary-container/30 rounded-full blur-3xl -z-10"></div>
                     <div class="flex flex-col gap-4">
                         <div>
@@ -2315,6 +2318,37 @@ const pages = {
                     </div>
                 </div>
             </div>
+
+            <!-- ===== TRANSACTION RECEIPT MODAL ===== -->
+            <div id="receipt-overlay" class="fixed inset-0 z-[110] hidden items-center justify-center bg-slate-950/50 backdrop-blur-sm p-4" role="dialog" aria-modal="true" aria-labelledby="receipt-heading">
+                <section class="w-full max-w-sm max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-3xl bg-white shadow-2xl border border-white/30" role="document">
+                    <div class="flex items-center justify-between px-6 py-5 border-b border-slate-100">
+                        <div>
+                            <p class="text-[10px] font-black uppercase tracking-[0.18em] text-blue-600">SITAM Smart ERP</p>
+                            <h3 id="receipt-heading" class="mt-1 text-lg font-black text-slate-800">Fee Receipt</h3>
+                        </div>
+                        <button id="receipt-close-btn" type="button" class="p-2 rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600 active-scale" aria-label="Close receipt">
+                            <span class="material-symbols-outlined">close</span>
+                        </button>
+                    </div>
+                    <div class="space-y-5 p-6">
+                        <div class="rounded-2xl bg-blue-50 border border-blue-100 p-4">
+                            <p id="receipt-title" class="text-base font-extrabold text-slate-800 break-words">Fee payment</p>
+                            <p id="receipt-student" class="mt-1 text-xs font-semibold text-slate-500">Student</p>
+                        </div>
+                        <div class="space-y-3 text-sm">
+                            <div class="flex items-center justify-between gap-4"><span class="text-slate-500">Reference</span><span id="receipt-ref" class="font-mono text-xs font-bold text-slate-800 break-all text-right">—</span></div>
+                            <div class="flex items-center justify-between gap-4"><span class="text-slate-500">Date</span><span id="receipt-date" class="font-semibold text-slate-800 text-right">—</span></div>
+                            <div class="flex items-center justify-between gap-4"><span class="text-slate-500">Status</span><span id="receipt-status" class="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-slate-600">—</span></div>
+                        </div>
+                        <div class="border-t border-dashed border-slate-200 pt-4 flex items-end justify-between gap-4">
+                            <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Amount</span>
+                            <span id="receipt-amount" class="text-2xl font-black text-slate-800">₹0</span>
+                        </div>
+                        <p class="text-center text-[10px] leading-relaxed text-slate-400">This is a digital transaction receipt from the student portal.</p>
+                    </div>
+                </section>
+            </div>
         </div>`,
         afterRender: async () => {
             toggleShell(true);
@@ -2513,7 +2547,37 @@ const pages = {
                     'Partial': 'bg-tertiary-container/30 text-on-tertiary-container',
                     'Refunded': 'bg-error-container text-on-error-container'
                 };
-                list.innerHTML = txns.map(txn => {
+                const receiptOverlay = $('receipt-overlay');
+                const closeReceipt = () => receiptOverlay?.classList.add('hidden');
+                const openReceipt = (txn) => {
+                    if (!receiptOverlay || !txn) return;
+                    const status = txn.status || 'Recorded';
+                    const receiptStatus = $('receipt-status');
+                    const receiptStatusClass = status === 'Paid' || status === 'Completed'
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                        : status === 'Due' || status === 'Partial'
+                            ? 'bg-amber-50 text-amber-700 border-amber-100'
+                            : 'bg-slate-100 text-slate-600 border-slate-200';
+
+                    setEl('receipt-title', 'innerText', txn.title || 'Fee payment');
+                    setEl('receipt-student', 'innerText', state.profile?.name || 'Student');
+                    setEl('receipt-ref', 'innerText', txn.ref || 'N/A');
+                    setEl('receipt-date', 'innerText', txn.date || '—');
+                    setEl('receipt-amount', 'innerText', formatRupees(txn.amount));
+                    if (receiptStatus) {
+                        receiptStatus.innerText = status;
+                        receiptStatus.className = `rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${receiptStatusClass}`;
+                    }
+                    haptic();
+                    receiptOverlay.classList.remove('hidden');
+                };
+
+                $('receipt-close-btn')?.addEventListener('click', closeReceipt);
+                receiptOverlay?.addEventListener('click', (event) => {
+                    if (event.target === receiptOverlay) closeReceipt();
+                });
+
+                list.innerHTML = txns.map((txn, index) => {
                     const sc = statusColors[txn.status] || 'bg-surface-container text-on-surface-variant';
                     const isDue = txn.status === 'Due' || txn.status === 'Partial';
                     const warningHtml = (isDue && hasWarning) ? `
@@ -2542,9 +2606,15 @@ const pages = {
                                 <span class="text-[9px] px-2 py-0.5 ${sc} rounded-full font-bold uppercase tracking-tighter mt-1.5 inline-block">${txn.status}</span>
                             </div>
                         </div>
+                        <button type="button" class="receipt-btn mt-3 self-start inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-extrabold text-primary hover:bg-blue-50 active-scale" data-receipt-index="${index}">
+                            <span class="material-symbols-outlined text-sm">receipt_long</span> View receipt
+                        </button>
                         ${warningHtml}
                     </div>`;
                 }).join('');
+                list.querySelectorAll('.receipt-btn').forEach((button) => {
+                    button.addEventListener('click', () => openReceipt(txns[Number(button.dataset.receiptIndex)]));
+                });
             } catch(e) { console.error('[Fees] Error:', e); }
             finally { loading.hide(); }
         }
@@ -2745,6 +2815,7 @@ const pages = {
                         renderRow('badge', 'Student ID', d.userId),
                         renderRow('fingerprint', 'Roll Number', d.roll || d.roll_number),
                         renderRow('assignment_ind', 'Admission Number', d.admissionNo),
+                        renderRow('account_tree', 'Department', d.department || d.program),
                         renderRow('school', 'Program', d.program),
                         renderRow('account_tree', 'Branch', d.branch),
                         renderRow('event_seat', 'Semester', d.semester || d.currentSemester),
@@ -3556,7 +3627,10 @@ const pages = {
                     </div>`;
             } catch(e) { 
                 console.error('[Exams] Error:', e); 
-                $('exams-container').innerHTML = `<div class="text-center py-16 text-on-surface-variant font-bold">Failed to load exam schedules.</div>`;
+                const container = $('exams-container');
+                if (container) {
+                    container.innerHTML = `<div class="text-center py-16 text-on-surface-variant font-bold">Failed to load exam schedules.</div>`;
+                }
             } finally { 
                 loading.hide(); 
             }
