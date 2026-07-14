@@ -114,7 +114,7 @@ const login = async (req, res) => {
             let hmacMatch = false;
             try {
                 const crypto = require('crypto');
-                const SALT = process.env.ADMIN_PASSWORD_SALT || 'sitam-admin-salt';
+                const SALT = process.env.ADMIN_PASSWORD_SALT || 'sitam-admin-s4lt-ch4ng3-in-pr0ducti0n';
                 const hmacHash = crypto.createHmac('sha256', SALT).update(password).digest('hex');
                 hmacMatch = (cachedStudent.password === hmacHash);
             } catch (_) {}
