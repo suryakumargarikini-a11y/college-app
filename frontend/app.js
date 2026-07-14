@@ -1565,7 +1565,27 @@ const pages = {
                         // Fire push registration and full prefetch asynchronously
                         // Dashboard will paint from IndexedDB cache in <300ms
                         Promise.all([
-                            registerPush().catc    dashboard: {
+                            registerPush().catch(() => {}),
+                            prefetchAll().catch(() => {})
+                        ]).catch(() => {});
+                    } else {
+                        if (errEl) {
+                            errEl.textContent = res.error || 'Login failed.';
+                            errEl.classList.remove('hidden');
+                        }
+                    }
+                } catch (err) {
+                    if (errEl) {
+                        errEl.textContent = 'Network error. Please try again.';
+                        errEl.classList.remove('hidden');
+                    }
+                } finally {
+                    if (btnText) btnText.textContent = 'Sign In';
+                }
+            });
+        }
+    },
+    dashboard: {
         render: () => `<div class="min-h-screen pb-32 bg-[#F8FAFC]">
             <main class="pt-20 px-4 sm:px-6 max-w-xl mx-auto space-y-6">
                 <!-- Welcome Section -->
@@ -1599,22 +1619,24 @@ const pages = {
                         </div>
                         <div class="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase tracking-wider">
                             <span>Status:</span>
-                            <span id="dash-att-status-text" class="text-primary font-black">--</span>
+                            <span id="dash-att-status-text" class="font-black">--</span>
                         </div>
                     </div>
 
                     <!-- CGPA Card -->
-                    <div class="bg-amber-50/60 p-5 rounded-3xl flex flex-col justify-between h-40 border border-amber-100 cursor-pointer hover:scale-[1.02] active-scale transition-all" onclick="router.navigate('/marks')">
+                    <div class="glass-card p-5 rounded-3xl flex flex-col justify-between h-40 border-l-4 border-l-amber-500 cursor-pointer hover:scale-[1.02] active-scale transition-all" onclick="router.navigate('/marks')">
                         <div class="flex justify-between items-start">
-                            <span class="material-symbols-outlined text-amber-500 text-3xl">stars</span>
-                            <div class="text-right">
-                                <p class="text-[10px] text-amber-500 font-black tracking-widest uppercase">CGPA</p>
-                                <p class="text-3xl font-black text-slate-800 mt-1" id="dash-gpa-val">--</p>
+                            <div>
+                                <h4 class="text-sm font-bold text-on-surface">Academic GPA</h4>
+                                <p class="text-[10px] text-slate-400">Cumulative (CGPA)</p>
                             </div>
+                            <span class="material-symbols-outlined text-amber-500 text-2xl" style="font-variation-settings:'FILL' 1">stars</span>
                         </div>
-                        <div class="flex justify-between items-center text-[10px] text-slate-500 font-bold uppercase">
-                            <span>SGPA:</span>
-                            <span class="font-extrabold text-amber-600" id="dash-sgpa-val">--</span>
+                        <div class="flex justify-between items-end">
+                            <p class="text-3xl font-black text-slate-800 leading-none" id="dash-gpa-val">--</p>
+                            <div class="text-right text-[9px] font-extrabold uppercase tracking-wide bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full">
+                                SGPA: <span id="dash-sgpa-val">--</span>
+                            </div>
                         </div>
                     </div>
                 </section>
@@ -1702,12 +1724,14 @@ const pages = {
                 </section>
 
                 <!-- Notice Banner -->
-                <section id="notice-banner-section" class="pt-2">
-                    <div class="w-full bg-amber-50 text-amber-900 p-4 rounded-2xl flex items-center gap-3.5 relative overflow-hidden border border-amber-200/60" id="notice-banner">
-                        <div class="absolute right-0 top-0 w-20 h-full bg-gradient-to-l from-amber-100/40 to-transparent"></div>
-                        <span class="material-symbols-outlined text-2xl flex-shrink-0 text-amber-500">campaign</span>
+                <section id="notice-banner-section" class="pt-1">
+                    <div class="w-full bg-blue-50/50 text-blue-900 p-4 rounded-2xl flex items-center gap-3 relative overflow-hidden border border-blue-100/80 shadow-sm" id="notice-banner">
+                        <div class="absolute right-0 top-0 w-16 h-full bg-gradient-to-l from-blue-100/10 to-transparent"></div>
+                        <div class="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center flex-shrink-0 border border-blue-200/30">
+                            <span class="material-symbols-outlined text-base" style="font-variation-settings:'FILL' 1">campaign</span>
+                        </div>
                         <div class="min-w-0 flex-1">
-                            <p class="text-xs font-bold tracking-tight leading-snug break-words" id="notice-text">ERP sync active. Your data is being synchronized.</p>
+                            <p class="text-[11px] font-bold tracking-tight leading-snug text-blue-800 break-words" id="notice-text">ERP sync active. Your data is being synchronized.</p>
                         </div>
                     </div>
                 </section>
@@ -1739,7 +1763,15 @@ const pages = {
                 const overall = calcOverallAttendance(attList);
                 setEl('dash-att-val', 'innerText', overall.text);
                 const pct = parseFloat(overall.text) || 0;
-                setEl('dash-att-status-text', 'innerText', pct >= 75 ? 'Safe' : 'Critical');
+                
+                const statusEl = $('dash-att-status-text');
+                if (statusEl) {
+                    statusEl.innerText = pct >= 75 ? 'Safe' : 'Critical';
+                    statusEl.className = pct >= 75 
+                        ? 'px-2.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase border bg-emerald-50 text-emerald-700 border-emerald-200' 
+                        : 'px-2.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase border bg-rose-50 text-rose-700 border-rose-200';
+                }
+
                 const ring = $('dash-att-ring');
                 if (ring) {
                     ring.style.strokeDashoffset = 163.36 - (pct / 100) * 163.36;
@@ -1984,7 +2016,26 @@ const pages = {
                         </div>`;
                     grid.appendChild(card);
                 });
-            } catch(e) { console.error('[Attendance] Error:', e); }
+            } catch(e) { 
+                console.error('[Attendance] Error:', e); 
+                const grid = $('att-grid');
+                if (grid) {
+                    grid.innerHTML = `
+                        <div class="col-span-1 md:col-span-2 p-6 bg-white border border-slate-200/50 rounded-2xl shadow-sm text-center space-y-4">
+                            <div class="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto">
+                                <span class="material-symbols-outlined text-xl">cloud_off</span>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-bold text-slate-800">Connection Error</h4>
+                                <p class="text-xs text-slate-400 mt-1">Unable to retrieve attendance data. Please try again.</p>
+                            </div>
+                            <button onclick="router.routes['/attendance']?.afterRender?.()" class="px-5 py-2 bg-primary text-white font-extrabold text-xs rounded-full active-scale transition-transform">
+                                Retry
+                            </button>
+                        </div>
+                    `;
+                }
+            }
             finally { loading.hide(); }
         }
     },
@@ -2078,17 +2129,6 @@ const pages = {
                     sgpaRing.style.strokeDashoffset = circumference - pct * circumference;
                 }
 
-                const grid = $('marks-grid'); 'innerText', data.cgpa || '--');
-                setEl('marks-cgpa-status', 'innerText', cgpa >= 8.5 ? "Dean's List Status" : cgpa >= 7 ? 'Good Standing' : cgpa >= 5 ? 'Satisfactory' : 'Needs Improvement');
-
-                // Update SVG ring
-                const ring = $('cgpa-ring-circle');
-                if (ring) {
-                    const pct = Math.min(cgpa / 10, 1);
-                    const circumference = 175.84;
-                    ring.style.strokeDashoffset = circumference - pct * circumference;
-                }
-
                 const grid = $('marks-grid');
                 if (!grid) return;
                 const subjects = data.subjects || [];
@@ -2136,7 +2176,26 @@ const pages = {
                         </div>`;
                     }).join('');
                 }
-            } catch(e) { console.error('[Marks] Error:', e); }
+            } catch(e) { 
+                console.error('[Marks] Error:', e); 
+                const grid = $('marks-grid');
+                if (grid) {
+                    grid.innerHTML = `
+                        <div class="col-span-1 md:col-span-2 p-6 bg-white border border-slate-200/50 rounded-2xl shadow-sm text-center space-y-4">
+                            <div class="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto">
+                                <span class="material-symbols-outlined text-xl">cloud_off</span>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-bold text-slate-800">Connection Error</h4>
+                                <p class="text-xs text-slate-400 mt-1">Unable to retrieve academic records. Please try again.</p>
+                            </div>
+                            <button onclick="router.routes['/marks']?.afterRender?.()" class="px-5 py-2 bg-primary text-white font-extrabold text-xs rounded-full active-scale transition-transform">
+                                Retry
+                            </button>
+                        </div>
+                    `;
+                }
+            }
             finally { loading.hide(); }
         }
     },
@@ -2195,6 +2254,16 @@ const pages = {
                             <p class="text-on-surface-variant/80 text-xs mt-1">Cleared to date</p>
                         </div>
                         <div class="text-2xl font-black text-emerald-700" id="fee-paid">--</div>
+                    </div>
+                    <div class="glass-card border border-white/40 p-6 sm:p-8 rounded-2xl flex flex-col gap-4 justify-between shadow-sm active-scale transition-all">
+                        <div>
+                            <div class="w-10 h-10 bg-amber-100 text-amber-700 rounded-2xl flex items-center justify-center mb-4">
+                                <span class="material-symbols-outlined text-lg">pending_actions</span>
+                            </div>
+                            <h4 class="font-extrabold text-base text-on-surface" style="font-family:'Plus Jakarta Sans',sans-serif">Remaining Dues</h4>
+                            <p class="text-on-surface-variant/80 text-xs mt-1">Outstanding Balance</p>
+                        </div>
+                        <div class="text-2xl font-black text-amber-700" id="fee-due-card">--</div>
                     </div>
                     <!-- Full-width transaction history -->
                     <div class="lg:col-span-3 glass-card border border-white/45 rounded-2xl p-6 sm:p-8 shadow-[0_4px_30px_rgba(48,51,55,0.02)]">
@@ -2278,6 +2347,7 @@ const pages = {
                 setEl('fee-pct', 'innerText', `${d.paidProgress || 0}%`);
                 setEl('fee-total', 'innerText', totalAmount);
                 setEl('fee-paid', 'innerText', paidAmount);
+                setEl('fee-due-card', 'innerText', dueAmount);
                 setEl('fee-progress-text', 'innerText', `You've cleared ${paidAmount} of ${totalAmount} for the semester.`);
                 setEl('fee-hero-sub', 'innerText', `Your semester fee status: ${dueAmount} due. Ensure timely payment to avoid penalties.`);
  
@@ -2460,11 +2530,16 @@ const pages = {
                                 </div>
                                 <div class="min-w-0 flex-1 mr-2">
                                     <p class="font-bold text-on-surface text-sm leading-tight truncate" title="${txn.title}">${txn.title}</p>
+                                    <p class="text-[10px] text-slate-400 mt-1 flex items-center gap-1.5">
+                                        <span class="bg-slate-100 px-1.5 py-0.5 rounded font-mono font-bold">${txn.ref || 'N/A'}</span>
+                                        <span>•</span>
+                                        <span>${txn.date || '—'}</span>
+                                    </p>
                                 </div>
                             </div>
-                            <div class="text-right flex-shrink-0 flex flex-col items-end">
+                            <div class="text-right flex-shrink-0 flex flex-col items-end justify-center">
                                 <p class="font-extrabold text-on-surface text-sm leading-tight">${formatRupees(txn.amount)}</p>
-                                <span class="text-[9px] px-2 py-0.5 ${sc} rounded-full font-bold uppercase tracking-tighter mt-1 inline-block">${txn.status}</span>
+                                <span class="text-[9px] px-2 py-0.5 ${sc} rounded-full font-bold uppercase tracking-tighter mt-1.5 inline-block">${txn.status}</span>
                             </div>
                         </div>
                         ${warningHtml}
@@ -2477,13 +2552,14 @@ const pages = {
 
     profile: {
         render: () => `<div class="min-h-screen pb-36 bg-[#F8FAFC]">
-            <main class="pt-20 px-4 max-w-lg mx-auto space-y-6">
+            <main class="pt-20 px-4 max-w-xl mx-auto space-y-6">
 
                 <!-- ════════════════════════════════════ -->
                 <!-- DIGITAL STUDENT ID CARD             -->
                 <!-- ════════════════════════════════════ -->
                 <section>
                     <div class="id-card p-6 sm:p-7 relative overflow-hidden cursor-pointer active-scale" id="id-card-element">
+                        <div class="holographic-foil"></div>
                         <div class="relative z-10 flex items-center justify-between mb-4">
                             <div class="flex items-center gap-2">
                                 <span class="material-symbols-outlined text-white" style="font-size:22px">school</span>
@@ -2531,8 +2607,8 @@ const pages = {
                 </section>
 
                 <!-- Grouped Personal & Academic Fields -->
-                <section class="space-y-4 text-left" id="profile-sections-container">
-                    <div class="h-40 bg-slate-100 rounded-3xl animate-pulse"></div>
+                <section class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left" id="profile-sections-container">
+                    <div class="col-span-1 sm:col-span-2 h-40 bg-slate-100 rounded-3xl animate-pulse"></div>
                 </section>
 
                 <!-- Actions -->
@@ -2607,11 +2683,22 @@ const pages = {
                 setEl('fs-blood', 'innerText', `Blood Group: ${d.bloodGroup || 'Not Provided'}`);
                 setEl('fs-emergency', 'innerText', `Emergency: ${d.emergencyContact || d.phone || d.fatherMobile || 'N/A'}`);
 
+                const getInitials = (name) => {
+                    if (!name) return 'ST';
+                    return name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+                };
+                
+                const initials = getInitials(d.name);
+                const placeholderAvatar = `<div class="w-full h-full bg-gradient-to-tr from-[#2563EB] to-[#6366F1] flex items-center justify-center text-white font-extrabold text-2xl">${initials}</div>`;
+                
                 if (d.photoUrl && d.photoUrl.trim().length > 0) {
-                    const avatarHtml = `<img src="${d.photoUrl}" class="w-full h-full object-cover rounded-2xl" alt="Photo" onerror="this.style.display='none'">`;
-                    const fsAvatarHtml = `<img src="${d.photoUrl}" class="w-full h-full object-cover rounded-3xl" alt="Photo" onerror="this.style.display='none'">`;
+                    const avatarHtml = `<img src="${d.photoUrl}" class="w-full h-full object-cover rounded-2xl" alt="Photo" onerror="this.innerHTML='${placeholderAvatar}'">`;
+                    const fsAvatarHtml = `<img src="${d.photoUrl}" class="w-full h-full object-cover rounded-3xl" alt="Photo" onerror="this.innerHTML='${placeholderAvatar}'">`;
                     setEl('id-avatar-container', 'innerHTML', avatarHtml);
                     setEl('fs-avatar-container', 'innerHTML', fsAvatarHtml);
+                } else {
+                    setEl('id-avatar-container', 'innerHTML', placeholderAvatar);
+                    setEl('fs-avatar-container', 'innerHTML', placeholderAvatar);
                 }
 
                 $('id-card-element')?.addEventListener('click', () => {
@@ -2655,7 +2742,9 @@ const pages = {
                     ].join('');
 
                     const academicRows = [
-                        renderRow('badge', 'Admission Number', d.admissionNo),
+                        renderRow('badge', 'Student ID', d.userId),
+                        renderRow('fingerprint', 'Roll Number', d.roll || d.roll_number),
+                        renderRow('assignment_ind', 'Admission Number', d.admissionNo),
                         renderRow('school', 'Program', d.program),
                         renderRow('account_tree', 'Branch', d.branch),
                         renderRow('event_seat', 'Semester', d.semester || d.currentSemester),
@@ -2754,6 +2843,20 @@ const pages = {
                     const bg = isPending ? 'bg-surface-container-lowest border border-outline-variant/10' : 'bg-secondary-container/20';
                     const icon = a.icon || (isPending ? 'pending' : 'check_circle');
                     const iconColor = isPending ? 'text-tertiary' : 'text-secondary';
+                    
+                    let deadlineWarning = '';
+                    if (isPending && a.date) {
+                        try {
+                            const due = new Date(a.date);
+                            const now = new Date();
+                            const timeDiff = due.getTime() - now.getTime();
+                            const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+                            if (daysDiff >= 0 && daysDiff <= 2) {
+                                deadlineWarning = `<span class="ml-2 bg-rose-100 text-rose-700 text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded border border-rose-200">Due Soon</span>`;
+                            }
+                        } catch (_) {}
+                    }
+
                     return `<div class="p-5 rounded-xl ${bg} flex items-center gap-4 justify-between">
                         <div class="flex items-center gap-4 min-w-0 flex-1">
                             <div class="w-12 h-12 rounded-full bg-surface-container-high flex items-center justify-center flex-shrink-0">
@@ -2761,13 +2864,32 @@ const pages = {
                             </div>
                             <div class="min-w-0 flex-1">
                                 <p class="font-bold text-on-surface text-sm truncate" title="${a.title}">${a.title}</p>
-                                <p class="text-[11px] text-on-surface-variant mt-0.5 truncate">${a.subject} · Due ${a.date || '--'}</p>
+                                <p class="text-[11px] text-on-surface-variant mt-0.5 truncate">${a.subject} · Due ${a.date || '--'}${deadlineWarning}</p>
                             </div>
                         </div>
                         <span class="text-[10px] px-2 py-1 rounded-full font-bold uppercase flex-shrink-0 ${isPending ? 'bg-tertiary-container/30 text-on-tertiary-container' : 'bg-secondary-container text-on-secondary-container'}">${a.status}</span>
                     </div>`;
                 }).join('');
-            } catch(e) { console.error('[Assignments] Error:', e); }
+            } catch(e) { 
+                console.error('[Assignments] Error:', e); 
+                const list = $('asn-list');
+                if (list) {
+                    list.innerHTML = `
+                        <div class="p-6 bg-white border border-slate-200/50 rounded-2xl shadow-sm text-center space-y-4">
+                            <div class="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto">
+                                <span class="material-symbols-outlined text-xl">cloud_off</span>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-bold text-slate-800">Connection Error</h4>
+                                <p class="text-xs text-slate-400 mt-1">Unable to retrieve assignments list. Please try again.</p>
+                            </div>
+                            <button onclick="router.routes['/assignments']?.afterRender?.()" class="px-5 py-2 bg-primary text-white font-extrabold text-xs rounded-full active-scale transition-transform">
+                                Retry
+                            </button>
+                        </div>
+                    `;
+                }
+            }
             finally { loading.hide(); }
         }
     },
@@ -2799,11 +2921,53 @@ const pages = {
             try {
                 const res = await api.get('/timetable');
                 allSlots = Array.isArray(res) ? res : (res.data || []);
-            } catch(e) { console.error('[Timetable] Fetch error:', e); }
-            finally { loading.hide(); }
+            } catch(e) { 
+                console.error('[Timetable] Fetch error:', e); 
+                const grid = $('tt-grid');
+                if (grid) {
+                    grid.innerHTML = `
+                        <div class="p-6 bg-white border border-slate-200/50 rounded-2xl shadow-sm text-center space-y-4">
+                            <div class="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto">
+                                <span class="material-symbols-outlined text-xl">cloud_off</span>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-bold text-slate-800">Connection Error</h4>
+                                <p class="text-xs text-slate-400 mt-1">Unable to retrieve schedule. Please try again.</p>
+                            </div>
+                            <button onclick="router.routes['/timetable']?.afterRender?.()" class="px-5 py-2 bg-primary text-white font-extrabold text-xs rounded-full active-scale transition-transform">
+                                Retry
+                            </button>
+                        </div>
+                    `;
+                }
+                loading.hide();
+                return;
+            }
+            loading.hide();
 
             const colors = ['bg-secondary-container text-secondary', 'bg-tertiary-container/40 text-on-tertiary-container', 'bg-surface-container-high text-on-surface-variant', 'bg-surface-container text-primary'];
             const icons = ['terminal','calculate','language','science','menu_book','code','psychology','biotech'];
+
+            function parseTime(timeStr) {
+                if (!timeStr) return null;
+                const clean = timeStr.replace(/^"|"$/g, '').trim();
+                const parts = clean.split('-');
+                const startStr = parts[0].trim(); // e.g. "09:00 AM"
+                
+                const match = startStr.match(/(\d+):(\d+)\s*(AM|PM)/i);
+                if (!match) return null;
+                
+                let hours = parseInt(match[1]);
+                const minutes = parseInt(match[2]);
+                const ampm = match[3].toUpperCase();
+                
+                if (ampm === 'PM' && hours < 12) hours += 12;
+                if (ampm === 'AM' && hours === 12) hours = 0;
+                
+                const d = new Date();
+                d.setHours(hours, minutes, 0, 0);
+                return d;
+            }
 
             function renderDay(day) {
                 const grid = $('tt-grid');
@@ -2813,27 +2977,76 @@ const pages = {
                     grid.innerHTML = `<div class="text-center py-16 text-on-surface-variant"><span class="material-symbols-outlined text-5xl mb-4 block">event_busy</span><p class="font-bold">No classes on ${day}</p></div>`;
                     return;
                 }
+
+                // Determine active/next class if today matches selected tab
+                const now = new Date();
+                const systemDays = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+                const systemToday = systemDays[now.getDay()];
+                const isSystemToday = (day === systemToday);
+
+                let highlightedIndex = -1;
+                let highlightLabel = '';
+
+                if (isSystemToday && daySlots.length > 0) {
+                    const parsedSlots = daySlots.map(s => {
+                        const start = parseTime(s.time);
+                        return { slot: s, start };
+                    });
+
+                    // Class active check (within 50 minutes of start)
+                    const activeIndex = parsedSlots.findIndex(item => {
+                        if (!item.start) return false;
+                        const diffMs = now.getTime() - item.start.getTime();
+                        return diffMs >= 0 && diffMs < 50 * 60 * 1000;
+                    });
+
+                    if (activeIndex !== -1) {
+                        highlightedIndex = activeIndex;
+                        highlightLabel = 'Now';
+                    } else {
+                        // Class next check (first starting after now)
+                        const nextIndex = parsedSlots.findIndex(item => {
+                            if (!item.start) return false;
+                            return item.start.getTime() > now.getTime();
+                        });
+                        if (nextIndex !== -1) {
+                            highlightedIndex = nextIndex;
+                            highlightLabel = 'Next';
+                        }
+                    }
+                }
+
                 grid.innerHTML = daySlots.map((s, i) => {
-                    // Strip stray quotes from time (stored as JSON string in some cases)
                     const timeVal = (s.time || '--').replace(/^"|"$/g, '').trim();
                     const periodVal = parseInt(s.period) || (i + 1);
                     const subjectDisplay = (s.subjectName && s.subjectName !== s.subjectCode)
                         ? s.subjectName
                         : (s.subjectCode || 'Class');
+
+                    const isHighlighted = (i === highlightedIndex);
+                    const borderClass = isHighlighted 
+                        ? 'border-2 border-primary bg-gradient-to-tr from-white to-blue-50/20 shadow-md relative' 
+                        : 'glass-card border border-white/40 shadow-sm relative';
+                    
+                    const badgeHtml = isHighlighted 
+                        ? `<span class="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider ${highlightLabel === 'Now' ? 'bg-emerald-500 text-white animate-pulse' : 'bg-blue-600 text-white'}">${highlightLabel === 'Now' ? 'Live Now' : 'Next Up'}</span>`
+                        : '';
+
                     return `
-                    <div class="glass-card border border-white/40 p-4 sm:p-5 rounded-2xl flex items-center gap-4 sm:gap-5 shadow-sm active-scale transition-all duration-200">
+                    <div class="${borderClass} p-4 sm:p-5 rounded-2xl flex items-center gap-4 sm:gap-5 active-scale transition-all duration-200">
+                        ${badgeHtml}
                         <div class="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${colors[i % colors.length]}">
                             <span class="material-symbols-outlined text-base sm:text-lg" style="font-variation-settings:'FILL' 1">${icons[i % icons.length]}</span>
                         </div>
-                        <div class="flex-1 min-w-0">
+                        <div class="flex-1 min-w-0 pr-12">
                             <p class="text-[9px] font-extrabold text-on-surface-variant/70 tracking-wider uppercase">${s.subjectCode || '--'}</p>
                             <h4 class="font-extrabold text-sm text-on-surface truncate" style="font-family:'Plus Jakarta Sans',sans-serif">${subjectDisplay}</h4>
                             <div class="flex flex-wrap items-center gap-x-3.5 gap-y-0.5 mt-1">
                                 <div class="flex items-center gap-1 text-[10px] text-on-surface-variant">
-                                    <span class="material-symbols-outlined text-xs text-slate-400" style="font-size:12px">meeting_room</span> <span>${s.room || '--'}</span>
+                                    <span class="material-symbols-outlined text-xs text-slate-400" style="font-size:12px">meeting_room</span> <span class="truncate max-w-[80px]">${s.room || '--'}</span>
                                 </div>
                                 <div class="flex items-center gap-1 text-[10px] text-on-surface-variant">
-                                    <span class="material-symbols-outlined text-xs text-slate-400" style="font-size:12px">person</span> <span class="truncate max-w-[120px]">${s.facultyName || '--'}</span>
+                                    <span class="material-symbols-outlined text-xs text-slate-400" style="font-size:12px">person</span> <span class="truncate max-w-[100px]">${s.facultyName || '--'}</span>
                                 </div>
                                 <div class="flex items-center gap-1 text-[10px] text-secondary font-extrabold">
                                     <span class="material-symbols-outlined text-xs" style="font-size:12px">schedule</span> <span>${timeVal}</span>
@@ -2849,12 +3062,10 @@ const pages = {
             }
 
             const days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-            // getDay(): 0=Sun,1=Mon,...,5=Fri,6=Sat
-            const todayIndex = new Date().getDay(); // 1-6 = Mon-Sat
+            const todayIndex = new Date().getDay();
             let activeDay = (todayIndex >= 1 && todayIndex <= 6) ? days[todayIndex - 1] : 'Monday';
             renderDay(activeDay);
 
-            // Activate correct tab
             document.querySelectorAll('.day-tab').forEach(btn => {
                 const isActive = btn.dataset.day === activeDay;
                 btn.className = `day-tab flex-shrink-0 px-5 py-2.5 rounded-full text-[11px] font-bold uppercase tracking-widest transition-all ${isActive ? 'bg-secondary text-on-secondary' : 'bg-surface-container text-on-surface-variant hover:bg-surface-container-high'}`;
@@ -2982,6 +3193,27 @@ const pages = {
             setActiveNav('notifications');
             
             const listContainer = $('notif-list-container');
+            const formatRelativeTime = (dateInput) => {
+                if (!dateInput) return '—';
+                const date = new Date(dateInput);
+                if (isNaN(date.getTime())) return '—';
+                
+                const now = new Date();
+                const diffMs = now.getTime() - date.getTime();
+                const diffSec = Math.floor(diffMs / 1000);
+                const diffMin = Math.floor(diffSec / 60);
+                const diffHour = Math.floor(diffMin / 60);
+                const diffDay = Math.floor(diffHour / 24);
+
+                if (diffSec < 60) return 'Just now';
+                if (diffMin < 60) return `${diffMin}m ago`;
+                if (diffHour < 24) return `${diffHour}h ago`;
+                if (diffDay === 1) return 'Yesterday';
+                if (diffDay < 7) return `${diffDay}d ago`;
+                
+                return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+            };
+
             const searchInput = $('notif-search');
             const filterContainer = $('notif-filters');
             const markAllReadBtn = $('mark-all-read-btn');
@@ -3105,7 +3337,7 @@ const pages = {
                                                         ${!isRead ? `<span class="w-1.5 h-1.5 bg-primary rounded-full flex-shrink-0" id="unread-dot-${n.id}"></span>` : ''}
                                                     </div>
                                                     <p class="text-xs text-slate-500 mt-1.5 leading-normal break-words">${n.message}</p>
-                                                    <p class="text-[9px] text-slate-400 font-bold mt-2 font-mono">${new Date(n.createdAt).toLocaleTimeString()}</p>
+                                                    <p class="text-[9px] text-slate-400 font-bold mt-2 font-mono">${formatRelativeTime(n.createdAt)}</p>
                                                 </div>
                                             </div>
                                             <button class="delete-notif-btn p-2 text-slate-400 hover:text-red-500 active-scale rounded-full flex items-center justify-center flex-shrink-0" data-id="${n.id}">
@@ -3195,6 +3427,23 @@ const pages = {
                 renderNotifications();
             } catch (err) {
                 console.error('[Notifications] Network fetch error:', err);
+                const list = $('notif-list-container');
+                if (list && allNotifications.length === 0) {
+                    list.innerHTML = `
+                        <div class="p-6 bg-white border border-slate-200/50 rounded-2xl shadow-sm text-center space-y-4">
+                            <div class="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto">
+                                <span class="material-symbols-outlined text-xl">cloud_off</span>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-bold text-slate-800">Connection Error</h4>
+                                <p class="text-xs text-slate-400 mt-1">Unable to retrieve notifications. Please try again.</p>
+                            </div>
+                            <button onclick="router.routes['/notifications']?.afterRender?.()" class="px-5 py-2 bg-primary text-white font-extrabold text-xs rounded-full active-scale transition-transform">
+                                Retry
+                            </button>
+                        </div>
+                    `;
+                }
             }
 
             if (searchInput) {
@@ -3275,27 +3524,35 @@ const pages = {
                         </div>
                     </div>
                     <div class="space-y-3">
-                        ${schedules.map(sch => `
+                        ${schedules.map(sch => {
+                            const parseExamDate = (dateStr) => {
+                                if (!dateStr) return { month: 'EXAM', day: '—' };
+                                const parts = dateStr.split('/');
+                                if (parts.length === 3) {
+                                    const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+                                    const mIdx = parseInt(parts[1]) - 1;
+                                    return { month: months[mIdx] || 'EXAM', day: parts[0] };
+                                }
+                                return { month: 'DATE', day: dateStr };
+                            };
+                            const dInfo = parseExamDate(sch.date);
+                            return `
                             <div class="bg-surface-container-lowest border border-outline-variant/10 p-5 rounded-xl flex items-center gap-5 shadow-sm hover:shadow-md transition-all">
-                                <div class="w-12 h-12 rounded-2xl bg-tertiary-container/30 text-tertiary flex items-center justify-center flex-shrink-0">
-                                    <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1">feed</span>
+                                <div class="w-12 h-14 bg-rose-50 text-rose-700 rounded-xl flex flex-col items-center justify-center border border-rose-100 flex-shrink-0">
+                                    <span class="text-[9px] font-black uppercase tracking-wider leading-none mt-1">${dInfo.month}</span>
+                                    <span class="text-lg font-black leading-none mt-1 mb-1">${dInfo.day}</span>
                                 </div>
                                 <div class="flex-1 min-w-0">
                                     <p class="text-[10px] font-bold text-on-surface-variant tracking-wider uppercase">${sch.subjectCode} • ${sch.type}</p>
                                     <h4 class="font-bold text-on-surface truncate" style="font-family:'Plus Jakarta Sans',sans-serif">${sch.subjectName}</h4>
-                                    <div class="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
-                                        <div class="flex items-center gap-1 text-[11px] text-on-surface-variant">
-                                            <span class="material-symbols-outlined text-xs">meeting_room</span> ${sch.hall}
-                                        </div>
-                                        <div class="flex items-center gap-1 text-[11px] text-on-surface-variant">
-                                            <span class="material-symbols-outlined text-xs">chair</span> Seat: ${sch.seatNumber}
-                                        </div>
-                                        <div class="flex items-center gap-1 text-[11px] text-secondary font-bold">
-                                            <span class="material-symbols-outlined text-xs">calendar_today</span> ${sch.date}
-                                        </div>
+                                    <div class="flex flex-wrap items-center gap-x-3.5 gap-y-1 mt-2">
+                                        <span class="px-2 py-0.5 bg-slate-100 text-slate-700 rounded-full text-[9px] font-bold border border-slate-200/50 flex items-center gap-0.5"><span class="material-symbols-outlined text-[10px]" style="font-size:10px">meeting_room</span> Hall ${sch.hall}</span>
+                                        <span class="px-2 py-0.5 bg-slate-100 text-slate-700 rounded-full text-[9px] font-bold border border-slate-200/50 flex items-center gap-0.5"><span class="material-symbols-outlined text-[10px]" style="font-size:10px">chair</span> Seat: ${sch.seatNumber}</span>
+                                        <span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full text-[9px] font-bold border border-blue-200/50 flex items-center gap-0.5"><span class="material-symbols-outlined text-[10px]" style="font-size:10px">calendar_today</span> ${sch.date}</span>
                                     </div>
                                 </div>
-                            </div>`).join('')}
+                            </div>`;
+                        }).join('')}
                     </div>`;
             } catch(e) { 
                 console.error('[Exams] Error:', e); 
@@ -4330,6 +4587,22 @@ const pages = {
                     renderAnnouncements();
                 } catch (err) {
                     console.error('[Announcements] load failed:', err);
+                    if (list) {
+                        list.innerHTML = `
+                            <div class="p-6 bg-white border border-slate-200/50 rounded-2xl shadow-sm text-center space-y-4">
+                                <div class="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto">
+                                    <span class="material-symbols-outlined text-xl">cloud_off</span>
+                                </div>
+                                <div>
+                                    <h4 class="text-sm font-bold text-slate-800">Connection Error</h4>
+                                    <p class="text-xs text-slate-400 mt-1">Unable to retrieve announcements. Please try again.</p>
+                                </div>
+                                <button onclick="router.routes['/announcements']?.afterRender?.()" class="px-5 py-2 bg-primary text-white font-extrabold text-xs rounded-full active-scale transition-transform">
+                                    Retry
+                                </button>
+                            </div>
+                        `;
+                    }
                 } finally {
                     loading.hide();
                 }
@@ -4465,6 +4738,15 @@ const pages = {
 
             const openSheet = () => {
                 haptic();
+                const dock = document.getElementById('bottom-dock');
+                if (dock) {
+                    const dockRect = dock.getBoundingClientRect();
+                    const dockClearance = window.innerHeight - dockRect.top;
+                    const sheetBottom = Math.max(dockClearance + 16, 80);
+                    document.documentElement.style.setProperty(
+                        '--bottom-sheet-bottom', `${sheetBottom}px`
+                    );
+                }
                 backdrop.classList.remove('hidden');
                 sheet.classList.remove('hidden');
                 setTimeout(() => {
@@ -4488,6 +4770,15 @@ const pages = {
             const openClaimSheet = (itemId) => {
                 haptic();
                 currentClaimItemId = itemId;
+                const dock = document.getElementById('bottom-dock');
+                if (dock) {
+                    const dockRect = dock.getBoundingClientRect();
+                    const dockClearance = window.innerHeight - dockRect.top;
+                    const sheetBottom = Math.max(dockClearance + 16, 80);
+                    document.documentElement.style.setProperty(
+                        '--bottom-sheet-bottom', `${sheetBottom}px`
+                    );
+                }
                 claimBackdrop.classList.remove('hidden');
                 claimSheet.classList.remove('hidden');
                 setTimeout(() => {
@@ -4626,6 +4917,22 @@ const pages = {
                     renderItems();
                 } catch (err) {
                     console.error('[LostFound] load failed:', err);
+                    if (list) {
+                        list.innerHTML = `
+                            <div class="p-6 bg-white border border-slate-200/50 rounded-2xl shadow-sm text-center space-y-4">
+                                <div class="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto">
+                                    <span class="material-symbols-outlined text-xl">cloud_off</span>
+                                </div>
+                                <div>
+                                    <h4 class="text-sm font-bold text-slate-800">Connection Error</h4>
+                                    <p class="text-xs text-slate-400 mt-1">Unable to retrieve Lost & Found items. Please try again.</p>
+                                </div>
+                                <button onclick="router.routes['/lost-found']?.afterRender?.()" class="px-5 py-2 bg-primary text-white font-extrabold text-xs rounded-full active-scale transition-transform">
+                                    Retry
+                                </button>
+                            </div>
+                        `;
+                    }
                 } finally {
                     loading.hide();
                 }
@@ -4818,6 +5125,15 @@ const pages = {
 
             const openSheet = () => {
                 haptic();
+                const dock = document.getElementById('bottom-dock');
+                if (dock) {
+                    const dockRect = dock.getBoundingClientRect();
+                    const dockClearance = window.innerHeight - dockRect.top;
+                    const sheetBottom = Math.max(dockClearance + 16, 80);
+                    document.documentElement.style.setProperty(
+                        '--bottom-sheet-bottom', `${sheetBottom}px`
+                    );
+                }
                 backdrop.classList.remove('hidden');
                 sheet.classList.remove('hidden');
                 setTimeout(() => {
@@ -5077,16 +5393,35 @@ const pages = {
                         const assignments = c.assignments || [];
                         const quizzes = c.quizzes || [];
 
+                        const initialLetters = c.name ? c.name.split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase() : 'CO';
+                        const gradients = [
+                            'from-indigo-500 to-blue-500',
+                            'from-emerald-500 to-teal-500',
+                            'from-rose-500 to-orange-500',
+                            'from-amber-500 to-yellow-500',
+                            'from-purple-500 to-pink-500',
+                            'from-blue-500 to-cyan-500'
+                        ];
+                        const grad = gradients[c.code.charCodeAt(c.code.length - 1) % gradients.length] || gradients[0];
+                        const thumbnailHtml = `
+                            <div class="w-10 h-10 rounded-xl bg-gradient-to-br ${grad} flex items-center justify-center text-white font-extrabold text-sm border border-white/20 shadow-sm flex-shrink-0">
+                                ${initialLetters}
+                            </div>
+                        `;
+
                         return `
                             <div class="glass-card p-5 border border-white/40 rounded-3xl bg-white shadow-sm hover:shadow-md transition-all duration-300 space-y-4">
                                 <div class="flex justify-between items-start">
-                                    <div class="min-w-0 flex-1">
-                                        <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">${c.code}</p>
-                                        <h3 class="font-extrabold text-slate-800 text-sm mt-1 truncate" title="${c.name}">${c.name}</h3>
-                                        <div class="flex items-center gap-2 mt-1">
-                                            <span class="text-[9px] text-slate-400 font-bold">👤 ${c.faculty?.name || 'Faculty'}</span>
-                                            <span class="w-1 h-1 bg-slate-300 rounded-full"></span>
-                                            <span class="text-[9px] text-slate-400 font-bold">${c.credits || 0} Credits</span>
+                                    <div class="flex gap-3 min-w-0 flex-1">
+                                        ${thumbnailHtml}
+                                        <div class="min-w-0 flex-1">
+                                            <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">${c.code}</p>
+                                            <h3 class="font-extrabold text-slate-800 text-sm mt-1 truncate" title="${c.name}">${c.name}</h3>
+                                            <div class="flex items-center gap-2 mt-1">
+                                                <span class="text-[9px] text-slate-400 font-bold">👤 ${c.faculty?.name || 'Faculty'}</span>
+                                                <span class="w-1 h-1 bg-slate-300 rounded-full"></span>
+                                                <span class="text-[9px] text-slate-400 font-bold">${c.credits || 0} Credits</span>
+                                            </div>
                                         </div>
                                     </div>
                                     <span class="text-xs font-extrabold text-primary bg-blue-50 px-2 py-0.5 rounded border border-blue-100 ml-2 flex-shrink-0">${progress}%</span>

@@ -8,15 +8,21 @@
 const { PrismaClient } = require('@prisma/client');
 const logger = require('./logger');
 
+const path = require('path');
+
 const SLOW_QUERY_THRESHOLD_MS = parseInt(process.env.DB_SLOW_QUERY_MS || '200', 10);
 const CONNECTION_LIMIT = parseInt(process.env.DB_CONNECTION_LIMIT || '20', 10);
 
 // Build datasource URL with connection pool params if using PostgreSQL
 // Prisma uses connection_limit and pool_timeout as URL query params
 function buildDatabaseUrl() {
-    const rawUrl = process.env.DATABASE_URL || '';
-    if (!rawUrl || rawUrl.startsWith('file:')) {
-        return rawUrl; // SQLite — no pool params
+    let rawUrl = process.env.DATABASE_URL || '';
+    if (!rawUrl) {
+        rawUrl = 'file:./dev.db';
+    }
+    if (rawUrl.startsWith('file:')) {
+        // Let Prisma Client resolve relative SQLite paths natively relative to backend/prisma/
+        return rawUrl;
     }
 
     try {

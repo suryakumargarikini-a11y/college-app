@@ -207,7 +207,8 @@ const apply = async (req, res) => {
         }
         if (!studentId) return res.status(401).json({ error: 'Not authenticated' });
 
-        const { reason, destination, requestedDate } = req.body;
+        const { reason, destination } = req.body;
+        const requestedDate = req.body.requestedDate || req.body.requestDate;
         if (!reason || !destination || !requestedDate) {
             return res.status(400).json({ error: 'Reason, destination, and requested date are required' });
         }
@@ -219,7 +220,7 @@ const apply = async (req, res) => {
         const pass = await prisma.exitPass.create({
             data: { studentId, reason, destination, requestedDate, status: 'PENDING' }
         });
-        res.status(201).json(pass);
+        res.status(201).json({ success: true, ...pass });
     } catch (err) { 
         res.status(500).json({ error: 'Failed to submit exit pass' }); 
     }

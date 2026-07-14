@@ -547,15 +547,20 @@ const notificationRepository = {
 const auditLogRepository = {
     async log(studentId, action, details, adminId = null, severity = 'INFO') {
         logger.debug(`AuditLog: [${action}] Student: ${studentId || 'None'} | Admin: ${adminId || 'None'} | Severity: ${severity} - ${details}`);
-        return prisma.auditLog.create({
-            data: {
-                student: studentId ? { connect: { id: studentId } } : undefined,
-                admin: adminId ? { connect: { id: adminId } } : undefined,
-                action,
-                details,
-                severity
-            }
-        });
+        try {
+            return await prisma.auditLog.create({
+                data: {
+                    student: studentId ? { connect: { id: studentId } } : undefined,
+                    admin: adminId ? { connect: { id: adminId } } : undefined,
+                    action,
+                    details,
+                    severity
+                }
+            });
+        } catch (e) {
+            logger.warn(`AuditLog insertion failed (non-blocking): ${e.message}`);
+            return null;
+        }
     }
 };
 
