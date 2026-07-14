@@ -17,11 +17,11 @@
     },
     {
       "src": "/assets/(.*)",
-      "dest": "/admin-portal/dist/assets/$1"
+      "dest": "/assets/$1"
     },
     {
       "src": "/(.*)",
-      "dest": "/admin-portal/dist/index.html"
+      "dest": "/index.html"
     }
   ]
 }
