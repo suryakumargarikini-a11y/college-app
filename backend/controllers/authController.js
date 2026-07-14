@@ -110,7 +110,16 @@ const login = async (req, res) => {
                 console.error(`[LOGIN-3] Credential decryption failed: ${cryptoErr.message}`);
             }
 
-            if (decryptedPassword === password) {
+            // Also check HMAC-SHA256 hash format (used by seed-demo.js via hashPassword())
+            let hmacMatch = false;
+            try {
+                const crypto = require('crypto');
+                const SALT = process.env.ADMIN_PASSWORD_SALT || 'sitam-admin-salt';
+                const hmacHash = crypto.createHmac('sha256', SALT).update(password).digest('hex');
+                hmacMatch = (cachedStudent.password === hmacHash);
+            } catch (_) {}
+
+            if (decryptedPassword === password || hmacMatch) {
                 logger.info(`[LOGIN-3] ✓ Credentials matched — instant login for: ${userId}`);
                 console.log(`[LOGIN-3] ✓ Credentials matched — instant login for: ${userId}`);
 
@@ -144,11 +153,15 @@ const login = async (req, res) => {
                 } catch (_) {}
 
                 // ── STAGE 7: Background Sync Trigger (non-blocking) ───────
+                const DEMO_MODE = (process.env.DEMO_MODE || '').toLowerCase() === 'true';
                 const lastSync = cachedStudent.lastSync;
                 const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
                 const isStale = !lastSync || new Date(lastSync) < thirtyMinutesAgo;
 
-                if (isStale) {
+                if (DEMO_MODE) {
+                    logger.info(`[LOGIN-7] DEMO MODE — skipping background ERP sync for: ${userId}`);
+                    console.log(`[LOGIN-7] DEMO MODE — skipping background ERP sync.`);
+                } else if (isStale) {
                     logger.info(`[LOGIN-7] Cached data stale (lastSync: ${lastSync || 'never'}). Triggering background provider sync for: ${userId}`);
                     console.log(`[LOGIN-7] Cached data stale. Triggering background provider sync for: ${userId}`);
                     syncService.triggerProviderSync(userId, password);

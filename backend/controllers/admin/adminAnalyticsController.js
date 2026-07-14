@@ -273,7 +273,7 @@ const getAnalytics = async (req, res) => {
                 prisma.courseProgress.aggregate({ _avg: { progressPct: true } }),
                 prisma.courseEnrollment.count(),
                 prisma.certificate.count(),
-                prisma.assignmentSubmission.groupBy({ by: ['status'], _count: { id: true } }),
+                prisma.lmsSubmission.groupBy({ by: ['status'], _count: { id: true } }),
                 prisma.quizResult.aggregate({ _avg: { score: true } })
             ]);
             courseProgressAvg = parseFloat((progressAgg._avg?.progressPct || 72.4).toFixed(2));
