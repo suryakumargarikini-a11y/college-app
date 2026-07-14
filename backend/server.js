@@ -54,6 +54,7 @@ const corsWhitelist = [
     // Production Vercel portals
     'https://sitam-erp.vercel.app',
     'https://sitam-erp-admin.vercel.app',
+    'https://college-app-ivory-alpha.vercel.app',
     // SITAM campus domains
     'https://sitamecap.co.in',
     'https://admin.sitamecap.co.in'
