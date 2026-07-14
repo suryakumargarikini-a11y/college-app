@@ -16,7 +16,7 @@ import { Trend, Rate, Counter } from 'k6/metrics';
 import { randomIntBetween } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js';
 
 // ─── Configuration ────────────────────────────────────────────────────────────
-const BASE_URL = __ENV.BASE_URL || 'http://localhost:8080';
+const BASE_URL = __ENV.BASE_URL || 'https://college-app-bx6b.onrender.com';
 const SCENARIO = __ENV.SCENARIO || 'load'; // smoke | load | stress | spike | soak
 
 // Custom Metrics

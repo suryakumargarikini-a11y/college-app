@@ -11,10 +11,10 @@ const path = require('path');
 const isProduction = process.env.RENDER || process.env.RAILWAY_ENVIRONMENT || process.env.NODE_ENV === 'production';
 const envName = isProduction ? 'production' : 'development';
 
+// PRODUCTION ONLY — all traffic routes through the Render backend.
+// No localhost fallback. Set API_BASE_URL in the environment to override.
 const PRODUCTION_API_URL = 'https://college-app-bx6b.onrender.com/api';
-const LOCAL_API_URL = 'http://localhost:3001/api';
-// Default to local URL in development unless explicitly overridden.
-const apiBaseUrl = process.env.API_BASE_URL || (isProduction ? PRODUCTION_API_URL : LOCAL_API_URL);
+const apiBaseUrl = process.env.API_BASE_URL || PRODUCTION_API_URL;
 
 const appVersion = process.env.APP_VERSION || '1.0.0';
 

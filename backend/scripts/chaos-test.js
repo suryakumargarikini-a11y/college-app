@@ -14,13 +14,16 @@
  *   6. Readiness Probe Check     — /api/health/readiness returns valid JSON structure
  *
  * Usage:
+ *   # Against Render production (default):
  *   node scripts/chaos-test.js
- *   (Backend must be running at TARGET_URL)
+ *
+ *   # Against local backend:
+ *   TARGET_URL=http://localhost:3001 node scripts/chaos-test.js
  */
 
 const http = require('http');
 
-const TARGET_URL = process.env.TARGET_URL || 'http://localhost:3001';
+const TARGET_URL = process.env.TARGET_URL || 'https://college-app-bx6b.onrender.com';
 
 const C = {
     reset: '\x1b[0m', green: '\x1b[32m', yellow: '\x1b[33m',

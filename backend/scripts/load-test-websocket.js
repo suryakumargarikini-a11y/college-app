@@ -8,7 +8,11 @@
  *  - Clean disconnect without errors
  *
  * Usage:
+ *   # Against Render production (default):
  *   node scripts/load-test-websocket.js
+ *
+ *   # Against local backend:
+ *   WS_URL=ws://localhost:3001 node scripts/load-test-websocket.js
  *
  * Environment overrides:
  *   WS_URL=ws://localhost:3001
@@ -19,7 +23,7 @@
 
 const { WebSocket } = require('ws');
 
-const WS_URL = process.env.WS_URL || 'ws://localhost:3001';
+const WS_URL = process.env.WS_URL || 'wss://college-app-bx6b.onrender.com';
 const WS_CONNECTIONS = parseInt(process.env.WS_CONNECTIONS || '50', 10);
 const TEST_DURATION_MS = parseInt(process.env.WS_TEST_DURATION_MS || '30000', 10);
 const CONNECT_DELAY_MS = parseInt(process.env.WS_CONNECT_DELAY_MS || '50', 10);

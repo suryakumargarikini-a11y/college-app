@@ -1,5 +1,5 @@
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -67,11 +67,6 @@ model Student {
   helpTickets        HelpTicket[]
   savedPlacements    SavedPlacement[]
   lostFoundClaims    LostFoundClaim[]
-  courseEnrollments  CourseEnrollment[]
-  courseProgress     CourseProgress[]
-  certificates       Certificate[]
-  lmsSubmissions     LmsSubmission[]
-  quizResults        QuizResult[]
 
   @@index([email])
   @@index([roll])
@@ -602,138 +597,4 @@ model LostFoundClaim {
   @@unique([itemId, studentId])
   @@index([itemId])
   @@index([studentId])
-}
-
-model Department {
-  id        String    @id @default(uuid())
-  code      String    @unique // e.g. CSE, ECE
-  name      String
-  faculties Faculty[]
-  courses   Course[]
-}
-
-model Faculty {
-  id           String             @id @default(uuid())
-  email        String             @unique
-  passwordHash String
-  name         String
-  phone        String?            @default("")
-  role         String             @default("FACULTY")
-  departmentId String
-  department   Department         @relation(fields: [departmentId], references: [id], onDelete: Cascade)
-  courses      Course[]
-}
-
-model Course {
-  id           String             @id @default(uuid())
-  code         String             @unique // e.g. CS-401
-  name         String
-  credits      String
-  departmentId String
-  department   Department         @relation(fields: [departmentId], references: [id], onDelete: Cascade)
-  facultyId    String?
-  faculty      Faculty?           @relation(fields: [facultyId], references: [id], onDelete: SetNull)
-  enrollments  CourseEnrollment[]
-  assignments  LmsAssignment[]
-  quizzes      LmsQuiz[]
-  progress     CourseProgress[]
-  certificates Certificate[]
-}
-
-model CourseEnrollment {
-  id        String   @id @default(uuid())
-  studentId String
-  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  courseId  String
-  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  enrolledAt DateTime @default(now())
-
-  @@unique([studentId, courseId])
-  @@index([studentId])
-  @@index([courseId])
-}
-
-model LmsAssignment {
-  id          String   @id @default(uuid())
-  courseId    String
-  course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  title       String
-  description String?  @default("")
-  dueDate     String
-  maxPoints   Int      @default(100)
-  submissions LmsSubmission[]
-
-  @@index([courseId])
-}
-
-model LmsSubmission {
-  id           String        @id @default(uuid())
-  assignmentId String
-  assignment   LmsAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
-  studentId    String
-  student      Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  status       String        @default("SUBMITTED") // SUBMITTED, GRADED
-  submittedAt  DateTime      @default(now())
-  points       Int?
-  feedback     String?       @default("")
-
-  @@unique([assignmentId, studentId])
-  @@index([assignmentId])
-  @@index([studentId])
-}
-
-model LmsQuiz {
-  id          String   @id @default(uuid())
-  courseId    String
-  course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  title       String
-  description String?  @default("")
-  durationMin Int      @default(30)
-  maxPoints   Int      @default(100)
-  results     QuizResult[]
-
-  @@index([courseId])
-}
-
-model QuizResult {
-  id          String   @id @default(uuid())
-  quizId      String
-  quiz        LmsQuiz  @relation(fields: [quizId], references: [id], onDelete: Cascade)
-  studentId   String
-  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  score       Int
-  completedAt DateTime @default(now())
-
-  @@unique([quizId, studentId])
-  @@index([quizId])
-  @@index([studentId])
-}
-
-model CourseProgress {
-  id          String   @id @default(uuid())
-  studentId   String
-  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  courseId    String
-  course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  progressPct Float    @default(0.0)
-  completed   Boolean  @default(false)
-  updatedAt   DateTime @updatedAt
-
-  @@unique([studentId, courseId])
-  @@index([studentId])
-  @@index([courseId])
-}
-
-model Certificate {
-  id         String   @id @default(uuid())
-  studentId  String
-  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  courseId   String
-  course     Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  issuedAt   DateTime @default(now())
-  certNumber String   @unique
-
-  @@unique([studentId, courseId])
-  @@index([studentId])
-  @@index([courseId])
 }

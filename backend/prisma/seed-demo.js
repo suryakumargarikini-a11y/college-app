@@ -490,6 +490,19 @@ async function main() {
   console.log(`║   LMS Models: ${HAS_LMS ? 'AVAILABLE ✅' : 'NOT IN PG SCHEMA ⚠️  (LMS skipped)'}                     ║`);
   console.log('╚═══════════════════════════════════════════════════════════════════╝\n');
 
+  // ── SENTINEL: Skip if already seeded (unless --reset) ─────────────────────
+  if (!RESET) {
+    const existingCount = await prisma.student.count();
+    if (existingCount > 0) {
+      console.log(`ℹ️   Sentinel check: ${existingCount} students already exist in the database.`);
+      console.log('    Skipping re-seed to prevent duplicate data.');
+      console.log('    ✅ Use --reset flag to wipe and re-seed: node prisma/seed-demo.js --reset');
+      console.log('    ✅ Or run against an empty database.');
+      return;
+    }
+    console.log('ℹ️   Sentinel check: database is empty — proceeding with full seed.\n');
+  }
+
   // ── RESET ──────────────────────────────────────────────────────────────────
   if (RESET) {
     console.log('🗑️   --reset: Clearing all demo tables…');

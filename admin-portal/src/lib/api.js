@@ -1,7 +1,9 @@
 import axios from 'axios';
 
+const RENDER_API = 'https://college-app-bx6b.onrender.com/api';
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
+  baseURL: import.meta.env.VITE_API_BASE_URL || RENDER_API,
   headers: { 'Content-Type': 'application/json' },
   timeout: 30000,
 });

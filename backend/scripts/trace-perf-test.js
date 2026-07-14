@@ -10,7 +10,7 @@
 
 const axios = require('axios');
 
-const TARGET_URL = process.env.TARGET_URL || 'http://localhost:3001/api/metrics'; // Default to unauthenticated endpoint
+const TARGET_URL = process.env.TARGET_URL || 'https://college-app-bx6b.onrender.com/api/metrics'; // Default to unauthenticated endpoint
 const CONCURRENCY = parseInt(process.env.BENCH_CONCURRENCY || '50', 10);
 const TOTAL_REQUESTS = parseInt(process.env.BENCH_TOTAL || '500', 10);
 

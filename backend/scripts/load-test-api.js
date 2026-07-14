@@ -5,7 +5,11 @@
  * Simulates concurrent users hitting real API endpoints.
  *
  * Usage:
+ *   # Against Render production (default):
  *   node scripts/load-test-api.js
+ *
+ *   # Against local backend:
+ *   TARGET_URL=http://localhost:3001 node scripts/load-test-api.js
  *
  * Environment overrides:
  *   TARGET_URL=http://localhost:3001
@@ -17,7 +21,7 @@
 const http = require('http');
 const https = require('https');
 
-const TARGET_URL = process.env.TARGET_URL || 'http://localhost:3001';
+const TARGET_URL = process.env.TARGET_URL || 'https://college-app-bx6b.onrender.com/api';
 const CONCURRENT_USERS = parseInt(process.env.CONCURRENT_USERS || '50', 10);
 const TOTAL_REQUESTS = parseInt(process.env.TOTAL_REQUESTS || '500', 10);
 const BEARER_TOKEN = process.env.BEARER_TOKEN || '';

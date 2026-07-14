@@ -179,7 +179,7 @@ export default function Settings() {
         <div className="grid grid-cols-2 gap-3">
           <InfoCell label="Application"    value="SITAM Smart ERP" />
           <InfoCell label="Portal Version" value="v1.0.0" />
-          <InfoCell label="API Endpoint"   value={import.meta.env.VITE_API_BASE_URL || '/api'} mono />
+          <InfoCell label="API Endpoint"   value={import.meta.env.VITE_API_BASE_URL || 'https://college-app-bx6b.onrender.com/api'} mono />
           <InfoCell label="Environment"    value={import.meta.env.MODE || 'development'} />
         </div>
       </div>

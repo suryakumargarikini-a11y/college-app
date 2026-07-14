@@ -3,11 +3,18 @@
  *
  * Checks if /api/metrics endpoint returns valid Prometheus line format
  * and verifies that all custom infrastructure metrics are active and populated.
+ *
+ * Usage:
+ *   # Against Render production (default):
+ *   node scripts/verify-metrics.js
+ *
+ *   # Against local backend:
+ *   TARGET_URL=http://localhost:3001 node scripts/verify-metrics.js
  */
 
 const http = require('http');
 
-const TARGET_URL = process.env.TARGET_URL || 'http://localhost:3001';
+const TARGET_URL = process.env.TARGET_URL || 'https://college-app-bx6b.onrender.com';
 
 const REQUIRED_METRICS = [
     'node_process_cpu_user_seconds_total',

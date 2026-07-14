@@ -47,7 +47,7 @@ class SyncService {
         return ProviderFactory.getProvider();
     }
 
-    // Main transactional function to save all parsed ERP data to SQLite
+    // Main transactional function to save all parsed ERP data to PostgreSQL
     async syncStudentData(studentDbId, userId, password, scrapedData) {
         const { traceSpan } = require('../telemetry/tracing');
         return traceSpan('db.sync.persist', {

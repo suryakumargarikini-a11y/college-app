@@ -3,8 +3,10 @@ const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
 
-const STUDENT_PORTAL = 'http://localhost:3000';
-const ADMIN_PORTAL = 'http://localhost:5173';
+// Production portals (default). Override with env vars for local testing:
+//   STUDENT_PORTAL=http://localhost:3000 ADMIN_PORTAL=http://localhost:5173 node scripts/verify-demo-flow.js
+const STUDENT_PORTAL = process.env.STUDENT_PORTAL || 'https://sitam-erp.vercel.app';
+const ADMIN_PORTAL   = process.env.ADMIN_PORTAL   || 'https://sitam-erp-admin.vercel.app';
 const SCREENSHOT_DIR = 'C:\\Users\\singl\\.gemini\\antigravity-ide\\brain\\e144d1b2-fe01-4ef5-ba12-3d7c66cf063b';
 
 const verificationReport = {

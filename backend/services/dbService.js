@@ -13,16 +13,21 @@ const path = require('path');
 const SLOW_QUERY_THRESHOLD_MS = parseInt(process.env.DB_SLOW_QUERY_MS || '200', 10);
 const CONNECTION_LIMIT = parseInt(process.env.DB_CONNECTION_LIMIT || '20', 10);
 
-// Build datasource URL with connection pool params if using PostgreSQL
-// Prisma uses connection_limit and pool_timeout as URL query params
+// Build datasource URL with connection pool params (PostgreSQL only).
+// Requires DATABASE_URL to be a valid postgresql:// URL — no SQLite fallback.
 function buildDatabaseUrl() {
-    let rawUrl = process.env.DATABASE_URL || '';
+    const rawUrl = process.env.DATABASE_URL || '';
     if (!rawUrl) {
-        rawUrl = 'file:./dev.db';
+        throw new Error(
+            '[DB] DATABASE_URL is not set. ' +
+            'Set DATABASE_URL to a postgresql:// connection string (e.g. from Render dashboard).'
+        );
     }
     if (rawUrl.startsWith('file:')) {
-        // Let Prisma Client resolve relative SQLite paths natively relative to backend/prisma/
-        return rawUrl;
+        throw new Error(
+            '[DB] DATABASE_URL points to a SQLite file ("file:..."). ' +
+            'This application requires PostgreSQL. Update DATABASE_URL to a postgresql:// connection string.'
+        );
     }
 
     try {
@@ -37,12 +42,8 @@ function buildDatabaseUrl() {
     }
 }
 
-// Detect the actual DB provider so telemetry labels are correct.
-// This is evaluated once at module load after dotenv has injected env.
-const _rawDbUrl = typeof process.env.DATABASE_URL === 'string' ? process.env.DATABASE_URL : '';
-const DB_SYSTEM = (_rawDbUrl.startsWith('postgresql') || _rawDbUrl.startsWith('postgres'))
-    ? 'postgresql'
-    : 'sqlite';
+// PostgreSQL only — telemetry label.
+const DB_SYSTEM = 'postgresql';
 
 
 const prisma = new PrismaClient({
@@ -174,17 +175,7 @@ prisma.$on('warn', (e) => {
 
 logger.info(`[DB] PrismaClient initialized (connection_limit=${CONNECTION_LIMIT}, slow_query_threshold=${SLOW_QUERY_THRESHOLD_MS}ms)`);
 
-// If SQLite, enable WAL mode for high concurrency.
-// IMPORTANT: SQLite's PRAGMA journal_mode=WAL returns a result set ({'journal_mode':'wal'}).
-// We MUST use $queryRawUnsafe (SELECT-style) NOT $executeRawUnsafe (DML-only).
-// Using $executeRawUnsafe causes: "Execute returned results, which is not allowed in SQLite"
-// Also guard typeof to prevent undefined.startsWith() when env is not yet loaded at module init.
-const _dbUrl = typeof process.env.DATABASE_URL === 'string' ? process.env.DATABASE_URL : '';
-if (_dbUrl.startsWith('file:')) {
-    prisma.$queryRawUnsafe('PRAGMA journal_mode=WAL;')
-        .then(() => logger.info('[DB] SQLite WAL (Write-Ahead Logging) mode enabled successfully.'))
-        .catch(err => logger.error(`[DB] Failed to enable SQLite WAL mode: ${err.message}`));
-}
+// PostgreSQL — no WAL pragma needed; connection pooling is handled by the URL params above.
 
 module.exports = prisma;
 

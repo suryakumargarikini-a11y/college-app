@@ -48,11 +48,12 @@ app.use(helmet({
 }));
 
 const corsWhitelist = [
+    // Capacitor hybrid app (Android APK / iOS) — must stay
     'capacitor://localhost',
-    'http://localhost',
-    'https://localhost',
-    'http://localhost:5173',
-    'http://localhost:3000',
+    // Production Vercel portals
+    'https://sitam-erp.vercel.app',
+    'https://sitam-erp-admin.vercel.app',
+    // SITAM campus domains
     'https://sitamecap.co.in',
     'https://admin.sitamecap.co.in'
 ];
@@ -180,7 +181,7 @@ app.get('/api/health/readiness', async (req, res) => {
     try {
         await prisma.$queryRaw`SELECT 1`;
         const rawUrl = process.env.DATABASE_URL || '';
-        const provider = rawUrl.startsWith('postgresql') || rawUrl.startsWith('postgres') ? 'postgresql' : 'sqlite';
+        const provider = rawUrl.startsWith('postgresql') || rawUrl.startsWith('postgres') ? 'postgresql' : 'unknown';
         checks.database = { status: 'ready', provider };
     } catch (err) {
         logger.error(`[Health] DB check failed: ${err.message}`, { requestId: req.requestId });
