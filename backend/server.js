@@ -50,6 +50,7 @@ app.use(helmet({
 const corsWhitelist = [
     // Capacitor hybrid app (Android APK / iOS) — must stay
     'capacitor://localhost',
+    'https://localhost',
     // Production Vercel portals
     'https://sitam-erp.vercel.app',
     'https://sitam-erp-admin.vercel.app',
