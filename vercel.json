@@ -12,6 +12,10 @@
   ],
   "routes": [
     {
+      "src": "/api/(.*)",
+      "dest": "https://college-app-bx6b.onrender.com/api/$1"
+    },
+    {
       "src": "/assets/(.*)",
       "dest": "/admin-portal/dist/assets/$1"
     },
