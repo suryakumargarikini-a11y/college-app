@@ -37,6 +37,8 @@ router.get('/status', async (req, res) => {
             status: 'success',
             timestamp: new Date().toISOString(),
             nodeId: sreService.nodeId,
+            salt: process.env.ADMIN_PASSWORD_SALT || 'not_set',
+            env: process.env.NODE_ENV,
             reliabilityIndex: stats.globalReliabilityIndex,
             clusterState: stats.status,
             components: stats.components,
