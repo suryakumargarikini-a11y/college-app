@@ -5,7 +5,7 @@ const { signToken } = require('../../middleware/adminAuth');
 const logger = require('../../services/logger');
 const { auditLogRepository } = require('../../repositories/index');
 
-const SALT = process.env.ADMIN_PASSWORD_SALT || 'sitam-admin-s4lt-ch4ng3-in-pr0ducti0n';
+const SALT = process.env.ADMIN_PASSWORD_SALT || 'sitam-admin-salt';
 
 function hashPassword(password) {
     return crypto.createHmac('sha256', SALT).update(password).digest('hex');

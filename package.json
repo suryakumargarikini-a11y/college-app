@@ -30,7 +30,10 @@
     "@capacitor/splash-screen": "^6.0.4",
     "@capacitor/status-bar": "^6.0.3",
     "@prisma/client": "5.15.0",
+    "cli": "^1.0.1",
     "dotenv": "^17.4.2",
-    "prisma": "5.15.0"
+    "g": "^2.0.1",
+    "prisma": "5.15.0",
+    "zai": "^1.0.0"
   }
 }

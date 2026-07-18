@@ -11,8 +11,8 @@ const path = require('path');
 const isProduction = process.env.RENDER || process.env.RAILWAY_ENVIRONMENT || process.env.NODE_ENV === 'production';
 const envName = isProduction ? 'production' : 'development';
 
-// PRODUCTION ONLY — all traffic routes through the Render backend.
-// No localhost fallback. Set API_BASE_URL in the environment to override.
+// PRODUCTION ONLY — all traffic routes through the active backend.
+// Set API_BASE_URL in the environment to override.
 const PRODUCTION_API_URL = 'https://web-production-259f33.up.railway.app/api';
 const apiBaseUrl = process.env.API_BASE_URL || PRODUCTION_API_URL;
 

@@ -1,9 +1,9 @@
 import axios from 'axios';
 
-const RENDER_API = 'https://web-production-259f33.up.railway.app/api';
+const DEV_FALLBACK_API = 'http://localhost:3001/api';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || RENDER_API,
+  baseURL: import.meta.env.VITE_API_BASE_URL || DEV_FALLBACK_API,
   headers: { 'Content-Type': 'application/json' },
   timeout: 30000,
 });
