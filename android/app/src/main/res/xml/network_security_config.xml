@@ -8,6 +8,6 @@
         </trust-anchors>
     </base-config>
     <domain-config cleartextTrafficPermitted="false">
-        <domain includeSubdomains="true">web-production-07b0.up.railway.app</domain>
+        <domain includeSubdomains="true">web-production-259f33.up.railway.app</domain>
     </domain-config>
 </network-security-config>

@@ -14,7 +14,7 @@
 
 const http = require('http');
 
-const TARGET_URL = process.env.TARGET_URL || 'https://web-production-07b0.up.railway.app';
+const TARGET_URL = process.env.TARGET_URL || 'https://web-production-259f33.up.railway.app';
 
 const REQUIRED_METRICS = [
     'node_process_cpu_user_seconds_total',

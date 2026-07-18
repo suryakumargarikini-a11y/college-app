@@ -5,7 +5,7 @@
   "server": {
     "androidScheme": "https",
     "allowNavigation": [
-      "web-production-07b0.up.railway.app"
+      "web-production-259f33.up.railway.app"
     ]
   },
   "plugins": {

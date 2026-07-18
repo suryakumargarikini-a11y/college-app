@@ -21,7 +21,7 @@
 const http = require('http');
 const https = require('https');
 
-const TARGET_URL = process.env.TARGET_URL || 'https://web-production-07b0.up.railway.app/api';
+const TARGET_URL = process.env.TARGET_URL || 'https://web-production-259f33.up.railway.app/api';
 const CONCURRENT_USERS = parseInt(process.env.CONCURRENT_USERS || '50', 10);
 const TOTAL_REQUESTS = parseInt(process.env.TOTAL_REQUESTS || '500', 10);
 const BEARER_TOKEN = process.env.BEARER_TOKEN || '';

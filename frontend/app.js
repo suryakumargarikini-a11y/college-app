@@ -3,7 +3,7 @@
 // Matches Stitch UI design exactly, all modules functional
 // ============================================================
 
-const PRODUCTION_API = 'https://web-production-07b0.up.railway.app/api';
+const PRODUCTION_API = 'https://web-production-259f33.up.railway.app/api';
 const isMobileNative = window.Capacitor && window.Capacitor.platform !== 'web';
 const API_BASE = isMobileNative ? PRODUCTION_API : (window.API_BASE_URL || PRODUCTION_API);
 

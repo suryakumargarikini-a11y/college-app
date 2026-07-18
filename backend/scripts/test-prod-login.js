@@ -6,7 +6,7 @@ const postData = JSON.stringify({
 });
 
 const options = {
-  hostname: 'web-production-07b0.up.railway.app',
+  hostname: 'web-production-259f33.up.railway.app',
   port: 443,
   path: '/api/admin/auth/login',
   method: 'POST',

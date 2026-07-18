@@ -2,7 +2,7 @@
 const axios = require('axios');
 
 async function testProdStatus() {
-    const url = 'https://web-production-07b0.up.railway.app/api/sre/status';
+    const url = 'https://web-production-259f33.up.railway.app/api/sre/status';
     console.log('Sending SRE status request to:', url);
     try {
         const response = await axios.get(url, {

@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const RENDER_API = 'https://web-production-07b0.up.railway.app/api';
+const RENDER_API = 'https://web-production-259f33.up.railway.app/api';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || RENDER_API,

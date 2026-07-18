@@ -23,7 +23,7 @@
 
 const http = require('http');
 
-const TARGET_URL = process.env.TARGET_URL || 'https://web-production-07b0.up.railway.app';
+const TARGET_URL = process.env.TARGET_URL || 'https://web-production-259f33.up.railway.app';
 
 const C = {
     reset: '\x1b[0m', green: '\x1b[32m', yellow: '\x1b[33m',

@@ -16,7 +16,7 @@ import { Trend, Rate, Counter } from 'k6/metrics';
 import { randomIntBetween } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js';
 
 // ─── Configuration ────────────────────────────────────────────────────────────
-const BASE_URL = __ENV.BASE_URL || 'https://web-production-07b0.up.railway.app';
+const BASE_URL = __ENV.BASE_URL || 'https://web-production-259f33.up.railway.app';
 const SCENARIO = __ENV.SCENARIO || 'load'; // smoke | load | stress | spike | soak
 
 // Custom Metrics
