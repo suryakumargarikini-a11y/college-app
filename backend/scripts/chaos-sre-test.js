@@ -21,7 +21,7 @@ const fs = require('fs');
 const path = require('path');
 const assert = require('assert').strict;
 
-const TARGET_URL = process.env.TARGET_URL || 'https://college-app-bx6b.onrender.com';
+const TARGET_URL = process.env.TARGET_URL || 'https://web-production-07b0.up.railway.app';
 
 const C = {
     reset: '\x1b[0m', green: '\x1b[32m', yellow: '\x1b[33m',
@@ -129,13 +129,13 @@ async function testAlertmanagerRemediationWebhook() {
 async function testTenantThrottling() {
     const testUserId = 'test-student-999';
     const sreService = require('../services/sreService');
-    
+
     // Register multiple requests simulating concurrent access
     const res1 = await sreService.registerTenantRequest(testUserId);
     const res2 = await sreService.registerTenantRequest(testUserId);
-    
+
     assert.ok(res2.isThrottled, 'Tenant should be throttled under concurrent access');
-    
+
     // Clean up
     await sreService.releaseTenantRequest(testUserId);
     await sreService.releaseTenantRequest(testUserId);
@@ -194,7 +194,7 @@ async function main() {
     console.log('\n' + C.bold + '═'.repeat(65) + C.reset);
     console.log(`  Passed: ${C.green}${passed}${C.reset} | Failed: ${failed > 0 ? C.red : C.green}${failed}${C.reset}`);
     console.log(C.bold + '═'.repeat(65) + C.reset);
-    
+
     process.exit(failed === 0 ? 0 : 1);
 }
 

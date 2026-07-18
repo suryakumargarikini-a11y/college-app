@@ -48,6 +48,7 @@ const BrowserPool  = require('./BrowserPool');
 const JobScheduler = require('./JobScheduler');
 const { JOB_PRIORITY } = require('./PriorityQueue');
 const { findChromiumExecutable } = require('./chromiumFinder');
+const { getProviderName } = require('./providers/providerFactory');
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
@@ -211,19 +212,41 @@ const browserPoolAPI = {
     // ── Status & diagnostics ──────────────────────────────────────────────
 
     /**
-     * Returns combined status from both pools.
+     * Returns combined status from both pools, with a top-level health score.
      * Used by /api/health/readiness, /api/browserpool, and /api/metrics.
+     *
+     * healthScore: 0–100
+     *   Minimum of auth + sync pool scores — weakest link determines system health.
+     *
+     * healthStatus: 'healthy' | 'degraded' | 'critical' | 'down'
      */
     getStatus() {
         const auth = authPool.getStatus();
         const sync = syncPool.getStatus();
+
+        // Combined score = min of both pools (weakest link)
+        const authScore = auth.metrics.healthScore ?? 100;
+        const syncScore = sync.metrics.healthScore ?? 100;
+        const combinedScore  = Math.min(authScore, syncScore);
+
+        let combinedStatus;
+        if (combinedScore >= 90)      combinedStatus = 'healthy';
+        else if (combinedScore >= 70) combinedStatus = 'degraded';
+        else if (combinedScore >= 40) combinedStatus = 'critical';
+        else                          combinedStatus = 'down';
+
         return {
-            // Flatten for backward compat with server.js /api/metrics gauge reads
-            total:   auth.total + sync.total,
-            active:  auth.active + sync.active,
-            idle:    auth.idle + sync.idle,
-            queued:  auth.queued + sync.queued,
-            // New structured view
+            // ── Top-level health at a glance ────────────────────────────────
+            healthScore:  combinedScore,
+            healthStatus: combinedStatus,
+            // ── Fleet totals (backward compat) ───────────────────────────────
+            total:        auth.total + sync.total,
+            active:       auth.active + sync.active,
+            idle:         auth.idle + sync.idle,
+            queued:       auth.queued + sync.queued,
+            // ── Browser provider in use ───────────────────────────────────────
+            provider:     getProviderName(),
+            // ── Per-pool detail ───────────────────────────────────────────────
             authPool: auth,
             syncPool: sync,
         };

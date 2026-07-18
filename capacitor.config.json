@@ -5,7 +5,7 @@
   "server": {
     "androidScheme": "https",
     "allowNavigation": [
-      "college-app-bx6b.onrender.com"
+      "web-production-07b0.up.railway.app"
     ]
   },
   "plugins": {
@@ -30,7 +30,11 @@
       "resizeOnFullScreen": true
     },
     "PushNotifications": {
-      "presentationOptions": ["badge", "sound", "alert"]
+      "presentationOptions": [
+        "badge",
+        "sound",
+        "alert"
+      ]
     }
   }
 }

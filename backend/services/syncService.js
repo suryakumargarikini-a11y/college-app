@@ -1,5 +1,6 @@
 const logger = require('./logger');
 const PerformanceTimer = require('./performanceTimer');
+const { cacheStudentPhoto } = require('./photoService');
 // Provider abstraction — provider can be swapped via ERP_PROVIDER env var
 const ProviderFactory = require('../providers/ProviderFactory');
 const ProviderSessionManager = require('../providers/session/ProviderSessionManager');
@@ -81,28 +82,56 @@ class SyncService {
             if (scrapedData && scrapedData._normalizedSync) {
                 const norm = scrapedData._normalizedSync;
                 profile = {
-                    name: norm.profile?.name || 'Student',
-                    roll: norm.profile?.roll || '',
-                    admissionNo: norm.profile?.admissionNo || '',
-                    program: norm.profile?.program || '',
-                    branch: norm.profile?.branch || '',
-                    semester: norm.profile?.semester || '',
-                    year: norm.profile?.year || '',
-                    section: norm.profile?.section || 'A',
-                    gender: norm.profile?.gender || '',
-                    dob: norm.profile?.dob || '',
-                    email: norm.profile?.email || '',
-                    phone: norm.profile?.phone || '',
-                    fatherName: norm.profile?.fatherName || '',
-                    motherName: norm.profile?.motherName || '',
+                    name:         norm.profile?.name         || 'Student',
+                    roll:         norm.profile?.roll         || '',
+                    admissionNo:  norm.profile?.admissionNo  || '',
+                    program:      norm.profile?.program      || '',
+                    branch:       norm.profile?.branch       || '',
+                    semester:     norm.profile?.semester     || '',
+                    year:         norm.profile?.year         || '',
+                    section:      norm.profile?.section      || 'A',
+                    gender:       norm.profile?.gender       || '',
+                    dob:          norm.profile?.dob          || '',
+                    email:        norm.profile?.email        || '',
+                    phone:        norm.profile?.phone        || '',
+                    fatherName:   norm.profile?.fatherName   || '',
+                    motherName:   norm.profile?.motherName   || '',
                     fatherMobile: norm.profile?.fatherMobile || '',
-                    hostel: norm.profile?.hostel || '',
-                    roomNo: norm.profile?.roomNo || '',
-                    cgpa: norm.profile?.cgpa || '--',
-                    percentage: norm.profile?.percentage || '--',
-                    address: norm.profile?.address || '',
-                    bloodGroup: norm.profile?.bloodGroup || '',
-                    emergencyContact: norm.profile?.emergencyContact || ''
+                    hostel:       norm.profile?.hostel       || '',
+                    roomNo:       norm.profile?.roomNo       || '',
+                    cgpa:         norm.profile?.cgpa         || '--',
+                    sgpa:         norm.profile?.sgpa         || '--',
+                    percentage:   norm.profile?.percentage   || '--',
+                    address:      norm.profile?.address      || '',
+                    bloodGroup:   norm.profile?.bloodGroup   || '',
+                    emergencyContact:      norm.profile?.emergencyContact       || '',
+                    joiningDate:           norm.profile?.joiningDate            || '',
+                    caste:                 norm.profile?.caste                  || '',
+                    nationality:           norm.profile?.nationality            || '',
+                    religion:              norm.profile?.religion               || '',
+                    sscMarks:              norm.profile?.sscMarks               || '',
+                    interMarks:            norm.profile?.interMarks             || '',
+                    scholarship:           norm.profile?.scholarship            || '',
+                    seatType:              norm.profile?.seatType               || '',
+                    entranceType:          norm.profile?.entranceType           || '',
+                    entranceRank:          norm.profile?.entranceRank           || '',
+                    aadhar:                norm.profile?.aadhar                 || '',
+                    apaarId:               norm.profile?.apaarId                || '',
+                    guardianName:          norm.profile?.guardianName           || '',
+                    guardianPhone:         norm.profile?.guardianPhone          || '',
+                    guardianAddress:       norm.profile?.guardianAddress        || '',
+                    // Extended fields (Phase 1)
+                    motherMobile:          norm.profile?.motherMobile           || '',
+                    annualIncome:          norm.profile?.annualIncome           || '',
+                    fatherEmail:           norm.profile?.fatherEmail            || '',
+                    motherEmail:           norm.profile?.motherEmail            || '',
+                    fatherOccupation:      norm.profile?.fatherOccupation       || '',
+                    motherOccupation:      norm.profile?.motherOccupation       || '',
+                    correspondenceAddress: norm.profile?.correspondenceAddress  || '',
+                    lastStudied:           norm.profile?.lastStudied            || '',
+                    academicYear:          norm.profile?.academicYear           || '',
+                    // Photo: raw ERP URL — will be replaced by local cached path after download
+                    photoUrl:              norm.profile?.photoUrl               || '',
                 };
                 profile.password = password; // Ensure we cache credentials safely for re-login
 
@@ -188,6 +217,34 @@ class SyncService {
 
             // 2. Transactionally update student profile
             const student = await studentRepository.upsertStudent(userId, profile);
+
+            // 2.5 — Photo: download from ERP and cache locally (non-blocking, never fails sync)
+            // We store the raw ERP photoUrl in DB for now; if download succeeds we update to local API path.
+            if (profile.photoUrl && profile.photoUrl.startsWith('http')) {
+                const erpPhotoUrl = profile.photoUrl;
+                const cookies     = scrapedData?._normalizedSync?._cookies || null;
+                const existingUrl = studentBefore?.photoUrl || '';
+                setImmediate(async () => {
+                    try {
+                        const localPath = await cacheStudentPhoto({
+                            userId,
+                            erpPhotoUrl,
+                            cookieHeader: cookies || '',
+                            existingUrl
+                        });
+                        if (localPath) {
+                            const dbSvc = require('./dbService');
+                            await dbSvc.student.update({
+                                where: { userId },
+                                data:  { photoUrl: localPath }
+                            });
+                            logger.info(`[SyncService] Photo cached and DB updated for ${userId}: ${localPath}`);
+                        }
+                    } catch (photoErr) {
+                        logger.warn(`[SyncService] Photo caching failed for ${userId}: ${photoErr.message}`);
+                    }
+                });
+            }
 
             // ── DB WRITE VERIFICATION ─────────────────────────────────────────────────────
             // Never assume Prisma succeeded. A failed transaction can return null silently.

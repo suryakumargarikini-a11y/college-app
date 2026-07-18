@@ -3,26 +3,32 @@
 /**
  * BrowserInstance — Single Chromium Browser Wrapper
  *
- * Wraps one Puppeteer browser process and tracks:
+ * Wraps one browser process (Puppeteer or Playwright — via IBrowserProvider)
+ * and tracks:
  *   - Health (connected, responsive)
  *   - Lifetime (job count, age in ms)
  *   - Reputation (via BrowserReputationManager)
  *
- * Provides clean checkout/checkin of isolated incognito contexts.
- * Each checkout creates a fresh BrowserContext — zero shared state between students.
+ * Provides clean checkout/checkin of isolated browser contexts.
+ * Each checkout creates a fresh IContextAdapter — zero shared state between students.
+ *
+ * MIGRATION: This class no longer imports 'puppeteer' directly.
+ * All browser-specific operations are delegated to the injected IBrowserProvider.
+ * Switch providers by changing BROWSER_PROVIDER env var — no code change needed here.
  *
  * Lifecycle limits (configurable via env):
- *   BROWSER_MAX_JOBS      = 100  — force recycle after N jobs
- *   BROWSER_MAX_LIFETIME_MS = 1800000 (30 min) — force recycle after N ms uptime
+ *   BROWSER_MAX_JOBS        = 100      — force recycle after N jobs
+ *   BROWSER_MAX_LIFETIME_MS = 1800000  — force recycle after N ms uptime (30 min)
  *
  * @module BrowserInstance
  */
 
-const logger = require('../logger');
-const repMgr = require('../../providers/scraper/browser/BrowserReputationManager');
+const logger  = require('../logger');
+const repMgr  = require('../../providers/scraper/browser/BrowserReputationManager');
 const classifier = require('../../providers/scraper/retry/AdaptiveRetryClassifier');
+const isolationValidator = require('./SessionIsolationValidator');
 
-const MAX_JOBS_PER_BROWSER = parseInt(process.env.BROWSER_MAX_JOBS || '100', 10);
+const MAX_JOBS_PER_BROWSER    = parseInt(process.env.BROWSER_MAX_JOBS || '100', 10);
 const BROWSER_MAX_LIFETIME_MS = parseInt(
     process.env.BROWSER_MAX_LIFETIME_MS || String(30 * 60 * 1000),
     10
@@ -37,50 +43,70 @@ const STEALTH_USER_AGENTS = [
 class BrowserInstance {
     /**
      * @param {Object} opts
-     * @param {string}   opts.poolName   - 'AUTH_POOL' or 'SYNC_POOL'
-     * @param {string[]} opts.launchArgs - Chromium CLI flags
-     * @param {Function} opts.onCrash    - Called with (this) on unexpected disconnect
+     * @param {string}   opts.poolName    - 'AUTH_POOL' or 'SYNC_POOL'
+     * @param {string[]} opts.launchArgs  - Chromium CLI flags
+     * @param {Function} opts.onCrash     - Called with (this) on unexpected disconnect
+     * @param {import('./providers/IBrowserProvider')} opts.provider - Injected browser provider
      */
-    constructor({ poolName, launchArgs, onCrash }) {
-        this.id = `${poolName.toLowerCase()}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    constructor({ poolName, launchArgs, onCrash, provider, generation }) {
+        // Slot index: stable within a pool's lifetime. Format: auth_pool-1, auth_pool-2
+        // Generation: increments each time this slot crashes and is replaced.
+        // Together they uniquely identify every browser process:
+        //   auth_pool-1-gen1 → crashes → auth_pool-1-gen2 → crashes → auth_pool-1-gen3
+        //
+        // Rule: same slot, different generation = different physical process.
+        // Searching logs for 'auth_pool-1' gives all processes on that slot.
+        // Searching for 'auth_pool-1-gen2' gives exactly one process's logs.
+        const slotIndex  = (typeof generation === 'number' ? generation : 1);
+        const slotName   = `${poolName.toLowerCase()}-${Date.now().toString(36)}`;
+        this.id          = `${slotName}-gen${slotIndex}`;
+        this.slotName    = slotName;   // stable across generations (same pool slot)
+        this.generation  = slotIndex;  // increments on crash recovery
         this.poolName = poolName;
         this.launchArgs = launchArgs;
-        this.onCrash = onCrash;
+        this.onCrash  = onCrash;
+        this.provider = provider;    // IBrowserProvider — never touch 'puppeteer' directly
 
-        /** @type {import('puppeteer').Browser|null} */
-        this.browser = null;
-        this.pid = null;
-        this.version = 'unknown';
+        this.pid      = null;
+        this.version  = 'unknown';
 
-        this.createdAt = 0;
-        this.lastUsed = 0;
-        this.jobCount = 0;
+        this.createdAt    = 0;
+        this.lastUsed     = 0;
+        this.jobCount     = 0;
+        this.launchTimeMs = 0;  // duration of last launch() call
+        this.crashCount   = 0;  // incremented on 'disconnected' events
 
-        this.inUse = false;
+        this.inUse   = false;
         this.healthy = false;
         this.retired = false;
+
+        /**
+         * Active-job tracking — set at checkout(), cleared at checkin().
+         * Enables BrowserPool to transparently retry an in-flight job when
+         * the browser crashes mid-execution (student never sees the crash).
+         */
+        this._activeRequestId = null;   // REQ-XXXXX of the job currently running
+        this._activeUserId    = null;   // student ID for session affinity re-routing
+        this._activeResolve   = null;   // Promise resolve from the waiting acquire() call
+        this._activeReject    = null;   // Promise reject from the waiting acquire() call
+        this._crashRetryCount = 0;      // max 1 transparent retry per instance lifetime
     }
 
     // ─── Lifecycle ────────────────────────────────────────────────────────────
 
     /**
-     * Launch the underlying Chromium process and attach event listeners.
+     * Launch the underlying Chromium process via the injected provider.
      * @param {string|undefined|null} executablePath
-     * @returns {Promise<BrowserInstance>} this instance (fluent)
+     * @returns {Promise<BrowserInstance>} this (fluent)
      */
     async launch(executablePath) {
-        const puppeteer = require('puppeteer');
         const t0 = Date.now();
-        logger.info(`[POOL][${this.poolName}] Browser Created: ${this.id}`);
+        logger.info(`[POOL][${this.poolName}] Browser Creating: ${this.id} (provider=${this.provider.name})`);
 
-        this.browser = await puppeteer.launch({
-            headless: true,
-            executablePath: executablePath || undefined,
-            args: this.launchArgs,
-        });
+        await this.provider.launch(executablePath, this.launchArgs);
 
         // Capture PID for diagnostics
-        const proc = typeof this.browser.process === 'function' ? this.browser.process() : null;
+        const proc = this.provider.process();
         this.pid = proc ? proc.pid : null;
         if (proc) {
             proc.on('exit', (code, signal) => {
@@ -91,33 +117,28 @@ class BrowserInstance {
             });
         }
 
-        // Get browser version string for logs
-        try {
-            if (typeof this.browser.version === 'function') {
-                this.version = await this.browser.version();
-            }
-        } catch (_) {}
+        // Cache version string for diagnostics
+        try { this.version = await this.provider.getVersion(); } catch (_) {}
 
-        this.createdAt = Date.now();
-        this.lastUsed = Date.now();
-        this.healthy = true;
+        this.createdAt    = Date.now();
+        this.lastUsed     = Date.now();
+        this.healthy      = true;
+        this.launchTimeMs = Date.now() - t0;
 
         repMgr.registerBrowser(this.id);
 
-        // Handle unexpected disconnect — crash recovery callback
-        this.browser.on('disconnected', () => {
+        this.provider.on('disconnected', () => {
             if (this.retired) return; // already being cleaned up
 
+            this.crashCount++;
             logger.warn(`[POOL][${this.poolName}] Browser Destroyed (crashed): ${this.id}`);
             repMgr.recordCrash(this.id);
             repMgr.retire(this.id);
             this.healthy = false;
             this.retired = true;
 
-            // Notify pool to replace this instance and drain queue
             try { this.onCrash(this); } catch (_) {}
 
-            // Update Prometheus crash counter
             try {
                 require('../metricsService').metrics.browserCrashesTotal.inc();
             } catch (_) {}
@@ -125,9 +146,16 @@ class BrowserInstance {
 
         const elapsed = Date.now() - t0;
         logger.info(
-            `[POOL][${this.poolName}] Browser ready: ${this.id} ` +
-            `v=${this.version} pid=${this.pid} launched_in=${elapsed}ms`
+            `[POOL][${this.poolName}] Browser Ready: ${this.id} ` +
+            `provider=${this.provider.name} v=${this.version} pid=${this.pid} launch_ms=${elapsed}`
         );
+
+        // Record launch duration metric
+        try {
+            require('../metricsService').metrics.browserLaunchDurationSeconds
+                .observe({ provider: this.provider.name }, elapsed / 1000);
+        } catch (_) {}
+
         return this;
     }
 
@@ -141,40 +169,26 @@ class BrowserInstance {
         this.healthy = false;
         repMgr.retire(this.id);
         logger.info(`[POOL][${this.poolName}] Browser Destroyed: ${this.id} reason=${reason}`);
-        try { await this.browser.close(); } catch (_) {}
+        try { await this.provider.close(); } catch (_) {}
     }
 
     // ─── Health ───────────────────────────────────────────────────────────────
 
     /**
-     * Check if the browser process is still alive and responsive.
-     *
-     * IMPORTANT: We intentionally do NOT call browser.pages() here.
-     * Reason: pages() is an async RPC call that can itself throw
-     * "Target closed" if the browser process dies between the isConnected()
-     * check and the pages() call — creating a TOCTOU race condition that
-     * causes exactly the "Protocol error: Target closed" errors we saw.
-     *
-     * isConnected() is synchronous and checks the underlying WebSocket state.
-     * It is sufficient for our health-gate purpose.
+     * Synchronous health check — delegates to provider.isConnected().
+     * NEVER calls async RPC (prevents TOCTOU Target-closed race).
      *
      * @returns {boolean}
      */
     isHealthy() {
-        if (this.retired || !this.browser) return false;
+        if (this.retired || !this.provider) return false;
         try {
-            return typeof this.browser.isConnected === 'function'
-                ? this.browser.isConnected()
-                : true;
+            return this.provider.isConnected();
         } catch (_) {
             return false;
         }
     }
 
-    /**
-     * Returns true if this browser should be recycled before its next job.
-     * Checked by BrowserPool at release time.
-     */
     needsRecycle() {
         if (this.retired || !this.healthy) return true;
         if (this.jobCount >= MAX_JOBS_PER_BROWSER) return true;
@@ -186,25 +200,26 @@ class BrowserInstance {
     // ─── Context checkout / checkin ───────────────────────────────────────────
 
     /**
-     * Create a fresh isolated incognito BrowserContext for one job.
-     * Wraps context.newPage() with stealth UA, viewport, and SSRF guard.
+     * Create a fresh isolated context (IContextAdapter) for one job.
      *
      * @param {string} requestId - Correlation ID
-     * @returns {Promise<{ context: import('puppeteer').BrowserContext, ua: string }>}
+     * @returns {Promise<{ context: import('./providers/adapters/IContextAdapter'), ua: string }>}
      * @throws {Error} if browser is not healthy at checkout time
      */
     async checkout(requestId) {
-        // Mark busy BEFORE async work — prevents double-checkout race
-        this.inUse = true;
+        this.inUse    = true;
         this.lastUsed = Date.now();
         this.jobCount++;
+
+        // Track the active job so crash recovery can retry it
+        this._activeRequestId = requestId;
 
         logger.info(
             `[POOL][${this.poolName}] Browser Busy: ${this.id} ` +
             `job=#${this.jobCount} req=${requestId}`
         );
 
-        // Final health gate — isConnected() is synchronous; no RPC race possible
+        // Synchronous health gate — no async RPC race
         if (!this.isHealthy()) {
             this.inUse = false;
             throw new Error(
@@ -212,90 +227,67 @@ class BrowserInstance {
             );
         }
 
-        // Create isolated context
-        // Wrapping in try/catch: if the browser process dies between isHealthy() and
-        // createBrowserContext(), we get "Target closed". We trigger onCrash() here
-        // so the pool replaces the browser immediately rather than leaving it as a zombie.
+        // Stealth UA rotated per context
+        const ua = STEALTH_USER_AGENTS[Math.floor(Math.random() * STEALTH_USER_AGENTS.length)];
+        const viewport = {
+            width:  1280 + Math.floor(Math.random() * 100),
+            height:  800 + Math.floor(Math.random() * 100),
+        };
+
         let context;
         try {
-            context = await this.browser.createBrowserContext();
+            context = await this.provider.createContext(ua, viewport);
         } catch (ctxErr) {
-            this.inUse = false;
+            this.inUse   = false;
             this.healthy = false;
 
             const isTargetClosed =
                 ctxErr.message.includes('Target closed') ||
                 ctxErr.message.includes('Session closed') ||
-                ctxErr.message.includes('Browser closed');
+                ctxErr.message.includes('Browser closed') ||
+                ctxErr.message.includes('Target page, context or browser has been closed');
 
-            if (isTargetClosed) {
+            if (isTargetClosed && !this.retired) {
+                this.retired = true;
                 logger.warn(
-                    `[POOL][${this.poolName}] createBrowserContext() → Target closed ` +
-                    `on ${this.id}. Triggering crash recovery. req=${requestId}`
+                    `[POOL][${this.poolName}] createContext() → browser closed on ${this.id}. ` +
+                    `Triggering crash recovery. req=${requestId}`
                 );
-                // Trigger crash recovery in the pool — replace this browser, drain queue
-                if (!this.retired) {
-                    this.retired = true;
-                    try { this.onCrash(this); } catch (_) {}
-                }
+                try { this.onCrash(this); } catch (_) {}
             }
 
             throw new Error(
-                `[BrowserInstance] ${this.id} createBrowserContext() failed: ${ctxErr.message} (req=${requestId})`
+                `[BrowserInstance] ${this.id} createContext() failed: ${ctxErr.message} (req=${requestId})`
             );
         }
 
-        // Stealth UA rotated per context
-        const ua = STEALTH_USER_AGENTS[Math.floor(Math.random() * STEALTH_USER_AGENTS.length)];
-
-        // Wrap context.newPage to inject stealth settings + SSRF protection
-        const origNewPage = context.newPage.bind(context);
-        context.newPage = async () => {
-            const page = await origNewPage();
-
-            await page.setUserAgent(ua);
-            await page.setViewport({
-                width:  1280 + Math.floor(Math.random() * 100),
-                height:  800 + Math.floor(Math.random() * 100),
-            });
-
-            // SSRF guard — blocks scraper requests to loopback/metadata addresses
-            try {
-                const secSvc = require('../securityService');
-                const origGoto = page.goto.bind(page);
-                page.goto = async (url, opts) => {
-                    const valid = await secSvc.validateUrlForScraping(url);
-                    if (!valid) {
-                        throw new Error(`[Security-SSRF] Blocked request to: ${url}`);
-                    }
-                    return origGoto(url, opts);
-                };
-            } catch (_) {
-                // securityService optional in test environments
-            }
-
-            return page;
-        };
+        // ── Session Isolation: verify fresh context has zero pre-existing cookies ──
+        // A cookie found here means a previous student's session leaked into this context.
+        // In ISOLATION_STRICT=true mode this throws; otherwise logs as critical error.
+        isolationValidator.verifyFreshContext(context, {
+            requestId,
+            browserId: this.id,
+        }).catch(() => {}); // non-blocking; verifyFreshContext never throws in non-strict mode
 
         return { context, ua };
     }
 
     /**
-     * Close the incognito context and release the browser back to idle.
-     * Updates reputation manager based on job outcome.
+     * Close the context and release the browser back to idle.
      *
-     * @param {import('puppeteer').BrowserContext|null} context
-     * @param {Error|null} [error=null] - Job error if the job failed
+     * @param {import('./providers/adapters/IContextAdapter')|null} context
+     * @param {Error|null} [error=null]
      */
     async checkin(context, error = null) {
-        // Update reputation before releasing
+        // Update reputation
         if (error) {
             const strategy = classifier.classify(error);
             const msg = (error.message || '').toLowerCase();
             const isCrash =
                 msg.includes('target closed') ||
                 msg.includes('session closed') ||
-                msg.includes('browser closed');
+                msg.includes('browser closed') ||
+                msg.includes('target page, context or browser has been closed');
 
             if (strategy.action === 'quarantine' || error.constructor.name === 'CaptchaDetectedError') {
                 repMgr.recordCaptcha(this.id);
@@ -308,19 +300,32 @@ class BrowserInstance {
             repMgr.recordSuccess(this.id);
         }
 
-        // Destroy the incognito context — wipes all cookies, sessions, storage
-        try {
-            if (context && !context._closed) {
+        // Close context — IContextAdapter.close() owns its own closed-flag guard.
+        if (context) {
+            try {
                 await context.close();
+            } catch (closeErr) {
+                logger.warn(
+                    `[POOL][${this.poolName}] Context close warning (non-fatal): ${closeErr.message}`
+                );
             }
-        } catch (closeErr) {
-            logger.warn(
-                `[POOL][${this.poolName}] Context close warning (non-fatal): ${closeErr.message}`
-            );
+
+            // ── Session Isolation: verify context is fully destroyed ──────────
+            // Runs asynchronously — never blocks the release of the browser slot.
+            isolationValidator.verifyContextDestroyed(context, {
+                requestId: 'checkin',
+                browserId: this.id,
+            }).catch(() => {});
         }
 
-        this.inUse = false;
+        this.inUse    = false;
         this.lastUsed = Date.now();
+
+        // Clear active-job tracking once job completes normally
+        this._activeRequestId = null;
+        this._activeUserId    = null;
+        this._activeResolve   = null;
+        this._activeReject    = null;
 
         logger.info(
             `[POOL][${this.poolName}] Browser Released: ${this.id} ` +
@@ -331,27 +336,72 @@ class BrowserInstance {
     // ─── Diagnostics ──────────────────────────────────────────────────────────
 
     /**
-     * Returns a plain stats object for the /api/browserpool endpoint.
+     * Returns a plain stats object for the /api/browserpool health endpoint.
+     * Includes provider name, crash count, launch time, and OS memory so the
+     * monitoring dashboard can show full browser health without needing SSH.
+     *
      * @returns {Object}
      */
     getStats() {
+        const uptimeSec = this.createdAt
+            ? Math.round((Date.now() - this.createdAt) / 1000)
+            : 0;
+        const idleSec = this.lastUsed
+            ? Math.round((Date.now() - this.lastUsed) / 1000)
+            : 0;
+
+        // Derive human-readable status
+        let status;
+        if (this.retired)      status = 'retired';
+        else if (!this.healthy) status = 'unhealthy';
+        else if (this.inUse)   status = 'busy';
+        else                   status = 'idle';
+
+        // Try to read browser process memory (Linux: /proc/<pid>/status, best-effort)
+        const browserMemoryMb = this._getBrowserMemoryMb();
+
         return {
-            id: this.id,
-            poolName: this.poolName,
-            pid: this.pid,
-            version: this.version,
-            inUse: this.inUse,
-            healthy: this.healthy,
-            retired: this.retired,
-            jobCount: this.jobCount,
-            maxJobs: MAX_JOBS_PER_BROWSER,
-            uptimeSec: this.createdAt
-                ? Math.round((Date.now() - this.createdAt) / 1000)
-                : 0,
-            idleSec: this.lastUsed
-                ? Math.round((Date.now() - this.lastUsed) / 1000)
-                : 0,
+            id:             this.id,
+            slotName:       this.slotName,
+            generation:     this.generation,
+            poolName:       this.poolName,
+            provider:       this.provider ? this.provider.name : 'unknown',
+            status,
+            pid:            this.pid,
+            browserVersion: this.version,
+            inUse:          this.inUse,
+            healthy:        this.healthy,
+            retired:        this.retired,
+            jobCount:       this.jobCount,
+            maxJobs:        MAX_JOBS_PER_BROWSER,
+            crashCount:     this.crashCount,
+            launchTimeMs:   this.launchTimeMs,
+            uptimeSec,
+            idleSec,
+            lastUsed:       this.lastUsed ? new Date(this.lastUsed).toISOString() : null,
+            browserMemoryMb,
+            // Active job — populated when status='busy'
+            activeRequestId: this._activeRequestId || null,
         };
+    }
+
+    /**
+     * Read browser process RSS memory from the OS.
+     * Linux only (reads /proc/<pid>/status). Returns null on Windows/macOS.
+     * Never throws.
+     *
+     * @returns {number|null}
+     */
+    _getBrowserMemoryMb() {
+        if (!this.pid || process.platform !== 'linux') return null;
+        try {
+            const fs     = require('fs');
+            const status = fs.readFileSync(`/proc/${this.pid}/status`, 'utf8');
+            const match  = status.match(/VmRSS:\s+(\d+)\s+kB/);
+            return match ? Math.round(parseInt(match[1], 10) / 1024) : null;
+        } catch (_) {
+            return null;
+        }
     }
 }
 

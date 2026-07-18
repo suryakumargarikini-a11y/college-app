@@ -18,7 +18,7 @@ class ERPScraper {
         return clean;
     }
 
-    // Parse student profile safely
+    // Parse student profile — extracts every field available in SITAM ERP BIO-DATA section
     parseProfile(scrapedData) {
         const profile = {
             name: scrapedData.studentName || 'Student',
@@ -27,7 +27,15 @@ class ERPScraper {
             hostel: '', roomNo: '', admissionNo: '', cgpa: '--', year: '',
             percentage: '--', address: '', joiningDate: '', caste: '', nationality: '',
             religion: '', sscMarks: '', interMarks: '', scholarship: '', seatType: '',
-            entranceType: '', entranceRank: '', aadhar: '', section: 'A'
+            entranceType: '', entranceRank: '', aadhar: '', section: 'A',
+            bloodGroup: '', emergencyContact: '',
+            guardianName: '', guardianPhone: '', guardianAddress: '',
+            // Extended fields added Phase 1
+            apaarId: '', motherMobile: '', annualIncome: '',
+            fatherEmail: '', motherEmail: '',
+            fatherOccupation: '', motherOccupation: '',
+            correspondenceAddress: '', lastStudied: '', sgpa: '', academicYear: '',
+            photoUrl: ''
         };
 
         if (!scrapedData.profileHtml) {
@@ -131,11 +139,14 @@ class ERPScraper {
                 || fields['room number']            || fields['room no.']
                 || fields['roomno']                 || '';
 
-            profile.caste    = fields['caste']      || fields['caste category'] || '';
+            profile.caste       = fields['caste']      || fields['caste category'] || '';
             profile.joiningDate = fields['joining date'] || fields['date of joining']
                 || fields['doj']                         || '';
             profile.nationality = fields['nationality']  || '';
             profile.religion    = fields['religion']     || '';
+            profile.lastStudied = fields['last studied'] || fields['last institution']
+                || fields['previous institution']        || '';
+            profile.annualIncome= fields['annual income'] || fields['family income'] || '';
 
             profile.sscMarks  = fields[' marks, %'] || fields['marks, %']
                 || fields['ssc %']              || fields['ssc marks']
@@ -148,32 +159,68 @@ class ERPScraper {
             profile.entranceType = fields['entrance type'] || fields['entrance exam']  || '';
             profile.entranceRank = fields['eamcet/ecet rank'] || fields['rank']
                 || fields['eamcet rank']  || fields['ecet rank']  || '';
-            profile.aadhar = fields['aadhar.no'] || fields['aadhar no']
-                || fields['aadhar']         || fields['aadhaar']  || '';
+
+            // Sensitive identity fields — stored in DB, masked/omitted in standard API
+            profile.aadhar  = fields['aadhar.no'] || fields['aadhar no']
+                || fields['aadhar']          || fields['aadhaar']  || '';
+            profile.apaarId = fields['aparid']    || fields['apaar id']
+                || fields['apaarid']         || fields['apaar']    || '';
 
             profile.bloodGroup = fields['blood group']   || fields['bloodgroup']
                 || fields['blood grp']      || fields['blood type'] || '';
 
-            // Default section parsing
+            // Section: ERP does not expose section; default to 'A'
             profile.section = fields['section'] || 'A';
 
-            // Extract academic year from semester string (e.g. "II/IV B.Tech II Semester" → "Year 2").
-            // If semester is blank, leave year blank too — never invent a value.
+            // Year derivation from semester string (e.g. "II/IV B.Tech II Semester" → "Year 2")
             const semText = profile.semester;
             const yearMatch = semText.match(/^(I{1,4}|IV|V|VI|VII|VIII)\/IV/i);
             if (yearMatch) {
                 const romanMap = { 'I': 1, 'II': 2, 'III': 3, 'IV': 4 };
                 profile.year = `Year ${romanMap[yearMatch[1].toUpperCase()] || yearMatch[1]}`;
             } else {
-                // Do NOT hardcode 'Year 1' — keep empty so callers know it wasn't extracted
                 profile.year = '';
             }
 
-            // Extract CGPA using HTML match stubs
+            // Academic year from joining date (e.g. "21/08/2025" → "2025-26")
+            if (profile.joiningDate) {
+                const jdMatch = profile.joiningDate.match(/(\d{4})$/);
+                if (jdMatch) {
+                    const jy = parseInt(jdMatch[1], 10);
+                    const monthStr = profile.joiningDate.split('/')[1] || '1';
+                    const month = parseInt(monthStr, 10);
+                    const startYear = (month >= 1 && month <= 5) ? jy - 1 : jy;
+                    profile.academicYear = `${startYear}-${String(startYear + 1).slice(-2)}`;
+                }
+            }
+
+            // CGPA and SGPA from performance section
             const html = scrapedData.profileHtml;
-            const cgpaMatch = html.match(/CGPA:[\s\S]*?([\d.]+)/i);
+            const cgpaMatch = html.match(/CGPA:&nbsp;\s*([\d.]+)/i)
+                || html.match(/CGPA:[\s\S]*?([\d.]+)/i);
             if (cgpaMatch) {
                 profile.cgpa = parseFloat(cgpaMatch[1]).toFixed(2);
+            }
+
+            // SGPA is in the performance table — find it in the table data after SGPA header
+            // Pattern: <td ...>SGPA</td> in the header, then the value row
+            $('td').each((i, td) => {
+                if ($(td).text().trim() === 'SGPA') {
+                    // The SGPA value is in the same column of the next row — find by position
+                    const colIdx = $(td).index();
+                    const valueRow = $(td).closest('tr').next();
+                    const sgpaVal = $(valueRow).find('td').eq(colIdx).text().trim();
+                    if (sgpaVal && !isNaN(parseFloat(sgpaVal))) {
+                        profile.sgpa = parseFloat(sgpaVal).toFixed(2);
+                    }
+                }
+            });
+            // Also try HTML regex as fallback
+            if (!profile.sgpa) {
+                const sgpaMatch = html.match(/SGPA[^>]*>?\s*([\d.]+)/i);
+                if (sgpaMatch && !isNaN(parseFloat(sgpaMatch[1]))) {
+                    profile.sgpa = parseFloat(sgpaMatch[1]).toFixed(2);
+                }
             }
 
             const pctMatch = html.match(/([\d.]+)\s*(?:&nbsp;|\s)*%/);
@@ -181,59 +228,110 @@ class ERPScraper {
                 profile.percentage = parseFloat(pctMatch[1]).toFixed(2) + '%';
             }
 
-            // Permanent Address parsing
-            const addrTd = $('td:contains("Permanent Address")').next().next();
-            if (addrTd.length) {
-                profile.address = addrTd.text().trim().replace(/\n+/g, ', ').replace(/\s+/g, ' ');
-            }
-
-            // Guardian Details parsing
-            let guardianSectionStarted = false;
-            $('tr').each((i, tr) => {
-                const text = $(tr).text().toLowerCase();
-                if (text.includes('guardian details')) {
-                    guardianSectionStarted = true;
-                    return;
+            // Permanent Address parsing — use targeted selector
+            $('td').each((i, td) => {
+                const text = $(td).text().trim();
+                if (text === 'Permanent Address') {
+                    const valueTd = $(td).nextAll('td').eq(1);
+                    if (valueTd.length) {
+                        const raw = valueTd.text().trim();
+                        if (raw) profile.address = raw.replace(/\n+/g, ', ').replace(/\s{2,}/g, ' ');
+                    }
                 }
-                if (guardianSectionStarted && text.includes("parent's details")) {
-                    guardianSectionStarted = false;
-                    return;
-                }
-
-                if (guardianSectionStarted) {
-                    const tds = $(tr).find('td');
-                    for (let j = 0; j < tds.length - 2; j++) {
-                        const label = $(tds[j]).text().trim().toLowerCase();
-                        const sep   = $(tds[j + 1]).text().trim();
-                        if (sep === ':') {
-                            const value = $(tds[j + 2]).text().trim();
-                            if (value) {
-                                if (label === 'name') {
-                                    profile.guardianName = value;
-                                } else if (label === 'phone' || label === 'mobile') {
-                                    profile.guardianPhone = value;
-                                } else if (label === 'address') {
-                                    profile.guardianAddress = value.replace(/\n+/g, ', ').replace(/\s+/g, ' ');
-                                }
-                            }
-                        }
+                if (text === 'Correspondence Address') {
+                    const valueTd = $(td).nextAll('td').eq(1);
+                    if (valueTd.length) {
+                        const raw = valueTd.text().trim();
+                        if (raw) profile.correspondenceAddress = raw.replace(/\n+/g, ', ').replace(/\s{2,}/g, ' ');
                     }
                 }
             });
 
-            // Student Photo parsing
-            try {
-                const photoImg = $('img[src*="images/StudentPhotos"], img[src*="StudentPhotos/"], img[src*="/images/"], img[src*="images/"]');
-                if (photoImg.length) {
-                    const src = photoImg.attr('src');
-                    if (src && !src.includes('imgna.gif')) {
-                        const base = (process.env.ERP_BASE_URL || 'https://sitamecap.co.in/SATYA').replace(/\/$/, '');
-                        const cleanSrc = src.replace(/^\.\.\//, '').replace(/^\//, '');
-                        profile.photoUrl = src.startsWith('http') ? src : `${base}/${cleanSrc}`;
+            // ── Parent details (context-aware — Occupation appears for both Father and Mother) ──
+            let parentContext = null;
+            $('tr').each((i, tr) => {
+                const tds = $(tr).find('td');
+                for (let j = 0; j < tds.length - 2; j++) {
+                    const rawLabel = $(tds[j]).text().trim();
+                    const label    = rawLabel.toLowerCase();
+                    const sep      = $(tds[j + 1]).text().trim();
+                    if (sep !== ':') continue;
+                    const value = $(tds[j + 2]).text().trim();
+
+                    // Context tracking
+                    if (label === 'father name' || label === 'father name.') parentContext = 'father';
+                    if (label === 'mother name' || label === 'mother name.') parentContext = 'mother';
+
+                    if (!value) continue;
+
+                    if (label === 'father name' || label === 'father name.')  profile.fatherName     = value;
+                    if (label === 'mother name' || label === 'mother name.')  profile.motherName     = value;
+                    if (label === 'father mobile.no' || label === 'father mobile no' || label === 'father mobile') profile.fatherMobile = value;
+                    if (label === 'mother mobile.no' || label === 'mother mobile no' || label === 'mother mobile') profile.motherMobile = value;
+                    if (label === 'father mailid'    || label === 'father email')  profile.fatherEmail    = value;
+                    if (label === 'mother mailid'    || label === 'mother email')  profile.motherEmail    = value;
+                    if (label === 'annual income')   profile.annualIncome = value;
+
+                    // Occupation — assign by current parent context
+                    if (label === 'occupation') {
+                        if (parentContext === 'father') profile.fatherOccupation = value;
+                        else if (parentContext === 'mother') profile.motherOccupation = value;
                     }
                 }
+            });
+
+            // ── Guardian section ──────────────────────────────────────────────
+            let guardianSectionStarted = false;
+            $('tr').each((i, tr) => {
+                const text = $(tr).text().toLowerCase();
+                if (text.includes('guardian details')) { guardianSectionStarted = true; return; }
+                if (guardianSectionStarted && text.includes("parent's details")) { guardianSectionStarted = false; return; }
+                if (!guardianSectionStarted) return;
+
+                const tds = $(tr).find('td');
+                for (let j = 0; j < tds.length - 2; j++) {
+                    const label = $(tds[j]).text().trim().toLowerCase();
+                    const sep   = $(tds[j + 1]).text().trim();
+                    if (sep !== ':') continue;
+                    const value = $(tds[j + 2]).text().trim();
+                    if (!value) continue;
+                    if (label === 'name')                       profile.guardianName    = value;
+                    else if (label === 'phone' || label === 'mobile') profile.guardianPhone = value;
+                    else if (label === 'address')               profile.guardianAddress = value.replace(/\n+/g, ', ').replace(/\s+/g, ' ');
+                }
+            });
+
+            // Student Photo — prefer StudentPhotos path; skip all placeholder images
+            try {
+                const base = (process.env.ERP_BASE_URL || 'https://sitamecap.co.in/SATYA').replace(/\/$/, '');
+                const PLACEHOLDERS = ['imgna.gif', 'no_photo', 'default.', 'placeholder'];
+                const isPlaceholder = (src) => PLACEHOLDERS.some(p => src.toLowerCase().includes(p));
+
+                let photoSrc = null;
+                $('img').each((i, img) => {
+                    if (photoSrc) return;
+                    const src = ($(img).attr('src') || '').trim();
+                    if (!src || isPlaceholder(src)) return;
+                    // Prefer StudentPhotos path; fall back to any images/ path
+                    if (src.toLowerCase().includes('studentphotos')) { photoSrc = src; return; }
+                    if (!photoSrc && src.includes('images/')) photoSrc = src;
+                });
+
+                if (photoSrc) {
+                    const clean = photoSrc.replace(/^\.\.\//, '').replace(/^\//, '');
+                    profile.photoUrl = photoSrc.startsWith('http') ? photoSrc : `${base}/${clean}`;
+                    logger.info(`[Scraper] Photo URL extracted: ${profile.photoUrl}`);
+                } else {
+                    logger.info('[Scraper] No student photo (placeholder or absent — fallback will apply)');
+                }
             } catch (photoErr) {
-                logger.warn(`[Scraper] Photo url extraction failed: ${photoErr.message}`);
+                logger.warn(`[Scraper] Photo URL extraction failed: ${photoErr.message}`);
+            }
+
+            // Missing field warnings
+            const requiredFields = ['name', 'roll', 'branch', 'semester', 'dob', 'email', 'phone'];
+            for (const f of requiredFields) {
+                if (!profile[f]) logger.warn(`[Scraper] Profile field missing: ${f}`);
             }
 
             logger.info('[Scraper] Successfully parsed profile for student: %s (%s)', profile.name, profile.roll);

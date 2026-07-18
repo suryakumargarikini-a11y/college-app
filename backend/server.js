@@ -1,6 +1,7 @@
 try {
     const path = require('path');
-    require('dotenv').config({ path: path.join(__dirname, '.env'), override: true });
+    const envPath = process.env.DOTENV_CONFIG_PATH || path.join(__dirname, '.env');
+    require('dotenv').config({ path: envPath, override: true });
 } catch (err) {
     console.warn('[Server] Note: dotenv module not found. Relying on system environment variables.');
 }
@@ -82,6 +83,12 @@ app.use(cookieParser());
 
 // ─── Correlation IDs ──────────────────────────────────────────────────────────
 app.use(correlationMiddleware);
+
+// ─── Request ID (REQ-XXXXX) ────────────────────────────────────────────────────
+// Attaches X-Request-ID response header and res.locals.requestId to every request.
+// Reuses upstream X-Request-ID if already a valid REQ-XXXXX; generates a new one otherwise.
+const requestIdMiddleware = require('./middleware/requestId');
+app.use(requestIdMiddleware);
 
 
 // ─── Multi-Tenant Resource Sovereignty & Throttling Middleware ──────────────
@@ -195,16 +202,23 @@ app.get('/api/health/readiness', async (req, res) => {
         ? { status: 'ready' }
         : { status: 'offline', note: 'In-memory fallback active' };
 
-    const browserPool = require('./services/browserPool');
-    checks.browserPool = browserPool.getStatus();
+    const browserPool    = require('./services/browserPool');
+    const browserStatus  = browserPool.getStatus();
+    checks.browserPool   = browserStatus;
     checks.circuitBreaker = circuitBreaker.getStatus();
+
+    // If browser pool health is critical or down, mark overall readiness degraded
+    if (browserStatus.healthScore < 40) allReady = false;
 
     const statusCode = allReady ? 200 : 503;
     res.status(statusCode).json({
-        status: allReady ? 'ready' : 'degraded',
+        status:      allReady ? 'ready' : 'degraded',
+        // ── Top-level health score (visible without digging into checks) ────
+        healthScore:  browserStatus.healthScore,
+        healthStatus: browserStatus.healthStatus,
         checks,
-        metrics: await metricsService.snapshot(),
-        timestamp: new Date().toISOString()
+        metrics:     await metricsService.snapshot(),
+        timestamp:   new Date().toISOString()
     });
 });
 
@@ -477,6 +491,7 @@ const studentRoutes     = require('./routes/student');
 const notificationsRoutes = require('./routes/notifications');
 const examsRoutes       = require('./routes/exams');
 const lmsRoutes         = require('./routes/lms');
+const libraryRoutes     = require('./routes/library');
 
 const socketService = require('./services/socketService');
 const syncQueue     = require('./services/syncQueue');
@@ -504,6 +519,7 @@ app.use('/api/student',       studentRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/exams',         examsRoutes);
 app.use('/api/lms',           lmsRoutes);
+app.use('/api/library',       libraryRoutes);
 
 // ─── Admin Portal Routes ──────────────────────────────────────────────────────
 const adminRoutes = require('./routes/admin/index');
@@ -554,55 +570,29 @@ try {
     logger.error(`[DB-Init] Database initialization/seeding failed: ${err.message}`);
 }
 
-// ─── Startup Puppeteer Validation ────────────────────────────────────────────
-// Returns true if Chromium launched successfully, false if unavailable.
+// ─── Startup Browser Validation ──────────────────────────────────────────────
+// Returns true if Chromium launched successfully via the configured provider, false if unavailable.
 // IMPORTANT: Never calls process.exit() — the API must stay alive even if
 // Chromium is missing so that Railway health checks pass and the container
 // does not enter an infinite restart loop.
 async function validateChromiumStartup() {
-    const fs = require('fs');
-    const puppeteer = require('puppeteer');
-    const browserPool = require('./services/browserPool');
+    const { createStandaloneBrowser } = require('./services/browserPool/providers/providerFactory');
 
-    const executablePath = browserPool.findChromiumExecutable();
-    const resolvedPath = executablePath || 'default (cached)';
-
-    logger.info(`[Puppeteer] Browser path discovered: ${resolvedPath}`);
-    console.log(`[Puppeteer] Browser path discovered: ${resolvedPath}`);
-    logger.info(`[Puppeteer] Browser detected at: ${resolvedPath}`);
-    console.log(`[Puppeteer] Browser detected at: ${resolvedPath}`);
-
-    // If an explicit path is set but doesn't exist on disk, log and abort
-    // gracefully — do NOT crash the process.
-    if (executablePath && !fs.existsSync(executablePath)) {
-        logger.error(`[Puppeteer] Chromium executable missing at: ${executablePath}`);
-        console.error(`[Puppeteer] Chromium executable missing at: ${executablePath}`);
-        logger.warn('[Puppeteer] Scraping features will be disabled. API continues in read-only mode.');
-        return false;
-    }
+    logger.info('[Browser] Launching test browser instance using provider factory...');
+    console.log('[Browser] Launching test browser instance using provider factory...');
 
     try {
-        logger.info('[Puppeteer] Launching test browser instance...');
-        const browser = await puppeteer.launch({
-            headless: true,                          // 'new' was removed in Puppeteer v22+
-            executablePath: executablePath || undefined,
-            args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-gpu'
-            ]
-        });
-        await browser.close();
-        logger.info('[Puppeteer] Browser launch successful');
-        console.log('[Puppeteer] Browser launch successful');
-        logger.info('[Puppeteer] Launch test successful');
-        console.log('[Puppeteer] Launch test successful');
+        const { provider, close } = await createStandaloneBrowser({ headless: true });
+        await close();
+        logger.info(`[Browser] Browser launch successful via ${provider.name}`);
+        console.log(`[Browser] Browser launch successful via ${provider.name}`);
+        logger.info('[Browser] Launch test successful');
+        console.log('[Browser] Launch test successful');
         return true;
     } catch (err) {
-        logger.error(`[Puppeteer] Launch test failed: ${err.message}`);
-        console.error(`[Puppeteer] Launch test failed: ${err.message}`);
-        logger.warn('[Puppeteer] Scraping features will be disabled. API continues in read-only mode.');
+        logger.error(`[Browser] Launch test failed: ${err.message}`);
+        console.error(`[Browser] Launch test failed: ${err.message}`);
+        logger.warn('[Browser] Scraping features will be disabled. API continues in read-only mode.');
         return false;
     }
 }

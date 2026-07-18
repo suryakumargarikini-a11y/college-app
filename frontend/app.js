@@ -3,7 +3,7 @@
 // Matches Stitch UI design exactly, all modules functional
 // ============================================================
 
-const PRODUCTION_API = 'https://college-app-bx6b.onrender.com/api';
+const PRODUCTION_API = 'https://web-production-07b0.up.railway.app/api';
 const isMobileNative = window.Capacitor && window.Capacitor.platform !== 'web';
 const API_BASE = isMobileNative ? PRODUCTION_API : (window.API_BASE_URL || PRODUCTION_API);
 
@@ -14,7 +14,7 @@ const bootLogQueue = [];
 function logBoot(msg) {
     console.log(msg);
     if (window.Capacitor?.Plugins?.SecureKeystore?.logBoot) {
-        window.Capacitor.Plugins.SecureKeystore.logBoot({ message: msg }).catch(() => {});
+        window.Capacitor.Plugins.SecureKeystore.logBoot({ message: msg }).catch(() => { });
     } else {
         bootLogQueue.push(msg);
     }
@@ -24,7 +24,7 @@ function flushBootLogs() {
     if (window.Capacitor?.Plugins?.SecureKeystore?.logBoot) {
         while (bootLogQueue.length > 0) {
             const msg = bootLogQueue.shift();
-            window.Capacitor.Plugins.SecureKeystore.logBoot({ message: msg }).catch(() => {});
+            window.Capacitor.Plugins.SecureKeystore.logBoot({ message: msg }).catch(() => { });
         }
     }
 }
@@ -128,7 +128,7 @@ const secureStorage = {
                     localStorage.removeItem(scrambledKey);
                     if (window.Capacitor?.Plugins?.Preferences) {
                         await Promise.race([
-                            window.Capacitor.Plugins.Preferences.remove({ key: scrambledKey }).catch(() => {}),
+                            window.Capacitor.Plugins.Preferences.remove({ key: scrambledKey }).catch(() => { }),
                             new Promise(r => setTimeout(r, 1000))
                         ]);
                     }
@@ -218,7 +218,7 @@ const secureStorage = {
                     await window.Capacitor.Plugins.Preferences.set({
                         key: scrambledKey,
                         value: scrambledVal
-                    }).catch(() => {});
+                    }).catch(() => { });
                 }
             } catch (err) {
                 console.error('[secureStorage] Set failed:', err);
@@ -233,7 +233,7 @@ const secureStorage = {
             await window.Capacitor.Plugins.Preferences.set({
                 key: scrambledKey,
                 value: scrambledVal
-            }).catch(() => {});
+            }).catch(() => { });
         }
     },
 
@@ -244,7 +244,7 @@ const secureStorage = {
         const scrambledKey = this._scramble(key);
         localStorage.removeItem(scrambledKey);
         if (window.Capacitor?.Plugins?.Preferences) {
-            await window.Capacitor.Plugins.Preferences.remove({ key: scrambledKey }).catch(() => {});
+            await window.Capacitor.Plugins.Preferences.remove({ key: scrambledKey }).catch(() => { });
         }
     }
 };
@@ -328,11 +328,11 @@ async function registerPush() {
         try {
             const PushNotifications = window.Capacitor.Plugins.PushNotifications;
             let permStatus = await PushNotifications.checkPermissions();
-            
+
             if (permStatus.receive === 'prompt') {
                 permStatus = await PushNotifications.requestPermissions();
             }
-            
+
             if (permStatus.receive !== 'granted') {
                 console.warn('[Push] Native permission denied');
                 return;
@@ -393,7 +393,7 @@ async function registerPush() {
         // Register worker explicitly
         const registration = await navigator.serviceWorker.register('./firebase-messaging-sw.js');
         const token = await messaging.getToken({ serviceWorkerRegistration: registration });
-        
+
         if (token) {
             console.log('[Push] Acquired FCM token:', token);
             await api.post('/auth/fcm-token', { token, deviceType: 'android' });
@@ -410,9 +410,9 @@ if (messaging) {
         const title = payload.notification.title || 'SITAM Smart ERP';
         const body = payload.notification.body || '';
         const route = payload.data?.sitam_route || payload.data?.route;
-        
+
         showPushBanner(title, body, route);
-        
+
         // Dynamic revalidation if looking at the same page
         if (route && route === router.currentRoute) {
             router.routes[route]?.afterRender?.();
@@ -427,9 +427,9 @@ const state = {
     },
     set token(val) {
         if (val === null) {
-            secureStorage.removeItem('token').catch(() => {});
+            secureStorage.removeItem('token').catch(() => { });
         } else {
-            secureStorage.setItem('token', val).catch(() => {});
+            secureStorage.setItem('token', val).catch(() => { });
         }
     },
     profile: null,
@@ -548,11 +548,11 @@ const wsService = {
 
     handleEvent(event, data) {
         console.log(`[WebSocket] Event: ${event}`, data);
-        
+
         if (event === 'attendance_update') {
             if (data.message) {
                 showToast(data.message, 'calendar_today');
-                updateUnreadBadge().catch(() => {});
+                updateUnreadBadge().catch(() => { });
             } else {
                 setCachedData('/attendance', { success: true, attendance: data.subjects });
                 if (router.currentRoute === '/attendance') {
@@ -565,11 +565,11 @@ const wsService = {
                 showToast('Live Attendance Synchronized!', 'calendar_today');
             }
         }
-        
+
         else if (event === 'marks_update') {
             if (data.message) {
                 showToast(data.message, 'analytics');
-                updateUnreadBadge().catch(() => {});
+                updateUnreadBadge().catch(() => { });
             } else {
                 setCachedData('/marks', { success: true, cgpa: data.cgpa, sgpa: data.sgpa, subjects: data.subjects });
                 if (router.currentRoute === '/marks') {
@@ -579,11 +579,11 @@ const wsService = {
                 showToast('Live Academic Results Synchronized!', 'analytics');
             }
         }
-        
+
         else if (event === 'fees_update') {
             if (data.message) {
                 showToast(data.message, 'account_balance_wallet');
-                updateUnreadBadge().catch(() => {});
+                updateUnreadBadge().catch(() => { });
             } else {
                 setCachedData('/fees', { success: true, ...data });
                 if (router.currentRoute === '/fees') {
@@ -596,21 +596,21 @@ const wsService = {
 
         else if (event === 'assignments_update') {
             showToast(data.message || 'Live Assignment updated!', 'assignment_turned_in');
-            updateUnreadBadge().catch(() => {});
+            updateUnreadBadge().catch(() => { });
         }
 
         else if (event === 'timetable_update') {
             showToast(data.message || 'Live Timetable updated!', 'schedule');
-            updateUnreadBadge().catch(() => {});
+            updateUnreadBadge().catch(() => { });
         }
 
         else if (event === 'notification_refresh') {
-            updateUnreadBadge().catch(() => {});
+            updateUnreadBadge().catch(() => { });
             if (router.currentRoute === '/notifications') {
                 router.routes['/notifications']?.afterRender?.();
             }
         }
-        
+
         else if (event === 'sync_complete') {
             showToast('ERP Background Sync Complete!', 'sync');
             const banner = $('sync-banner');
@@ -634,11 +634,11 @@ function getCachedData(ep) {
 }
 function setCachedData(ep, data) {
     // Write to IndexedDB (primary) and localStorage (legacy fallback)
-    SITAMDb.set('erp_cache', ep, data, 10 * 60 * 1000).catch(() => {});
+    SITAMDb.set('erp_cache', ep, data, 10 * 60 * 1000).catch(() => { });
     try {
         localStorage.setItem(getCacheKey(ep), JSON.stringify(data));
         localStorage.setItem(getCacheKey(ep) + '_ts', Date.now().toString());
-    } catch {}
+    } catch { }
 }
 function isCacheFresh(ep, maxAgeMs = 5 * 60 * 1000) {
     const ts = parseInt(localStorage.getItem(getCacheKey(ep) + '_ts') || '0', 10);
@@ -646,7 +646,7 @@ function isCacheFresh(ep, maxAgeMs = 5 * 60 * 1000) {
 }
 function clearUserCache() {
     // Wipe IndexedDB entries for this user
-    SITAMDb.clearUser().catch(() => {});
+    SITAMDb.clearUser().catch(() => { });
     // Wipe localStorage cache
     const tok = state.token ? state.token.slice(-10) : 'anon';
     Object.keys(localStorage).forEach(k => {
@@ -689,9 +689,9 @@ async function prefetchAll() {
                 ep
             ).then(data => {
                 // Persist with the correct per-endpoint TTL (not a flat 10 min)
-                SITAMDb.set('erp_cache', ep, data, getTTL(ep)).catch(() => {});
+                SITAMDb.set('erp_cache', ep, data, getTTL(ep)).catch(() => { });
                 return data;
-            }).catch(() => {}).finally(() => { delete _inflight[ep]; });
+            }).catch(() => { }).finally(() => { delete _inflight[ep]; });
             _inflight[ep] = promise;
             return await promise;
         } catch { /* silent — offline or stale is acceptable */ }
@@ -725,7 +725,7 @@ async function prefetchAll() {
         await _doFetch('/exams');
 
         // Record prefetch timestamp → feeds 'last synced' chip
-        SITAMDb.set('session', 'last_synced', Date.now(), 7 * 24 * 60 * 60 * 1000).catch(() => {});
+        SITAMDb.set('session', 'last_synced', Date.now(), 7 * 24 * 60 * 60 * 1000).catch(() => { });
         _updateLastSyncedChip();
         console.log('[Prefetch] Sequential warm-up complete.');
     })();
@@ -745,19 +745,19 @@ function _updateLastSyncedChip() {
         const diff = Math.round((Date.now() - ts) / 1000);
         const label = diff < 60 ? 'Just now'
             : diff < 3600 ? `${Math.floor(diff / 60)}m ago`
-            : diff < 86400 ? `${Math.floor(diff / 3600)}h ago`
-            : 'Yesterday';
+                : diff < 86400 ? `${Math.floor(diff / 3600)}h ago`
+                    : 'Yesterday';
         chip.innerText = `Synced ${label}`;
-    }).catch(() => {});
+    }).catch(() => { });
 }
 
 // --- Haptic helper (10ms micro-vibration on nav taps) ---
-const haptic = () => { try { navigator.vibrate?.(10); } catch {} };
+const haptic = () => { try { navigator.vibrate?.(10); } catch { } };
 
 // --- Attendance Overall Calculator ---
 function calcOverallAttendance(attData) {
     const list = Array.isArray(attData) ? attData :
-                 (attData && Array.isArray(attData.attendance)) ? attData.attendance : [];
+        (attData && Array.isArray(attData.attendance)) ? attData.attendance : [];
     if (!list.length) return { pct: 0, text: '0%' };
     let totalHeld = 0, totalPresent = 0;
     list.forEach(s => { totalHeld += (s.total || s.held || 0); totalPresent += (s.present || s.attended || 0); });
@@ -779,19 +779,19 @@ function setEl(id, prop, val) {
 // Longer TTLs reduce network traffic for rarely-changing data (timetable);
 // shorter TTLs ensure time-sensitive data (notifications, exit passes) stays current.
 const EP_TTL = {
-    '/profile':          5 * 60 * 1000,   //  5 min  — name/branch/year rarely change
-    '/attendance':       5 * 60 * 1000,   //  5 min  — updates after faculty marks
-    '/marks':           10 * 60 * 1000,   // 10 min  — updated per exam cycle
-    '/fees':            10 * 60 * 1000,   // 10 min  — updated after payment
-    '/timetable':       30 * 60 * 1000,   // 30 min  — changes only with schedule edits
-    '/notifications':    1 * 60 * 1000,   //  1 min  — near-realtime; backed by WebSocket
-    '/placements':       5 * 60 * 1000,   //  5 min  — new drives are infrequent
-    '/exit-passes/my':  30 * 1000,        // 30 sec  — status changes quickly after approval
-    '/surveys':          5 * 60 * 1000,   //  5 min
-    '/assignments':      5 * 60 * 1000,   //  5 min
-    '/exams':           10 * 60 * 1000,   // 10 min
-    '/syllabus':        30 * 60 * 1000,   // 30 min
-    '/lost-found':       5 * 60 * 1000,   //  5 min
+    '/profile': 5 * 60 * 1000,   //  5 min  — name/branch/year rarely change
+    '/attendance': 5 * 60 * 1000,   //  5 min  — updates after faculty marks
+    '/marks': 10 * 60 * 1000,   // 10 min  — updated per exam cycle
+    '/fees': 10 * 60 * 1000,   // 10 min  — updated after payment
+    '/timetable': 30 * 60 * 1000,   // 30 min  — changes only with schedule edits
+    '/notifications': 1 * 60 * 1000,   //  1 min  — near-realtime; backed by WebSocket
+    '/placements': 5 * 60 * 1000,   //  5 min  — new drives are infrequent
+    '/exit-passes/my': 30 * 1000,        // 30 sec  — status changes quickly after approval
+    '/surveys': 5 * 60 * 1000,   //  5 min
+    '/assignments': 5 * 60 * 1000,   //  5 min
+    '/exams': 10 * 60 * 1000,   // 10 min
+    '/syllabus': 30 * 60 * 1000,   // 30 min
+    '/lost-found': 5 * 60 * 1000,   //  5 min
 };
 // Default TTL for any endpoint not listed above
 const DEFAULT_TTL = 5 * 60 * 1000;
@@ -799,17 +799,17 @@ function getTTL(ep) { return EP_TTL[ep] ?? DEFAULT_TTL; }
 
 // ─── Request Queue Priority Levels ───────────────────────────────────────────
 const EP_PRIORITY = {
-    '/profile':          3, // High: core identification
-    '/attendance':       3, // High: status display
-    '/fees':            3, // High: outstanding dues / alerts
-    '/marks':           2, // Medium: grades
-    '/timetable':       2, // Medium: calendar
-    '/assignments':     2, // Medium: homework
-    '/notifications':    1, // Low: unread items
-    '/placements':       1, // Low
-    '/surveys':          1, // Low
-    '/lost-found':       1, // Low
-    '/exit-passes/my':   1  // Low
+    '/profile': 3, // High: core identification
+    '/attendance': 3, // High: status display
+    '/fees': 3, // High: outstanding dues / alerts
+    '/marks': 2, // Medium: grades
+    '/timetable': 2, // Medium: calendar
+    '/assignments': 2, // Medium: homework
+    '/notifications': 1, // Low: unread items
+    '/placements': 1, // Low
+    '/surveys': 1, // Low
+    '/lost-found': 1, // Low
+    '/exit-passes/my': 1  // Low
 };
 function getPriority(ep) {
     if (!ep) return 1;
@@ -903,7 +903,7 @@ const api = {
                 try {
                     _abortControllers[endpoint].abort();
                     console.log(`[API] Route change: Aborted in-flight GET request: ${endpoint}`);
-                } catch (_) {}
+                } catch (_) { }
                 delete _abortControllers[endpoint];
             }
         }
@@ -934,7 +934,7 @@ const api = {
                 try {
                     _abortControllers[endpoint].abort();
                     console.log(`[API] Aborted previous in-flight GET request: ${endpoint}`);
-                } catch (_) {}
+                } catch (_) { }
             }
             controller = new AbortController();
             _abortControllers[endpoint] = controller;
@@ -1021,8 +1021,8 @@ const api = {
                     }
                 }
                 // If retry failed or already retried, perform logout
-                const _tokenExpiry  = secureStorage.getItem('tokenExpiry');
-                const _nowMs        = Date.now();
+                const _tokenExpiry = secureStorage.getItem('tokenExpiry');
+                const _nowMs = Date.now();
                 console.error(
                     '[LOGOUT-TRIGGER] Reason: ERP login page detected (HTML redirect)\n' +
                     `  Endpoint:     ${endpoint}\n` +
@@ -1054,8 +1054,8 @@ const api = {
 
             if (!resp.ok) {
                 if (resp.status === 401) {
-                    const _tokenExpiry  = secureStorage.getItem('tokenExpiry');
-                    const _nowMs        = Date.now();
+                    const _tokenExpiry = secureStorage.getItem('tokenExpiry');
+                    const _nowMs = Date.now();
                     console.error(
                         '[LOGOUT-TRIGGER] Reason: HTTP 401 Unauthorized\n' +
                         `  Endpoint:     ${endpoint}\n` +
@@ -1113,13 +1113,13 @@ const api = {
                 // This prevents a request storm where dashboard's api.get() calls each
                 // spawn a background request seconds after prefetchAll() already fetched them.
                 const cacheAge = Date.now() - (await SITAMDb.getTimestamp('erp_cache', ep).catch(() => 0) || 0);
-                const halfTTL  = ttl / 2;
+                const halfTTL = ttl / 2;
                 if (state.isOnline && !_inflight[ep] && cacheAge > halfTTL) {
                     const bgPromise = this.request(ep).then(fresh => {
-                        SITAMDb.set('erp_cache', ep, fresh, ttl).catch(() => {});
-                        try { localStorage.setItem(getCacheKey(ep), JSON.stringify(fresh)); } catch {}
+                        SITAMDb.set('erp_cache', ep, fresh, ttl).catch(() => { });
+                        try { localStorage.setItem(getCacheKey(ep), JSON.stringify(fresh)); } catch { }
                         if (onRevalidate) onRevalidate(fresh);
-                    }).catch(() => {}).finally(() => { delete _inflight[ep]; });
+                    }).catch(() => { }).finally(() => { delete _inflight[ep]; });
                     _inflight[ep] = bgPromise;
                 }
                 return idbCached;
@@ -1147,11 +1147,11 @@ const api = {
         // 4. Network fetch + cache write (using per-endpoint TTL)
         const promise = this.request(ep).then(fresh => {
             // Write with the endpoint-specific TTL so e.g. timetable stays cached 30 min
-            SITAMDb.set('erp_cache', ep, fresh, ttl).catch(() => {});
+            SITAMDb.set('erp_cache', ep, fresh, ttl).catch(() => { });
             try {
                 localStorage.setItem(getCacheKey(ep), JSON.stringify(fresh));
                 localStorage.setItem(getCacheKey(ep) + '_ts', Date.now().toString());
-            } catch {}
+            } catch { }
             if (onRevalidate) onRevalidate(fresh);
             return fresh;
         }).catch(async err => {
@@ -1159,7 +1159,7 @@ const api = {
                 throw err;
             }
             const idbFallback = await SITAMDb.get('erp_cache', ep, 7 * 24 * 60 * 60 * 1000);
-            const lsFallback  = getCachedData(ep);
+            const lsFallback = getCachedData(ep);
             const fallback = idbFallback || lsFallback;
             if (fallback) {
                 console.warn(`[API] Fell back to cache for ${ep}:`, err.message);
@@ -1173,7 +1173,7 @@ const api = {
         // Return stale IndexedDB data immediately if available (SWR pattern)
         if (!bypassCache) {
             const stale = await SITAMDb.get('erp_cache', ep, 7 * 24 * 60 * 60 * 1000)
-                          .catch(() => null) || getCachedData(ep);
+                .catch(() => null) || getCachedData(ep);
             if (stale) return stale;
         }
 
@@ -1199,7 +1199,7 @@ const api = {
         // MUST call backend logout BEFORE clearing local token so auth header is still present.
         // Fire-and-forget: if the request fails, local logout proceeds regardless.
         // This prevents 7-day token reuse after logout (security fix).
-        const serverLogout = () => api.request('/auth/logout', { method: 'POST' }).catch(() => {});
+        const serverLogout = () => api.request('/auth/logout', { method: 'POST' }).catch(() => { });
 
         if (messaging) {
             messaging.getToken().then(async (currentToken) => {
@@ -1207,11 +1207,11 @@ const api = {
                     await api.request('/auth/fcm-token', {
                         method: 'DELETE',
                         body: JSON.stringify({ token: currentToken })
-                    }).catch(() => {});
+                    }).catch(() => { });
                 }
                 // Invalidate server session AFTER FCM cleanup but BEFORE local cleanup
                 await serverLogout();
-            }).catch(() => {}).finally(performLogout);
+            }).catch(() => { }).finally(performLogout);
         } else {
             // No FCM — just invalidate server session then clear local state
             serverLogout().finally(performLogout);
@@ -1233,7 +1233,7 @@ const loading = {
         }
         bar.style.opacity = '1';
         bar.style.width = '40%';
-        
+
         // Minor fallback for legacy overlay if it exists in DOM but make it transparent/non-blocking
         const ov = $('loading-overlay');
         if (ov) {
@@ -1273,14 +1273,14 @@ function checkSyncStatus() {
         if (res && res.data && res.data.userId) {
             // Establish real-time sync socket connection
             wsService.connect(res.data.userId);
-            
+
             // Drawer labels mapping
             setEl('drawer-name', 'innerText', res.data.name || 'Student');
             setEl('drawer-roll', 'innerText', res.data.userId);
-            
+
             // Sync and register Firebase Push tokens on startup
-            registerPush().catch(() => {});
-            updateUnreadBadge().catch(() => {});
+            registerPush().catch(() => { });
+            updateUnreadBadge().catch(() => { });
         }
 
         const isSyncing = res && res.data && res.data.isSyncing;
@@ -1306,9 +1306,9 @@ function checkSyncStatus() {
                             clearUserCache();
                             router.routes[router.currentRoute]?.afterRender?.();
                         }
-                    } catch { 
-                        clearInterval(state._syncPollTimer); 
-                        state._isSyncPolling = false; 
+                    } catch {
+                        clearInterval(state._syncPollTimer);
+                        state._isSyncPolling = false;
                         banner.classList.add('scale-0', 'opacity-0');
                         banner.classList.remove('scale-100', 'opacity-100');
                     }
@@ -1318,7 +1318,7 @@ function checkSyncStatus() {
             banner.classList.add('scale-0', 'opacity-0');
             banner.classList.remove('scale-100', 'opacity-100');
         }
-    }).catch(() => {});
+    }).catch(() => { });
 }
 
 // --- Shell Toggle ---
@@ -1551,9 +1551,9 @@ const pages = {
                 const pwd = $('login-password')?.value?.trim();
                 const errEl = $('login-error');
                 const btnText = $('login-btn-text');
-                if (!uid || !pwd) { if(errEl){errEl.textContent='Please fill all fields.';errEl.classList.remove('hidden');} return; }
-                if(errEl) errEl.classList.add('hidden');
-                if(btnText) btnText.textContent = 'Signing in...';
+                if (!uid || !pwd) { if (errEl) { errEl.textContent = 'Please fill all fields.'; errEl.classList.remove('hidden'); } return; }
+                if (errEl) errEl.classList.add('hidden');
+                if (btnText) btnText.textContent = 'Signing in...';
                 try {
                     const res = await api.post('/auth/login', { userId: uid, password: pwd });
                     if (res.success && res.token) {
@@ -1568,9 +1568,9 @@ const pages = {
                         // Fire push registration and full prefetch asynchronously
                         // Dashboard will paint from IndexedDB cache in <300ms
                         Promise.all([
-                            registerPush().catch(() => {}),
-                            prefetchAll().catch(() => {})
-                        ]).catch(() => {});
+                            registerPush().catch(() => { }),
+                            prefetchAll().catch(() => { })
+                        ]).catch(() => { });
                     } else {
                         if (errEl) {
                             errEl.textContent = res.error || 'Login failed.';
@@ -1766,12 +1766,12 @@ const pages = {
                 const overall = calcOverallAttendance(attList);
                 setEl('dash-att-val', 'innerText', overall.text);
                 const pct = parseFloat(overall.text) || 0;
-                
+
                 const statusEl = $('dash-att-status-text');
                 if (statusEl) {
                     statusEl.innerText = pct >= 75 ? 'Safe' : 'Critical';
-                    statusEl.className = pct >= 75 
-                        ? 'px-2.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase border bg-emerald-50 text-emerald-700 border-emerald-200' 
+                    statusEl.className = pct >= 75
+                        ? 'px-2.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase border bg-emerald-50 text-emerald-700 border-emerald-200'
                         : 'px-2.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase border bg-rose-50 text-rose-700 border-rose-200';
                 }
 
@@ -1779,14 +1779,14 @@ const pages = {
                 if (ring) {
                     ring.style.strokeDashoffset = 163.36 - (pct / 100) * 163.36;
                 }
-            }).catch(() => {});
+            }).catch(() => { });
 
             api.get('/marks').then(marksRes => {
                 const cgpa = marksRes.data?.cgpa || '--';
                 const sgpa = marksRes.data?.sgpa || '--';
                 setEl('dash-gpa-val', 'innerText', cgpa);
                 setEl('dash-sgpa-val', 'innerText', sgpa);
-            }).catch(() => {});
+            }).catch(() => { });
 
             api.get('/fees').then(feesRes => {
                 const due = feesRes.data?.dueAmount || feesRes.data?.totalDue;
@@ -1798,13 +1798,13 @@ const pages = {
                     setEl('dash-fee-text', 'innerText', 'Cleared');
                     $('dash-fee-alert')?.classList.add('hidden');
                 }
-            }).catch(() => {});
+            }).catch(() => { });
 
             api.get('/assignments').then(res => {
                 const list = res.data?.list || [];
                 const pending = list.filter(a => a.status.toLowerCase() !== 'submitted');
                 setEl('dash-asn-count', 'innerText', pending.length);
-            }).catch(() => {});
+            }).catch(() => { });
 
             api.get('/exit-passes/my').then(res => {
                 const passes = res.data || res.passes || [];
@@ -1814,16 +1814,16 @@ const pages = {
                 } else {
                     setEl('dash-ep-status', 'innerText', 'Apply');
                 }
-            }).catch(() => {});
+            }).catch(() => { });
 
             api.get('/timetable').then(ttRes => {
                 const slots = Array.isArray(ttRes) ? ttRes : (ttRes.data || []);
-                const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+                const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
                 let day = days[new Date().getDay()];
                 if (day === 'Sunday') day = 'Monday';
-                
-                const todaySlots = slots.filter(s => s.day === day).sort((a, b) => (parseInt(a.period)||0) - (parseInt(b.period)||0));
-                
+
+                const todaySlots = slots.filter(s => s.day === day).sort((a, b) => (parseInt(a.period) || 0) - (parseInt(b.period) || 0));
+
                 const widget = $('dash-upcoming-class-container');
                 if (widget) {
                     if (todaySlots.length === 0) {
@@ -1833,7 +1833,7 @@ const pages = {
                             </div>
                         `;
                     } else {
-                        const nextClass = todaySlots[0]; 
+                        const nextClass = todaySlots[0];
                         widget.innerHTML = `
                             <div class="glass-card p-3 rounded-2xl border border-white/40 shadow-sm bg-white/45 flex flex-col justify-between h-20 active-scale transition-transform cursor-pointer" onclick="router.navigate('/timetable')">
                                 <div class="flex items-center justify-between">
@@ -1876,7 +1876,7 @@ const pages = {
                         }).join('');
                     }
                 }
-            }).catch(() => {});
+            }).catch(() => { });
 
             api.get('/announcements').then(res => {
                 const list = res.announcements || [];
@@ -1931,7 +1931,7 @@ const pages = {
                         <span class="text-[10px] font-bold text-secondary uppercase tracking-widest" id="att-semester-label">Semester</span>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="att-grid">
-                        ${[1,2,3,4].map(() => `<div class="glass-card border border-white/20 p-4 rounded-2xl shimmer-loading h-24"></div>`).join('')}
+                        ${[1, 2, 3, 4].map(() => `<div class="glass-card border border-white/20 p-4 rounded-2xl shimmer-loading h-24"></div>`).join('')}
                     </div>
                 </section>
                 <!-- Insight Block -->
@@ -1996,7 +1996,7 @@ const pages = {
                     const statusColor = p >= 75 ? '#10b981' : p >= 65 ? '#eab308' : '#ef4444';
                     const statusText = p >= 75 ? 'Safe' : p >= 65 ? 'Warning' : 'Critical';
                     const statusBadge = p >= 75 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : p >= 65 ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-rose-50 text-rose-700 border-rose-200';
-                    
+
                     const needed = 3 * (sub.total || 0) - 4 * (sub.present || 0);
                     const reqClasses = needed > 0 ? Math.ceil(needed) : 0;
 
@@ -2019,8 +2019,8 @@ const pages = {
                         </div>`;
                     grid.appendChild(card);
                 });
-            } catch(e) { 
-                console.error('[Attendance] Error:', e); 
+            } catch (e) {
+                console.error('[Attendance] Error:', e);
                 const grid = $('att-grid');
                 if (grid) {
                     grid.innerHTML = `
@@ -2087,7 +2087,7 @@ const pages = {
                 </section>
                 <!-- Subject Grid -->
                 <section class="grid grid-cols-1 md:grid-cols-2 gap-4" id="marks-grid">
-                    ${[1,2,3,4].map(() => `<div class="glass-card border border-white/20 p-5 rounded-2xl shimmer-loading h-28"></div>`).join('')}
+                    ${[1, 2, 3, 4].map(() => `<div class="glass-card border border-white/20 p-5 rounded-2xl shimmer-loading h-28"></div>`).join('')}
                 </section>
                 <!-- Term Progression -->
                 <section class="bg-surface-container-low p-6 rounded-xl">
@@ -2175,12 +2175,12 @@ const pages = {
                             <div class="w-full bg-secondary-container/30 rounded-t-lg" style="height:${Math.round(h * 0.9 / 10)}rem">
                                 <div class="absolute bottom-0 w-full bg-secondary rounded-t-lg transition-all duration-500 group-hover:opacity-80" style="height:${Math.round(h * 0.85 / 10)}rem"></div>
                             </div>
-                            <span class="mt-2 text-[8px] font-bold text-on-surface-variant tracking-widest uppercase">${s.name.slice(0,4)}</span>
+                            <span class="mt-2 text-[8px] font-bold text-on-surface-variant tracking-widest uppercase">${s.name.slice(0, 4)}</span>
                         </div>`;
                     }).join('');
                 }
-            } catch(e) { 
-                console.error('[Marks] Error:', e); 
+            } catch (e) {
+                console.error('[Marks] Error:', e);
                 const grid = $('marks-grid');
                 if (grid) {
                     grid.innerHTML = `
@@ -2362,7 +2362,7 @@ const pages = {
                 const d = res.data || {};
                 const activeNotices = noticesRes.notices || [];
                 const hasWarning = activeNotices.some(n => n.hallTicketBlockWarning === true);
-                
+
                 const formatRupees = (val) => {
                     if (!val) return '₹0';
                     let clean = String(val).replace(/[₹\s,]/g, '').trim();
@@ -2384,7 +2384,7 @@ const pages = {
                 setEl('fee-due-card', 'innerText', dueAmount);
                 setEl('fee-progress-text', 'innerText', `You've cleared ${paidAmount} of ${totalAmount} for the semester.`);
                 setEl('fee-hero-sub', 'innerText', `Your semester fee status: ${dueAmount} due. Ensure timely payment to avoid penalties.`);
- 
+
                 // Ring animation (uses 402.12 radius calculations)
                 setTimeout(() => {
                     const ring = $('fee-ring');
@@ -2405,16 +2405,16 @@ const pages = {
                     const retryBtn = $('payment-retry-btn');
                     const closeBtn = $('payment-close-btn');
                     const doneBtn = $('payment-success-done-btn');
-                    
+
                     state.paymentTimeout = null;
                     const oldDueAmount = dueAmount;
-                    
+
                     const closeOverlay = () => {
                         if (state.paymentTimeout) clearTimeout(state.paymentTimeout);
                         overlay.classList.remove('opacity-100');
                         setTimeout(() => overlay.classList.add('hidden'), 300);
                     };
-                    
+
                     const showPaymentError = (msg) => {
                         if (state.paymentTimeout) clearTimeout(state.paymentTimeout);
                         loadingState.classList.add('hidden');
@@ -2422,7 +2422,7 @@ const pages = {
                         errorState.classList.remove('hidden');
                         errorText.innerText = msg;
                     };
-                    
+
                     const checkPaymentResult = async () => {
                         try {
                             loading.show('Verifying payment status...');
@@ -2430,7 +2430,7 @@ const pages = {
                             if (freshRes && freshRes.success) {
                                 const newDue = freshRes.data?.dueAmount || freshRes.data?.totalDue || '₹0';
                                 router.routes['/fees']?.afterRender?.();
-                                
+
                                 if (newDue !== oldDueAmount) {
                                     // Payment successful!
                                     loadingState.classList.add('hidden');
@@ -2449,42 +2449,42 @@ const pages = {
                             loading.hide();
                         }
                     };
-                    
+
                     const startPaymentFlow = async () => {
                         overlay.classList.remove('hidden');
                         setTimeout(() => overlay.classList.add('opacity-100'), 10);
                         loadingState.classList.remove('hidden');
                         errorState.classList.add('hidden');
                         successState.classList.add('hidden');
-                        
+
                         stepText.innerText = 'Step 1: Authenticating...';
-                        
+
                         // 30 second safety timeout
                         state.paymentTimeout = setTimeout(() => {
                             showPaymentError('The payment gateway connection timed out. Please check your network and try again.');
                         }, 30000);
-                        
+
                         try {
                             // Step 1: Validate session (fetch profile)
                             const profileCheck = await api.get('/profile', { bypassCache: true });
                             if (!profileCheck || !profileCheck.success) {
                                 throw new Error('Session expired. Please log in again.');
                             }
-                            
+
                             stepText.innerText = 'Step 2: Opening Payment Portal...';
-                            
+
                             // Step 2: Fetch latest fee balance
                             const feesCheck = await api.get('/fees', { bypassCache: true });
                             if (!feesCheck || !feesCheck.success) {
                                 throw new Error('ERP system is currently unreachable.');
                             }
-                            
+
                             stepText.innerText = 'Step 3: Redirecting to Payment Gateway...';
-                            
+
                             const redirectUrl = `${API_BASE}/fees/payment-redirect?token=${encodeURIComponent(state.token)}`;
-                            
+
                             if (state.paymentTimeout) clearTimeout(state.paymentTimeout);
-                            
+
                             // Step 3: Open gateway
                             if (window.Capacitor?.Plugins?.Browser) {
                                 await window.Capacitor.Plugins.Browser.open({ url: redirectUrl });
@@ -2516,14 +2516,14 @@ const pages = {
                                                 successState.classList.remove('hidden');
                                             }
                                         }
-                                    } catch {}
+                                    } catch { }
                                 }, 3000);
                             }
                         } catch (err) {
                             showPaymentError(err.message || 'Payment authentication failed.');
                         }
                     };
-                    
+
                     payBtn.addEventListener('click', startPaymentFlow);
                     retryBtn.addEventListener('click', startPaymentFlow);
                     closeBtn.addEventListener('click', closeOverlay);
@@ -2532,7 +2532,7 @@ const pages = {
                         router.routes['/fees']?.afterRender?.();
                     });
                 }
- 
+
                 const list = $('txn-list');
                 if (!list) return;
                 const txns = d.transactions || [];
@@ -2615,18 +2615,16 @@ const pages = {
                 list.querySelectorAll('.receipt-btn').forEach((button) => {
                     button.addEventListener('click', () => openReceipt(txns[Number(button.dataset.receiptIndex)]));
                 });
-            } catch(e) { console.error('[Fees] Error:', e); }
+            } catch (e) { console.error('[Fees] Error:', e); }
             finally { loading.hide(); }
         }
     },
 
     profile: {
         render: () => `<div class="min-h-screen pb-36 bg-[#F8FAFC]">
-            <main class="pt-20 px-4 max-w-xl mx-auto space-y-6">
+            <main class="pt-20 px-4 max-w-xl mx-auto space-y-5">
 
-                <!-- ════════════════════════════════════ -->
-                <!-- DIGITAL STUDENT ID CARD             -->
-                <!-- ════════════════════════════════════ -->
+                <!-- ═══ HERO: Digital ID Card ═══ -->
                 <section>
                     <div class="id-card p-6 sm:p-7 relative overflow-hidden cursor-pointer active-scale" id="id-card-element">
                         <div class="holographic-foil"></div>
@@ -2640,8 +2638,6 @@ const pages = {
                             </div>
                             <div class="id-chip"></div>
                         </div>
-
-                        <!-- ID Grid Content -->
                         <div class="relative z-10 flex items-center gap-4 mb-4">
                             <div id="id-avatar-container" class="w-20 h-20 bg-slate-900 border border-white/20 rounded-2xl flex items-center justify-center shadow-md overflow-hidden flex-shrink-0">
                                 <span class="material-symbols-outlined text-white/95 text-4xl">person</span>
@@ -2649,47 +2645,50 @@ const pages = {
                             <div class="text-left text-white">
                                 <h3 class="text-base font-black tracking-tight" id="id-name">---</h3>
                                 <p class="text-xs font-bold text-blue-200 mt-0.5" id="id-roll">---</p>
-                                <p class="text-[10px] text-slate-300 mt-1" id="id-dept">Dept: CSE</p>
-                                <p class="text-[10px] text-slate-300" id="id-year">Semester: —</p>
+                                <p class="text-[10px] text-slate-300 mt-1" id="id-dept">Dept: —</p>
+                                <p class="text-[10px] text-slate-300" id="id-semester">Semester: —</p>
                             </div>
                         </div>
-
                         <div class="relative z-10 flex justify-between items-center pt-3 border-t border-white/10 text-[9px] text-slate-400 font-bold uppercase tracking-widest">
-                            <span id="id-validity">Validity: May 2027</span>
+                            <span id="id-acyr">Academic Year: —</span>
                             <span class="text-blue-400 font-black">Tap to Expand</span>
                         </div>
                     </div>
                 </section>
 
-                <!-- Academic Progress stats -->
+                <!-- ═══ ACADEMIC STANDING ═══ -->
                 <section class="space-y-2">
                     <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Academic Standing</h3>
-                    <div class="grid grid-cols-2 gap-3">
+                    <div class="grid grid-cols-3 gap-3">
+                        <div class="p-4 bg-white border border-slate-200/50 rounded-2xl shadow-sm">
+                            <p class="text-[9px] uppercase font-bold text-slate-400 leading-none">CGPA</p>
+                            <p class="text-xl font-black text-primary mt-1.5" id="prof-cgpa-val">--</p>
+                        </div>
+                        <div class="p-4 bg-white border border-slate-200/50 rounded-2xl shadow-sm">
+                            <p class="text-[9px] uppercase font-bold text-slate-400 leading-none">SGPA</p>
+                            <p class="text-xl font-black text-indigo-600 mt-1.5" id="prof-sgpa-val">--</p>
+                        </div>
                         <div class="p-4 bg-white border border-slate-200/50 rounded-2xl shadow-sm">
                             <p class="text-[9px] uppercase font-bold text-slate-400 leading-none">Attendance</p>
                             <p class="text-xl font-black text-emerald-600 mt-1.5" id="prof-att-val">--%</p>
                         </div>
-                        <div class="p-4 bg-white border border-slate-200/50 rounded-2xl shadow-sm">
-                            <p class="text-[9px] uppercase font-bold text-slate-400 leading-none">CGPA</p>
-                            <p class="text-xl font-black text-primary mt-1.5" id="prof-gpa-val">--</p>
-                        </div>
                     </div>
                 </section>
 
-                <!-- Grouped Personal & Academic Fields -->
-                <section class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left" id="profile-sections-container">
+                <!-- ═══ PROFILE SECTIONS ═══ -->
+                <section class="space-y-4" id="profile-sections-container">
                     <div class="col-span-1 sm:col-span-2 h-40 bg-slate-100 rounded-3xl animate-pulse"></div>
                 </section>
 
-                <!-- Actions -->
-                <button class="w-full py-4 bg-rose-50 text-rose-600 border border-rose-100 rounded-2xl font-bold active-scale transition-colors hover:bg-rose-600 hover:text-white mt-4 flex items-center justify-center gap-2" onclick="api.logout()">
+                <!-- Log Out -->
+                <button class="w-full py-4 bg-rose-50 text-rose-600 border border-rose-100 rounded-2xl font-bold active-scale transition-colors hover:bg-rose-600 hover:text-white mt-2 flex items-center justify-center gap-2" onclick="api.logout()">
                     <span class="material-symbols-outlined">logout</span> Log Out
                 </button>
             </main>
 
-            <!-- Fullscreen expanded Digital ID Overlay -->
+            <!-- Fullscreen ID Overlay -->
             <div id="fullscreen-id-overlay" class="fixed inset-0 bg-[#0f172a] z-[150] hidden flex-col items-center justify-center p-6" onclick="closeFullscreenID()">
-                <div class="bg-gradient-to-tr from-[#0f172a] to-[#1e3a8a] border border-white/10 rounded-3xl p-6 w-full max-w-sm text-center relative overflow-hidden shadow-2xl flex flex-col justify-between min-h-[420px]" onclick="event.stopPropagation()">
+                <div class="bg-gradient-to-tr from-[#0f172a] to-[#1e3a8a] border border-white/10 rounded-3xl p-6 w-full max-w-sm text-center relative overflow-hidden shadow-2xl flex flex-col justify-between min-h-[440px]" onclick="event.stopPropagation()">
                     <div class="flex justify-between items-start">
                         <span class="material-symbols-outlined text-white text-3xl">school</span>
                         <div class="text-right text-white">
@@ -2697,33 +2696,29 @@ const pages = {
                             <p class="text-[9px] text-blue-300 font-extrabold uppercase mt-0.5 tracking-widest">Digital Student Passport</p>
                         </div>
                     </div>
-
-                    <div class="flex flex-col items-center my-6 space-y-3 text-white">
-                        <div id="fs-avatar-container" class="w-24 h-24 bg-slate-900 border-2 border-white/20 rounded-3xl flex items-center justify-center shadow-lg relative overflow-hidden flex-shrink-0">
+                    <div class="flex flex-col items-center my-4 space-y-3 text-white">
+                        <div id="fs-avatar-container" class="w-24 h-24 bg-slate-900 border-2 border-white/20 rounded-3xl flex items-center justify-center shadow-lg overflow-hidden flex-shrink-0">
                             <span class="material-symbols-outlined text-white/95 text-5xl">person</span>
                         </div>
                         <div>
                             <h2 class="text-xl font-black tracking-tight" id="fs-name">---</h2>
                             <p class="text-sm font-mono text-blue-200 mt-0.5" id="fs-roll">---</p>
                         </div>
-                        
                         <div class="flex flex-col gap-1 text-[11px] text-slate-300 pt-1 text-center font-medium">
-                            <p id="fs-dept">Department: Computer Science</p>
-                            <p id="fs-batch">Batch: --</p>
-                            <p id="fs-adm">Admission No: --</p>
-                            <p id="fs-blood">Blood Group: --</p>
-                            <p id="fs-emergency">Emergency: --</p>
+                            <p id="fs-dept">Department: —</p>
+                            <p id="fs-batch">Year: —</p>
+                            <p id="fs-acyr">Academic Year: —</p>
+                            <p id="fs-adm">Admission No: —</p>
+                            <p id="fs-blood">Blood Group: —</p>
                         </div>
                     </div>
-
                     <div class="flex justify-center my-2">
                         <div class="p-2.5 bg-white rounded-xl flex items-center justify-center shadow-md">
                             <span class="material-symbols-outlined text-slate-800 text-5xl font-light">qr_code_2</span>
                         </div>
                     </div>
-
                     <div class="flex justify-between pt-3 border-t border-white/10 text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-2">
-                        <span id="fs-validity">Valid Till: May 2027</span>
+                        <span id="fs-validity">Academic Year: —</span>
                         <span>SITAM Registrar</span>
                     </div>
                 </div>
@@ -2738,142 +2733,375 @@ const pages = {
                 const d = res.data || {};
                 state.profile = d;
 
+                const na = (v) => (v && String(v).trim() !== '' && v !== '--') ? v : 'Not Available';
+
+                // ─── ID Card ────────────────────────────────────────────────
                 setEl('id-name', 'innerText', d.name || 'Student');
                 setEl('id-roll', 'innerText', d.roll || d.userId || '---');
-                setEl('id-dept', 'innerText', `Dept: ${d.branch || d.program || 'CSE'}`);
-                
-                const _displaySemester = d.semester ?? d.currentSemester ?? d.erpSemester ?? '';
-                setEl('id-year', 'innerText', _displaySemester ? `Semester: ${_displaySemester}` : 'Semester: —');
-                
+                setEl('id-dept', 'innerText', `Dept: ${d.department || d.branch || d.program || '—'}`);
+                setEl('id-semester', 'innerText', d.semester ? `Semester: ${d.semester}` : 'Semester: —');
+                setEl('id-acyr', 'innerText', d.academicYear ? `Academic Year: ${d.academicYear}` : 'Academic Year: —');
+
                 setEl('fs-name', 'innerText', d.name || 'Student');
                 setEl('fs-roll', 'innerText', d.roll || d.userId || '---');
-                setEl('fs-dept', 'innerText', `Department: ${d.branch || d.program || 'CSE'}`);
-                setEl('fs-batch', 'innerText', `Year: ${d.year || 'I/IV B.Tech'}`);
-                setEl('fs-adm', 'innerText', `Admission No: ${d.admissionNo || 'N/A'}`);
-                setEl('fs-blood', 'innerText', `Blood Group: ${d.bloodGroup || 'Not Provided'}`);
-                setEl('fs-emergency', 'innerText', `Emergency: ${d.emergencyContact || d.phone || d.fatherMobile || 'N/A'}`);
+                setEl('fs-dept', 'innerText', `Department: ${d.department || d.branch || '—'}`);
+                setEl('fs-batch', 'innerText', `Year: ${d.year || '—'}`);
+                setEl('fs-acyr', 'innerText', `Academic Year: ${d.academicYear || '—'}`);
+                setEl('fs-adm', 'innerText', `Admission No: ${d.admissionNo || '—'}`);
+                setEl('fs-blood', 'innerText', `Blood Group: ${d.bloodGroup || '—'}`);
+                setEl('fs-validity', 'innerText', d.academicYear ? `AY: ${d.academicYear}` : 'Academic Year: —');
 
+                // ─── Avatar ──────────────────────────────────────────────────
                 const getInitials = (name) => {
                     if (!name) return 'ST';
                     return name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
                 };
-                
                 const initials = getInitials(d.name);
-                const placeholderAvatar = `<div class="w-full h-full bg-gradient-to-tr from-[#2563EB] to-[#6366F1] flex items-center justify-center text-white font-extrabold text-2xl">${initials}</div>`;
-                
-                if (d.photoUrl && d.photoUrl.trim().length > 0) {
-                    const avatarHtml = `<img src="${d.photoUrl}" class="w-full h-full object-cover rounded-2xl" alt="Photo" onerror="this.innerHTML='${placeholderAvatar}'">`;
-                    const fsAvatarHtml = `<img src="${d.photoUrl}" class="w-full h-full object-cover rounded-3xl" alt="Photo" onerror="this.innerHTML='${placeholderAvatar}'">`;
-                    setEl('id-avatar-container', 'innerHTML', avatarHtml);
-                    setEl('fs-avatar-container', 'innerHTML', fsAvatarHtml);
+                const initialsAvatar = `<div class="w-full h-full bg-gradient-to-tr from-[#2563EB] to-[#6366F1] flex items-center justify-center text-white font-extrabold text-2xl">${initials}</div>`;
+
+                if (d.profilePhotoUrl) {
+                    const imgTag = (cls) => `<img src="${d.profilePhotoUrl}" class="${cls}" alt="Photo" onerror="this.parentElement.innerHTML='${initialsAvatar.replace(/'/g, "\\'")}'" >`;
+                    setEl('id-avatar-container', 'innerHTML', imgTag('w-full h-full object-cover rounded-2xl'));
+                    setEl('fs-avatar-container', 'innerHTML', imgTag('w-full h-full object-cover rounded-3xl'));
                 } else {
-                    setEl('id-avatar-container', 'innerHTML', placeholderAvatar);
-                    setEl('fs-avatar-container', 'innerHTML', placeholderAvatar);
+                    setEl('id-avatar-container', 'innerHTML', initialsAvatar);
+                    setEl('fs-avatar-container', 'innerHTML', initialsAvatar);
                 }
 
+                // ─── ID Card click → fullscreen ──────────────────────────────
                 $('id-card-element')?.addEventListener('click', () => {
                     haptic();
                     $('fullscreen-id-overlay')?.classList.remove('hidden');
+                    $('fullscreen-id-overlay')?.classList.add('flex');
                 });
-
                 window.closeFullscreenID = () => {
                     $('fullscreen-id-overlay')?.classList.add('hidden');
+                    $('fullscreen-id-overlay')?.classList.remove('flex');
                 };
 
+                // ─── Attendance & Marks stats ────────────────────────────────
+                setEl('prof-cgpa-val', 'innerText', d.cgpa || '--');
+                setEl('prof-sgpa-val', 'innerText', d.sgpa || '--');
                 api.get('/attendance').then(attRes => {
                     const attList = attRes.attendance || [];
                     const overall = calcOverallAttendance(attList);
                     setEl('prof-att-val', 'innerText', overall.text);
-                }).catch(() => {});
+                }).catch(() => { });
 
-                api.get('/marks').then(marksRes => {
-                    setEl('prof-gpa-val', 'innerText', marksRes.data?.cgpa || '--');
-                }).catch(() => {});
-
+                // ─── Section panels ──────────────────────────────────────────
                 const list = $('profile-sections-container');
-                if (list) {
-                    const renderRow = (icon, label, val) => `
+                if (!list) return;
+
+                const renderRow = (icon, label, val, sensitive = false) => {
+                    const displayVal = na(val);
+                    const lockIcon = sensitive && val ? `<span class="material-symbols-outlined text-amber-500 text-[12px] ml-1" title="Masked for security">lock</span>` : '';
+                    return `
                         <div class="flex items-center gap-3.5 py-3 border-b border-slate-100 last:border-0">
                             <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-500 border border-blue-100/50 flex items-center justify-center flex-shrink-0">
                                 <span class="material-symbols-outlined text-[16px]">${icon}</span>
                             </div>
                             <div class="min-w-0 flex-1">
                                 <p class="text-[9px] uppercase font-bold text-slate-400 leading-none">${label}</p>
-                                <p class="text-xs font-semibold text-slate-800 mt-1 truncate">${val || '—'}</p>
+                                <div class="flex items-center mt-1">
+                                    <p class="text-xs font-semibold text-slate-800 truncate">${displayVal}</p>
+                                    ${lockIcon}
+                                </div>
+                            </div>
+                        </div>`;
+                };
+
+                const renderPanel = (title, icon, rowsHtml, colorClass = 'text-blue-600') => `
+                    <div class="bg-white/80 backdrop-blur-sm border border-slate-200/60 rounded-2xl shadow-sm overflow-hidden">
+                        <div class="flex items-center gap-2 px-5 py-3.5 border-b border-slate-100 bg-slate-50/50">
+                            <span class="material-symbols-outlined ${colorClass} text-lg" style="font-variation-settings:'FILL' 1">${icon}</span>
+                            <h4 class="text-xs font-black text-slate-800 uppercase tracking-widest">${title}</h4>
+                        </div>
+                        <div class="px-5 flex flex-col">${rowsHtml}</div>
+                    </div>`;
+
+                const sect1 = [
+                    renderRow('cake', 'Date of Birth', d.dob),
+                    renderRow('face', 'Gender', d.gender),
+                    renderRow('water_drop', 'Blood Group', d.bloodGroup),
+                    renderRow('language', 'Nationality', d.nationality),
+                    renderRow('diversity_3', 'Religion', d.religion),
+                    renderRow('groups', 'Category / Caste', d.caste),
+                    renderRow('fingerprint', 'Aadhaar Number', d.aadhar, true),
+                    renderRow('badge_2', 'APAAR / ABC ID', d.apaarId, true),
+                ].join('');
+
+                const sect2 = [
+                    renderRow('badge', 'Student ID / Roll', d.roll || d.userId),
+                    renderRow('assignment_ind', 'Admission Number', d.admissionNo),
+                    renderRow('school', 'Program', d.program),
+                    renderRow('account_tree', 'Branch / Department', d.department || d.branch),
+                    renderRow('event_seat', 'Current Semester', d.semester),
+                    renderRow('import_contacts', 'Section', d.section),
+                    renderRow('calendar_today', 'Academic Year', d.academicYear),
+                    renderRow('calendar_month', 'Year of Study', d.year),
+                    renderRow('login', 'Date of Joining', d.joiningDate),
+                    renderRow('history_edu', 'Last Institution', d.lastStudied),
+                    renderRow('military_tech', 'Entrance Type', d.entranceType),
+                    renderRow('grade', 'Entrance Rank', d.entranceRank),
+                    renderRow('school', 'SSC Marks', d.sscMarks),
+                    renderRow('school', 'Intermediate Marks', d.interMarks),
+                ].join('');
+
+                const sect3 = [
+                    renderRow('mail', 'Email Address', d.email),
+                    renderRow('phone', 'Mobile Number', d.phone),
+                    renderRow('location_on', 'Permanent Address', d.address),
+                    renderRow('location_city', 'Correspondence Address', d.correspondenceAddress),
+                    renderRow('emergency', 'Emergency Contact', d.emergencyContact),
+                ].join('');
+
+                const sect4 = [
+                    renderRow('supervisor_account', 'Father Name', d.fatherName),
+                    renderRow('contact_phone', 'Father Mobile', d.fatherMobile),
+                    renderRow('mail', 'Father Email', d.fatherEmail),
+                    renderRow('work', 'Father Occupation', d.fatherOccupation),
+                    renderRow('supervisor_account', 'Mother Name', d.motherName),
+                    renderRow('contact_phone', 'Mother Mobile', d.motherMobile),
+                    renderRow('mail', 'Mother Email', d.motherEmail),
+                    renderRow('work', 'Mother Occupation', d.motherOccupation),
+                    renderRow('currency_rupee', 'Annual Income', d.annualIncome),
+                    renderRow('shield_with_heart', 'Guardian Name', d.guardianName),
+                    renderRow('phone_in_talk', 'Guardian Contact', d.guardianPhone),
+                    renderRow('pin_drop', 'Guardian Address', d.guardianAddress),
+                ].join('');
+
+                const sect5 = [
+                    renderRow('home', 'Accommodation', d.hostel || 'Day Scholar'),
+                    renderRow('meeting_room', 'Room Number', d.hostel ? d.roomNo : 'N/A'),
+                    renderRow('chair', 'Seat Category', d.seatType),
+                    renderRow('payments', 'Scholarship', d.scholarship),
+                ].join('');
+
+                // Sync info
+                const syncDate = d.lastSync ? new Date(d.lastSync).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : 'Never';
+                const syncBadgeColor = d.syncStatus === 'synced' ? 'bg-emerald-100 text-emerald-700' : d.syncStatus === 'syncing' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500';
+                const syncPanel = `
+                    <div class="bg-white/80 border border-slate-200/60 rounded-2xl shadow-sm overflow-hidden">
+                        <div class="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 bg-slate-50/50">
+                            <div class="flex items-center gap-2">
+                                <span class="material-symbols-outlined text-slate-500 text-lg" style="font-variation-settings:'FILL' 1">sync</span>
+                                <h4 class="text-xs font-black text-slate-800 uppercase tracking-widest">Sync Information</h4>
+                            </div>
+                            <span class="text-[10px] font-bold px-2.5 py-1 rounded-full ${syncBadgeColor}">${(d.syncStatus || 'pending').toUpperCase()}</span>
+                        </div>
+                        <div class="px-5 py-3 flex items-center gap-3">
+                            <span class="material-symbols-outlined text-slate-400 text-[16px]">schedule</span>
+                            <div>
+                                <p class="text-[9px] uppercase font-bold text-slate-400 leading-none">Last Synced</p>
+                                <p class="text-xs font-semibold text-slate-800 mt-1">${syncDate}</p>
                             </div>
                         </div>
-                    `;
+                    </div>`;
 
-                    const personalRows = [
-                        renderRow('cake', 'Date of Birth', d.dob),
-                        renderRow('face', 'Gender', d.gender || 'Not Provided'),
-                        renderRow('fingerprint', 'Aadhaar Number', d.aadhar),
-                        renderRow('water_drop', 'Blood Group', d.bloodGroup)
-                    ].join('');
+                list.innerHTML = [
+                    renderPanel('Personal Information', 'person', sect1, 'text-violet-600'),
+                    renderPanel('Academic Information', 'school', sect2, 'text-blue-600'),
+                    renderPanel('Contact Information', 'contact_phone', sect3, 'text-emerald-600'),
+                    renderPanel('Parent & Guardian', 'supervisor_account', sect4, 'text-rose-500'),
+                    renderPanel('Accommodation & Admission', 'home', sect5, 'text-amber-600'),
+                    syncPanel
+                ].join('');
 
-                    const academicRows = [
-                        renderRow('badge', 'Student ID', d.userId),
-                        renderRow('fingerprint', 'Roll Number', d.roll || d.roll_number),
-                        renderRow('assignment_ind', 'Admission Number', d.admissionNo),
-                        renderRow('account_tree', 'Department', d.department || d.program),
-                        renderRow('school', 'Program', d.program),
-                        renderRow('account_tree', 'Branch', d.branch),
-                        renderRow('event_seat', 'Semester', d.semester || d.currentSemester),
-                        renderRow('calendar_today', 'Year', d.year),
-                        renderRow('calendar_month', 'Date of Joining', d.joiningDate)
-                    ].join('');
-
-                    const contactRows = [
-                        renderRow('mail', 'Email Address', d.email),
-                        renderRow('phone', 'Mobile Number', d.phone),
-                        renderRow('location_on', 'Home Address', d.address),
-                        renderRow('emergency', 'Emergency Contact', d.emergencyContact)
-                    ].join('');
-
-                    const parentRows = [
-                        renderRow('supervisor_account', 'Father Name', d.fatherName),
-                        renderRow('supervisor_account', 'Mother Name', d.motherName),
-                        renderRow('contact_phone', 'Father Mobile', d.fatherMobile),
-                        renderRow('shield_with_heart', 'Guardian Name', d.guardianName),
-                        renderRow('phone_in_talk', 'Guardian Contact', d.guardianPhone),
-                        renderRow('pin_drop', 'Guardian Address', d.guardianAddress)
-                    ].join('');
-
-                    const hostelRows = [
-                        renderRow('home', 'Accommodation Status', d.hostel ? d.hostel : 'Day Scholar'),
-                        renderRow('meeting_room', 'Room Number', d.hostel ? d.roomNo : 'N/A')
-                    ].join('');
-
-                    const scholarshipRows = [
-                        renderRow('chair', 'Seat Category', d.seatType),
-                        renderRow('military_tech', 'Entrance Type', d.entranceType),
-                        renderRow('grade', 'Entrance Rank', d.entranceRank),
-                        renderRow('payments', 'Scholarship Status', d.scholarship)
-                    ].join('');
-
-                    const renderPanel = (title, icon, rowsHtml) => `
-                        <div class="glass-card p-5 rounded-[2rem] border border-slate-200/50 shadow-sm bg-white/70 space-y-3">
-                            <div class="flex items-center gap-2 mb-1.5 pb-2.5 border-b border-slate-100">
-                                <span class="material-symbols-outlined text-blue-600 text-lg" style="font-variation-settings:'FILL' 1">${icon}</span>
-                                <h4 class="text-xs font-black text-slate-800 uppercase tracking-widest">${title}</h4>
-                            </div>
-                            <div class="flex flex-col">
-                                ${rowsHtml}
-                            </div>
-                        </div>
-                    `;
-
-                    list.innerHTML = [
-                        renderPanel('Personal Information', 'person', personalRows),
-                        renderPanel('Academic Information', 'school', academicRows),
-                        renderPanel('Contact Information', 'contact_phone', contactRows),
-                        renderPanel('Parent / Guardian Details', 'supervisor_account', parentRows),
-                        renderPanel('Hostel Information', 'home', hostelRows),
-                        renderPanel('Scholarship & Seat Details', 'payments', scholarshipRows)
-                    ].join('');
-                }
             } catch (err) {
                 console.error('[Profile] load failed:', err);
+            } finally {
+                loading.hide();
+            }
+        }
+    },
+    // ---- E-LIBRARY ----
+    library: {
+        render: () => `<body class="bg-background min-h-screen pb-32">
+            <main class="pt-20 px-6 max-w-2xl mx-auto">
+                <section class="mb-6 flex justify-between items-end">
+                    <div>
+                        <p class="text-[9px] font-bold uppercase tracking-[0.2em] text-on-surface-variant mb-1">Academic Resources</p>
+                        <h2 class="text-3xl font-extrabold tracking-tight text-on-surface" style="font-family:'Plus Jakarta Sans',sans-serif">E-Library</h2>
+                    </div>
+                </section>
+                
+                <!-- Search & Filters -->
+                <div class="space-y-4 mb-6">
+                    <div class="relative">
+                        <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-[20px]">search</span>
+                        <input type="text" id="lib-search" placeholder="Search by title, subject..." class="w-full pl-11 pr-4 py-3 bg-surface-container-low border border-outline-variant/10 rounded-2xl text-sm focus:outline-none focus:border-primary text-on-surface" />
+                    </div>
+                    
+                    <div class="flex gap-2 overflow-x-auto pb-2 hide-scrollbar momentum-scroll select-none" id="lib-category-filters">
+                        <button class="lib-cat-btn flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold bg-primary text-white" data-category="ALL">All</button>
+                        <button class="lib-cat-btn flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold bg-surface-container-high text-on-surface-variant" data-category="NOTES">Notes</button>
+                        <button class="lib-cat-btn flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold bg-surface-container-high text-on-surface-variant" data-category="ASSIGNMENT">Assignments</button>
+                        <button class="lib-cat-btn flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold bg-surface-container-high text-on-surface-variant" data-category="REFERENCE">References</button>
+                        <button class="lib-cat-btn flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold bg-surface-container-high text-on-surface-variant" data-category="GENERAL">General</button>
+                    </div>
+
+                    <div class="flex gap-3">
+                        <select id="lib-subject-filter" class="w-full py-2.5 px-3 bg-surface-container-low border border-outline-variant/10 rounded-2xl text-xs font-semibold focus:outline-none focus:border-primary text-on-surface">
+                            <option value="">All Subjects</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="space-y-3" id="lib-list">
+                    <div class="h-20 bg-surface-container-low rounded-xl animate-pulse"></div>
+                </div>
+            </main>
+        </body>`,
+        afterRender: async () => {
+            toggleShell(true);
+            setActiveNav('services');
+            loading.show('Loading E-Library...');
+            try {
+                const res = await api.get('/library/materials');
+                const list = $('lib-list');
+                const searchInput = $('lib-search');
+                const catFilters = document.querySelectorAll('.lib-cat-btn');
+                const subFilter = $('lib-subject-filter');
+                if (!list) return;
+
+                const materials = res.data || [];
+
+                // Populate unique subjects
+                const uniqueSubs = Array.from(new Set(materials.map(m => m.subject).filter(Boolean))).sort();
+                if (subFilter) {
+                    subFilter.innerHTML = '<option value="">All Subjects</option>' + uniqueSubs.map(s => `<option value="${s}">${s}</option>`).join('');
+                }
+
+                let currentSearch = '';
+                let currentCategory = 'ALL';
+                let currentSubject = '';
+
+                const renderFiltered = () => {
+                    const filtered = materials.filter(m => {
+                        const matchesSearch = !currentSearch ||
+                            [m.title, m.subject, m.category].some(x => x?.toLowerCase().includes(currentSearch.toLowerCase()));
+                        const matchesCat = currentCategory === 'ALL' || m.category === currentCategory;
+                        const matchesSub = !currentSubject || m.subject === currentSubject;
+                        return matchesSearch && matchesCat && matchesSub;
+                    });
+
+                    if (filtered.length === 0) {
+                        list.innerHTML = `<div class="text-center py-16 text-on-surface-variant">
+                            <span class="material-symbols-outlined text-5xl mb-4 block">local_library</span>
+                            <p class="font-bold">No study materials found</p>
+                            <p class="text-xs text-slate-400 mt-1">There are no files shared with your targeting rules.</p>
+                        </div>`;
+                        return;
+                    }
+
+                    list.innerHTML = filtered.map(m => {
+                        const dateStr = new Date(m.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                        const sizeStr = (m.fileSize / 1024 / 1024).toFixed(1) + ' MB';
+
+                        return `<div class="p-5 rounded-2xl bg-surface-container-lowest border border-outline-variant/10 flex flex-col gap-4 animate-reveal">
+                            <div class="flex items-start justify-between gap-4">
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex items-center gap-2 flex-wrap mb-1">
+                                        <span class="px-2 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-wider bg-[#e0e7ff] text-[#4338ca] border border-[#c7d2fe]/40">${m.category}</span>
+                                        ${m.subject ? `<span class="px-2 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-wider bg-[#f1f5f9] text-[#475569] border border-[#cbd5e1]/40">${m.subject}</span>` : ''}
+                                    </div>
+                                    <h4 class="font-extrabold text-on-surface text-sm leading-snug">${m.title}</h4>
+                                    ${m.description ? `<p class="text-xs text-on-surface-variant mt-1.5 leading-normal">${m.description}</p>` : ''}
+                                </div>
+                                <div class="w-10 h-10 rounded-xl bg-surface-container-high flex items-center justify-center flex-shrink-0">
+                                    <span class="material-symbols-outlined text-primary text-[20px]">${m.fileType === 'PDF' ? 'picture_as_pdf' : 'description'}</span>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center justify-between border-t border-outline-variant/5 pt-3.5">
+                                <div class="text-[10px] text-on-surface-variant font-medium">
+                                    <p>Uploaded by: <span class="font-bold text-slate-700">${m.uploadedBy}</span></p>
+                                    <p class="mt-0.5">${dateStr} · ${m.fileType} · ${sizeStr}</p>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button class="lib-preview-btn px-3 py-1.5 bg-[#eff6ff] text-[#1d4ed8] border border-[#bfdbfe]/50 hover:bg-[#dbeafe] rounded-xl text-xs font-bold transition-all flex items-center gap-1 active-scale" data-id="${m.id}" data-type="${m.mimeType}">
+                                        <span class="material-symbols-outlined text-[15px]">visibility</span> Preview
+                                    </button>
+                                    <button class="lib-download-btn px-3 py-1.5 bg-primary text-white hover:bg-primary/95 rounded-xl text-xs font-bold transition-all flex items-center gap-1 active-scale" data-id="${m.id}" data-name="${m.originalFileName}">
+                                        <span class="material-symbols-outlined text-[15px]">download</span> Get
+                                    </button>
+                                </div>
+                            </div>
+                        </div>`;
+                    }).join('');
+
+                    // Add event listeners for preview/download
+                    list.querySelectorAll('.lib-preview-btn').forEach(btn => {
+                        btn.addEventListener('click', async (e) => {
+                            haptic();
+                            const id = e.currentTarget.dataset.id;
+                            const type = e.currentTarget.dataset.type;
+                            try {
+                                showToast('Opening preview...', 'info', 2000);
+                                const res = await api.get(`/library/materials/${id}/content`, { responseType: 'blob' });
+                                const blob = new Blob([res.data], { type });
+                                const url = window.URL.createObjectURL(blob);
+                                window.open(url, '_blank');
+                            } catch (err) {
+                                showToast('Failed to load file preview', 'error', 3000);
+                            }
+                        });
+                    });
+
+                    list.querySelectorAll('.lib-download-btn').forEach(btn => {
+                        btn.addEventListener('click', async (e) => {
+                            haptic();
+                            const id = e.currentTarget.dataset.id;
+                            const name = e.currentTarget.dataset.name;
+                            try {
+                                showToast('Downloading file...', 'info', 2000);
+                                const res = await api.get(`/library/materials/${id}/content?download=true`, { responseType: 'blob' });
+                                const url = window.URL.createObjectURL(new Blob([res.data]));
+                                const link = document.createElement('a');
+                                link.href = url;
+                                link.setAttribute('download', name);
+                                document.body.appendChild(link);
+                                link.click();
+                                link.remove();
+                            } catch (err) {
+                                showToast('Download failed', 'error', 3000);
+                            }
+                        });
+                    });
+                };
+
+                // Listeners
+                searchInput?.addEventListener('input', (e) => {
+                    currentSearch = e.target.value;
+                    renderFiltered();
+                });
+
+                catFilters.forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        haptic();
+                        catFilters.forEach(b => b.className = 'lib-cat-btn flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold bg-surface-container-high text-on-surface-variant');
+                        e.currentTarget.className = 'lib-cat-btn flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold bg-primary text-white';
+                        currentCategory = e.currentTarget.dataset.category;
+                        renderFiltered();
+                    });
+                });
+
+                subFilter?.addEventListener('change', (e) => {
+                    currentSubject = e.target.value;
+                    renderFiltered();
+                });
+
+                renderFiltered();
+            } catch (e) {
+                console.error('[Library] Load Error:', e);
+                const list = $('lib-list');
+                if (list) {
+                    list.innerHTML = `<div class="text-center py-16 text-on-surface-variant">
+                        <span class="material-symbols-outlined text-5xl text-rose-500 mb-4 block">warning</span>
+                        <p class="font-bold">Failed to load E-Library</p>
+                        <p class="text-xs text-slate-400 mt-1">Please try again later.</p>
+                    </div>`;
+                }
             } finally {
                 loading.hide();
             }
@@ -2914,7 +3142,7 @@ const pages = {
                     const bg = isPending ? 'bg-surface-container-lowest border border-outline-variant/10' : 'bg-secondary-container/20';
                     const icon = a.icon || (isPending ? 'pending' : 'check_circle');
                     const iconColor = isPending ? 'text-tertiary' : 'text-secondary';
-                    
+
                     let deadlineWarning = '';
                     if (isPending && a.date) {
                         try {
@@ -2925,7 +3153,7 @@ const pages = {
                             if (daysDiff >= 0 && daysDiff <= 2) {
                                 deadlineWarning = `<span class="ml-2 bg-rose-100 text-rose-700 text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded border border-rose-200">Due Soon</span>`;
                             }
-                        } catch (_) {}
+                        } catch (_) { }
                     }
 
                     return `<div class="p-5 rounded-xl ${bg} flex items-center gap-4 justify-between">
@@ -2941,8 +3169,8 @@ const pages = {
                         <span class="text-[10px] px-2 py-1 rounded-full font-bold uppercase flex-shrink-0 ${isPending ? 'bg-tertiary-container/30 text-on-tertiary-container' : 'bg-secondary-container text-on-secondary-container'}">${a.status}</span>
                     </div>`;
                 }).join('');
-            } catch(e) { 
-                console.error('[Assignments] Error:', e); 
+            } catch (e) {
+                console.error('[Assignments] Error:', e);
                 const list = $('asn-list');
                 if (list) {
                     list.innerHTML = `
@@ -2975,8 +3203,8 @@ const pages = {
                 </section>
                 <!-- Day Selector -->
                 <div class="flex gap-2 overflow-x-auto pb-3 mb-5 -mx-4 px-4 momentum-scroll hide-scrollbar" id="day-tabs">
-                    ${['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'].map((d,i) => `
-                        <button data-day="${d}" class="day-tab flex-shrink-0 px-5 py-2.5 rounded-full text-[11px] font-bold uppercase tracking-widest transition-all ${i===0?'bg-secondary text-on-secondary':'bg-slate-100 text-slate-500 hover:bg-slate-200'}">${d.slice(0,3)}</button>`).join('')}
+                    ${['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((d, i) => `
+                        <button data-day="${d}" class="day-tab flex-shrink-0 px-5 py-2.5 rounded-full text-[11px] font-bold uppercase tracking-widest transition-all ${i === 0 ? 'bg-secondary text-on-secondary' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}">${d.slice(0, 3)}</button>`).join('')}
                 </div>
                 <div class="space-y-3" id="tt-grid">
                     <div class="glass-card border border-white/20 p-5 rounded-2xl shimmer-loading h-24"></div>
@@ -2992,8 +3220,8 @@ const pages = {
             try {
                 const res = await api.get('/timetable');
                 allSlots = Array.isArray(res) ? res : (res.data || []);
-            } catch(e) { 
-                console.error('[Timetable] Fetch error:', e); 
+            } catch (e) {
+                console.error('[Timetable] Fetch error:', e);
                 const grid = $('tt-grid');
                 if (grid) {
                     grid.innerHTML = `
@@ -3017,24 +3245,24 @@ const pages = {
             loading.hide();
 
             const colors = ['bg-secondary-container text-secondary', 'bg-tertiary-container/40 text-on-tertiary-container', 'bg-surface-container-high text-on-surface-variant', 'bg-surface-container text-primary'];
-            const icons = ['terminal','calculate','language','science','menu_book','code','psychology','biotech'];
+            const icons = ['terminal', 'calculate', 'language', 'science', 'menu_book', 'code', 'psychology', 'biotech'];
 
             function parseTime(timeStr) {
                 if (!timeStr) return null;
                 const clean = timeStr.replace(/^"|"$/g, '').trim();
                 const parts = clean.split('-');
                 const startStr = parts[0].trim(); // e.g. "09:00 AM"
-                
+
                 const match = startStr.match(/(\d+):(\d+)\s*(AM|PM)/i);
                 if (!match) return null;
-                
+
                 let hours = parseInt(match[1]);
                 const minutes = parseInt(match[2]);
                 const ampm = match[3].toUpperCase();
-                
+
                 if (ampm === 'PM' && hours < 12) hours += 12;
                 if (ampm === 'AM' && hours === 12) hours = 0;
-                
+
                 const d = new Date();
                 d.setHours(hours, minutes, 0, 0);
                 return d;
@@ -3043,7 +3271,7 @@ const pages = {
             function renderDay(day) {
                 const grid = $('tt-grid');
                 if (!grid) return;
-                const daySlots = allSlots.filter(s => s.day === day).sort((a, b) => (parseInt(a.period)||0) - (parseInt(b.period)||0));
+                const daySlots = allSlots.filter(s => s.day === day).sort((a, b) => (parseInt(a.period) || 0) - (parseInt(b.period) || 0));
                 if (daySlots.length === 0) {
                     grid.innerHTML = `<div class="text-center py-16 text-on-surface-variant"><span class="material-symbols-outlined text-5xl mb-4 block">event_busy</span><p class="font-bold">No classes on ${day}</p></div>`;
                     return;
@@ -3051,7 +3279,7 @@ const pages = {
 
                 // Determine active/next class if today matches selected tab
                 const now = new Date();
-                const systemDays = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+                const systemDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
                 const systemToday = systemDays[now.getDay()];
                 const isSystemToday = (day === systemToday);
 
@@ -3095,11 +3323,11 @@ const pages = {
                         : (s.subjectCode || 'Class');
 
                     const isHighlighted = (i === highlightedIndex);
-                    const borderClass = isHighlighted 
-                        ? 'border-2 border-primary bg-gradient-to-tr from-white to-blue-50/20 shadow-md relative' 
+                    const borderClass = isHighlighted
+                        ? 'border-2 border-primary bg-gradient-to-tr from-white to-blue-50/20 shadow-md relative'
                         : 'glass-card border border-white/40 shadow-sm relative';
-                    
-                    const badgeHtml = isHighlighted 
+
+                    const badgeHtml = isHighlighted
                         ? `<span class="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider ${highlightLabel === 'Now' ? 'bg-emerald-500 text-white animate-pulse' : 'bg-blue-600 text-white'}">${highlightLabel === 'Now' ? 'Live Now' : 'Next Up'}</span>`
                         : '';
 
@@ -3132,7 +3360,7 @@ const pages = {
                 }).join('');
             }
 
-            const days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+            const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
             const todayIndex = new Date().getDay();
             let activeDay = (todayIndex >= 1 && todayIndex <= 6) ? days[todayIndex - 1] : 'Monday';
             renderDay(activeDay);
@@ -3160,7 +3388,7 @@ const pages = {
                     <h2 class="text-3xl font-extrabold tracking-tight text-on-surface" style="font-family:'Plus Jakarta Sans',sans-serif">Syllabus &amp; Units</h2>
                 </section>
                 <div class="space-y-4" id="syllabus-list">
-                    ${[1,2,3].map(() => `<div class="h-24 bg-surface-container-low rounded-xl animate-pulse"></div>`).join('')}
+                    ${[1, 2, 3].map(() => `<div class="h-24 bg-surface-container-low rounded-xl animate-pulse"></div>`).join('')}
                 </div>
             </main>
         </body>`,
@@ -3217,7 +3445,7 @@ const pages = {
                         </div>
                     </div>`;
                 }).join('');
-            } catch(e) { console.error('[Syllabus] Error:', e); }
+            } catch (e) { console.error('[Syllabus] Error:', e); }
             finally { loading.hide(); }
         }
     },
@@ -3262,13 +3490,13 @@ const pages = {
         afterRender: async () => {
             toggleShell(true);
             setActiveNav('notifications');
-            
+
             const listContainer = $('notif-list-container');
             const formatRelativeTime = (dateInput) => {
                 if (!dateInput) return '—';
                 const date = new Date(dateInput);
                 if (isNaN(date.getTime())) return '—';
-                
+
                 const now = new Date();
                 const diffMs = now.getTime() - date.getTime();
                 const diffSec = Math.floor(diffMs / 1000);
@@ -3281,7 +3509,7 @@ const pages = {
                 if (diffHour < 24) return `${diffHour}h ago`;
                 if (diffDay === 1) return 'Yesterday';
                 if (diffDay < 7) return `${diffDay}d ago`;
-                
+
                 return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
             };
 
@@ -3318,9 +3546,9 @@ const pages = {
 
             const renderNotifications = () => {
                 if (!listContainer) return;
-                
+
                 let filtered = allNotifications;
-                
+
                 // 1. Filter by category
                 if (activeFilter !== 'all') {
                     filtered = filtered.filter(n => {
@@ -3334,12 +3562,12 @@ const pages = {
                         return false;
                     });
                 }
-                
+
                 // 2. Filter by search query
                 if (searchQuery) {
                     const q = searchQuery.toLowerCase();
-                    filtered = filtered.filter(n => 
-                        (n.title && n.title.toLowerCase().includes(q)) || 
+                    filtered = filtered.filter(n =>
+                        (n.title && n.title.toLowerCase().includes(q)) ||
                         (n.message && n.message.toLowerCase().includes(q))
                     );
                 }
@@ -3391,11 +3619,11 @@ const pages = {
                             <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">${key} Alerts</h3>
                             <div class="space-y-2">
                                 ${groupList.map(n => {
-                                    const visuals = getVisuals(n.type);
-                                    const isRead = n.isRead || false;
-                                    const route = n.metadata ? (typeof n.metadata === 'string' ? JSON.parse(n.metadata).route : n.metadata.route) : null;
-                                    
-                                    return `
+                        const visuals = getVisuals(n.type);
+                        const isRead = n.isRead || false;
+                        const route = n.metadata ? (typeof n.metadata === 'string' ? JSON.parse(n.metadata).route : n.metadata.route) : null;
+
+                        return `
                                         <div class="p-4 rounded-2xl bg-white border border-slate-200/50 flex gap-4 justify-between items-start active-scale relative cursor-pointer hover:shadow-sm transition-all"
                                              data-id="${n.id}" data-route="${route || ''}" data-read="${isRead}">
                                             <div class="flex gap-3 min-w-0 flex-1 notif-card-click-area">
@@ -3403,9 +3631,10 @@ const pages = {
                                                     <span class="material-symbols-outlined ${visuals.text} text-sm">${visuals.icon}</span>
                                                 </div>
                                                 <div class="min-w-0 flex-1">
-                                                    <div class="flex items-center gap-1.5">
+                                                    <div class="flex items-center gap-1.5 flex-wrap">
                                                         <h4 class="font-extrabold text-slate-800 text-sm truncate leading-tight">${n.title}</h4>
                                                         ${!isRead ? `<span class="w-1.5 h-1.5 bg-primary rounded-full flex-shrink-0" id="unread-dot-${n.id}"></span>` : ''}
+                                                        ${n.category === 'alert' ? `<span class="px-1.5 py-0.5 rounded bg-rose-50 border border-rose-200 text-rose-600 text-[8px] font-black uppercase tracking-wider flex-shrink-0">High</span>` : ''}
                                                     </div>
                                                     <p class="text-xs text-slate-500 mt-1.5 leading-normal break-words">${n.message}</p>
                                                     <p class="text-[9px] text-slate-400 font-bold mt-2 font-mono">${formatRelativeTime(n.createdAt)}</p>
@@ -3416,7 +3645,7 @@ const pages = {
                                             </button>
                                         </div>
                                     `;
-                                }).join('')}
+                    }).join('')}
                             </div>
                         </div>
                     `;
@@ -3436,13 +3665,13 @@ const pages = {
                             card.dataset.read = 'true';
                             const dot = $('unread-dot-' + notifId);
                             if (dot) dot.remove();
-                            
-                            api.post('/notifications/read', { notificationId: notifId }).catch(() => {});
-                            
+
+                            api.post('/notifications/read', { notificationId: notifId }).catch(() => { });
+
                             const localNotif = allNotifications.find(n => n.id === notifId);
                             if (localNotif) localNotif.isRead = true;
-                            SITAMDb.set('erp_cache', '/notifications', { notifications: allNotifications }, 24 * 60 * 60 * 1000).catch(() => {});
-                            
+                            SITAMDb.set('erp_cache', '/notifications', { notifications: allNotifications }, 24 * 60 * 60 * 1000).catch(() => { });
+
                             updateUnreadBadge();
                         }
 
@@ -3458,7 +3687,7 @@ const pages = {
                         e.stopPropagation();
                         haptic();
                         const notifId = e.currentTarget.dataset.id;
-                        
+
                         const card = e.currentTarget.closest('[data-id]');
                         if (card) {
                             card.classList.add('scale-90', 'opacity-0');
@@ -3468,10 +3697,10 @@ const pages = {
                             }, 200);
                         }
 
-                        api.delete(`/notifications/${notifId}`).catch(() => {});
+                        api.delete(`/notifications/${notifId}`).catch(() => { });
 
                         allNotifications = allNotifications.filter(n => n.id !== notifId);
-                        SITAMDb.set('erp_cache', '/notifications', { notifications: allNotifications }, 24 * 60 * 60 * 1000).catch(() => {});
+                        SITAMDb.set('erp_cache', '/notifications', { notifications: allNotifications }, 24 * 60 * 60 * 1000).catch(() => { });
 
                         updateUnreadBadge();
                     });
@@ -3485,14 +3714,14 @@ const pages = {
                     allNotifications = cached.notifications;
                     renderNotifications();
                 }
-            } catch (_) {}
+            } catch (_) { }
 
             // Load from server
             try {
                 const res = await api.get('/notifications');
                 const data = res.data || {};
                 const notifications = data.notifications || [];
-                
+
                 allNotifications = notifications;
                 await SITAMDb.set('erp_cache', '/notifications', { notifications }, 24 * 60 * 60 * 1000);
                 renderNotifications();
@@ -3544,9 +3773,9 @@ const pages = {
                     allNotifications.forEach(n => n.isRead = true);
                     renderNotifications();
 
-                    api.post('/notifications/read-all').catch(() => {});
+                    api.post('/notifications/read-all').catch(() => { });
 
-                    SITAMDb.set('erp_cache', '/notifications', { notifications: allNotifications }, 24 * 60 * 60 * 1000).catch(() => {});
+                    SITAMDb.set('erp_cache', '/notifications', { notifications: allNotifications }, 24 * 60 * 60 * 1000).catch(() => { });
 
                     updateUnreadBadge();
                 });
@@ -3575,15 +3804,15 @@ const pages = {
                 const res = await api.get('/exams');
                 const container = $('exams-container');
                 if (!container) return;
-                
+
                 const data = res.data || {};
                 const schedules = data.schedules || [];
-                
+
                 if (schedules.length === 0) {
                     container.innerHTML = `<div class="text-center py-16 text-on-surface-variant font-bold">No exam schedules parsed.</div>`;
                     return;
                 }
-                
+
                 container.innerHTML = `
                     <div class="bg-white/70 backdrop-blur-xl border border-white/60 p-5 rounded-2xl shadow-sm mb-6 flex items-center gap-4">
                         <div class="w-12 h-12 rounded-full bg-secondary-container flex items-center justify-center flex-shrink-0">
@@ -3596,18 +3825,18 @@ const pages = {
                     </div>
                     <div class="space-y-3">
                         ${schedules.map(sch => {
-                            const parseExamDate = (dateStr) => {
-                                if (!dateStr) return { month: 'EXAM', day: '—' };
-                                const parts = dateStr.split('/');
-                                if (parts.length === 3) {
-                                    const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
-                                    const mIdx = parseInt(parts[1]) - 1;
-                                    return { month: months[mIdx] || 'EXAM', day: parts[0] };
-                                }
-                                return { month: 'DATE', day: dateStr };
-                            };
-                            const dInfo = parseExamDate(sch.date);
-                            return `
+                    const parseExamDate = (dateStr) => {
+                        if (!dateStr) return { month: 'EXAM', day: '—' };
+                        const parts = dateStr.split('/');
+                        if (parts.length === 3) {
+                            const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+                            const mIdx = parseInt(parts[1]) - 1;
+                            return { month: months[mIdx] || 'EXAM', day: parts[0] };
+                        }
+                        return { month: 'DATE', day: dateStr };
+                    };
+                    const dInfo = parseExamDate(sch.date);
+                    return `
                             <div class="bg-surface-container-lowest border border-outline-variant/10 p-5 rounded-xl flex items-center gap-5 shadow-sm hover:shadow-md transition-all">
                                 <div class="w-12 h-14 bg-rose-50 text-rose-700 rounded-xl flex flex-col items-center justify-center border border-rose-100 flex-shrink-0">
                                     <span class="text-[9px] font-black uppercase tracking-wider leading-none mt-1">${dInfo.month}</span>
@@ -3623,16 +3852,16 @@ const pages = {
                                     </div>
                                 </div>
                             </div>`;
-                        }).join('')}
+                }).join('')}
                     </div>`;
-            } catch(e) { 
-                console.error('[Exams] Error:', e); 
+            } catch (e) {
+                console.error('[Exams] Error:', e);
                 const container = $('exams-container');
                 if (container) {
                     container.innerHTML = `<div class="text-center py-16 text-on-surface-variant font-bold">Failed to load exam schedules.</div>`;
                 }
-            } finally { 
-                loading.hide(); 
+            } finally {
+                loading.hide();
             }
         }
     },
@@ -3693,7 +3922,7 @@ const pages = {
             setActiveNav('terms');
         }
     },
-    
+
     // ---- ACADEMICS HUB ----
     academics: {
         render: () => `
@@ -3715,10 +3944,10 @@ const pages = {
         afterRender: () => {
             toggleShell(true);
             setActiveNav('academics');
-            
+
             const tabButtons = document.querySelectorAll('.academic-tab-btn');
             const contentContainer = $('academic-tab-content');
-            
+
             const loadTab = async (tabName) => {
                 tabButtons.forEach(btn => {
                     if (btn.dataset.tab === tabName) {
@@ -3727,7 +3956,7 @@ const pages = {
                         btn.className = 'academic-tab-btn flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-500';
                     }
                 });
-                
+
                 const page = pages[tabName];
                 if (page) {
                     const htmlStr = page.render();
@@ -3740,14 +3969,14 @@ const pages = {
                     await page.afterRender?.();
                 }
             };
-            
+
             tabButtons.forEach(btn => {
                 btn.addEventListener('click', () => {
                     haptic();
                     loadTab(btn.dataset.tab);
                 });
             });
-            
+
             loadTab('attendance');
         }
     },
@@ -3801,7 +4030,7 @@ const pages = {
                     const logoLetter = (item.companyName || 'C').charAt(0);
                     const gradientColors = ['from-blue-500 to-indigo-500', 'from-purple-500 to-pink-500', 'from-emerald-500 to-teal-500', 'from-amber-500 to-orange-500'];
                     const logoBg = gradientColors[idx % gradientColors.length];
-                    const logoHtml = item.companyLogoUrl 
+                    const logoHtml = item.companyLogoUrl
                         ? `<img src="${item.companyLogoUrl}" class="w-12 h-12 rounded-xl object-cover" />`
                         : `<div class="w-12 h-12 rounded-xl bg-gradient-to-tr ${logoBg} flex items-center justify-center text-white font-black text-lg">${logoLetter}</div>`;
                     const location = item.location || 'Campus / Off-campus';
@@ -3882,7 +4111,7 @@ const pages = {
                                 title: `${role} at ${company}`,
                                 text: shareText,
                                 url: window.location.href
-                            }).catch(() => {});
+                            }).catch(() => { });
                         } else {
                             navigator.clipboard.writeText(shareText);
                             showToast('Opportunity details copied to clipboard!', 'info', 2000);
@@ -3896,7 +4125,7 @@ const pages = {
                         haptic();
                         const link = btn.dataset.link;
                         if (window.Capacitor?.Plugins?.Browser) {
-                            window.Capacitor.Plugins.Browser.open({ url: link }).catch(() => {});
+                            window.Capacitor.Plugins.Browser.open({ url: link }).catch(() => { });
                         } else {
                             window.open(link, '_blank');
                         }
@@ -3948,6 +4177,16 @@ const pages = {
                     </section>
                     
                     <div class="grid grid-cols-2 gap-4">
+                        <div class="service-card glass-panel p-5 flex flex-col justify-between h-40 cursor-pointer active-scale transition-all hover:shadow-md border border-slate-200/50" onclick="haptic(); router.navigate('/library')">
+                            <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
+                                <span class="material-symbols-outlined text-2xl font-bold">local_library</span>
+                            </div>
+                            <div>
+                                <h4 class="font-extrabold text-slate-800 text-sm tracking-wide">E-Library</h4>
+                                <p class="text-[10px] text-slate-400 mt-1 leading-snug">Access targeted notes, textbooks &amp; slides</p>
+                            </div>
+                        </div>
+
                         <div class="service-card glass-panel p-5 flex flex-col justify-between h-40 cursor-pointer active-scale transition-all hover:shadow-md border border-slate-200/50" onclick="haptic(); router.navigate('/exit-pass')">
                             <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-500 to-indigo-500 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
                                 <span class="material-symbols-outlined text-2xl font-bold">badge</span>
@@ -4030,6 +4269,15 @@ const pages = {
                         <button id="apply-ep-btn" class="bg-primary text-white font-bold text-xs uppercase tracking-wider px-5 py-2.5 rounded-full shadow-md active-scale transition-all">Apply</button>
                     </section>
 
+                    <!-- Quota Status Card -->
+                    <div id="ep-quota-card" class="p-4 bg-white border border-slate-200/50 rounded-2xl flex justify-between items-center shadow-sm animate-reveal hidden">
+                        <div>
+                            <p class="text-[9px] font-bold uppercase tracking-[0.1em] text-slate-400">Current Semester Quota</p>
+                            <p class="text-xs font-bold text-slate-700 mt-0.5" id="quota-text-summary">Loading remaining passes...</p>
+                        </div>
+                        <span id="quota-badge" class="px-2.5 py-1 text-[10px] font-extrabold uppercase rounded-full bg-slate-100 text-slate-500"></span>
+                    </div>
+
                     <div id="active-ep-container" class="space-y-4">
                         <div class="h-24 bg-slate-100 rounded-xl animate-pulse"></div>
                     </div>
@@ -4046,18 +4294,55 @@ const pages = {
                         <h3 class="font-extrabold text-slate-800 text-lg">Apply for Exit Pass</h3>
                         <button id="close-ep-sheet" class="p-2 hover:bg-slate-100 rounded-full transition-colors"><span class="material-symbols-outlined text-slate-500">close</span></button>
                     </div>
-                    <form id="ep-form" class="p-6 pb-8 space-y-4 overflow-y-auto">
+
+                    <!-- Type Selector Tabs -->
+                    <div class="px-6 pt-4">
+                        <div class="flex bg-slate-100 p-1 rounded-xl">
+                          <button id="type-indiv-btn" type="button" class="flex-1 py-2 text-xs font-bold text-slate-800 bg-white rounded-lg shadow-sm transition-all">Individual</button>
+                          <button id="type-group-btn" type="button" class="flex-1 py-2 text-xs font-bold text-slate-400 hover:text-slate-600 transition-all">Group Request</button>
+                        </div>
+                    </div>
+
+                    <form id="ep-form" class="p-6 pb-8 space-y-4 overflow-y-auto max-h-[70vh]">
+                        <!-- Group Name Field (hidden by default) -->
+                        <div id="group-name-field" class="space-y-1 hidden">
+                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wide">Group Name *</label>
+                            <input type="text" id="ep-group-name" placeholder="e.g. Sports Team, Project Batch" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary transition-all" />
+                        </div>
+
                         <div class="space-y-1">
-                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wide">Destination</label>
+                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wide">Destination *</label>
                             <input type="text" id="ep-destination" required placeholder="e.g. Home, Hospital, Bank" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary transition-all" />
                         </div>
                         <div class="space-y-1">
-                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wide">Reason</label>
-                            <textarea id="ep-reason" required placeholder="Describe the reason for exit..." class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary transition-all h-24 resize-none"></textarea>
+                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wide">Reason *</label>
+                            <textarea id="ep-reason" required placeholder="Describe the reason for exit..." class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary transition-all h-20 resize-none"></textarea>
                         </div>
                         <div class="space-y-1">
-                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wide">Requested Exit Date</label>
-                            <input type="date" id="ep-date" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary transition-all font-mono" />
+                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wide">Exit Time *</label>
+                            <input type="datetime-local" id="ep-exit-time" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary transition-all font-mono" />
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wide">Return Time *</label>
+                            <input type="datetime-local" id="ep-return-time" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary transition-all font-mono" />
+                        </div>
+
+                        <!-- Group Members Field (hidden by default) -->
+                        <div id="group-members-field" class="space-y-1 hidden">
+                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wide font-semibold text-slate-700">Group Members Roll Numbers *</label>
+                            <p class="text-[10px] text-slate-400 mb-1">Enter Roll numbers of other members, separated by commas (excluding yours)</p>
+                            <textarea id="ep-group-members" placeholder="E.g. 25B61A0501, 25B61A0502" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary transition-all h-20 resize-none"></textarea>
+                        </div>
+
+                        <!-- Individual Emergency Contact Field -->
+                        <div id="emergency-contact-field" class="space-y-1">
+                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wide">Emergency Contact Number *</label>
+                            <input type="tel" id="ep-emergency-contact" placeholder="10-digit phone number" pattern="[0-9]{10}" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary transition-all" />
+                        </div>
+                        
+                        <div class="space-y-1">
+                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wide">Remarks (Optional)</label>
+                            <textarea id="ep-remarks" placeholder="Any additional notes..." class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary transition-all h-16 resize-none"></textarea>
                         </div>
                         <button type="submit" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-3.5 rounded-xl shadow-md active-scale transition-transform">Submit Request</button>
                     </form>
@@ -4067,7 +4352,7 @@ const pages = {
         afterRender: async () => {
             toggleShell(true);
             setActiveNav('services');
-            
+
             const activeContainer = $('active-ep-container');
             const historyList = $('ep-history-list');
             const sheet = $('ep-sheet');
@@ -4076,18 +4361,41 @@ const pages = {
             const closeBtn = $('close-ep-sheet');
             const form = $('ep-form');
 
+            // Sheet tabs logic
+            let selectedType = 'INDIVIDUAL';
+            const indivBtn = $('type-indiv-btn');
+            const groupBtn = $('type-group-btn');
+            const groupNameField = $('group-name-field');
+            const groupMembersField = $('group-members-field');
+            const emergencyField = $('emergency-contact-field');
+            const emergencyInput = $('ep-emergency-contact');
+
+            indivBtn?.addEventListener('click', () => {
+                selectedType = 'INDIVIDUAL';
+                indivBtn.className = 'flex-1 py-2 text-xs font-bold text-slate-800 bg-white rounded-lg shadow-sm transition-all';
+                groupBtn.className = 'flex-1 py-2 text-xs font-bold text-slate-400 hover:text-slate-600 transition-all';
+                groupNameField.classList.add('hidden');
+                groupMembersField.classList.add('hidden');
+                emergencyField.classList.remove('hidden');
+                emergencyInput.setAttribute('required', 'true');
+            });
+
+            groupBtn?.addEventListener('click', () => {
+                selectedType = 'GROUP';
+                groupBtn.className = 'flex-1 py-2 text-xs font-bold text-slate-800 bg-white rounded-lg shadow-sm transition-all';
+                indivBtn.className = 'flex-1 py-2 text-xs font-bold text-slate-400 hover:text-slate-600 transition-all';
+                groupNameField.classList.remove('hidden');
+                groupMembersField.classList.remove('hidden');
+                emergencyField.classList.add('hidden');
+                emergencyInput.removeAttribute('required');
+            });
+
             const openSheet = () => {
                 haptic();
-
-                // ── Compute bottom clearance above the floating dock ──────────────────
-                // Measure the dock's actual position so we handle all Android nav modes
-                // (gesture navigation, 3-button bar) and safe-area insets correctly.
                 const dock = document.getElementById('bottom-dock');
                 if (dock) {
                     const dockRect = dock.getBoundingClientRect();
-                    // Distance from the dock's top edge to the viewport bottom
                     const dockClearance = window.innerHeight - dockRect.top;
-                    // Add 16px breathing room between the sheet and the dock
                     const sheetBottom = Math.max(dockClearance + 16, 80);
                     document.documentElement.style.setProperty(
                         '--bottom-sheet-bottom', `${sheetBottom}px`
@@ -4114,35 +4422,45 @@ const pages = {
             backdrop?.addEventListener('click', closeSheet);
             closeBtn?.addEventListener('click', closeSheet);
 
+            const formatDateTime = (dtStr) => {
+                if (!dtStr) return '—';
+                return new Date(dtStr).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+            };
+
             const renderPasses = (passes) => {
                 if (!activeContainer || !historyList) return;
-                
-                const active = passes[0];
-                const history = passes.slice(1);
+
+                const activeIndex = passes.findIndex(p => p.status === 'PENDING' || p.status === 'APPROVED');
+                let active = null;
+                let history = passes;
+                if (activeIndex !== -1) {
+                    active = passes[activeIndex];
+                    history = passes.filter((_, idx) => idx !== activeIndex);
+                }
 
                 if (!active) {
-                    activeContainer.innerHTML = `<div class="p-6 rounded-2xl bg-white/60 border border-slate-200/50 text-center text-slate-400 font-bold text-xs uppercase tracking-wider">No active exit passes.</div>`;
+                    activeContainer.innerHTML = `<div class="p-6 rounded-2xl bg-white/60 border border-slate-200/50 text-center text-slate-400 font-bold text-xs uppercase tracking-wider animate-reveal">No active exit passes.</div>`;
                 } else {
                     const statusColors = {
                         PENDING: 'bg-amber-100 text-amber-800 border-amber-200',
                         APPROVED: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-                        VERIFIED: 'bg-indigo-100 text-indigo-800 border-indigo-200',
-                        COMPLETED: 'bg-slate-100 text-slate-800 border-slate-200',
-                        REJECTED: 'bg-rose-100 text-rose-800 border-rose-200'
+                        USED: 'bg-indigo-100 text-indigo-800 border-indigo-200',
+                        EXITED: 'bg-indigo-100 text-indigo-800 border-indigo-200',
+                        EXPIRED: 'bg-slate-100 text-slate-800 border-slate-200',
+                        REJECTED: 'bg-rose-100 text-rose-800 border-rose-200',
+                        UNDER_REVIEW: 'bg-red-100 text-red-800 border-red-200'
                     };
 
                     const sc = statusColors[active.status] || 'bg-slate-100 text-slate-600';
                     const isApproved = active.status === 'APPROVED';
                     const isPending = active.status === 'PENDING';
-                    const isVerified = active.status === 'VERIFIED';
-                    const isCompleted = active.status === 'COMPLETED';
+                    const isExited = active.status === 'EXITED';
+                    const isExpired = active.status === 'EXPIRED';
 
                     const steps = [
                         { label: 'Applied', active: true, completed: true },
-                        { label: 'Faculty Review', active: isApproved || isVerified || isCompleted, completed: isApproved || isVerified || isCompleted },
-                        { label: 'Admin Approval', active: isApproved || isVerified || isCompleted, completed: isApproved || isVerified || isCompleted },
-                        { label: 'Security Verification', active: isVerified || isCompleted, completed: isVerified || isCompleted },
-                        { label: 'Completed', active: isCompleted, completed: isCompleted }
+                        { label: 'Approval', active: isApproved || isExited || isExpired, completed: isApproved || isExited || isExpired },
+                        { label: 'Security Gate Pass', active: isExited, completed: isExited }
                     ];
 
                     const timelineHtml = `
@@ -4159,8 +4477,20 @@ const pages = {
                         </div>
                     `;
 
+                    let cancelBtnHtml = '';
+                    if (isPending) {
+                        cancelBtnHtml = `
+                            <button id="cancel-pass-btn" class="w-full mt-3 py-2.5 border border-rose-200 text-rose-600 bg-rose-50/50 hover:bg-rose-50 text-xs font-bold rounded-xl active-scale transition-colors flex items-center justify-center gap-1.5" data-id="${active.id}">
+                                <span class="material-symbols-outlined text-[15px]">cancel</span> Cancel Request
+                            </button>
+                        `;
+                    }
+
+                    const activeExitStr = active.exitTime ? formatDateTime(active.exitTime) : (active.requestedDate || active.requestDate);
+                    const activeReturnStr = active.returnTime ? formatDateTime(active.returnTime) : '';
+
                     activeContainer.innerHTML = `
-                        <div class="glass-panel p-5 space-y-4 border border-slate-200/50 relative overflow-hidden">
+                        <div class="glass-panel p-5 space-y-4 border border-slate-200/50 relative overflow-hidden animate-reveal">
                             <div class="flex justify-between items-start">
                                 <div>
                                     <span class="px-2.5 py-0.5 rounded-full border text-[10px] font-extrabold uppercase tracking-wide ${sc}">${active.status}</span>
@@ -4168,49 +4498,122 @@ const pages = {
                                     <p class="text-xs text-slate-500 mt-0.5">${active.reason}</p>
                                 </div>
                                 <div class="text-right">
-                                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Exit Date</p>
-                                    <p class="font-black text-slate-800 text-xs mt-0.5 font-mono">${active.requestDate || ''}</p>
+                                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Exit Time</p>
+                                    <p class="font-black text-slate-800 text-xs mt-0.5 font-mono">${activeExitStr}</p>
+                                    ${activeReturnStr ? `<p class="text-[9px] text-slate-400 mt-1 font-mono">Return: ${activeReturnStr}</p>` : ''}
                                 </div>
                             </div>
                             
-                            ${isApproved ? (() => {
-                                const qrData = `PassID:${active.id}|StudentID:${active.studentId || 'STUDENT'}|Expiry:${active.requestDate || 'TODAY'} 23:59:59`;
-                                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrData)}`;
-                                return `
+                            ${active.adminRemark ? `
+                                <div class="text-xs text-blue-700 bg-blue-50/70 border border-blue-100 rounded-xl p-2.5 leading-normal">
+                                    <span class="font-bold">Admin remark:</span> "${active.adminRemark}"
+                                </div>
+                            ` : ''}
+
+                            ${isApproved ? `
                                 <div class="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 flex flex-col items-center gap-3 animate-reveal">
-                                    <div class="w-32 h-32 bg-white rounded-xl border border-emerald-200 flex items-center justify-center p-2.5 overflow-hidden shadow-inner">
-                                        <img src="${qrUrl}" class="w-full h-full object-contain" alt="QR Code" />
+                                    <div class="w-36 h-36 bg-white rounded-xl border border-emerald-200 flex items-center justify-center p-2.5 overflow-hidden shadow-inner">
+                                        <canvas id="exit-pass-qr-canvas" class="w-full h-full object-contain"></canvas>
                                     </div>
                                     <div class="text-center">
-                                        <p class="text-[10px] font-bold text-emerald-700 uppercase tracking-widest leading-none">Security Gate Pass OTP</p>
-                                        <p class="text-2xl font-black text-emerald-800 tracking-wider mt-1 font-mono">${active.otp || '------'}</p>
+                                        <p class="text-[10px] font-bold text-emerald-700 uppercase tracking-widest leading-none">Security Gate Pass QR</p>
+                                        <p class="text-xs text-slate-400 mt-1 font-mono">Check Notifications for OTP</p>
                                     </div>
-                                </div>`;
-                            })() : ''}
+                                </div>` : ''}
 
                             ${timelineHtml}
+                            ${cancelBtnHtml}
                         </div>
                     `;
+
+                    // Render local offline QR using QRious if approved
+                    if (isApproved) {
+                        setTimeout(async () => {
+                            try {
+                                const tokRes = await api.get(`/exit-passes/${active.id}/qr-token`);
+                                if (tokRes.data?.qrToken) {
+                                    new QRious({
+                                        element: document.getElementById('exit-pass-qr-canvas'),
+                                        value: tokRes.data.qrToken,
+                                        size: 150
+                                    });
+                                }
+                            } catch (err) {
+                                console.error('[ExitPass] Local QR generation failed:', err);
+                            }
+                        }, 50);
+                    }
                 }
 
                 if (history.length === 0) {
-                    historyList.innerHTML = `<div class="text-center py-6 text-slate-400 text-xs font-bold uppercase">No history records</div>`;
+                    historyList.innerHTML = `<div class="text-center py-6 text-slate-400 text-xs font-bold uppercase animate-reveal">No history records</div>`;
                 } else {
-                    historyList.innerHTML = history.map(h => `
-                        <div class="p-4 bg-white/60 border border-slate-200/40 rounded-2xl flex justify-between items-center">
+                    historyList.innerHTML = history.map(h => {
+                        const dateFormatted = h.exitTime ? new Date(h.exitTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : (h.requestedDate || h.requestDate);
+                        return `
+                        <div class="p-4 bg-white/60 border border-slate-200/40 rounded-2xl flex justify-between items-center animate-reveal">
                             <div>
                                 <h4 class="text-sm font-extrabold text-slate-700 leading-tight">${h.destination}</h4>
-                                <p class="text-xs text-slate-400 mt-0.5 font-mono">${h.requestDate}</p>
+                                <p class="text-[10px] text-slate-400 mt-0.5 font-mono">${dateFormatted}</p>
                             </div>
                             <span class="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 bg-slate-100 text-slate-500 rounded-full border border-slate-200">${h.status}</span>
                         </div>
-                    `).join('');
+                    `;
+                    }).join('');
+                }
+
+                const cancelBtn = $('cancel-pass-btn');
+                if (cancelBtn) {
+                    cancelBtn.addEventListener('click', async (e) => {
+                        haptic();
+                        const passId = e.currentTarget.dataset.id;
+                        if (!window.confirm('Are you sure you want to cancel this exit pass request?')) return;
+
+                        loading.show('Cancelling pass request...');
+                        try {
+                            const res = await api.post(`/exit-passes/${passId}/cancel`);
+                            if (res.data?.success || res.success) {
+                                showToast('Exit pass cancelled successfully', 'success');
+                                loadPasses();
+                            } else {
+                                showToast(res.data?.error || 'Cancellation failed', 'error');
+                            }
+                        } catch (err) {
+                            showToast(err.response?.data?.error || 'Cancellation failed', 'error');
+                        } finally {
+                            loading.hide();
+                        }
+                    });
+                }
+            };
+
+            const loadQuota = async () => {
+                try {
+                    const res = await api.get('/exit-passes/quota');
+                    const quota = res.data;
+                    const card = $('ep-quota-card');
+                    const summary = $('quota-text-summary');
+                    const badge = $('quota-badge');
+
+                    if (card && quota) {
+                        card.classList.remove('hidden');
+                        summary.innerText = `${quota.remaining} of ${quota.maxQuota} remaining this semester`;
+                        badge.innerText = `${quota.count} Used`;
+                        if (quota.remaining <= 0) {
+                            badge.className = 'px-2.5 py-1 text-[10px] font-extrabold uppercase rounded-full bg-red-100 text-red-600 border border-red-200';
+                        } else {
+                            badge.className = 'px-2.5 py-1 text-[10px] font-extrabold uppercase rounded-full bg-blue-100 text-blue-600 border border-blue-200';
+                        }
+                    }
+                } catch (err) {
+                    console.error('[ExitPass] Failed to load quota:', err);
                 }
             };
 
             const loadPasses = async () => {
                 loading.show('Loading Exit Passes...');
                 try {
+                    await loadQuota();
                     const res = await api.get('/exit-passes/my');
                     const passes = res.data || res.passes || [];
                     renderPasses(passes);
@@ -4226,24 +4629,74 @@ const pages = {
                 haptic();
                 const destination = $('ep-destination').value.trim();
                 const reason = $('ep-reason').value.trim();
-                const requestDate = $('ep-date').value;
+                const exitTime = $('ep-exit-time').value;
+                const returnTime = $('ep-return-time').value;
+                const remarks = $('ep-remarks').value.trim();
 
-                if (!destination || !reason || !requestDate) return;
+                if (!destination || !reason || !exitTime || !returnTime) return;
+
+                const exitDate = new Date(exitTime);
+                const returnDate = new Date(returnTime);
+                if (exitDate <= new Date()) {
+                    showToast('Exit time must be in the future', 'error', 3000);
+                    return;
+                }
+                if (returnDate <= exitDate) {
+                    showToast('Return time must be after exit time', 'error', 3000);
+                    return;
+                }
 
                 loading.show('Submitting exit pass request...');
                 try {
-                    const res = await api.post('/exit-passes', { destination, reason, requestDate });
-                    if (res.success) {
+                    let res;
+                    if (selectedType === 'GROUP') {
+                        const groupName = $('ep-group-name').value.trim();
+                        const membersStr = $('ep-group-members').value;
+                        const members = membersStr.split(',').map(m => m.trim()).filter(Boolean);
+
+                        if (!groupName) {
+                            showToast('Group Name is required', 'error');
+                            loading.hide();
+                            return;
+                        }
+
+                        res = await api.post('/exit-passes/group', {
+                            groupName,
+                            destination,
+                            reason,
+                            exitTime,
+                            returnTime,
+                            members
+                        });
+                    } else {
+                        const emergencyContact = $('ep-emergency-contact').value.trim();
+                        if (!emergencyContact) {
+                            showToast('Emergency contact is required', 'error');
+                            loading.hide();
+                            return;
+                        }
+
+                        res = await api.post('/exit-passes', {
+                            destination,
+                            reason,
+                            exitTime,
+                            returnTime,
+                            emergencyContact,
+                            remarks
+                        });
+                    }
+
+                    if (res.data?.success || res.success) {
                         showToast('Gate pass request submitted!', 'success', 2000);
                         closeSheet();
                         form.reset();
                         loadPasses();
                     } else {
-                        showToast(res.message || 'Submission failed', 'error', 3000);
+                        showToast(res.data?.error || res.message || 'Submission failed', 'error', 3000);
                     }
                 } catch (err) {
                     console.error('[ExitPass] submission error:', err);
-                    showToast('Submission failed. Server error.', 'error', 3000);
+                    showToast(err.response?.data?.error || 'Submission failed. Server error.', 'error', 3000);
                 } finally {
                     loading.hide();
                 }
@@ -4325,12 +4778,12 @@ const pages = {
         afterRender: async () => {
             toggleShell(true);
             setActiveNav('services');
-            
+
             const activeList = $('active-surveys-list');
             const completedList = $('completed-surveys-list');
             let activeSurveys = [];
             let completedResponses = [];
-            
+
             let currentSurvey = null;
             let currentQuestions = [];
             let currentQuestionIndex = 0;
@@ -4338,7 +4791,7 @@ const pages = {
 
             const renderSurveyList = () => {
                 if (!activeList || !completedList) return;
-                
+
                 if (activeSurveys.length === 0) {
                     activeList.innerHTML = `<div class="p-6 rounded-2xl bg-white/60 border border-slate-200/50 text-center text-slate-400 font-bold text-xs uppercase tracking-wider">No active surveys.</div>`;
                 } else {
@@ -4398,7 +4851,7 @@ const pages = {
                 currentQuestions = s.questions || [];
                 currentQuestionIndex = 0;
                 currentAnswers = {};
-                
+
                 setEl('wizard-survey-title', 'innerText', s.title);
                 if (s.isAnonymous) {
                     $('anonymous-badge')?.classList.remove('hidden');
@@ -4431,7 +4884,7 @@ const pages = {
                 const pct = Math.round((idx / total) * 100);
                 setEl('wizard-progress-text', 'innerText', `Question ${idx} of ${total}`);
                 setEl('wizard-progress-pct', 'innerText', `${pct}% Completed`);
-                
+
                 const bar = $('wizard-progress-bar');
                 if (bar) bar.style.width = `${pct}%`;
 
@@ -4458,12 +4911,12 @@ const pages = {
 
                 const container = $('wizard-answer-control');
                 if (!container) return;
-                
+
                 const savedAns = currentAnswers[q.id] || '';
 
                 if (q.type === 'MCQ') {
                     let choices = [];
-                    try { choices = JSON.parse(q.options) || []; } catch(_) {}
+                    try { choices = JSON.parse(q.options) || []; } catch (_) { }
                     container.innerHTML = `<div class="space-y-2.5">${choices.map(choice => {
                         const isSelected = savedAns === choice;
                         const borderClass = isSelected ? 'border-primary bg-blue-50/40 text-primary' : 'border-slate-200 hover:bg-slate-50 text-slate-800';
@@ -4475,18 +4928,18 @@ const pages = {
                         `;
                     }).join('')}</div>`;
                 } else if (q.type === 'RATING') {
-                    const stars = [1,2,3,4,5];
+                    const stars = [1, 2, 3, 4, 5];
                     const selectedVal = parseInt(savedAns) || 0;
                     container.innerHTML = `
                         <div class="flex justify-center gap-4 star-rating select-none">
                             ${stars.map(star => {
-                                const filledClass = star <= selectedVal ? 'filled' : '';
-                                return `
+                        const filledClass = star <= selectedVal ? 'filled' : '';
+                        return `
                                     <button class="star p-1 active-scale text-4xl ${filledClass}" onclick="selectRating('${q.id}', ${star})">
                                         ★
                                     </button>
                                 `;
-                            }).join('')}
+                    }).join('')}
                         </div>
                     `;
                 } else {
@@ -4594,7 +5047,7 @@ const pages = {
         afterRender: async () => {
             toggleShell(true);
             setActiveNav('services');
-            
+
             const list = $('announcements-list-container');
             const categoryFilters = document.querySelectorAll('#ann-category-filters button');
             let activeCategory = 'ALL';
@@ -4645,7 +5098,7 @@ const pages = {
                         haptic();
                         const link = btn.dataset.link;
                         if (window.Capacitor?.Plugins?.Browser) {
-                            window.Capacitor.Plugins.Browser.open({ url: link }).catch(() => {});
+                            window.Capacitor.Plugins.Browser.open({ url: link }).catch(() => { });
                         } else {
                             window.open(link, '_blank');
                         }
@@ -4775,14 +5228,14 @@ const pages = {
         afterRender: async () => {
             toggleShell(true);
             setActiveNav('services');
-            
+
             const list = $('lf-items-list');
             const sheet = $('lf-sheet');
             const backdrop = $('lf-sheet-backdrop');
             const applyBtn = $('report-lf-btn');
             const closeBtn = $('close-lf-sheet');
             const form = $('lf-form');
-            
+
             const claimSheet = $('lf-claim-sheet');
             const claimBackdrop = $('lf-claim-backdrop');
             const closeClaimBtn = $('close-lf-claim-sheet');
@@ -4888,9 +5341,9 @@ const pages = {
                     const isOwner = item.studentId === state.profile?.id;
                     const badgeClass = item.type === 'LOST' ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100';
                     const statusClass = item.status === 'CLAIMED' ? 'bg-slate-100 text-slate-600' : item.status === 'CLAIM_REQUESTED' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700';
-                    
+
                     let imgs = [];
-                    try { imgs = JSON.parse(item.imageUrls) || []; } catch(_) {}
+                    try { imgs = JSON.parse(item.imageUrls) || []; } catch (_) { }
                     const imagesHtml = imgs.length > 0 ? `
                         <div class="flex gap-2 overflow-x-auto pb-1 mt-2 hide-scrollbar">
                             ${imgs.map(url => `<img src="${url}" class="w-20 h-20 rounded-lg object-cover border border-slate-200 flex-shrink-0" />`).join('')}
@@ -5034,7 +5487,7 @@ const pages = {
                 const description = $('lf-description').value.trim();
                 const location = $('lf-location').value.trim();
                 const imagesStr = $('lf-images').value.trim();
-                
+
                 let imageUrls = [];
                 if (imagesStr) {
                     imageUrls = imagesStr.split(',').map(s => s.trim()).filter(Boolean).slice(0, 3);
@@ -5081,7 +5534,7 @@ const pages = {
             });
 
             if (!state.profile) {
-                api.get('/profile').then(p => { state.profile = p.data; }).catch(() => {});
+                api.get('/profile').then(p => { state.profile = p.data; }).catch(() => { });
             }
 
             loadItems();
@@ -5166,7 +5619,7 @@ const pages = {
         afterRender: async () => {
             toggleShell(true);
             setActiveNav('services');
-            
+
             const list = $('tickets-list-container');
             const sheet = $('ticket-sheet');
             const backdrop = $('ticket-sheet-backdrop');
@@ -5301,9 +5754,9 @@ const pages = {
 
             const loadChatMessages = async () => {
                 if (!currentTicketId || !chatBubbles) return;
-                
+
                 chatBubbles.innerHTML = `<div class="text-center py-12 text-slate-400 text-xs font-bold">Loading conversation...</div>`;
-                
+
                 try {
                     const res = await api.get(`/help-desk/${currentTicketId}`);
                     const ticket = res.ticket || {};
@@ -5322,7 +5775,7 @@ const pages = {
                         const bubbleClass = isStudent ? 'chat-bubble-student' : 'chat-bubble-admin';
                         const labelName = isStudent ? 'You' : reply.senderName || 'Support Admin';
                         const labelColor = isStudent ? 'text-blue-200' : 'text-slate-400';
-                        
+
                         html += `
                             <div class="${bubbleClass} px-4 py-3 rounded-2xl max-w-[85%] text-sm leading-relaxed shadow-sm">
                                 <p class="font-black text-[10px] ${labelColor} uppercase tracking-widest mb-1">${labelName}</p>
@@ -5333,7 +5786,7 @@ const pages = {
                     });
 
                     chatBubbles.innerHTML = html;
-                    
+
                     setTimeout(() => {
                         chatBubbles.scrollTop = chatBubbles.scrollHeight;
                     }, 50);
@@ -5467,7 +5920,7 @@ const pages = {
                         const assignments = c.assignments || [];
                         const quizzes = c.quizzes || [];
 
-                        const initialLetters = c.name ? c.name.split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase() : 'CO';
+                        const initialLetters = c.name ? c.name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase() : 'CO';
                         const gradients = [
                             'from-indigo-500 to-blue-500',
                             'from-emerald-500 to-teal-500',
@@ -5516,10 +5969,10 @@ const pages = {
                                         </button>
                                         <div class="hidden border-t border-slate-100 p-3 space-y-2">
                                             ${assignments.length === 0 ? `<p class="text-[9px] text-slate-400 text-center font-bold">No assignments available</p>` : assignments.map(a => {
-                                                const sub = a.submission;
-                                                const score = sub ? (sub.points !== null ? `${sub.points}/${a.maxPoints}` : 'Submitted') : 'Pending';
-                                                const statusColor = sub ? 'text-emerald-600 bg-emerald-50 border-emerald-100' : 'text-amber-600 bg-amber-50 border-amber-100';
-                                                return `
+                            const sub = a.submission;
+                            const score = sub ? (sub.points !== null ? `${sub.points}/${a.maxPoints}` : 'Submitted') : 'Pending';
+                            const statusColor = sub ? 'text-emerald-600 bg-emerald-50 border-emerald-100' : 'text-amber-600 bg-amber-50 border-amber-100';
+                            return `
                                                     <div class="flex justify-between items-center p-2.5 rounded-lg bg-white border border-slate-100 text-[10px]">
                                                         <div class="min-w-0 flex-1 mr-3">
                                                             <p class="font-extrabold text-slate-700 truncate">${a.title}</p>
@@ -5527,7 +5980,7 @@ const pages = {
                                                         </div>
                                                         <span class="px-2 py-0.5 rounded border text-[8px] font-black uppercase tracking-wide flex-shrink-0 ${statusColor}">${score}</span>
                                                     </div>`;
-                                            }).join('')}
+                        }).join('')}
                                         </div>
                                     </div>
 
@@ -5539,17 +5992,17 @@ const pages = {
                                         </button>
                                         <div class="hidden border-t border-slate-100 p-3 space-y-2">
                                             ${quizzes.length === 0 ? `<p class="text-[9px] text-slate-400 text-center font-bold">No quizzes available</p>` : quizzes.map(q => {
-                                                const res = q.result;
-                                                const score = res ? `${res.score}/${q.maxPoints}` : 'Pending';
-                                                const statusColor = res ? 'text-emerald-600 bg-emerald-50 border-emerald-100' : 'text-amber-600 bg-amber-50 border-amber-100';
-                                                return `
+                            const res = q.result;
+                            const score = res ? `${res.score}/${q.maxPoints}` : 'Pending';
+                            const statusColor = res ? 'text-emerald-600 bg-emerald-50 border-emerald-100' : 'text-amber-600 bg-amber-50 border-amber-100';
+                            return `
                                                     <div class="flex justify-between items-center p-2.5 rounded-lg bg-white border border-slate-100 text-[10px]">
                                                         <div class="min-w-0 flex-1 mr-3">
                                                             <p class="font-extrabold text-slate-700 truncate">${q.title}</p>
                                                         </div>
                                                         <span class="px-2 py-0.5 rounded border text-[8px] font-black uppercase tracking-wide flex-shrink-0 ${statusColor}">${score}</span>
                                                     </div>`;
-                                            }).join('')}
+                        }).join('')}
                                         </div>
                                     </div>
                                 </div>
@@ -5632,7 +6085,7 @@ async function toggleUnit(unitId, subIdx, unitIdx, btn) {
         }
         // Invalidate syllabus cache
         localStorage.removeItem(getCacheKey('/syllabus'));
-    } catch(e) {
+    } catch (e) {
         // Rollback
         btn.className = isNowCompleted
             ? 'unit-toggle w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all duration-200 hover:scale-105 flex-shrink-0 border-outline-variant text-transparent'
@@ -5647,7 +6100,7 @@ async function toggleUnit(unitId, subIdx, unitIdx, btn) {
 
 // Pages that are kept alive in the DOM (never destroyed on navigation)
 const KEEP_ALIVE_PAGES = new Set(['dashboard', 'attendance', 'marks', 'fees', 'timetable']);
-const KEEP_ALIVE_MAX   = 5;  // LRU limit — evict oldest if exceeded
+const KEEP_ALIVE_MAX = 5;  // LRU limit — evict oldest if exceeded
 
 // LRU Map: preserves insertion order, oldest first
 // Each entry: { node: HTMLElement, route: string, lastAccess: number }
@@ -5715,6 +6168,7 @@ const router = {
             '/login': pages.login,
             '/dashboard': pages.dashboard,
             '/attendance': pages.attendance,
+            '/library': pages.library,
             '/marks': pages.marks,
             '/fees': pages.fees,
             '/profile': pages.profile,
@@ -5776,7 +6230,7 @@ const router = {
 
         this.currentRoute = hash;
         const route = hash.slice(1) || 'dashboard';
-        const page  = pages[route] || pages.dashboard;
+        const page = pages[route] || pages.dashboard;
         console.log(`[NAV] Resolved route: "${route}", page exists: ${!!page}`);
         closeDrawer();
         setActiveNav(route);
@@ -5784,8 +6238,8 @@ const router = {
         // Native StatusBar
         if (window.Capacitor?.Plugins?.StatusBar) {
             const { StatusBar } = window.Capacitor.Plugins;
-            StatusBar.setStyle({ style: 'LIGHT' }).catch(() => {});
-            StatusBar.setBackgroundColor({ color: '#faf9fc' }).catch(() => {});
+            StatusBar.setStyle({ style: 'LIGHT' }).catch(() => { });
+            StatusBar.setBackgroundColor({ color: '#faf9fc' }).catch(() => { });
         }
 
         const isKeepAlive = KEEP_ALIVE_PAGES.has(route);
@@ -5918,7 +6372,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             _pageCache.clear();
             router.handle();
-        } catch(e) { console.error('Sync failed:', e); }
+        } catch (e) { console.error('Sync failed:', e); }
     });
 
     // Connectivity Status alert handlers
@@ -5928,10 +6382,10 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             state.isOnline = navigator.onLine;
         }
-        
+
         const offlineBanner = $('offline-banner');
         if (!offlineBanner) return;
-        
+
         if (state.isOnline) {
             offlineBanner.classList.add('-translate-y-full');
         } else {
@@ -5993,7 +6447,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 haptic();
                 // Revalidate current page data
                 const route = (router.currentRoute || '').slice(1) || 'dashboard';
-                const page  = pages[route];
+                const page = pages[route];
                 if (page) {
                     // For keepAlive pages: just call revalidate if available, else afterRender
                     if (KEEP_ALIVE_PAGES.has(route)) {
@@ -6043,9 +6497,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log('[Capacitor] Deep link received:', event.url);
                 const url = event.url || '';
                 let route = '';
-                if (url.includes('sitam://'))         route = url.split('sitam://')[1];
-                else if (url.includes('#sitam://'))   route = url.split('#sitam://')[1];
-                else if (url.includes('/#'))           route = url.split('/#')[1];
+                if (url.includes('sitam://')) route = url.split('sitam://')[1];
+                else if (url.includes('#sitam://')) route = url.split('#sitam://')[1];
+                else if (url.includes('/#')) route = url.split('/#')[1];
                 if (route) {
                     if (!route.startsWith('/')) route = '/' + route;
                     router.navigate(route);
@@ -6095,7 +6549,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function initializeApplication() {
         const t0 = Date.now();
-        const step = (n) => console.log(`[BOOT] Step ${n} (+${Date.now()-t0}ms)`);
+        const step = (n) => console.log(`[BOOT] Step ${n} (+${Date.now() - t0}ms)`);
 
         console.log('[BOOT] ============ BOOT START ============');
         console.log(`[BOOT] Platform: ${window.Capacitor ? 'Capacitor' : 'Web'}`);
@@ -6125,10 +6579,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (expiry > 0 && Date.now() > expiry) {
                     console.warn('[BOOT] Step 3 — token EXPIRED, clearing');
                     state.token = null;
-                    try { await secureStorage.removeItem('token'); } catch(_) {}
-                    try { await secureStorage.removeItem('tokenExpiry'); } catch(_) {}
+                    try { await secureStorage.removeItem('token'); } catch (_) { }
+                    try { await secureStorage.removeItem('tokenExpiry'); } catch (_) { }
                 } else if (expiry === 0) {
-                    try { await secureStorage.setItem('tokenExpiry', String(Date.now() + 7*24*60*60*1000)); } catch(_) {}
+                    try { await secureStorage.setItem('tokenExpiry', String(Date.now() + 7 * 24 * 60 * 60 * 1000)); } catch (_) { }
                 }
             } else {
                 step('3 — no token, skip expiry check');
@@ -6146,10 +6600,10 @@ document.addEventListener('DOMContentLoaded', () => {
             // This runs whether or not any step above threw, timed out, or succeeded.
             step('FINAL — dismissing splash and navigating');
             _splashDismiss();
-            try { router.handle(); } catch(e) { console.error('[BOOT] router.handle error:', e); }
-            try { checkSyncStatus(); } catch(e) {}
-            console.log(`[BOOT] ============ BOOT COMPLETE in ${Date.now()-t0}ms ============`);
-            
+            try { router.handle(); } catch (e) { console.error('[BOOT] router.handle error:', e); }
+            try { checkSyncStatus(); } catch (e) { }
+            console.log(`[BOOT] ============ BOOT COMPLETE in ${Date.now() - t0}ms ============`);
+
             // Detailed DOM Inspection Log
             console.log('[DOM] sitam-splash exists:', !!document.getElementById('sitam-splash'));
             console.log('[DOM] sitam-splash opacity:', document.getElementById('sitam-splash')?.style?.opacity);
@@ -6158,7 +6612,7 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('[DOM] app content length:', document.getElementById('app')?.innerHTML?.length);
             console.log('[DOM] login-form exists:', !!document.getElementById('login-form'));
             console.log('[DOM] body child count:', document.body.children.length);
-            
+
             setTimeout(() => {
                 const children = Array.from(document.body.children);
                 console.log(`[DOM-LATE] Body children total: ${children.length}`);

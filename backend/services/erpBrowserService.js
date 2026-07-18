@@ -1,20 +1,17 @@
 /**
- * SITAM Smart ERP — Puppeteer Service (Browser Pool Edition)
+ * SITAM Smart ERP — ErpBrowserService (Browser Pool Edition)
  *
  * Replaces one-shot browser launches with the shared BrowserPool.
  * Every student sync job gets:
  *   - A pre-warmed, reusable browser instance (eliminates 3-8s cold start)
  *   - An isolated incognito context (zero cross-student cookie leakage)
  *   - Circuit breaker protection (fast-fail if ERP is down)
+ *   - REQ-XXXXX request ID tracing through every layer
+ *   - SyncHistory DB row for permanent traceability
+ *   - DebugCapture artifacts on any page failure
  *
- * Performance optimisations applied (v2):
- *   - networkidle2 ONLY for ERP login navigation (reliable auth detection)
- *   - domcontentloaded for ALL post-login page navigations (3-5x faster)
- *   - All 4 data pages scraped in PARALLEL via Promise.all() inside the
- *     same browser context (shared session cookie, 4 separate pages)
- *   - Removed all arbitrary setTimeout(r, 2000/3000) sleep calls
- *   - console.time() / console.timeEnd() on every measurable step
- *   - loginWithCookies() for incremental sync without re-auth
+ * RENAMED from puppeteerService.js — provider-agnostic now.
+ * BROWSER_PROVIDER=PUPPETEER (default) or BROWSER_PROVIDER=PLAYWRIGHT
  */
 
 const fs   = require('fs');
@@ -28,8 +25,23 @@ const maintDetector   = require('../providers/scraper/maintenance/ERPMaintenance
 const antiBotDetector = require('../providers/scraper/antibot/AntiBotDetector');
 const selectorOptimizer = require('../providers/scraper/selectors/AdaptiveSelectorOptimizer');
 const classifier      = require('../providers/scraper/retry/AdaptiveRetryClassifier');
+const { generate: generateRequestId } = require('./requestId');
+const DebugCapture    = require('./DebugCapture');
+const { getProviderName } = require('./browserPool/providers/providerFactory');
 
-class PuppeteerService {
+// SyncHistory helper — lazy-loaded to avoid circular dep at module init
+function _syncHistoryCreate(prisma, data) {
+    return prisma.syncHistory.create({ data }).catch(e =>
+        logger.warn(`[ErpBrowserService] SyncHistory create failed: ${e.message}`)
+    );
+}
+function _syncHistoryComplete(prisma, requestId, update) {
+    return prisma.syncHistory.update({ where: { requestId }, data: update }).catch(e =>
+        logger.warn(`[ErpBrowserService] SyncHistory update failed: ${e.message}`)
+    );
+}
+
+class ErpBrowserService {
     constructor() {
         this.baseUrl  = process.env.ERP_BASE_URL;
         this.siteBase = this.baseUrl ? this.baseUrl.split('/SATYA')[0] : '';
@@ -118,8 +130,14 @@ class PuppeteerService {
 
     /**
      * Full login + scrape flow. Uses browser pool + circuit breaker.
+     * @param {string} userId
+     * @param {string} password
+     * @param {string} [requestId]   - REQ-XXXXX correlation ID; generated if not provided
+     * @param {string[]|null} [recoveryPlan]
      */
-    async login(userId, password, requestId = 'unknown', recoveryPlan = null) {
+    async login(userId, password, requestId, recoveryPlan = null) {
+        // Always ensure we have a valid REQ-XXXXX ID
+        if (!requestId || requestId === 'unknown') requestId = generateRequestId();
         return circuitBreaker.execute(async () => {
             return this._loginWithPool(userId, password, requestId, recoveryPlan);
         }, requestId);
@@ -127,14 +145,12 @@ class PuppeteerService {
 
     /**
      * Cookie-based scrape that skips the ERP login form.
-     * Called by syncIncremental() when a valid session already exists.
-     *
      * @param {string} userId
-     * @param {string} cookieString - Raw "name=value; name2=value2" cookie header
-     * @param {string} [requestId]
-     * @returns {{ scrapedData: object }}
+     * @param {string} cookieString
+     * @param {string} [requestId]   - REQ-XXXXX; generated if not provided
      */
-    async loginWithCookies(userId, cookieString, requestId = 'unknown') {
+    async loginWithCookies(userId, cookieString, requestId) {
+        if (!requestId || requestId === 'unknown') requestId = generateRequestId();
         return circuitBreaker.execute(async () => {
             return this._scrapeWithCookies(userId, cookieString, requestId);
         }, requestId);
@@ -148,7 +164,30 @@ class PuppeteerService {
         const timer = new PerformanceTimer(requestId, userId);
         timer.start('total');
 
-        return traceSpan('puppeteer.erp.sync', {
+        // ── SyncHistory: create RUNNING row for full traceability ───────────
+        const startedAt = new Date();
+        let syncHistoryCreated = false;
+        let currentBrowserId  = null;
+        try {
+            const prisma = require('./dbService');
+            const student = await prisma.student.findFirst({ where: { userId }, select: { id: true } });
+            if (student) {
+                await _syncHistoryCreate(prisma, {
+                    requestId,
+                    studentId: student.id,
+                    provider:  getProviderName().toLowerCase(),
+                    status:    'RUNNING',
+                    startedAt,
+                });
+                syncHistoryCreated = true;
+            }
+        } catch (_) {}
+
+        // ── DebugCapture: service-level lifecycle owner ─────────────────
+        // Page objects NEVER touch DebugCapture. They throw; we catch.
+        const capture = new DebugCapture(requestId, userId);
+
+        return traceSpan('erp.sync', {
             'user.id': userId,
             'dependency.type': 'external',
             'dependency.name': 'sitam_erp',
@@ -157,6 +196,7 @@ class PuppeteerService {
         }, async (parentSpan) => {
             let browserId  = null;
             let context    = null;
+            let authPage   = null;
             let attempts = 0;
             const maxAttempts = 2;
 
@@ -180,7 +220,7 @@ class PuppeteerService {
                     // scrapes — causing 60s timeouts and "Target closed" errors.
                     timer.start('browserAcquire');
                     logger.info(
-                        `[Puppeteer] [${requestId}] Acquiring browser from AUTH_POOL for: ${userId} ` +
+                        `[ErpBrowserService] [${requestId}] Acquiring browser from AUTH_POOL for: ${userId} ` +
                         `(attempt ${attempts}/${maxAttempts})`
                     );
                     const { JOB_PRIORITY } = require('./browserPool/PriorityQueue');
@@ -190,17 +230,19 @@ class PuppeteerService {
                         jobType:   'LOGIN',
                         userId,
                     }));
+                    currentBrowserId = browserId;  // track for SyncHistory
                     timer.end('browserAcquire');
 
                     parentSpan.setAttribute('browser.acquire_delay_ms', timer.get('browserAcquire'));
                     parentSpan.addEvent('browser_acquire_success', { browserId });
                     logger.info(
-                        `[Puppeteer] [${requestId}] AUTH_POOL acquired browser ${browserId} ` +
+                        `[ErpBrowserService] [${requestId}] AUTH_POOL acquired browser ${browserId} ` +
                         `in ${timer.get('browserAcquire')}ms`
                     );
 
-                    // ── Open auth page ─────────────────────────────────────────
-                    const authPage = await context.newPage();
+                    // Open auth page and attach DebugCapture listeners
+                    authPage = await context.newPage();
+                    await capture.attach(authPage);  // service owns the capture lifecycle
                     await authPage.setViewport({ width: 1280, height: 800 });
                     await authPage.setUserAgent(
                         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
@@ -326,33 +368,44 @@ class PuppeteerService {
                     });
 
                     logger.info(
-                        `[Puppeteer] [${requestId}] SCRAPE COMPLETE in ${report.totalMs}ms — ` +
+                        `[ErpBrowserService] [${requestId}] SCRAPE COMPLETE in ${report.totalMs}ms — ` +
                         `auth=${timer.get('erpAuth')}ms parallel=${timer.get('parallelScrape')}ms`
                     );
 
-                    // BUG 2 FIX: Release is now ONLY in the finally block.
-                    // Previously, releasing here on success AND then the catch block
-                    // could also release if the try-release itself threw — causing a
-                    // double-release that corrupts browser state and triggers
-                    // "Protocol error (Target.createTarget): Target closed" on the
-                    // next acquire. The finally block below guarantees exactly-once
-                    // release regardless of success, failure, or error-in-release.
-                    return { cookieString, scrapedData, perfReport: report };
+                    return { cookieString, scrapedData, perfReport: report, requestId };
 
                 } catch (error) {
                     releaseError = error;
                     logger.error(
-                        `[Puppeteer] [${requestId}] Login/scrape FAILED ` +
+                        `[ErpBrowserService] [${requestId}] Login/scrape FAILED ` +
                         `(attempt ${attempts}/${maxAttempts}): ${error.message}`,
                         { stack: error.stack }
                     );
 
+                    // Capture diagnostic artifacts — service level, not page object
+                    try {
+                        if (authPage) await capture.captureFailure(authPage, 'login_scrape_failure');
+                    } catch (_) {}
+
                     const strategy = classifier.classify(error, { attempt: attempts });
                     if (!strategy.retry || attempts >= maxAttempts) {
+                        // Update SyncHistory to FAILED before rethrowing
+                        if (syncHistoryCreated) {
+                            try {
+                                const prisma = require('./dbService');
+                                await _syncHistoryComplete(prisma, requestId, {
+                                    status:      'FAILED',
+                                    completedAt: new Date(),
+                                    durationMs:  Date.now() - startedAt.getTime(),
+                                    browserId:   currentBrowserId,
+                                    error:       error.message?.substring(0, 500),
+                                });
+                            } catch (_) {}
+                        }
                         throw error;
                     }
 
-                    logger.warn(`[Puppeteer] [${requestId}] Retrying login/scrape with a fresh browser...`);
+                    logger.warn(`[ErpBrowserService] [${requestId}] Retrying login/scrape with a fresh browser...`);
                 } finally {
                     // BUG 2 FIX: Exactly-once release, always in finally.
                     // browserId is non-null only when acquire() succeeded and we
@@ -369,13 +422,30 @@ class PuppeteerService {
                             );
                         } catch (releaseErr) {
                             logger.warn(
-                                `[Puppeteer] [${requestId}] Browser release warning (non-fatal): ` +
+                                `[ErpBrowserService] [${requestId}] Browser release warning (non-fatal): ` +
                                 `${releaseErr.message}`
                             );
                         }
                     }
                 }
             }
+        }).then(result => {
+            // Finalize DebugCapture manifest (non-blocking)
+            capture.finalizeManifest().catch(() => {});
+            // Mark SyncHistory as SUCCESS
+            if (syncHistoryCreated) {
+                try {
+                    const prisma = require('./dbService');
+                    _syncHistoryComplete(prisma, requestId, {
+                        status:      'SUCCESS',
+                        completedAt: new Date(),
+                        durationMs:  Date.now() - startedAt.getTime(),
+                        browserId:   currentBrowserId,
+                        pagesScraped: JSON.stringify({ login: true, profile: true, marks: true, fees: true, assignments: true }),
+                    });
+                } catch (_) {}
+            }
+            return result;
         });
     }
 
@@ -725,4 +795,5 @@ class PuppeteerService {
     }
 }
 
-module.exports = new PuppeteerService();
+module.exports = new ErpBrowserService();
+

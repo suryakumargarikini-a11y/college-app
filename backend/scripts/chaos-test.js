@@ -23,7 +23,7 @@
 
 const http = require('http');
 
-const TARGET_URL = process.env.TARGET_URL || 'https://college-app-bx6b.onrender.com';
+const TARGET_URL = process.env.TARGET_URL || 'https://web-production-07b0.up.railway.app';
 
 const C = {
     reset: '\x1b[0m', green: '\x1b[32m', yellow: '\x1b[33m',
@@ -229,7 +229,7 @@ async function scenario11_logCorrelationAndFormatting() {
     // Find the log entry with our unique request ID
     const matchingLog = logs.find(l => l.requestId === testReqId);
     assert(matchingLog !== undefined, 'Request ID was not found in the JSON log file');
-    
+
     // Verify correlation fields are correctly propagated and stored in JSON
     assert(matchingLog.traceId === returnedTraceId, `Expected traceId to be ${returnedTraceId}, got ${matchingLog.traceId}`);
     assert(matchingLog.correlationId === testCorrId, `Expected correlationId to be ${testCorrId}, got ${matchingLog.correlationId}`);
@@ -244,7 +244,7 @@ async function scenario11_logCorrelationAndFormatting() {
 async function scenario12_logSecurityRedaction() {
     const fs = require('fs');
     const path = require('path');
-    
+
     // Call authentication endpoint with mock credentials
     await request('POST', '/api/auth/login', {
         userId: '25B61A0000',

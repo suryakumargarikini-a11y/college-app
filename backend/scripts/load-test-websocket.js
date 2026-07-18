@@ -23,7 +23,7 @@
 
 const { WebSocket } = require('ws');
 
-const WS_URL = process.env.WS_URL || 'wss://college-app-bx6b.onrender.com';
+const WS_URL = process.env.WS_URL || 'wss://web-production-07b0.up.railway.app';
 const WS_CONNECTIONS = parseInt(process.env.WS_CONNECTIONS || '50', 10);
 const TEST_DURATION_MS = parseInt(process.env.WS_TEST_DURATION_MS || '30000', 10);
 const CONNECT_DELAY_MS = parseInt(process.env.WS_CONNECT_DELAY_MS || '50', 10);
@@ -118,7 +118,7 @@ class WsLoadTest {
                     connState.welcomed = true;
                     this.stats.welcomed++;
                 }
-            } catch (_) {}
+            } catch (_) { }
         });
 
         ws.on('pong', () => {

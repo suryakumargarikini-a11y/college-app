@@ -25,7 +25,7 @@ async function verify() {
     console.log('[Verify] Logging in to Render API...');
     try {
         const loginRes = await request({
-            hostname: 'college-app-bx6b.onrender.com',
+            hostname: 'web-production-07b0.up.railway.app',
             path: '/api/auth/login',
             method: 'POST',
             headers: {
@@ -50,7 +50,7 @@ async function verify() {
         console.log('[Verify] Fetching Profile...');
 
         const profileRes = await request({
-            hostname: 'college-app-bx6b.onrender.com',
+            hostname: 'web-production-07b0.up.railway.app',
             path: '/api/profile',
             method: 'GET',
             headers: {

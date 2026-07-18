@@ -6,10 +6,10 @@ import ToastContainer from '../components/Toast';
 import { useToast } from '../hooks/useToast';
 
 const ROLE_LABEL = {
-  SUPER_ADMIN:     'Super Admin',
-  ACCOUNTS_ADMIN:  'Accounts Administrator',
+  SUPER_ADMIN: 'Super Admin',
+  ACCOUNTS_ADMIN: 'Accounts Administrator',
   PLACEMENT_ADMIN: 'Placement Officer',
-  SECURITY_GUARD:  'Security Guard',
+  SECURITY_GUARD: 'Security Guard',
 };
 
 function InfoCell({ label, value, mono }) {
@@ -37,19 +37,19 @@ export default function Settings() {
   const user = authStore.getUser();
 
   /* Change Password */
-  const [pwForm,   setPwForm]   = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [pwForm, setPwForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const [pwSaving, setPwSaving] = useState(false);
-  const [pwError,  setPwError]  = useState('');
+  const [pwError, setPwError] = useState('');
 
   /* Maintenance Mode */
-  const [maintenance,     setMaintenance]     = useState(false);
+  const [maintenance, setMaintenance] = useState(false);
   const [maintenanceLoad, setMaintenanceLoad] = useState(true);
   const [maintenanceSave, setMaintenanceSave] = useState(false);
 
   useEffect(() => {
     api.get('/admin/settings/maintenance')
       .then(res => setMaintenance(res.data.maintenanceMode ?? false))
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setMaintenanceLoad(false));
   }, []);
 
@@ -102,10 +102,10 @@ export default function Settings() {
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <InfoCell label="Full Name"  value={user?.name} />
-          <InfoCell label="Email"      value={user?.email} />
-          <InfoCell label="Role"       value={ROLE_LABEL[user?.role] || user?.role} />
-          <InfoCell label="Admin ID"   value={user?.id} mono />
+          <InfoCell label="Full Name" value={user?.name} />
+          <InfoCell label="Email" value={user?.email} />
+          <InfoCell label="Role" value={ROLE_LABEL[user?.role] || user?.role} />
+          <InfoCell label="Admin ID" value={user?.id} mono />
         </div>
       </div>
 
@@ -177,10 +177,10 @@ export default function Settings() {
       <div className="card p-6">
         <SectionTitle icon="info" label="Application Info" />
         <div className="grid grid-cols-2 gap-3">
-          <InfoCell label="Application"    value="SITAM Smart ERP" />
+          <InfoCell label="Application" value="SITAM Smart ERP" />
           <InfoCell label="Portal Version" value="v1.0.0" />
-          <InfoCell label="API Endpoint"   value={import.meta.env.VITE_API_BASE_URL || 'https://college-app-bx6b.onrender.com/api'} mono />
-          <InfoCell label="Environment"    value={import.meta.env.MODE || 'development'} />
+          <InfoCell label="API Endpoint" value={import.meta.env.VITE_API_BASE_URL || 'https://web-production-07b0.up.railway.app/api'} mono />
+          <InfoCell label="Environment" value={import.meta.env.MODE || 'development'} />
         </div>
       </div>
     </div>

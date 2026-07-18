@@ -6,8 +6,9 @@
 <title>SITAM Smart ERP</title>
 <meta name="description" content="SITAM Campus Academic ERP Portal — access marks, attendance, fees, and assignments."/>
 
-<!-- Tailwind -->
+<!-- Tailwind & Offline Qrious QR Generator -->
 <script src="./tailwind.js"></script>
+<script src="./qrious.min.js"></script>
 <script>
 tailwind.config = {
     darkMode: "class",
@@ -560,6 +561,10 @@ input, textarea {
     <div class="space-y-2">
       <div class="px-3 py-1"><span class="text-[11px] uppercase tracking-widest font-bold text-[#2563EB]">Services</span></div>
       <div class="space-y-1">
+        <a href="#" data-nav="library" data-nav-link="library" class="flex items-center gap-3 px-4 py-3.5 rounded-xl text-slate-500 hover:bg-blue-50 hover:text-blue-700 transition-all duration-300">
+          <span class="material-symbols-outlined text-[20px]">local_library</span>
+          <span class="text-[13px] font-bold tracking-wide uppercase">E-Library</span>
+        </a>
         <a href="#" data-nav="exit-pass" data-nav-link="exit-pass" class="flex items-center gap-3 px-4 py-3.5 rounded-xl text-slate-500 hover:bg-blue-50 hover:text-blue-700 transition-all duration-300">
           <span class="material-symbols-outlined text-[20px]">badge</span>
           <span class="text-[13px] font-bold tracking-wide uppercase">Exit Pass</span>

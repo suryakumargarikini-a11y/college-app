@@ -91,7 +91,8 @@ const bullmqQueueLatency = new promClient.Histogram({
     buckets: [0.1, 0.5, 1, 2.5, 5, 10, 30, 60, 120] // From 100ms to 2 minutes
 });
 
-// ─── Puppeteer Browser Pool Metrics ──────────────────────────────────────────
+// ─── Browser Automation Metrics ──────────────────────────────────────────────
+// (covers both Puppeteer and Playwright — labelled by provider)
 const browserPoolActiveBrowsers = new promClient.Gauge({
     name: 'browser_pool_active_browsers',
     help: 'Number of active Chromium browser instances running in the pool',
@@ -146,10 +147,65 @@ const browserPoolAvgWaitMsByPool = new promClient.Gauge({
 
 const syncDurationSeconds = new promClient.Histogram({
     name: 'sync_duration_seconds',
-    help: 'Puppeteer sync execution duration in seconds',
-    labelNames: ['syncType'], // e.g. 'full', 'partial'
-    buckets: [1, 2.5, 5, 7.5, 10, 15, 20, 25, 30, 45, 60] // Scraping buckets (1s to 60s)
+    help: 'ERP sync execution duration in seconds',
+    labelNames: ['syncType', 'provider'],
+    buckets: [1, 2.5, 5, 7.5, 10, 15, 20, 25, 30, 45, 60]
 });
+
+// ─── New: Per-provider + per-stage browser metrics ───────────────────────────
+
+/** Time to launch a browser process (cold start) */
+const browserLaunchDurationSeconds = new promClient.Histogram({
+    name: 'browser_launch_duration_seconds',
+    help: 'Time to launch a browser process',
+    labelNames: ['provider'],
+    buckets: [0.5, 1, 2, 3, 5, 8, 12],
+});
+
+/** End-to-end ERP login duration (from first goto to session ready) */
+const loginDurationSeconds = new promClient.Histogram({
+    name: 'login_duration_seconds',
+    help: 'End-to-end ERP login duration',
+    labelNames: ['result', 'provider'],
+    buckets: [2, 5, 10, 15, 20, 30, 45, 60],
+});
+
+/** Individual scrape stage durations (profile, marks, fees, etc.) */
+const scrapeStageDurationSeconds = new promClient.Histogram({
+    name: 'scrape_stage_duration_seconds',
+    help: 'Duration of individual ERP scrape stages',
+    labelNames: ['stage', 'provider'],
+    buckets: [1, 2.5, 5, 10, 15, 20, 30, 45, 60],
+});
+
+/** Page goto retry counter (per page, per provider) */
+const pageRetryTotal = new promClient.Counter({
+    name: 'page_retry_total',
+    help: 'Total page goto retries',
+    labelNames: ['page', 'provider'],
+});
+
+/** Node.js RSS memory snapshot at end of each sync job */
+const syncMemoryRssMb = new promClient.Gauge({
+    name: 'sync_memory_rss_mb',
+    help: 'Node.js RSS memory in MB at the end of each sync job',
+    labelNames: ['provider'],
+});
+
+/** Context isolation violations — cookie leaks detected between students */
+const isolationViolationsTotal = new promClient.Counter({
+    name: 'isolation_violations_total',
+    help: 'Context isolation violations (leaked cookies between student sessions)',
+    labelNames: ['stage'],  // 'checkout' | 'checkin'
+});
+
+/** Browser crashes labelled by provider for Puppeteer vs Playwright comparison */
+const browserCrashesByProvider = new promClient.Counter({
+    name: 'browser_crashes_by_provider',
+    help: 'Browser crashes broken down by automation provider',
+    labelNames: ['provider'],
+});
+
 
 // ─── PostgreSQL Metrics ──────────────────────────────────────────────────────
 const postgresPoolActiveConnections = new promClient.Gauge({
@@ -230,6 +286,13 @@ register.registerMetric(browserPoolActiveByPool);
 register.registerMetric(browserPoolQueueDepthByPool);
 register.registerMetric(browserPoolAvgWaitMsByPool);
 register.registerMetric(syncDurationSeconds);
+register.registerMetric(browserLaunchDurationSeconds);
+register.registerMetric(loginDurationSeconds);
+register.registerMetric(scrapeStageDurationSeconds);
+register.registerMetric(pageRetryTotal);
+register.registerMetric(syncMemoryRssMb);
+register.registerMetric(isolationViolationsTotal);
+register.registerMetric(browserCrashesByProvider);
 register.registerMetric(postgresPoolActiveConnections);
 register.registerMetric(postgresQueryDuration);
 register.registerMetric(postgresSlowQueriesTotal);
@@ -438,6 +501,15 @@ module.exports = {
         browserPoolQueueDepthByPool,
         browserPoolAvgWaitMsByPool,
         syncDurationSeconds,
+        // New browser automation metrics
+        browserLaunchDurationSeconds,
+        loginDurationSeconds,
+        scrapeStageDurationSeconds,
+        pageRetryTotal,
+        syncMemoryRssMb,
+        isolationViolationsTotal,
+        browserCrashesByProvider,
+        // Existing DB/infra metrics
         postgresPoolActiveConnections,
         postgresQueryDuration,
         postgresSlowQueriesTotal,

@@ -25,7 +25,7 @@ async function trigger() {
     console.log('[Sync] Logging in to Render API...');
     try {
         const loginRes = await request({
-            hostname: 'college-app-bx6b.onrender.com',
+            hostname: 'web-production-07b0.up.railway.app',
             path: '/api/auth/login',
             method: 'POST',
             headers: {
@@ -48,7 +48,7 @@ async function trigger() {
         console.log('[Sync] Triggering Manual Sync via POST /api/sync...');
 
         const syncRes = await request({
-            hostname: 'college-app-bx6b.onrender.com',
+            hostname: 'web-production-07b0.up.railway.app',
             path: '/api/sync',
             method: 'POST',
             headers: {

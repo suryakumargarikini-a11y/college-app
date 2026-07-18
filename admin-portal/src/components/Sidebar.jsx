@@ -26,8 +26,13 @@ const NAV_BY_ROLE = {
     { path: '/placements',           icon: 'work',            label: 'Placement Drives' },
     { path: '/announcements',        icon: 'campaign',        label: 'Announcements' },
     { path: '/notifications',        icon: 'notifications',   label: 'Notifications' },
+    { path: '/e-library',            icon: 'local_library',   label: 'E-Library' },
     { path: '/lms-dashboard',        icon: 'import_contacts', label: 'LMS Progress' },
     { path: '/settings',             icon: 'settings',        label: 'Settings' },
+  ],
+  FACULTY: [
+    { path: '/exit-passes',          icon: 'exit_to_app',     label: 'Exit Passes' },
+    { path: '/e-library',            icon: 'local_library',   label: 'E-Library' },
   ],
 };
 
@@ -48,6 +53,7 @@ const SUPER_ADMIN_NAV = [
   { path: '/fee-notices',           icon: 'receipt_long',           label: 'Fee Notices' },
   { path: '/exit-passes',           icon: 'exit_to_app',            label: 'Exit Passes' },
   { path: '/notifications',         icon: 'notifications',          label: 'Notifications' },
+  { path: '/e-library',             icon: 'local_library',          label: 'E-Library' },
   { path: '/settings',              icon: 'settings',               label: 'Settings' },
 ];
 
@@ -56,6 +62,7 @@ const ROLE_LABELS = {
   ACCOUNTS_ADMIN:  'Accounts Admin',
   PLACEMENT_ADMIN: 'Placement Officer',
   SECURITY_GUARD:  'Security Guard',
+  FACULTY:         'Faculty',
 };
 
 export default function Sidebar({ collapsed, onCollapse, mobileOpen, onMobileClose }) {

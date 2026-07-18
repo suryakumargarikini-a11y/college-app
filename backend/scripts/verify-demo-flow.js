@@ -1,5 +1,5 @@
 'use strict';
-const puppeteer = require('puppeteer');
+const { chromium } = require('playwright-core');
 const fs = require('fs');
 const path = require('path');
 
@@ -35,13 +35,15 @@ function logEvent(msg) {
 }
 
 async function run() {
-  const browser = await puppeteer.launch({
+  const browser = await chromium.launch({
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox']
   });
 
-  const studentPage = await browser.newPage();
-  const adminPage = await browser.newPage();
+  const studentContext = await browser.newContext();
+  const adminContext   = await browser.newContext();
+  const studentPage = await studentContext.newPage();
+  const adminPage   = await adminContext.newPage();
 
   // Setup error tracking
   const trackErrors = (page, name) => {

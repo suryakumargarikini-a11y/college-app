@@ -84,6 +84,7 @@ class ProfileRecord {
         this.hostel       = safeStr(data.hostel);
         this.roomNo       = safeStr(data.roomNo);
         this.cgpa         = safeStr(data.cgpa, '--');
+        this.sgpa         = safeStr(data.sgpa, '--');
         this.percentage   = safeStr(data.percentage, '--');
         this.address      = safeStr(data.address);
         this.joiningDate  = safeStr(data.joiningDate);
@@ -96,11 +97,28 @@ class ProfileRecord {
         this.seatType     = safeStr(data.seatType);
         this.entranceType = safeStr(data.entranceType);
         this.entranceRank = safeStr(data.entranceRank);
-        this.aadhar       = safeStr(data.aadhar);
         this.bloodGroup   = safeStr(data.bloodGroup);
         this.emergencyContact = safeStr(data.emergencyContact);
+        this.guardianName    = safeStr(data.guardianName);
+        this.guardianPhone   = safeStr(data.guardianPhone);
+        this.guardianAddress = safeStr(data.guardianAddress);
+        // Extended profile fields (Phase 1)
+        this.motherMobile        = safeStr(data.motherMobile);
+        this.fatherEmail         = safeStr(data.fatherEmail);
+        this.motherEmail         = safeStr(data.motherEmail);
+        this.fatherOccupation    = safeStr(data.fatherOccupation);
+        this.motherOccupation    = safeStr(data.motherOccupation);
+        this.annualIncome        = safeStr(data.annualIncome);
+        this.correspondenceAddress = safeStr(data.correspondenceAddress);
+        this.lastStudied         = safeStr(data.lastStudied);
+        this.academicYear        = safeStr(data.academicYear);
+        // Sensitive — stored, controlled exposure in API
+        this.aadhar   = safeStr(data.aadhar);
+        this.apaarId  = safeStr(data.apaarId);
+        // Photo
+        this.photoUrl = safeStr(data.photoUrl);
         // Internal — never serialized
-        this._password    = data.password || null;
+        this._password = data.password || null;
     }
 
     static create(raw) {
@@ -114,7 +132,9 @@ class ProfileRecord {
     }
 
     toJSON() {
-        const { _password, ...safe } = this;
+        const { _password, aadhar, apaarId, ...safe } = this;
+        // aadhar and apaarId are excluded from default serialization.
+        // The API controller adds them back only for the authenticated owner.
         return safe;
     }
 }

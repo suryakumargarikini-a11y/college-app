@@ -27,92 +27,66 @@ const studentRepository = {
         const sec = data.section || 'A';
         const cryptoHelper = require('../services/cryptoHelper');
         const encryptedPassword = cryptoHelper.encrypt(data.password);
-        
+
+        // Shared field payload — used for both create and update to avoid drift
+        const profileFields = {
+            password:              encryptedPassword,
+            name:                  data.name,
+            roll:                  data.roll,
+            roll_number:           rollNum,
+            section:               sec,
+            program:               data.program,
+            branch:                data.branch,
+            semester:              data.semester,
+            year:                  data.year,
+            gender:                data.gender,
+            dob:                   data.dob,
+            email:                 data.email,
+            phone:                 data.phone,
+            fatherName:            data.fatherName,
+            motherName:            data.motherName,
+            fatherMobile:          data.fatherMobile || '',
+            hostel:                data.hostel,
+            roomNo:                data.roomNo,
+            cgpa:                  data.cgpa,
+            sgpa:                  data.sgpa                  || '',
+            percentage:            data.percentage,
+            address:               data.address,
+            bloodGroup:            data.bloodGroup             || '',
+            emergencyContact:      data.emergencyContact       || '',
+            admissionNo:           data.admissionNo            || '',
+            joiningDate:           data.joiningDate            || '',
+            caste:                 data.caste                  || '',
+            nationality:           data.nationality            || '',
+            religion:              data.religion               || '',
+            sscMarks:              data.sscMarks               || '',
+            interMarks:            data.interMarks             || '',
+            scholarship:           data.scholarship            || '',
+            seatType:              data.seatType               || '',
+            entranceType:          data.entranceType           || '',
+            entranceRank:          data.entranceRank           || '',
+            aadhar:                data.aadhar                 || '',
+            apaarId:               data.apaarId                || '',
+            photoUrl:              data.photoUrl               || '',
+            guardianName:          data.guardianName           || '',
+            guardianPhone:         data.guardianPhone          || '',
+            guardianAddress:       data.guardianAddress        || '',
+            // Extended fields (Phase 1)
+            motherMobile:          data.motherMobile           || '',
+            annualIncome:          data.annualIncome           || '',
+            fatherEmail:           data.fatherEmail            || '',
+            motherEmail:           data.motherEmail            || '',
+            fatherOccupation:      data.fatherOccupation       || '',
+            motherOccupation:      data.motherOccupation       || '',
+            correspondenceAddress: data.correspondenceAddress  || '',
+            lastStudied:           data.lastStudied            || '',
+            academicYear:          data.academicYear           || '',
+        };
+
         return prisma.student.upsert({
-            where: { userId },
-            update: {
-                password: encryptedPassword,
-                name: data.name,
-                roll: data.roll,
-                roll_number: rollNum,
-                section: sec,
-                program: data.program,
-                branch: data.branch,
-                semester: data.semester,
-                year: data.year,
-                gender: data.gender,
-                dob: data.dob,
-                email: data.email,
-                phone: data.phone,
-                fatherName: data.fatherName,
-                motherName: data.motherName,
-                fatherMobile: data.fatherMobile,
-                hostel: data.hostel,
-                roomNo: data.roomNo,
-                cgpa: data.cgpa,
-                percentage: data.percentage,
-                address: data.address,
-                bloodGroup: data.bloodGroup || '',
-                emergencyContact: data.emergencyContact || '',
-                admissionNo: data.admissionNo || '',
-                joiningDate: data.joiningDate || '',
-                caste: data.caste || '',
-                nationality: data.nationality || '',
-                religion: data.religion || '',
-                sscMarks: data.sscMarks || '',
-                interMarks: data.interMarks || '',
-                scholarship: data.scholarship || '',
-                seatType: data.seatType || '',
-                entranceType: data.entranceType || '',
-                entranceRank: data.entranceRank || '',
-                aadhar: data.aadhar || '',
-                photoUrl: data.photoUrl || '',
-                guardianName: data.guardianName || '',
-                guardianPhone: data.guardianPhone || '',
-                guardianAddress: data.guardianAddress || ''
-            },
-            create: {
-                userId,
-                password: encryptedPassword,
-                name: data.name,
-                roll: data.roll,
-                roll_number: rollNum,
-                section: sec,
-                program: data.program,
-                branch: data.branch,
-                semester: data.semester,
-                year: data.year,
-                gender: data.gender,
-                dob: data.dob,
-                email: data.email,
-                phone: data.phone,
-                fatherName: data.fatherName,
-                motherName: data.motherName,
-                fatherMobile: data.fatherMobile,
-                hostel: data.hostel,
-                roomNo: data.roomNo,
-                cgpa: data.cgpa,
-                percentage: data.percentage,
-                address: data.address,
-                bloodGroup: data.bloodGroup || '',
-                emergencyContact: data.emergencyContact || '',
-                admissionNo: data.admissionNo || '',
-                joiningDate: data.joiningDate || '',
-                caste: data.caste || '',
-                nationality: data.nationality || '',
-                religion: data.religion || '',
-                sscMarks: data.sscMarks || '',
-                interMarks: data.interMarks || '',
-                scholarship: data.scholarship || '',
-                seatType: data.seatType || '',
-                entranceType: data.entranceType || '',
-                entranceRank: data.entranceRank || '',
-                aadhar: data.aadhar || '',
-                photoUrl: data.photoUrl || '',
-                guardianName: data.guardianName || '',
-                guardianPhone: data.guardianPhone || '',
-                guardianAddress: data.guardianAddress || ''
-            }
+            where:  { userId },
+            update: profileFields,
+            create: { userId, ...profileFields }
         });
     },
 
@@ -154,47 +128,39 @@ const subjectRepository = {
 const markRepository = {
     async saveMarks(studentId, marksArray) {
         logger.info(`Repository: Saving ${marksArray.length} mark records for student ${studentId}`);
-        
+
+        // Resolve student once outside the transaction (avoids N+1 inside TX)
+        const student = await prisma.student.findUnique({ where: { id: studentId } });
+        const studentSemester = student ? student.semester : '';
+        const studentBranch = student ? student.branch : '';
+
+        // Upsert subjects OUTSIDE the transaction — subjects are global reference
+        // data; unique constraint handles concurrent upserts safely.
+        const subjectIds = {};
+        for (const record of marksArray) {
+            const code = record.name.toUpperCase();
+            const subject = await prisma.subject.upsert({
+                where: { code },
+                update: { credits: record.credits || '3.0', semester: studentSemester, branch: studentBranch },
+                create: { code, name: record.name, credits: record.credits || '3.0', semester: studentSemester, branch: studentBranch }
+            });
+            subjectIds[code] = subject.id;
+        }
+
+        // Now run a tight transaction that only does delete + inserts (no round trips per row)
         return prisma.$transaction(async (tx) => {
-            // Find student to get semester and branch details
-            const student = await tx.student.findUnique({
-                where: { id: studentId }
-            });
-            const studentSemester = student ? student.semester : '';
-            const studentBranch = student ? student.branch : '';
-
-            // Delete old mark records for this student first to avoid duplicates
-            await tx.markRecord.deleteMany({
-                where: { studentId }
-            });
-
+            await tx.markRecord.deleteMany({ where: { studentId } });
             const createdRecords = [];
             for (const record of marksArray) {
-                // Find or create subject
-                const subject = await tx.subject.upsert({
-                    where: { code: record.name.toUpperCase() },
-                    update: {
-                        credits: record.credits || '3.0',
-                        semester: studentSemester,
-                        branch: studentBranch
-                    },
-                    create: {
-                        code: record.name.toUpperCase(),
-                        name: record.name,
-                        credits: record.credits || '3.0',
-                        semester: studentSemester,
-                        branch: studentBranch
-                    }
-                });
-
-                // Insert new MarkRecord
+                const subjectId = subjectIds[record.name.toUpperCase()];
+                if (!subjectId) continue;
                 const newMark = await tx.markRecord.create({
                     data: {
                         studentId,
-                        subjectId: subject.id,
-                        grade: record.grade || 'N/A',
-                        credits: record.credits || '3.0',
-                        type: record.type || 'Core',
+                        subjectId,
+                        grade:   record.grade   || 'N/A',
+                        credits: record.credits  || '3.0',
+                        type:    record.type     || 'Core',
                         status: (record.grade === 'F' || record.grade === 'Backlog') ? 'Backlog' :
                                 (record.grade === 'Absent' || record.grade === 'Ab') ? 'Absent' : 'Pass'
                     }
@@ -202,128 +168,97 @@ const markRepository = {
                 createdRecords.push(newMark);
             }
             return createdRecords;
-        });
+        }, { timeout: 120000, maxWait: 60000 });
     }
 };
 
 const attendanceRepository = {
     async saveAttendance(studentId, attendanceArray) {
         logger.info(`Repository: Saving ${attendanceArray.length} attendance records for student ${studentId}`);
-        
+
+        // Resolve student once outside the transaction
+        const student = await prisma.student.findUnique({ where: { id: studentId } });
+        const studentSemester = student ? student.semester : '';
+        const studentBranch = student ? student.branch : '';
+
+        // Upsert subjects OUTSIDE the transaction
+        const subjectIds = {};
+        for (const record of attendanceArray) {
+            const code = record.name.toUpperCase();
+            const subject = await prisma.subject.upsert({
+                where: { code },
+                update: { semester: studentSemester, branch: studentBranch },
+                create: { code, name: record.name, credits: '3.0', semester: studentSemester, branch: studentBranch }
+            });
+            subjectIds[code] = subject.id;
+        }
+
+        // Tight transaction: only delete + inserts
         return prisma.$transaction(async (tx) => {
-            // Find student to get semester and branch details
-            const student = await tx.student.findUnique({
-                where: { id: studentId }
-            });
-            const studentSemester = student ? student.semester : '';
-            const studentBranch = student ? student.branch : '';
-
-            // Clear previous attendance records
-            await tx.attendanceRecord.deleteMany({
-                where: { studentId }
-            });
-
+            await tx.attendanceRecord.deleteMany({ where: { studentId } });
             const createdRecords = [];
             for (const record of attendanceArray) {
-                const subjectCode = record.name.toUpperCase();
-                
-                // Find or create subject
-                const subject = await tx.subject.upsert({
-                    where: { code: subjectCode },
-                    update: {
-                        semester: studentSemester,
-                        branch: studentBranch
-                    },
-                    create: {
-                        code: subjectCode,
-                        name: record.name,
-                        credits: '3.0',
-                        semester: studentSemester,
-                        branch: studentBranch
-                    }
-                });
-
-                // Calculate percentage strictly: Present / Total * 100
-                const held = record.held || record.total || 0;
-                const attended = record.attended || 0;
+                const subjectId = subjectIds[record.name.toUpperCase()];
+                if (!subjectId) continue;
+                const held       = record.held || record.total || 0;
+                const attended   = record.attended || 0;
                 const percentage = held > 0 ? parseFloat(((attended / held) * 100).toFixed(2)) : 0;
-                
                 let status = 'Excellent';
                 if (percentage < 65) status = 'Warning';
                 else if (percentage < 75) status = 'Acceptable';
                 else if (percentage < 85) status = 'Good';
-
                 const newAttendance = await tx.attendanceRecord.create({
-                    data: {
-                        studentId,
-                        subjectId: subject.id,
-                        held,
-                        attended,
-                        percentage,
-                        status
-                    }
+                    data: { studentId, subjectId, held, attended, percentage, status }
                 });
                 createdRecords.push(newAttendance);
             }
             return createdRecords;
-        });
+        }, { timeout: 120000, maxWait: 60000 });
     }
 };
 
 const timetableRepository = {
     async saveTimetable(studentId, timetableArray) {
         logger.info(`Repository: Saving ${timetableArray.length} timetable slots for student ${studentId}`);
-        
+
+        const student = await prisma.student.findUnique({ where: { id: studentId } });
+        const studentSemester = student ? student.semester : '';
+        const studentBranch = student ? student.branch : '';
+
+        // Upsert subjects OUTSIDE the transaction
+        const subjectIds = {};
+        for (const slot of timetableArray) {
+            const code = slot.subjectCode.toUpperCase();
+            const subject = await prisma.subject.upsert({
+                where: { code },
+                update: { name: slot.subjectName, semester: studentSemester, branch: studentBranch },
+                create: { code, name: slot.subjectName, credits: '3.0', semester: studentSemester, branch: studentBranch }
+            });
+            subjectIds[code] = subject.id;
+        }
+
         return prisma.$transaction(async (tx) => {
-            // Find student to get semester and branch details
-            const student = await tx.student.findUnique({
-                where: { id: studentId }
-            });
-            const studentSemester = student ? student.semester : '';
-            const studentBranch = student ? student.branch : '';
-
-            // Delete old timetable slots
-            await tx.timetableSlot.deleteMany({
-                where: { studentId }
-            });
-
+            await tx.timetableSlot.deleteMany({ where: { studentId } });
             const createdSlots = [];
             for (const slot of timetableArray) {
-                const subjectCode = slot.subjectCode.toUpperCase();
-                
-                // Find or create subject
-                const subject = await tx.subject.upsert({
-                    where: { code: subjectCode },
-                    update: { 
-                        name: slot.subjectName,
-                        semester: studentSemester,
-                        branch: studentBranch
-                    },
-                    create: {
-                        code: subjectCode,
-                        name: slot.subjectName,
-                        credits: '3.0',
-                        semester: studentSemester,
-                        branch: studentBranch
-                    }
-                });
-
+                const subjectId = subjectIds[slot.subjectCode.toUpperCase()];
+                if (!subjectId) continue;
                 const newSlot = await tx.timetableSlot.create({
                     data: {
                         studentId,
-                        subjectId: subject.id,
-                        day: slot.day,
-                        period: slot.period.toString(),
-                        room: slot.room || 'N/A',
-                        section: slot.section || 'A',
+                        subjectId,
+                        day:         slot.day,
+                        period:      slot.period.toString(),
+                        room:        slot.room        || 'N/A',
+                        section:     slot.section     || 'A',
                         facultyName: slot.facultyName || 'TBA',
-                        time: slot.time || ''
+                        time:        slot.time        || ''
                     }
                 });
                 createdSlots.push(newSlot);
             }
             return createdSlots;
-        });
+        }, { timeout: 120000, maxWait: 60000 });
     }
 };
 

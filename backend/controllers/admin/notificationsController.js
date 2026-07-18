@@ -2,102 +2,341 @@
 const prisma = require('../../services/dbService');
 const logger = require('../../services/logger');
 
-const sendNotification = async (req, res) => {
+const resolveStudentId = async (rollNumber) => {
+    if (!rollNumber) return null;
+    const student = await prisma.student.findFirst({
+        where: {
+            OR: [
+                { roll: rollNumber },
+                { userId: rollNumber }
+            ]
+        }
+    });
+    return student ? student.id : null;
+};
+
+const validateTargeting = async (targetAudience, targetStudentRoll, targetBranches, targetYears, targetSections) => {
+    const audience = (targetAudience || 'ALL').toUpperCase();
+    if (audience === 'ALL') {
+        return { audience, targetStudentId: null };
+    }
+    
+    if (audience === 'STUDENT') {
+        if (!targetStudentRoll) {
+            throw new Error('A target student Roll Number is required for STUDENT audience.');
+        }
+        const studentId = await resolveStudentId(targetStudentRoll.trim());
+        if (!studentId) {
+            throw new Error(`Student with Roll Number "${targetStudentRoll}" not found.`);
+        }
+        return { audience, targetStudentId: studentId };
+    }
+    
+    if (audience === 'FILTERED') {
+        const hasBranch = targetBranches && Array.isArray(targetBranches) && targetBranches.length > 0;
+        const hasYear = targetYears && Array.isArray(targetYears) && targetYears.length > 0;
+        const hasSection = targetSections && Array.isArray(targetSections) && targetSections.length > 0;
+        if (!hasBranch && !hasYear && !hasSection) {
+            throw new Error('At least one branch, year, or section filter must be specified for FILTERED audience.');
+        }
+        return { audience, targetStudentId: null };
+    }
+    
+    throw new Error('Invalid target audience. Must be ALL, STUDENT, or FILTERED.');
+};
+
+const triggerFcm = async (notification) => {
+    try {
+        const studentFilter = {};
+        if (notification.targetAudience === 'STUDENT' && notification.targetStudentId) {
+            studentFilter.id = notification.targetStudentId;
+        } else if (notification.targetAudience === 'FILTERED') {
+            const branches = notification.targetBranches ? JSON.parse(notification.targetBranches) : [];
+            const years = notification.targetYears ? JSON.parse(notification.targetYears) : [];
+            const sections = notification.targetSections ? JSON.parse(notification.targetSections) : [];
+            
+            if (branches.length > 0) studentFilter.branch = { in: branches };
+            if (years.length > 0) studentFilter.year = { in: years };
+            if (sections.length > 0) studentFilter.section = { in: sections };
+        }
+        
+        const tokenRecords = await prisma.fcmToken.findMany({
+            where: { student: studentFilter },
+            select: { token: true }
+        });
+        const tokens = tokenRecords.map(t => t.token);
+        
+        if (tokens.length > 0) {
+            const firebaseService = require('../../services/firebaseService');
+            await firebaseService.sendToTokens?.(tokens, notification.title, notification.message);
+            return tokens.length;
+        }
+        return 0;
+    } catch (e) {
+        logger.warn('[Notifications] Optional FCM delivery failed:', e.message);
+        return 0;
+    }
+};
+
+// Create a new notification (DRAFT or PUBLISHED)
+const createNotification = async (req, res) => {
     try {
         const { 
             title, 
             message, 
             targetAudience = 'ALL', 
+            targetStudentRoll,
             targetBranches, 
             targetYears, 
             targetSections, 
-            quickFilter = 'NONE', 
-            priority = 'NORMAL' 
+            priority = 'NORMAL',
+            status = 'PUBLISHED',
+            expiresAt
         } = req.body;
 
         if (!title || !message) return res.status(400).json({ error: 'Title and message are required' });
 
-        // Build database filtering criteria
-        const studentFilter = {};
+        const normPriority = (priority || 'NORMAL').toUpperCase();
+        if (normPriority !== 'NORMAL' && normPriority !== 'HIGH') {
+            return res.status(400).json({ error: 'Priority must be NORMAL or HIGH' });
+        }
 
-        if (targetAudience === 'FILTERED') {
-            if (targetBranches && Array.isArray(targetBranches) && targetBranches.length > 0) {
-                studentFilter.branch = { in: targetBranches };
-            }
-            
-            const yearsToTarget = [];
-            if (targetYears && Array.isArray(targetYears) && targetYears.length > 0) {
-                yearsToTarget.push(...targetYears);
-            }
-            
-            if (quickFilter === 'FIRST_YEAR') {
-                yearsToTarget.push("Year 1", "1st Year", "1");
-            } else if (quickFilter === 'FINAL_YEAR') {
-                yearsToTarget.push("Year 4", "4th Year", "4");
-            }
+        const normStatus = (status || 'PUBLISHED').toUpperCase();
+        if (normStatus !== 'DRAFT' && normStatus !== 'PUBLISHED') {
+            return res.status(400).json({ error: 'Status must be DRAFT or PUBLISHED' });
+        }
 
-            if (yearsToTarget.length > 0) {
-                studentFilter.year = { in: yearsToTarget };
+        if (expiresAt) {
+            const expDate = new Date(expiresAt);
+            if (isNaN(expDate.getTime())) {
+                return res.status(400).json({ error: 'Invalid expiry date format' });
             }
-
-            if (targetSections && Array.isArray(targetSections) && targetSections.length > 0) {
-                studentFilter.section = { in: targetSections };
+            if (expDate <= new Date()) {
+                return res.status(400).json({ error: 'Expiry date must be in the future' });
             }
         }
 
-        // Retrieve tokens matching the criteria
-        const tokenRecords = await prisma.fcmToken.findMany({
-            where: {
-                student: studentFilter
-            },
-            select: { token: true }
-        });
-
-        const tokens = tokenRecords.map(t => t.token);
-
-        let sent = 0;
-        if (tokens.length > 0) {
-            try {
-                const firebaseService = require('../../services/firebaseService');
-                await firebaseService.sendToTokens?.(tokens, title, message);
-                sent = tokens.length;
-            } catch (e) {
-                logger.warn('[Notifications] FCM send error:', e.message);
-            }
+        let targetData;
+        try {
+            targetData = await validateTargeting(targetAudience, targetStudentRoll, targetBranches, targetYears, targetSections);
+        } catch (e) {
+            return res.status(400).json({ error: e.message });
         }
 
-        // Persist notification record in the admin log
-        await prisma.adminNotification.create({
+        const publishedAt = normStatus === 'PUBLISHED' ? new Date() : null;
+
+        const notification = await prisma.adminNotification.create({
             data: { 
                 title, 
                 message, 
-                targetAudience, 
+                targetAudience: targetData.audience,
+                targetStudentId: targetData.targetStudentId,
                 targetBranches: targetBranches ? JSON.stringify(targetBranches) : null,
                 targetYears: targetYears ? JSON.stringify(targetYears) : null,
                 targetSections: targetSections ? JSON.stringify(targetSections) : null,
-                priority, 
+                priority: normPriority,
+                status: normStatus,
+                expiresAt: expiresAt ? new Date(expiresAt) : null,
+                publishedAt,
                 sentBy: req.admin.email 
             }
         });
 
-        logger.info(`[Notifications] Sent '${title}' to ${sent} devices by ${req.admin.email}`);
-        res.json({ success: true, devicesNotified: sent });
+        // Trigger optional FCM only if published
+        let notifiedCount = 0;
+        if (normStatus === 'PUBLISHED') {
+            notifiedCount = await triggerFcm(notification);
+        }
+
+        logger.info(`[Notifications] Created alert '${title}' [${normStatus}] by ${req.admin.email}`);
+        res.status(201).json({ success: true, notification, devicesNotified: notifiedCount });
     } catch (err) {
-        logger.error('[Notifications] Send error:', err);
-        res.status(500).json({ error: 'Failed to send notification' });
+        logger.error('[Notifications] Create error:', err);
+        res.status(500).json({ error: 'Failed to create notification' });
     }
 };
 
-const getHistory = async (req, res) => {
+// List all notifications (Admin)
+const listNotifications = async (req, res) => {
     try {
-        const history = await prisma.adminNotification.findMany({
-            orderBy: { sentAt: 'desc' },
-            take: 100
+        const list = await prisma.adminNotification.findMany({
+            include: {
+                targetStudent: {
+                    select: {
+                        roll: true,
+                        name: true
+                    }
+                }
+            },
+            orderBy: { createdAt: 'desc' }
         });
-        res.json(history);
-    } catch (err) { 
-        res.status(500).json({ error: 'Failed to fetch notification history' }); 
+        res.json(list);
+    } catch (err) {
+        logger.error('[Notifications] List error:', err);
+        res.status(500).json({ error: 'Failed to fetch notifications' });
     }
 };
 
-module.exports = { sendNotification, getHistory };
+// Get single notification details
+const getDetail = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const notification = await prisma.adminNotification.findUnique({
+            where: { id },
+            include: {
+                targetStudent: {
+                    select: {
+                        roll: true,
+                        name: true
+                    }
+                }
+            }
+        });
+        if (!notification) return res.status(404).json({ error: 'Notification not found' });
+        res.json(notification);
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to fetch notification detail' });
+    }
+};
+
+// Edit a notification (Draft edit or general update)
+const editNotification = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { 
+            title, 
+            message, 
+            targetAudience, 
+            targetStudentRoll,
+            targetBranches, 
+            targetYears, 
+            targetSections, 
+            priority,
+            status,
+            expiresAt
+        } = req.body;
+
+        const current = await prisma.adminNotification.findUnique({ where: { id } });
+        if (!current) return res.status(404).json({ error: 'Notification not found' });
+
+        const updateData = {};
+        if (title !== undefined) updateData.title = title;
+        if (message !== undefined) updateData.message = message;
+        
+        if (priority !== undefined) {
+            const normPriority = priority.toUpperCase();
+            if (normPriority !== 'NORMAL' && normPriority !== 'HIGH') {
+                return res.status(400).json({ error: 'Priority must be NORMAL or HIGH' });
+            }
+            updateData.priority = normPriority;
+        }
+
+        if (status !== undefined) {
+            const normStatus = status.toUpperCase();
+            if (normStatus !== 'DRAFT' && normStatus !== 'PUBLISHED') {
+                return res.status(400).json({ error: 'Status must be DRAFT or PUBLISHED' });
+            }
+            updateData.status = normStatus;
+            if (normStatus === 'PUBLISHED' && !current.publishedAt) {
+                updateData.publishedAt = new Date();
+            }
+        }
+
+        if (expiresAt !== undefined) {
+            if (expiresAt === null) {
+                updateData.expiresAt = null;
+            } else {
+                const expDate = new Date(expiresAt);
+                if (isNaN(expDate.getTime())) {
+                    return res.status(400).json({ error: 'Invalid expiry date format' });
+                }
+                if (expDate <= new Date()) {
+                    return res.status(400).json({ error: 'Expiry date must be in the future' });
+                }
+                updateData.expiresAt = expDate;
+            }
+        }
+
+        if (targetAudience !== undefined) {
+            try {
+                const targetData = await validateTargeting(targetAudience, targetStudentRoll, targetBranches, targetYears, targetSections);
+                updateData.targetAudience = targetData.audience;
+                updateData.targetStudentId = targetData.targetStudentId;
+                updateData.targetBranches = targetBranches ? JSON.stringify(targetBranches) : null;
+                updateData.targetYears = targetYears ? JSON.stringify(targetYears) : null;
+                updateData.targetSections = targetSections ? JSON.stringify(targetSections) : null;
+            } catch (e) {
+                return res.status(400).json({ error: e.message });
+            }
+        }
+
+        const updated = await prisma.adminNotification.update({
+            where: { id },
+            data: updateData
+        });
+
+        // Trigger FCM if transitioning to PUBLISHED
+        let notifiedCount = 0;
+        if (updated.status === 'PUBLISHED' && current.status === 'DRAFT') {
+            notifiedCount = await triggerFcm(updated);
+        }
+
+        res.json({ success: true, notification: updated, devicesNotified: notifiedCount });
+    } catch (err) {
+        logger.error('[Notifications] Edit error:', err);
+        res.status(500).json({ error: 'Failed to update notification' });
+    }
+};
+
+// Delete notification
+const deleteNotification = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const exists = await prisma.adminNotification.findUnique({ where: { id } });
+        if (!exists) return res.status(404).json({ error: 'Notification not found' });
+
+        await prisma.adminNotification.delete({ where: { id } });
+        res.json({ success: true, message: 'Notification deleted successfully' });
+    } catch (err) {
+        logger.error('[Notifications] Delete error:', err);
+        res.status(500).json({ error: 'Failed to delete notification' });
+    }
+};
+
+// Publish a draft notification
+const publishNotification = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const current = await prisma.adminNotification.findUnique({ where: { id } });
+        if (!current) return res.status(404).json({ error: 'Notification not found' });
+
+        if (current.status === 'PUBLISHED') {
+            return res.json({ success: true, message: 'Notification already published', notification: current });
+        }
+
+        const updated = await prisma.adminNotification.update({
+            where: { id },
+            data: {
+                status: 'PUBLISHED',
+                publishedAt: new Date()
+            }
+        });
+
+        const notifiedCount = await triggerFcm(updated);
+        res.json({ success: true, notification: updated, devicesNotified: notifiedCount });
+    } catch (err) {
+        logger.error('[Notifications] Publish error:', err);
+        res.status(500).json({ error: 'Failed to publish notification' });
+    }
+};
+
+module.exports = {
+    sendNotification: createNotification, // Backwards compatibility
+    getHistory: listNotifications,       // Backwards compatibility
+    createNotification,
+    listNotifications,
+    getDetail,
+    editNotification,
+    deleteNotification,
+    publishNotification
+};

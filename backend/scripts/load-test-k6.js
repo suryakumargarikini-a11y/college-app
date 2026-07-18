@@ -16,17 +16,17 @@ import { Trend, Rate, Counter } from 'k6/metrics';
 import { randomIntBetween } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js';
 
 // ─── Configuration ────────────────────────────────────────────────────────────
-const BASE_URL = __ENV.BASE_URL || 'https://college-app-bx6b.onrender.com';
+const BASE_URL = __ENV.BASE_URL || 'https://web-production-07b0.up.railway.app';
 const SCENARIO = __ENV.SCENARIO || 'load'; // smoke | load | stress | spike | soak
 
 // Custom Metrics
-const loginDuration    = new Trend('login_duration_ms', true);
+const loginDuration = new Trend('login_duration_ms', true);
 const dashboardDuration = new Trend('dashboard_duration_ms', true);
 const placementDuration = new Trend('placement_duration_ms', true);
 const feeNoticeDuration = new Trend('fee_notice_duration_ms', true);
-const notifDuration    = new Trend('notification_duration_ms', true);
-const errorRate        = new Rate('error_rate');
-const loginErrors      = new Counter('login_errors');
+const notifDuration = new Trend('notification_duration_ms', true);
+const errorRate = new Rate('error_rate');
+const loginErrors = new Counter('login_errors');
 
 // ─── Test Scenarios ────────────────────────────────────────────────────────────
 const scenarios = {
@@ -41,8 +41,8 @@ const scenarios = {
     startVUs: 0,
     stages: [
       { duration: '30s', target: 100 },
-      { duration: '2m',  target: 100 },
-      { duration: '30s', target: 0   },
+      { duration: '2m', target: 100 },
+      { duration: '30s', target: 0 },
     ],
     gracefulStop: '30s',
   },
@@ -50,9 +50,9 @@ const scenarios = {
     executor: 'ramping-vus',
     startVUs: 0,
     stages: [
-      { duration: '1m',  target: 500 },
-      { duration: '3m',  target: 500 },
-      { duration: '1m',  target: 0   },
+      { duration: '1m', target: 500 },
+      { duration: '3m', target: 500 },
+      { duration: '1m', target: 0 },
     ],
     gracefulStop: '30s',
   },
@@ -60,9 +60,9 @@ const scenarios = {
     executor: 'ramping-vus',
     startVUs: 0,
     stages: [
-      { duration: '2m',  target: 1000 },
-      { duration: '5m',  target: 1000 },
-      { duration: '2m',  target: 0    },
+      { duration: '2m', target: 1000 },
+      { duration: '5m', target: 1000 },
+      { duration: '2m', target: 0 },
     ],
     gracefulStop: '60s',
   },
@@ -70,9 +70,9 @@ const scenarios = {
     executor: 'ramping-vus',
     startVUs: 0,
     stages: [
-      { duration: '3m',  target: 5000 },
-      { duration: '5m',  target: 5000 },
-      { duration: '2m',  target: 0    },
+      { duration: '3m', target: 5000 },
+      { duration: '5m', target: 5000 },
+      { duration: '2m', target: 0 },
     ],
     gracefulStop: '60s',
   },
@@ -80,9 +80,9 @@ const scenarios = {
     executor: 'ramping-vus',
     startVUs: 0,
     stages: [
-      { duration: '5m',   target: 10000 },
-      { duration: '10m',  target: 10000 },
-      { duration: '5m',   target: 0     },
+      { duration: '5m', target: 10000 },
+      { duration: '10m', target: 10000 },
+      { duration: '5m', target: 0 },
     ],
     gracefulStop: '120s',
   },
@@ -90,13 +90,13 @@ const scenarios = {
     executor: 'ramping-vus',
     startVUs: 0,
     stages: [
-      { duration: '10s', target: 100  },
-      { duration: '1m',  target: 100  },
+      { duration: '10s', target: 100 },
+      { duration: '1m', target: 100 },
       { duration: '10s', target: 5000 }, // spike
-      { duration: '2m',  target: 5000 },
-      { duration: '10s', target: 100  }, // recovery
-      { duration: '1m',  target: 100  },
-      { duration: '10s', target: 0    },
+      { duration: '2m', target: 5000 },
+      { duration: '10s', target: 100 }, // recovery
+      { duration: '1m', target: 100 },
+      { duration: '10s', target: 0 },
     ],
     gracefulStop: '60s',
   },
@@ -115,13 +115,13 @@ export const options = {
   },
   thresholds: {
     // P95 response times
-    'login_duration_ms':     ['p(95)<3000'],
+    'login_duration_ms': ['p(95)<3000'],
     'dashboard_duration_ms': ['p(95)<2000'],
     'placement_duration_ms': ['p(95)<1500'],
-    'fee_notice_duration_ms':['p(95)<1500'],
+    'fee_notice_duration_ms': ['p(95)<1500'],
     'notification_duration_ms': ['p(95)<1500'],
     // Error rate
-    'error_rate':  ['rate<0.05'],  // < 5% error rate
+    'error_rate': ['rate<0.05'],  // < 5% error rate
     'http_req_failed': ['rate<0.05'],
     // Overall latency
     'http_req_duration': ['p(95)<5000', 'p(99)<10000'],

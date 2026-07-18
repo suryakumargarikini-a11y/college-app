@@ -565,19 +565,27 @@ async function main() {
 
   // ── 1. Admin accounts (5) ──────────────────────────────────────────────────
   console.log('👤   [1/12] Admin accounts…');
+  const facultyPass = process.env.SEED_FACULTY_PASS;
+  if (!facultyPass && process.env.NODE_ENV === 'production') {
+    throw new Error('SEED_FACULTY_PASS environment variable is required in production');
+  }
+  const facultyPassToUse = facultyPass || 'Faculty@1234-Dev';
+
   const adminDefs = [
     { email:'admin@sitamecap.co.in',       name:'Super Administrator',     role:'SUPER_ADMIN'    },
     { email:'accounts@sitamecap.co.in',    name:'Accounts Admin',          role:'ACCOUNTS_ADMIN' },
     { email:'placements@sitamecap.co.in',  name:'Placements Admin',        role:'PLACEMENT_ADMIN'},
     { email:'security@sitamecap.co.in',    name:'Security Guard – Gate 1', role:'SECURITY_GUARD' },
     { email:'security2@sitamecap.co.in',   name:'Security Guard – Gate 2', role:'SECURITY_GUARD' },
+    { email:'faculty@sitamecap.co.in',     name:'SITAM Faculty Member',    role:'FACULTY'        },
   ];
   const createdAdmins = [];
   for (const a of adminDefs) {
+    const passToUse = a.role === 'FACULTY' ? facultyPassToUse : 'Admin@1234';
     const admin = await prisma.admin.upsert({
       where:  { email: a.email },
       update: { name: a.name, role: a.role, isActive: true },
-      create: { email: a.email, passwordHash: hashPassword('Admin@1234'), name: a.name, role: a.role },
+      create: { email: a.email, passwordHash: hashPassword(passToUse), name: a.name, role: a.role },
     });
     createdAdmins.push(admin);
   }

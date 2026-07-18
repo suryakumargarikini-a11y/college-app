@@ -21,7 +21,7 @@
 const http = require('http');
 const https = require('https');
 
-const TARGET_URL = process.env.TARGET_URL || 'https://college-app-bx6b.onrender.com/api';
+const TARGET_URL = process.env.TARGET_URL || 'https://web-production-07b0.up.railway.app/api';
 const CONCURRENT_USERS = parseInt(process.env.CONCURRENT_USERS || '50', 10);
 const TOTAL_REQUESTS = parseInt(process.env.TOTAL_REQUESTS || '500', 10);
 const BEARER_TOKEN = process.env.BEARER_TOKEN || '';
@@ -39,17 +39,17 @@ const C = {
 
 // ─── Test Scenarios ───────────────────────────────────────────────────────────
 const SCENARIOS = [
-    { label: 'Liveness Probe',  method: 'GET',  path: '/api/health/liveness', weight: 3 },
+    { label: 'Liveness Probe', method: 'GET', path: '/api/health/liveness', weight: 3 },
     // Readiness probe can return 503 (degraded) when DB is not connected — still a valid response
-    { label: 'Readiness Probe', method: 'GET',  path: '/api/health/readiness', weight: 2, acceptedCodes: [200, 503] },
-    { label: 'Circuit Status',  method: 'GET',  path: '/api/health/circuit', weight: 1 },
-    { label: 'Metrics Scrape',  method: 'GET',  path: '/api/metrics', weight: 2 },
+    { label: 'Readiness Probe', method: 'GET', path: '/api/health/readiness', weight: 2, acceptedCodes: [200, 503] },
+    { label: 'Circuit Status', method: 'GET', path: '/api/health/circuit', weight: 1 },
+    { label: 'Metrics Scrape', method: 'GET', path: '/api/metrics', weight: 2 },
     ...(BEARER_TOKEN ? [
-        { label: 'Attendance API',  method: 'GET',  path: '/api/attendance', weight: 4, auth: true },
-        { label: 'Marks API',       method: 'GET',  path: '/api/marks', weight: 4, auth: true },
-        { label: 'Fees API',        method: 'GET',  path: '/api/fees', weight: 3, auth: true },
-        { label: 'Profile API',     method: 'GET',  path: '/api/profile', weight: 3, auth: true },
-        { label: 'Notifications',   method: 'GET',  path: '/api/notifications', weight: 2, auth: true },
+        { label: 'Attendance API', method: 'GET', path: '/api/attendance', weight: 4, auth: true },
+        { label: 'Marks API', method: 'GET', path: '/api/marks', weight: 4, auth: true },
+        { label: 'Fees API', method: 'GET', path: '/api/fees', weight: 3, auth: true },
+        { label: 'Profile API', method: 'GET', path: '/api/profile', weight: 3, auth: true },
+        { label: 'Notifications', method: 'GET', path: '/api/notifications', weight: 2, auth: true },
     ] : []),
 ];
 
@@ -80,7 +80,7 @@ function makeRequest(scenario) {
 
         const req = client.request(options, (res) => {
             // Drain the response body
-            res.on('data', () => {});
+            res.on('data', () => { });
             res.on('end', () => {
                 const acceptedCodes = scenario.acceptedCodes || [];
                 const isSuccess = res.statusCode < 400 || acceptedCodes.includes(res.statusCode);

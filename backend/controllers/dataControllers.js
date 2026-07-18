@@ -39,7 +39,93 @@ const getProfile = async (req, res, next) => {
         if (!student) {
             return res.fail('Student profile not found', null, 404);
         }
-        res.ok(student, 'Profile fetched successfully');
+
+        // ── Security decisions ────────────────────────────────────────────────
+        // Sensitive fields: aadhar, apaarId
+        //   - Stored in DB (needed for future feature integrations)
+        //   - Exposed ONLY to the authenticated owner (never to admin list views)
+        //   - Masked: show only last 4 digits so the UI can confirm the value exists
+        //     without transmitting the full number over the network on every request.
+        const maskSensitive = (val) => {
+            if (!val || val.trim() === '') return null;
+            return val.length > 4 ? `${'*'.repeat(val.length - 4)}${val.slice(-4)}` : '****';
+        };
+
+        // ── Profile photo URL ─────────────────────────────────────────────────
+        // If photoUrl is a local API path (/api/profile/photo/...) use it directly.
+        // If it's still a raw ERP URL (http...) the photo hasn't been downloaded yet
+        // — serve a null so the frontend shows the initials avatar instead.
+        const photoUrl = student.photoUrl || '';
+        const profilePhotoUrl = photoUrl.startsWith('/api/') ? photoUrl : null;
+
+        // ── Build response ────────────────────────────────────────────────────
+        const profile = {
+            // Identification
+            userId:          student.userId,
+            admissionNo:     student.admissionNo     || '',
+            roll:            student.roll            || student.roll_number || '',
+            name:            student.name,
+            // Academic
+            program:         student.program         || '',
+            branch:          student.branch          || '',
+            department:      student.branch          || '', // No separate column — mapped from branch
+            semester:        student.semester        || '',
+            section:         student.section         || 'A',
+            year:            student.year            || '',
+            academicYear:    student.academicYear    || '',
+            joiningDate:     student.joiningDate     || '',
+            sscMarks:        student.sscMarks        || '',
+            interMarks:      student.interMarks      || '',
+            lastStudied:     student.lastStudied     || '',
+            entranceType:    student.entranceType    || '',
+            entranceRank:    student.entranceRank    || '',
+            scholarship:     student.scholarship     || '',
+            seatType:        student.seatType        || '',
+            // Performance
+            cgpa:            student.cgpa            || '--',
+            sgpa:            student.sgpa            || '--',
+            percentage:      student.percentage      || '--',
+            // Personal
+            gender:          student.gender          || '',
+            dob:             student.dob             || '',
+            bloodGroup:      student.bloodGroup      || '',
+            nationality:     student.nationality     || '',
+            religion:        student.religion        || '',
+            caste:           student.caste           || '',
+            // Sensitive (masked, owner-only)
+            aadhar:          maskSensitive(student.aadhar),
+            apaarId:         maskSensitive(student.apaarId),
+            // Contact
+            email:           student.email           || '',
+            phone:           student.phone           || '',
+            address:         student.address         || '',
+            correspondenceAddress: student.correspondenceAddress || '',
+            emergencyContact: student.emergencyContact || '',
+            // Parents
+            fatherName:      student.fatherName      || '',
+            fatherMobile:    student.fatherMobile    || '',
+            fatherEmail:     student.fatherEmail     || '',
+            fatherOccupation: student.fatherOccupation || '',
+            motherName:      student.motherName      || '',
+            motherMobile:    student.motherMobile    || '',
+            motherEmail:     student.motherEmail     || '',
+            motherOccupation: student.motherOccupation || '',
+            annualIncome:    student.annualIncome    || '',
+            // Guardian
+            guardianName:    student.guardianName    || '',
+            guardianPhone:   student.guardianPhone   || '',
+            guardianAddress: student.guardianAddress || '',
+            // Accommodation
+            hostel:          student.hostel          || '',
+            roomNo:          student.roomNo          || '',
+            // Photo
+            profilePhotoUrl,
+            // Sync metadata
+            lastSync:        student.lastSync        || null,
+            syncStatus:      student.isSyncing ? 'syncing' : (student.lastSync ? 'synced' : 'pending'),
+        };
+
+        res.ok(profile, 'Profile fetched successfully');
     } catch (error) {
         next(error);
     }
@@ -350,17 +436,97 @@ const toggleSyllabusUnit = async (req, res, next) => {
 // Notifications controller
 const getNotifications = async (req, res, next) => {
     try {
-        const student = await dataProvider.getProfile(req.session.userId);
+        const student = await prisma.student.findUnique({
+            where: { userId: req.session.userId }
+        });
         if (!student) {
             return res.ok({ notifications: [], total: 0, page: 1, totalPages: 0 }, 'No student profile');
         }
         
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
-        const type = req.query.type || 'all';
 
-        const result = await dataProvider.getNotifications(req.session.userId, page, limit, type);
-        res.ok(result, 'Notifications fetched successfully');
+        // 1. Fetch personal notifications
+        const personalNotifs = await prisma.notification.findMany({
+            where: { studentId: student.id }
+        });
+
+        // 2. Fetch admin notifications
+        const adminNotifs = await prisma.adminNotification.findMany({
+            where: {
+                status: 'PUBLISHED',
+                OR: [
+                    { expiresAt: null },
+                    { expiresAt: { gt: new Date() } }
+                ]
+            }
+        });
+
+        // 3. Fetch read records for admin notifications
+        const reads = await prisma.notificationRead.findMany({
+            where: { studentId: student.id },
+            select: { notificationId: true }
+        });
+        const readSet = new Set(reads.map(r => r.notificationId));
+
+        // 4. Filter targeted admin notifications in memory
+        const matchedAdminNotifs = adminNotifs.filter(an => {
+            if (an.targetAudience === 'ALL') return true;
+            if (an.targetAudience === 'STUDENT') {
+                return an.targetStudentId === student.id;
+            }
+            if (an.targetAudience === 'FILTERED') {
+                const branches = an.targetBranches ? JSON.parse(an.targetBranches) : [];
+                const years = an.targetYears ? JSON.parse(an.targetYears) : [];
+                const sections = an.targetSections ? JSON.parse(an.targetSections) : [];
+                
+                const branchMatch = branches.length === 0 || branches.includes(student.branch);
+                const yearMatch = years.length === 0 || years.some(y => {
+                    const cleanY = y.replace(/[^0-9]/g, '');
+                    const cleanStudentY = student.year.replace(/[^0-9]/g, '');
+                    return cleanY === cleanStudentY;
+                });
+                const sectionMatch = sections.length === 0 || (student.section && sections.includes(student.section));
+                return branchMatch && yearMatch && sectionMatch;
+            }
+            return false;
+        });
+
+        // 5. Map admin notifications to standard response shape
+        const mappedAdminNotifs = matchedAdminNotifs.map(an => {
+            const dateObj = an.publishedAt || an.createdAt;
+            return {
+                id: an.id,
+                studentId: student.id,
+                title: an.title,
+                message: an.message,
+                type: 'general',
+                category: an.priority === 'HIGH' ? 'alert' : 'info',
+                metadata: null,
+                changeHash: null,
+                isRead: readSet.has(an.id),
+                createdAt: dateObj,
+                date: dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+                isAdminNotification: true
+            };
+        });
+
+        // 6. Merge and sort by creation time
+        const merged = [...personalNotifs, ...mappedAdminNotifs].sort((a, b) => {
+            return new Date(b.createdAt) - new Date(a.createdAt);
+        });
+
+        // 7. Paginate
+        const total = merged.length;
+        const skip = (page - 1) * limit;
+        const paginated = merged.slice(skip, skip + limit);
+
+        res.ok({
+            notifications: paginated,
+            total,
+            page,
+            totalPages: Math.ceil(total / limit)
+        }, 'Notifications fetched successfully');
     } catch (error) {
         next(error);
     }
@@ -368,12 +534,67 @@ const getNotifications = async (req, res, next) => {
 
 const getUnreadCount = async (req, res, next) => {
     try {
-        const student = await dataProvider.getProfile(req.session.userId);
+        const student = await prisma.student.findUnique({
+            where: { userId: req.session.userId }
+        });
         if (!student) {
             return res.ok({ count: 0 });
         }
-        const count = await notificationRepository.getUnreadCount(student.id);
-        res.ok({ count });
+
+        // 1. Unread personal notifications count
+        const personalUnread = await prisma.notification.count({
+            where: { studentId: student.id, isRead: false }
+        });
+
+        // 2. Fetch admin notifications
+        const adminNotifs = await prisma.adminNotification.findMany({
+            where: {
+                status: 'PUBLISHED',
+                OR: [
+                    { expiresAt: null },
+                    { expiresAt: { gt: new Date() } }
+                ]
+            }
+        });
+
+        // 3. Fetch read records
+        const reads = await prisma.notificationRead.findMany({
+            where: { studentId: student.id },
+            select: { notificationId: true }
+        });
+        const readSet = new Set(reads.map(r => r.notificationId));
+
+        // 4. Count unread targeted admin notifications
+        let adminUnread = 0;
+        adminNotifs.forEach(an => {
+            if (readSet.has(an.id)) return;
+
+            let matches = false;
+            if (an.targetAudience === 'ALL') {
+                matches = true;
+            } else if (an.targetAudience === 'STUDENT') {
+                matches = an.targetStudentId === student.id;
+            } else if (an.targetAudience === 'FILTERED') {
+                const branches = an.targetBranches ? JSON.parse(an.targetBranches) : [];
+                const years = an.targetYears ? JSON.parse(an.targetYears) : [];
+                const sections = an.targetSections ? JSON.parse(an.targetSections) : [];
+                
+                const branchMatch = branches.length === 0 || branches.includes(student.branch);
+                const yearMatch = years.length === 0 || years.some(y => {
+                    const cleanY = y.replace(/[^0-9]/g, '');
+                    const cleanStudentY = student.year.replace(/[^0-9]/g, '');
+                    return cleanY === cleanStudentY;
+                });
+                const sectionMatch = sections.length === 0 || (student.section && sections.includes(student.section));
+                matches = branchMatch && yearMatch && sectionMatch;
+            }
+
+            if (matches) {
+                adminUnread++;
+            }
+        });
+
+        res.ok({ count: personalUnread + adminUnread });
     } catch (error) {
         next(error);
     }
@@ -385,11 +606,80 @@ const markRead = async (req, res, next) => {
         if (!notificationId) {
             return res.fail('notificationId is required');
         }
-        const student = await dataProvider.getProfile(req.session.userId);
+        const student = await prisma.student.findUnique({
+            where: { userId: req.session.userId }
+        });
         if (!student) {
             return res.fail('Student not found', null, 404);
         }
-        await notificationRepository.markRead(student.id, notificationId);
+
+        // Try marking in personal Notification first
+        const personal = await prisma.notification.findFirst({
+            where: { id: notificationId, studentId: student.id }
+        });
+
+        if (personal) {
+            await prisma.notification.update({
+                where: { id: notificationId },
+                data: { isRead: true }
+            });
+        } else {
+            // Check if it's a matching admin notification
+            const adminNotif = await prisma.adminNotification.findFirst({
+                where: {
+                    id: notificationId,
+                    status: 'PUBLISHED',
+                    OR: [
+                        { expiresAt: null },
+                        { expiresAt: { gt: new Date() } }
+                    ]
+                }
+            });
+
+            if (adminNotif) {
+                // Ensure it targets this student
+                let matches = false;
+                if (adminNotif.targetAudience === 'ALL') {
+                    matches = true;
+                } else if (adminNotif.targetAudience === 'STUDENT') {
+                    matches = adminNotif.targetStudentId === student.id;
+                } else if (adminNotif.targetAudience === 'FILTERED') {
+                    const branches = adminNotif.targetBranches ? JSON.parse(adminNotif.targetBranches) : [];
+                    const years = adminNotif.targetYears ? JSON.parse(adminNotif.targetYears) : [];
+                    const sections = adminNotif.targetSections ? JSON.parse(adminNotif.targetSections) : [];
+                    
+                    const branchMatch = branches.length === 0 || branches.includes(student.branch);
+                    const yearMatch = years.length === 0 || years.some(y => {
+                        const cleanY = y.replace(/[^0-9]/g, '');
+                        const cleanStudentY = student.year.replace(/[^0-9]/g, '');
+                        return cleanY === cleanStudentY;
+                    });
+                    const sectionMatch = sections.length === 0 || (student.section && sections.includes(student.section));
+                    matches = branchMatch && yearMatch && sectionMatch;
+                }
+
+                if (matches) {
+                    await prisma.notificationRead.upsert({
+                        where: {
+                            studentId_notificationId: {
+                                studentId: student.id,
+                                notificationId: notificationId
+                            }
+                        },
+                        update: {},
+                        create: {
+                            studentId: student.id,
+                            notificationId: notificationId
+                        }
+                    });
+                } else {
+                    return res.fail('Unauthorized to access this notification', null, 403);
+                }
+            } else {
+                return res.fail('Notification not found', null, 404);
+            }
+        }
+
         res.ok(null, 'Notification marked as read');
     } catch (error) {
         next(error);
@@ -398,11 +688,79 @@ const markRead = async (req, res, next) => {
 
 const markAllRead = async (req, res, next) => {
     try {
-        const student = await dataProvider.getProfile(req.session.userId);
+        const student = await prisma.student.findUnique({
+            where: { userId: req.session.userId }
+        });
         if (!student) {
             return res.fail('Student not found', null, 404);
         }
-        await notificationRepository.markAllRead(student.id);
+
+        // 1. Mark personal notifications read
+        await prisma.notification.updateMany({
+            where: { studentId: student.id, isRead: false },
+            data: { isRead: true }
+        });
+
+        // 2. Fetch admin notifications
+        const adminNotifs = await prisma.adminNotification.findMany({
+            where: {
+                status: 'PUBLISHED',
+                OR: [
+                    { expiresAt: null },
+                    { expiresAt: { gt: new Date() } }
+                ]
+            }
+        });
+
+        // 3. Filter matching ones
+        const matchedIds = [];
+        adminNotifs.forEach(an => {
+            let matches = false;
+            if (an.targetAudience === 'ALL') {
+                matches = true;
+            } else if (an.targetAudience === 'STUDENT') {
+                matches = an.targetStudentId === student.id;
+            } else if (an.targetAudience === 'FILTERED') {
+                const branches = an.targetBranches ? JSON.parse(an.targetBranches) : [];
+                const years = an.targetYears ? JSON.parse(an.targetYears) : [];
+                const sections = an.targetSections ? JSON.parse(an.targetSections) : [];
+                
+                const branchMatch = branches.length === 0 || branches.includes(student.branch);
+                const yearMatch = years.length === 0 || years.some(y => {
+                    const cleanY = y.replace(/[^0-9]/g, '');
+                    const cleanStudentY = student.year.replace(/[^0-9]/g, '');
+                    return cleanY === cleanStudentY;
+                });
+                const sectionMatch = sections.length === 0 || (student.section && sections.includes(student.section));
+                matches = branchMatch && yearMatch && sectionMatch;
+            }
+
+            if (matches) {
+                matchedIds.push(an.id);
+            }
+        });
+
+        // 4. Create NotificationRead records in bulk
+        if (matchedIds.length > 0) {
+            await prisma.$transaction(async (tx) => {
+                for (const notifId of matchedIds) {
+                    await tx.notificationRead.upsert({
+                        where: {
+                            studentId_notificationId: {
+                                studentId: student.id,
+                                notificationId: notifId
+                            }
+                        },
+                        update: {},
+                        create: {
+                            studentId: student.id,
+                            notificationId: notifId
+                        }
+                    });
+                }
+            });
+        }
+
         res.ok(null, 'All notifications marked as read');
     } catch (error) {
         next(error);
@@ -415,11 +773,24 @@ const deleteNotification = async (req, res, next) => {
         if (!id) {
             return res.fail('id parameter is required');
         }
-        const student = await dataProvider.getProfile(req.session.userId);
+        const student = await prisma.student.findUnique({
+            where: { userId: req.session.userId }
+        });
         if (!student) {
             return res.fail('Student not found', null, 404);
         }
-        await notificationRepository.deleteNotification(student.id, id);
+
+        // Try deleting from personal Notification
+        const personal = await prisma.notification.findFirst({
+            where: { id, studentId: student.id }
+        });
+
+        if (personal) {
+            await prisma.notification.delete({
+                where: { id }
+            });
+        }
+
         res.ok(null, 'Notification deleted');
     } catch (error) {
         next(error);

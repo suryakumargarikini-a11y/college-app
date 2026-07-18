@@ -1,6 +1,6 @@
 
 # SITAM Smart ERP — Real End-to-End Verification Report
-Generated on: 2026-07-12T07:36:19.030Z | Local Time: 7/12/2026, 1:06:19 PM
+Generated on: 2026-07-17T09:54:20.889Z | Local Time: 7/17/2026, 3:24:20 PM
 
 ## 1. Login Pipeline Results
 * **Student A (25B61A4532) First Login (Scraper Sync)**: ✅ SUCCESS
@@ -37,16 +37,16 @@ Generated on: 2026-07-12T07:36:19.030Z | Local Time: 7/12/2026, 1:06:19 PM
 * **Exit Passes Endpoint**: ✅ 200 OK
 
 ## 6. Cache Verification (Performance Comparison)
-* **First Login (Scraper Sync)**: `25585ms`
-* **Second Login (Instant Cached)**: `29ms`
-* **Cache Acceleration Ratio**: `882.24x` faster
+* **First Login (Scraper Sync)**: `2571ms`
+* **Second Login (Instant Cached)**: `37ms`
+* **Cache Acceleration Ratio**: `69.49x` faster
 
 ## 7. Performance Timings (Student A)
-* **First Login Sync Scrape**: `25585ms`
-* **Profile API Load**: `37ms`
-* **Second Login (Instant)**: `29ms`
-* **Student B First Login**: `22027ms`
-* **Student A Third Login**: `26ms`
+* **First Login Sync Scrape**: `2571ms`
+* **Profile API Load**: `80ms`
+* **Second Login (Instant)**: `37ms`
+* **Student B First Login**: `87ms`
+* **Student A Third Login**: `79ms`
 
 ## 8. Backend Logs Audit
 * **Audit Status**: ✅ PASSED

@@ -14,7 +14,7 @@
 
 const http = require('http');
 
-const TARGET_URL = process.env.TARGET_URL || 'https://college-app-bx6b.onrender.com';
+const TARGET_URL = process.env.TARGET_URL || 'https://web-production-07b0.up.railway.app';
 
 const REQUIRED_METRICS = [
     'node_process_cpu_user_seconds_total',
@@ -99,7 +99,7 @@ async function verify() {
         // Verify metrics existence
         const lines = res.body.split('\n');
         const metricNamesFound = new Set();
-        
+
         for (const line of lines) {
             if (line.startsWith('# HELP ')) {
                 const parts = line.split(' ');
@@ -111,10 +111,10 @@ async function verify() {
 
         console.log(`\n  Checking registered metrics (${metricNamesFound.size} total found):`);
         let missingCount = 0;
-        
+
         for (const m of REQUIRED_METRICS) {
             // Default process metrics can be node_process_cpu_usage_seconds_total or process_cpu_seconds_total
-            if (metricNamesFound.has(m) || 
+            if (metricNamesFound.has(m) ||
                 (m.startsWith('node_') && Array.from(metricNamesFound).some(name => name.includes(m.replace('node_', ''))))) {
                 console.log(`    ✓ ${m.padEnd(45)} [FOUND]`);
             } else {
@@ -131,7 +131,7 @@ async function verify() {
             console.log('  (Note: some BullMQ/Worker/WS metrics only register HELP lines on first usage)');
         }
         console.log('================================================================\n');
-        
+
         process.exit(0);
 
     } catch (err) {

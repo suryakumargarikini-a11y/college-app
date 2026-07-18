@@ -24,10 +24,7 @@ function buildDatabaseUrl() {
         );
     }
     if (rawUrl.startsWith('file:')) {
-        throw new Error(
-            '[DB] DATABASE_URL points to a SQLite file ("file:..."). ' +
-            'This application requires PostgreSQL. Update DATABASE_URL to a postgresql:// connection string.'
-        );
+        return rawUrl;
     }
 
     try {

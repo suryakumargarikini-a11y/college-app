@@ -154,7 +154,7 @@ class BrowserPool {
      * @param {string}  opts.requestId  - Correlation ID
      * @param {string}  opts.jobType    - Human-readable job type
      * @param {string}  [opts.userId]   - Student ID (for session affinity)
-     * @returns {Promise<{ browserId: string, context: import('puppeteer').BrowserContext, _checkedOutAt: number }>}
+     * @returns {Promise<{ browserId: string, context: import('./providers/adapters/IContextAdapter'), _checkedOutAt: number }>}
      */
     async acquire({ priority, requestId, jobType, userId }) {
         if (this.isShuttingDown) {
@@ -254,9 +254,9 @@ class BrowserPool {
                 `[POOL][${this.name}] Release called for unknown browserId: ${browserId} ` +
                 `(already removed from pool)`
             );
-            try {
-                if (context && !context._closed) await context.close();
-            } catch (_) {}
+            if (context) {
+                try { await context.close(); } catch (_) {}
+            }
             // Count the destruction even on the crash path — keeps leak counter accurate
             this.metrics.recordContextDestroyed();
             return;
@@ -314,7 +314,7 @@ class BrowserPool {
             maxBrowsers:   this.maxBrowsers,
             currentCap:    this.currentMax,
             browsers:      this.instances.map(b => b.getStats()),
-            metrics:       this.metrics.snapshot(),
+            metrics:       this.metrics.snapshot(this.queue.length, this.currentMax),
             affinity:      sessionAffinity.getStats(),
             system: {
                 nodeRssMb:      Math.round(process.memoryUsage().rss / 1024 / 1024),
@@ -405,12 +405,26 @@ class BrowserPool {
 
     /**
      * Perform the actual checkout on a specific BrowserInstance.
+     * Stores the active job's resolve/reject on the instance for crash-recovery retry.
+     *
+     * @param {BrowserInstance} instance
+     * @param {string} requestId
+     * @param {string|undefined} userId
+     * @param {{ resolve: Function, reject: Function }|null} [jobCallbacks] - set during queued dequeue for crash retry
      */
-    async _doCheckout(instance, requestId, userId) {
+    async _doCheckout(instance, requestId, userId, jobCallbacks = null) {
         const { context } = await instance.checkout(requestId);
 
         // Record affinity so this student prefers this browser next time
         if (userId) sessionAffinity.record(userId, instance.id);
+
+        // Store active-job identity + callbacks so _handleCrash can transparently
+        // retry the in-flight job on a replacement browser (max 1 retry).
+        instance._activeUserId  = userId || null;
+        if (jobCallbacks) {
+            instance._activeResolve = jobCallbacks.resolve;
+            instance._activeReject  = jobCallbacks.reject;
+        }
 
         // Track context lifecycle for leak detection
         this.metrics.recordContextCreated();
@@ -436,14 +450,21 @@ class BrowserPool {
      * throttle — concurrent callers naturally queue via the PriorityQueue
      * and are served by _drainQueue when the new browser is ready.
      */
-    async _launchAndAdd() {
+    /**
+     * Launch one new browser, add it to the pool, return it.
+     * @param {number} [generation=1]  - Generation number for this slot. Crash replacements pass crashedInst.generation + 1.
+     */
+    async _launchAndAdd(generation = 1) {
         this._launching++;
         let instance;
         try {
+            const { createProvider } = require('./providers/providerFactory');
             instance = new BrowserInstance({
                 poolName:   this.name,
                 launchArgs: this.launchArgs,
                 onCrash:    (crashed) => this._handleCrash(crashed),
+                provider:   createProvider(),
+                generation,
             });
             await instance.launch(this._executablePath);
             this.instances.push(instance);
@@ -452,7 +473,7 @@ class BrowserPool {
             const live = this.instances.filter(b => !b.retired).length;
             logger.info(
                 `[POOL][${this.name}] Pool size: ${live}/${this.maxBrowsers} ` +
-                `(id=${instance.id})`
+                `(id=${instance.id} gen=${generation})`
             );
 
             return instance;
@@ -466,6 +487,10 @@ class BrowserPool {
 
     /**
      * Handle a browser crash: remove from pool, launch replacement, drain queue.
+     * If the crashed browser had an in-flight job (_activeResolve is set) AND has
+     * not already been retried (_crashRetryCount === 0), the job is transparently
+     * routed to the replacement browser — the student never sees the crash error.
+     *
      * @param {BrowserInstance} crashedInst
      */
     _handleCrash(crashedInst) {
@@ -475,35 +500,109 @@ class BrowserPool {
         const idx = this.instances.findIndex(b => b.id === crashedInst.id);
         if (idx >= 0) this.instances.splice(idx, 1);
 
-        if (this.isShuttingDown) return;
+        if (this.isShuttingDown) {
+            // Reject any in-flight job cleanly on shutdown
+            if (crashedInst._activeReject) {
+                crashedInst._activeReject(new Error(`[POOL][${this.name}] Pool shut down during crash recovery.`));
+            }
+            return;
+        }
 
-        logger.info(`[POOL][${this.name}] Recovering crash — launching replacement browser...`);
-        this._launchAndAdd()
+        logger.info(
+            `[POOL][${this.name}] Recovering crash — launching replacement browser ` +
+            `(gen${crashedInst.generation} → gen${crashedInst.generation + 1})...`
+        );
+        this._launchAndAdd(crashedInst.generation + 1)
             .then(newInst => {
-                logger.info(`[POOL][${this.name}] Replacement browser ready: ${newInst.id}`);
-                this._drainQueue(newInst);
+                logger.info(
+                    `[POOL][${this.name}] Replacement browser ready: ${newInst.id} ` +
+                    `(replaces ${crashedInst.id})`
+                );
+                this._requeueCrashedJob(crashedInst, newInst);
             })
             .catch(err => {
                 logger.error(`[POOL][${this.name}] Recovery launch failed: ${err.message}`);
+                if (crashedInst._activeReject) {
+                    crashedInst._activeReject(new Error(
+                        `[POOL][${this.name}] Browser crash recovery failed: ${err.message}`
+                    ));
+                }
             });
         this._updatePrometheus();
     }
 
     /**
-     * Recycle a browser: remove, destroy, launch replacement.
+     * Transparently retry the in-flight job that was running on a crashed browser.
+     * Resolves the original acquire() Promise with a fresh context on the replacement
+     * browser — the caller (ErpBrowserService) never sees an error.
+     *
+     * If no in-flight job was present, falls through to drain the next queued request.
+     * If the crashed browser has already been retried once, rejects to prevent loops.
+     *
+     * @param {BrowserInstance} crashedInst
+     * @param {BrowserInstance} newInst
+     */
+    _requeueCrashedJob(crashedInst, newInst) {
+        const { _activeResolve, _activeReject, _activeRequestId, _activeUserId } = crashedInst;
+
+        if (!_activeResolve) {
+            // No in-flight job — just serve the next queued request
+            this._drainQueue(newInst);
+            return;
+        }
+
+        if (crashedInst._crashRetryCount > 0) {
+            // Already retried once — reject to prevent infinite loops
+            logger.error(
+                `[POOL][${this.name}] Crash retry limit reached for req=${_activeRequestId}. ` +
+                `Rejecting in-flight job.`
+            );
+            _activeReject(new Error(
+                `[POOL][${this.name}] Browser crashed twice during req=${_activeRequestId}. ` +
+                `Request cannot be completed.`
+            ));
+            this._drainQueue(newInst);
+            return;
+        }
+
+        crashedInst._crashRetryCount++;
+
+        logger.info(
+            `[POOL][${this.name}] Transparent crash retry: req=${_activeRequestId} ` +
+            `crashed=${crashedInst.id} → replacement=${newInst.id}`
+        );
+
+        // Route the in-flight job to the replacement browser.
+        // Pass resolve/reject so _doCheckout can wire them for future crash detection.
+        this._doCheckout(newInst, _activeRequestId, _activeUserId, { resolve: _activeResolve, reject: _activeReject })
+            .then(result => {
+                this.metrics.recordJobStarted(0, this.queue.length);
+                _activeResolve(result);
+            })
+            .catch(err => {
+                logger.error(
+                    `[POOL][${this.name}] Crash retry checkout failed: req=${_activeRequestId} ${err.message}`
+                );
+                _activeReject(err);
+            });
+    }
+
+    /**
+     * Recycle a browser: remove, destroy, launch replacement (same generation + 1).
      * @param {BrowserInstance} instance
      */
     async _replaceInstance(instance) {
         const idx = this.instances.findIndex(b => b.id === instance.id);
         if (idx >= 0) this.instances.splice(idx, 1);
 
-        // Destroy asynchronously — don't await so the queue is not blocked
         instance.destroy('recycle').catch(() => {});
 
         if (this.isShuttingDown) return;
 
         try {
-            const newInst = await this._launchAndAdd();
+            // Preserve generation lineage through idle recycles too
+            const nextGen = (instance.generation || 1) + 1;
+            const newInst = await this._launchAndAdd(nextGen);
             this._drainQueue(newInst);
         } catch (err) {
             logger.error(

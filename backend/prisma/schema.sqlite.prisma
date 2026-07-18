@@ -43,11 +43,23 @@ model Student {
   seatType           String?             @default("")
   entranceType       String?             @default("")
   entranceRank       String?             @default("")
-  aadhar             String?             @default("")
-  photoUrl           String?             @default("")
+  aadhar             String?             @default("") // Masked in standard API — owner only
+  photoUrl           String?             @default("") // Local cached path (served via /api/profile/photo)
   guardianName       String?             @default("")
   guardianPhone      String?             @default("")
   guardianAddress    String?             @default("")
+  // Extended profile fields (added Phase 1)
+  apaarId            String?             @default("") // Government APAAR/ABC ID — sensitive, owner-only
+  motherMobile       String?             @default("")
+  annualIncome       String?             @default("")
+  fatherEmail        String?             @default("")
+  motherEmail        String?             @default("")
+  fatherOccupation   String?             @default("")
+  motherOccupation   String?             @default("")
+  correspondenceAddress String?          @default("")
+  lastStudied        String?             @default("") // Previous institution name
+  sgpa               String?             @default("") // Latest semester GPA
+  academicYear       String?             @default("") // E.g. 2025-26
   lastSync           DateTime? // Track when this student was last sync-scraped
   isSyncing          Boolean             @default(false)
   marks              MarkRecord[]
@@ -67,6 +79,9 @@ model Student {
   helpTickets        HelpTicket[]
   savedPlacements    SavedPlacement[]
   lostFoundClaims    LostFoundClaim[]
+  notificationReads  NotificationRead[]
+  targetedAdminNotifications AdminNotification[] @relation("AdminNotificationTargetStudent")
+  syncHistory        SyncHistory[]
 
   @@index([email])
   @@index([roll])
@@ -402,44 +417,122 @@ model FeeNotice {
 }
 
 model ExitPass {
-  id            String    @id @default(uuid())
-  studentId     String
-  student       Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  reason        String
-  destination   String
-  requestedDate String
-  status        String    @default("PENDING")
-  otpHash       String?
-  otpExpiry     DateTime?
-  qrCode        String?
-  rejectionNote String?
-  approvedAt    DateTime?
-  approvedBy    String?
-  verifiedAt    DateTime?
-  verifiedBy    String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id                     String                @id @default(uuid())
+  studentId              String
+  student                Student               @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  reason                 String
+  destination            String
+  requestedDate          String
+  status                 String                @default("PENDING")
+  otpHash                String?
+  otpExpiry              DateTime?
+  qrCode                 String?
+  rejectionNote          String?
+  approvedAt             DateTime?
+  approvedBy             String?
+  verifiedAt             DateTime?
+  verifiedBy             String?
+  exitTime               DateTime?
+  returnTime             DateTime?
+  emergencyContact       String?
+  remarks                String?
+  adminRemark            String?
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
+
+  // Phase 3 Extensions
+  groupRequestId         String?
+  groupRequest           GroupExitPassRequest? @relation(fields: [groupRequestId], references: [id], onDelete: SetNull)
+  academicYear           String?
+  semester               String?
+  qrTokenHash            String?
+  exitConfirmedAt        DateTime?
+  exitConfirmedBy        String?
+  verificationMethod     String?
+  parentSmsStatus        String?
+  parentSmsId            String?
+  exitGate               String?
+  identityMismatchReason String?
+  otpAttempts            Int                   @default(0)
 
   @@index([studentId])
   @@index([status])
   @@index([createdAt])
   @@index([otpHash])
   @@index([approvedAt])
+  @@index([qrTokenHash])
+  @@index([groupRequestId])
+  @@index([exitConfirmedAt])
 }
 
+model GroupExitPassRequest {
+  id            String     @id @default(uuid())
+  groupName     String
+  reason        String
+  destination   String
+  exitTime      DateTime
+  returnTime    DateTime
+  status        String     @default("PENDING") // "PENDING", "APPROVED", "REJECTED"
+  leaderId      String
+  rejectionNote String?
+  approvedAt    DateTime?
+  approvedBy    String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  passes        ExitPass[]
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model SmsLog {
+  id         String   @id @default(uuid())
+  studentId  String
+  passId     String?
+  type       String   // "EXIT_NOTIFICATION"
+  recipient  String   // Masked phone number
+  status     String   // "SENT", "FAILED"
+  error      String?
+  sentAt     DateTime @default(now())
+}
+
+
 model AdminNotification {
-  id             String   @id @default(uuid())
-  title          String
-  message        String
-  targetAudience String   @default("ALL")
-  targetBranches String? // Stored as stringified JSON array
-  targetYears    String? // Stored as stringified JSON array
-  targetSections String? // Stored as stringified JSON array
-  priority       String   @default("NORMAL")
-  sentAt         DateTime @default(now())
-  sentBy         String
+  id              String   @id @default(uuid())
+  title           String
+  message         String
+  targetAudience  String   @default("ALL")
+  targetBranches  String? // Stored as stringified JSON array
+  targetYears     String? // Stored as stringified JSON array
+  targetSections  String? // Stored as stringified JSON array
+  priority        String   @default("NORMAL")
+  sentAt          DateTime @default(now())
+  sentBy          String
+  expiresAt       DateTime?
+  status          String   @default("PUBLISHED")
+  targetStudentId String?
+  targetStudent   Student? @relation("AdminNotificationTargetStudent", fields: [targetStudentId], references: [id], onDelete: SetNull)
+  createdAt       DateTime @default(now())
+  publishedAt     DateTime?
+  updatedAt       DateTime @updatedAt
+  reads           NotificationRead[]
 
   @@index([sentAt])
+  @@index([status])
+  @@index([targetStudentId])
+}
+
+model NotificationRead {
+  id             String            @id @default(uuid())
+  studentId      String
+  student        Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  notificationId String
+  notification   AdminNotification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  readAt         DateTime          @default(now())
+
+  @@unique([studentId, notificationId])
+  @@index([studentId])
+  @@index([notificationId])
 }
 
 model SystemSetting {
@@ -597,4 +690,23 @@ model LostFoundClaim {
   @@unique([itemId, studentId])
   @@index([itemId])
   @@index([studentId])
+}
+
+model SyncHistory {
+  id           String    @id @default(uuid())
+  requestId    String    @unique
+  studentId    String
+  student      Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  provider     String
+  browserId    String?
+  startedAt    DateTime  @default(now())
+  completedAt  DateTime?
+  status       String    @default("RUNNING")
+  durationMs   Int?
+  pagesScraped String?   @default("{}")
+  error        String?
+
+  @@index([studentId])
+  @@index([startedAt])
+  @@index([status])
 }

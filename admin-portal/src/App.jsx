@@ -25,6 +25,7 @@ const LmsDashboard      = lazy(() => import('./pages/LmsDashboard'));
 const Analytics         = lazy(() => import('./pages/Analytics'));
 const RiskDashboard     = lazy(() => import('./pages/RiskDashboard'));
 const ActivityCenter    = lazy(() => import('./pages/ActivityCenter'));
+const ELibrary          = lazy(() => import('./pages/ELibrary'));
 
 function PageLoader() {
   return (
@@ -199,7 +200,7 @@ export default function App() {
         <Route
           path="/exit-passes"
           element={
-            <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'FACULTY']}>
               <ExitPasses />
             </ProtectedRoute>
           }
@@ -212,6 +213,7 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+        <Route path="/e-library" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'PLACEMENT_ADMIN', 'FACULTY']}><ELibrary /></ProtectedRoute>} />
         <Route
           path="/settings"
           element={

@@ -10,7 +10,7 @@
 
 const axios = require('axios');
 
-const TARGET_URL = process.env.TARGET_URL || 'https://college-app-bx6b.onrender.com/api/metrics'; // Default to unauthenticated endpoint
+const TARGET_URL = process.env.TARGET_URL || 'https://web-production-07b0.up.railway.app/api/metrics'; // Default to unauthenticated endpoint
 const CONCURRENCY = parseInt(process.env.BENCH_CONCURRENCY || '50', 10);
 const TOTAL_REQUESTS = parseInt(process.env.BENCH_TOTAL || '500', 10);
 
@@ -111,7 +111,7 @@ async function runBenchmark() {
     console.log(`  Failed: ${failed}`);
     console.log(`  Throughput: ${rps.toFixed(2)} req/sec`);
     console.log(`  Total Duration: ${totalDurationSec.toFixed(2)}s`);
-    
+
     console.log(`\nLatency Statistics:`);
     console.log(`  Avg Latency: ${avgLatency.toFixed(2)}ms`);
     console.log(`  Min Latency: ${Math.min(...latencies)}ms`);

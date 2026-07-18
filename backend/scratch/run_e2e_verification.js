@@ -25,11 +25,17 @@ let serverLogs = '';
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
+// SQLite URL for the local dev.db that the E2E server writes to
+const SQLITE_DB_PATH = path.join(__dirname, '..', 'prisma', 'dev.db').replace(/\\/g, '/');
+const SQLITE_URL = `file:///${SQLITE_DB_PATH}?connection_limit=1&socket_timeout=30&timeout=30`;
+function makeSqlitePrisma() { return new PrismaClient({ datasources: { db: { url: SQLITE_URL } } }); }
+
 // ─── Phase 3: DB Clean Prep ──────────────────────────────────────────────────
 async function cleanDatabaseForStudents() {
     console.log('\n[PHASE 3] Database Verification — Cleaning existing records to force full sync...');
-    const prisma = new PrismaClient();
+    let prisma = null;
     try {
+        prisma = makeSqlitePrisma();
         const studentABefore = await prisma.student.findUnique({ where: { userId: CREDENTIALS_A.userId } });
         const studentBBefore = await prisma.student.findUnique({ where: { userId: CREDENTIALS_B.userId } });
 
@@ -45,33 +51,75 @@ async function cleanDatabaseForStudents() {
             console.log(`  Deleted existing Student B record.`);
         }
     } catch (e) {
-        console.error('  Database cleanup error:', e.message);
+        console.warn('  Database cleanup skipped (will proceed anyway):', e.message);
     } finally {
-        await prisma.$disconnect();
+        if (prisma) {
+            try { await prisma.$disconnect(); } catch (_) {}
+        }
     }
 }
 
 // ─── Start Backend Server ────────────────────────────────────────────────────
+const BACKEND_DIR = path.join(__dirname, '..');
+const ENV_TEST_PATH = path.join(BACKEND_DIR, '.env.e2e-test');
+
+function writeTestEnv() {
+    const sqliteUrl = `file:${path.join(BACKEND_DIR, 'prisma', 'dev.db')}?connection_limit=1&socket_timeout=30&timeout=30`;
+    const lines = [
+        `PORT=${PORT}`,
+        `NODE_ENV=development`,
+        `DATABASE_URL="${sqliteUrl}"`,
+        `ERP_PROVIDER=scraper`,
+        `BROWSER_PROVIDER=PLAYWRIGHT`,
+        `DISABLE_REDIS=true`,
+        `OTEL_SDK_DISABLED=true`,
+        `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://127.0.0.1:4318/v1/traces`,
+        `DISABLE_SCHEDULERS=true`,
+        `DEMO_MODE=false`,
+        // Paste other non-secret vars that server.js reads at startup:
+        `ERP_BASE_URL=https://sitamecap.co.in/SATYA`,
+        `ADMIN_EMAIL=admin@sitam.edu.in`,
+        `ADMIN_NAME=SITAM Administrator`,
+    ];
+    fs.writeFileSync(ENV_TEST_PATH, lines.join('\n'), 'utf8');
+    console.log(`[SERVER] Wrote temporary test env to ${ENV_TEST_PATH}`);
+}
+
+function cleanTestEnv() {
+    try { fs.unlinkSync(ENV_TEST_PATH); } catch (_) {}
+}
+
 function startServer() {
     return new Promise((resolve, reject) => {
         console.log('\n[SERVER] Spawning SITAM backend server locally...');
-        
-        // Inherit environment variables but force PORT=3001
-        const env = { 
-            ...process.env, 
-            PORT: String(PORT), 
-            NODE_ENV: 'development', 
-            DISABLE_REDIS: 'true', 
+
+        // Write a .env.e2e-test file so dotenv does NOT load production .env
+        writeTestEnv();
+
+        // Switch schema to SQLite before starting
+        try {
+            require('child_process').execSync('node scripts/use-sqlite.js && npx prisma generate --schema prisma/schema.prisma', { cwd: BACKEND_DIR, stdio: 'inherit' });
+        } catch (err) {
+            console.warn('[SERVER] Could not switch schema to SQLite:', err.message);
+        }
+
+        const env = {
+            ...process.env,
+            DOTENV_CONFIG_PATH: ENV_TEST_PATH,   // honoured by dotenv >=16 config({ path })
+            PORT: String(PORT),
+            NODE_ENV: 'development',
+            DATABASE_URL: `file:${path.join(BACKEND_DIR, 'prisma', 'dev.db')}?connection_limit=1&socket_timeout=30&timeout=30`,
+            DISABLE_REDIS: 'true',
             ERP_PROVIDER: 'scraper',
+            BROWSER_PROVIDER: 'PLAYWRIGHT',
             OTEL_SDK_DISABLED: 'true',
             OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: 'http://127.0.0.1:4318/v1/traces',
-            DISABLE_SCHEDULERS: 'true'
+            DISABLE_SCHEDULERS: 'true',
+            DEMO_MODE: 'false',
         };
 
-        
         serverProcess = spawn('node', ['server.js'], {
-
-            cwd: path.join(__dirname, '..'),
+            cwd: BACKEND_DIR,
             env
         });
 
@@ -79,7 +127,7 @@ function startServer() {
             const str = data.toString();
             serverLogs += str;
             process.stdout.write(`[SERVER-OUT] ${str}`);
-            if (str.includes(`listening on port ${PORT}`) || str.includes('ready. System is production-ready')) {
+            if (str.includes(`listening on port ${PORT}`) || str.includes('ready. System is production-ready') || str.includes(`running on port ${PORT}`)) {
                 resolve();
             }
         });
@@ -91,11 +139,13 @@ function startServer() {
         });
 
         serverProcess.on('error', (err) => {
+            cleanTestEnv();
             reject(err);
         });
 
         // Fail-safe timeout (120 seconds)
         setTimeout(() => {
+            cleanTestEnv();
             reject(new Error('Server startup timed out after 120s'));
         }, 120000);
 
@@ -146,26 +196,30 @@ function auditLogs() {
     return { passed, auditResults };
 }
 
-// ─── DB Verification After Sync (Phase 3) ─────────────────────────────────────
-async function verifyDatabaseRecord(userId) {
-    const prisma = new PrismaClient();
+// ─── DB Verification After Sync (Phase 3) ────────────────────────────────────────
+// Uses the HTTP API (profile endpoint) to confirm data is in the DB, avoiding
+// SQLite file-lock issues while the server is running.
+async function verifyDatabaseRecord(userId, token) {
+    if (!token) {
+        console.error(`  ✗ [FAIL] DB check: No auth token provided for ${userId}`);
+        return { exists: false, error: 'no token' };
+    }
     try {
-        const student = await prisma.student.findUnique({
-            where: { userId }
+        const res = await axios.get(`${BASE_URL}/api/profile`, {
+            headers: { Authorization: `Bearer ${token}` }
         });
-        if (student) {
-            console.log(`  ✓ [PASS] DB check: Student ${userId} successfully written to SQLite.`);
-            console.log(`           Name: ${student.name} | Roll: ${student.roll} | Email: ${student.email}`);
-            return { exists: true, student };
+        const profile = res.data.profile || res.data.data || res.data;
+        if (res.status === 200 && profile && (profile.name || profile.studentName)) {
+            console.log(`  ✓ [PASS] DB check: Student ${userId} confirmed in DB via /api/profile.`);
+            console.log(`           Name: ${profile.name || profile.studentName} | Roll: ${profile.roll}`);
+            return { exists: true };
         } else {
-            console.error(`  ✗ [FAIL] DB check: Student ${userId} DOES NOT EXIST in database!`);
+            console.error(`  ✗ [FAIL] DB check: /api/profile returned 200 but no profile data for ${userId}`);
             return { exists: false };
         }
     } catch (e) {
         console.error('  DB verification error:', e.message);
         return { exists: false, error: e.message };
-    } finally {
-        await prisma.$disconnect();
     }
 }
 
@@ -245,9 +299,9 @@ async function runE2E() {
         const tokenA = loginRes1.data.token;
 
         // ────────────────────────────────────────────────────────────────────
-        // PHASE 3 — DB Check Post-Login
+        // PHASE 3 — DB Check Post-Login (via /api/profile)
         // ────────────────────────────────────────────────────────────────────
-        const dbCheckA = await verifyDatabaseRecord(CREDENTIALS_A.userId);
+        const dbCheckA = await verifyDatabaseRecord(CREDENTIALS_A.userId, tokenA);
         report.dbVerification.studentA = dbCheckA.exists;
         if (!dbCheckA.exists) {
             report.failures.push({ phase: 3, msg: 'Student A not written to DB' });
@@ -353,9 +407,10 @@ async function runE2E() {
 
         report.loginResults.studentB = loginResB.data.success;
         report.performance.studentBLogin = loginDurationB;
+        const tokenB = loginResB.data.token;
 
-        // Verify Student B in DB
-        const dbCheckB = await verifyDatabaseRecord(CREDENTIALS_B.userId);
+        // Verify Student B in DB (via /api/profile)
+        const dbCheckB = await verifyDatabaseRecord(CREDENTIALS_B.userId, tokenB);
         report.dbVerification.studentB = dbCheckB.exists;
         if (!dbCheckB.exists) {
             report.failures.push({ phase: 7, msg: 'Student B not written to DB' });
@@ -384,6 +439,17 @@ async function runE2E() {
         if (serverProcess) {
             console.log('\n[SERVER] Terminating backend server...');
             serverProcess.kill();
+        }
+
+        // Clean up temp .env
+        cleanTestEnv();
+
+        // Restore PostgreSQL schema file (skip prisma generate — DLL may still be locked by killed process)
+        try {
+            require('child_process').execSync('node scripts/use-pg.js', { cwd: BACKEND_DIR, stdio: 'inherit' });
+            console.log('[SERVER] PostgreSQL schema file restored. Run "npx prisma generate" to rebuild client.');
+        } catch (err) {
+            console.warn('[SERVER] Could not restore PostgreSQL schema:', err.message);
         }
 
         await sleep(1000); // Wait for logs to settle

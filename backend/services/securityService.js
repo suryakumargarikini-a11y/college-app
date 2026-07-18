@@ -23,9 +23,12 @@ class SecurityService {
             const parsedUrl = new URL(urlStr);
             const host = parsedUrl.hostname;
 
-            // Simple loopback check
-            if (host === 'localhost' || host === '127.0.0.1' || host === '::1') {
-                logger.warn(`[Security-SSRF] Blocked loopback connection attempt to: ${host}`);
+            // Explicit loopback and any-bind addresses
+            // 0.0.0.0 is blocked: on many OS implementations, HTTP clients route
+            // 0.0.0.0 to 127.0.0.1 (loopback), enabling SSRF via this address.
+            const BLOCKED_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', '0::0']);
+            if (BLOCKED_HOSTS.has(host)) {
+                logger.warn(`[Security-SSRF] Blocked loopback/any-bind connection attempt to: ${host}`);
                 return false;
             }
 
@@ -67,6 +70,9 @@ class SecurityService {
 
         // Local loopback
         if (parts[0] === 127) return true;
+
+        // 0.0.0.0 — any-bind address; routes to loopback on many systems
+        if (parts[0] === 0 && parts[1] === 0 && parts[2] === 0 && parts[3] === 0) return true;
 
         // Private IPv4 ranges:
         // 10.0.0.0 – 10.255.255.255

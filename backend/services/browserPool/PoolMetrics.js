@@ -175,22 +175,94 @@ class PoolMetrics {
         } catch (_) {}
     }
 
+
+    /**
+     * Compute a 0–100 health score for this pool.
+     *
+     * Four independent signals, each can deduct up to 25 points:
+     *
+     *   1. Crash rate    — crashes per job started (high = browsers unstable)
+     *   2. Queue pressure — current queue depth relative to pool cap
+     *   3. Wait penalty   — avg queue wait vs acceptable threshold (5 s)
+     *   4. Context leak   — any leaked contexts = immediate penalty
+     *
+     * Returns:
+     *   { score: 0-100, status: 'healthy'|'degraded'|'critical'|'down', breakdown: {...} }
+     *
+     * Interpretation:
+     *   90–100  healthy   — operating normally
+     *   70–89   degraded  — elevated load or minor instability; monitor closely
+     *   40–69   critical  — intervention recommended
+     *   0–39    down      — pool not serving requests reliably
+     */
+    computeHealthScore(currentQueueDepth = 0, poolCap = 1) {
+        const breakdown = {};
+
+        // ── Signal 1: Crash Rate (0–25) ─────────────────────────────────────
+        // Formula: penalty = 25 × min(crashes / max(1, jobsStarted), 1)
+        // A crash rate of 5% = ~1.25 pts penalty. 100% crash rate = 25 pts.
+        const crashRate = this.crashesTotal / Math.max(1, this.jobsStartedTotal);
+        const crashPenalty = Math.min(25, Math.round(crashRate * 25 * 100) / 100);
+        breakdown.crashRate = { crashRate: Math.round(crashRate * 1000) / 10 + '%', penalty: crashPenalty };
+
+        // ── Signal 2: Queue Pressure (0–25) ─────────────────────────────────
+        // Formula: penalty = 25 × min(queueDepth / poolCap, 1)
+        // Fully-loaded queue = full 25 pt deduction; empty queue = 0.
+        const queueRatio   = Math.min(currentQueueDepth / Math.max(1, poolCap), 1);
+        const queuePenalty = Math.round(queueRatio * 25 * 100) / 100;
+        breakdown.queuePressure = { depth: currentQueueDepth, cap: poolCap, penalty: queuePenalty };
+
+        // ── Signal 3: Wait Time (0–25) ───────────────────────────────────────
+        // Acceptable threshold: 5 000 ms. Penalty scales linearly up to 30 000 ms.
+        const WAIT_OK_MS  = 5_000;
+        const WAIT_MAX_MS = 30_000;
+        const waitRatio   = Math.min(Math.max(0, this.avgWaitMs - WAIT_OK_MS) / (WAIT_MAX_MS - WAIT_OK_MS), 1);
+        const waitPenalty = Math.round(waitRatio * 25 * 100) / 100;
+        breakdown.waitTime = { avgWaitMs: Math.round(this.avgWaitMs), penalty: waitPenalty };
+
+        // ── Signal 4: Context Leak (0–25) ────────────────────────────────────
+        // Any leaked context = 25 pt deduction (binary: either leaking or not).
+        // A context leak is always critical — it means memory is growing unboundedly.
+        const leaked     = Math.max(0, this.contextsCreated - this.contextsDestroyed);
+        const leakPenalty = leaked > 0 ? 25 : 0;
+        breakdown.contextLeak = { leaked, penalty: leakPenalty };
+
+        // ── Final score ──────────────────────────────────────────────────────
+        const score  = Math.round(Math.max(0, 100 - crashPenalty - queuePenalty - waitPenalty - leakPenalty));
+        let status;
+        if (score >= 90)      status = 'healthy';
+        else if (score >= 70) status = 'degraded';
+        else if (score >= 40) status = 'critical';
+        else                  status = 'down';
+
+        return { score, status, breakdown };
+    }
+
     /**
      * Returns a plain object snapshot for JSON serialisation.
      * @returns {Object}
      */
-    snapshot() {
-        const leaked = this.contextsCreated - this.contextsDestroyed;
+    snapshot(currentQueueDepth = 0, poolCap = 1) {
+        const leaked  = this.contextsCreated - this.contextsDestroyed;
+        const health  = this.computeHealthScore(currentQueueDepth, poolCap);
         return {
             poolName:           this.poolName,
+            // ── Health ──────────────────────────────────────────────────────
+            healthScore:        health.score,
+            healthStatus:       health.status,
+            healthBreakdown:    health.breakdown,
+            // ── Performance ─────────────────────────────────────────────────
             avgWaitMs:          Math.round(this.avgWaitMs),
             avgJobDurationMs:   Math.round(this.avgJobDurationMs),
             peakQueueDepth:     this.peakQueueDepth,
+            // ── Reliability ─────────────────────────────────────────────────
             crashesTotal:       this.crashesTotal,
             recycledTotal:      this.recycledTotal,
             timeoutsTotal:      this.timeoutsTotal,
+            // ── Throughput ──────────────────────────────────────────────────
             jobsStartedTotal:   this.jobsStartedTotal,
             jobsFinishedTotal:  this.jobsFinishedTotal,
+            // ── Memory ──────────────────────────────────────────────────────
             contexts: {
                 created:   this.contextsCreated,
                 destroyed: this.contextsDestroyed,
