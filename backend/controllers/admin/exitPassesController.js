@@ -471,71 +471,65 @@ const rejectGroup = async (req, res) => {
 };
 
 // Security Guard: verify manual OTP input
+// SECURITY: roll is REQUIRED. Anonymous OTP hash lookup is intentionally removed
+// to prevent brute-force bypasses where otpAttempts are never incremented.
 const verifyOTP = async (req, res) => {
     try {
         const { otp, roll } = req.body || {};
         if (!otp) return res.status(400).json({ error: 'OTP is required' });
 
-        let pass;
-        if (roll) {
-            const student = await prisma.student.findFirst({
-                where: {
-                    OR: [
-                        { roll: roll.trim().toUpperCase() },
-                        { userId: roll.trim().toUpperCase() }
-                    ]
-                }
+        // SECURITY FIX: roll is now mandatory. Anonymous OTP hash lookup
+        // allowed unlimited brute-force because otpAttempts was only incremented
+        // on the roll-based path. This path is permanently removed.
+        if (!roll) {
+            return res.status(400).json({ valid: false, error: 'Student roll number is required for OTP verification' });
+        }
+
+        const student = await prisma.student.findFirst({
+            where: {
+                OR: [
+                    { roll: roll.trim().toUpperCase() },
+                    { userId: roll.trim().toUpperCase() }
+                ]
+            }
+        });
+        if (!student) {
+            return res.status(400).json({ valid: false, error: 'Student not found' });
+        }
+
+        const pass = await prisma.exitPass.findFirst({
+            where: { studentId: student.id, status: 'APPROVED' },
+            include: { student: { select: { id: true, name: true, roll: true, phone: true, branch: true, year: true, section: true, photoUrl: true } } }
+        });
+
+        if (!pass) {
+            return res.status(400).json({ valid: false, error: 'No active approved exit pass found for this student' });
+        }
+
+        if (pass.otpAttempts >= 3) {
+            return res.status(400).json({ valid: false, error: 'This pass has been locked due to too many failed OTP attempts.' });
+        }
+
+        const otpHash = hashOTP(otp);
+        if (pass.otpHash !== otpHash) {
+            // SECURITY: Always increment attempts, even when pass is found via roll.
+            // Use atomic update with optimistic concurrency — re-read after update.
+            const updated = await prisma.exitPass.update({
+                where: { id: pass.id },
+                data: { otpAttempts: { increment: 1 } },
+                select: { otpAttempts: true }
             });
-            if (!student) {
-                return res.status(400).json({ valid: false, error: 'Student not found' });
-            }
+            const updatedAttempts = updated.otpAttempts;
 
-            pass = await prisma.exitPass.findFirst({
-                where: { studentId: student.id, status: 'APPROVED' },
-                include: { student: { select: { id: true, name: true, roll: true, phone: true, branch: true, year: true, section: true, photoUrl: true } } }
-            });
-
-            if (!pass) {
-                return res.status(400).json({ valid: false, error: 'No active approved exit pass found for this student' });
-            }
-
-            if (pass.otpAttempts >= 3) {
-                return res.status(400).json({ valid: false, error: 'This pass has been locked due to too many failed OTP attempts.' });
-            }
-
-            const otpHash = hashOTP(otp);
-            if (pass.otpHash !== otpHash) {
-                const updatedAttempts = pass.otpAttempts + 1;
+            if (updatedAttempts >= 3) {
                 await prisma.exitPass.update({
                     where: { id: pass.id },
-                    data: { otpAttempts: updatedAttempts }
+                    data: { status: 'UNDER_REVIEW', identityMismatchReason: 'Locked: Too many failed OTP attempts' }
                 });
-
-                if (updatedAttempts >= 3) {
-                    await prisma.exitPass.update({
-                        where: { id: pass.id },
-                        data: { status: 'UNDER_REVIEW', identityMismatchReason: 'Locked: Too many failed OTP attempts' }
-                    });
-                    return res.status(400).json({ valid: false, error: 'Too many incorrect OTP attempts. The exit pass has been locked and placed under review.' });
-                }
-
-                return res.status(400).json({ valid: false, error: `Invalid OTP. ${3 - updatedAttempts} attempts remaining.` });
-            }
-        } else {
-            // Direct OTP lookup (deprecated for security audit verification, but supported as fallback)
-            const otpHash = hashOTP(otp);
-            pass = await prisma.exitPass.findFirst({
-                where: { otpHash },
-                include: { student: { select: { id: true, name: true, roll: true, phone: true, branch: true, year: true, section: true, photoUrl: true } } }
-            });
-
-            if (!pass) {
-                return res.status(400).json({ valid: false, error: 'Invalid OTP' });
+                return res.status(400).json({ valid: false, error: 'Too many incorrect OTP attempts. The exit pass has been locked and placed under review.' });
             }
 
-            if (pass.otpAttempts >= 3) {
-                return res.status(400).json({ valid: false, error: 'This pass has been locked due to too many failed OTP attempts.' });
-            }
+            return res.status(400).json({ valid: false, error: `Invalid OTP. ${3 - updatedAttempts} attempts remaining.` });
         }
 
         // Check if expired
@@ -831,43 +825,62 @@ const apply = async (req, res) => {
             return res.status(400).json({ error: 'Return time must be later than the exit time' });
         }
 
-        // Prevent duplicate pending requests
-        const existing = await prisma.exitPass.findFirst({
-            where: {
-                studentId,
-                status: 'PENDING'
+        // CONCURRENCY FIX: Wrap duplicate-check + create in a SERIALIZABLE transaction.
+        // Without this, concurrent requests from the same student can all pass the
+        // findFirst check before any create runs, producing multiple PENDING passes.
+        const pass = await prisma.$transaction(async (tx) => {
+            // Prevent duplicate pending requests (individual)
+            const existing = await tx.exitPass.findFirst({
+                where: { studentId, status: 'PENDING' }
+            });
+            if (existing) {
+                const err = new Error('DUPLICATE_PENDING');
+                err.statusCode = 400;
+                throw err;
             }
-        });
-        if (existing) return res.status(400).json({ error: 'You already have a pending exit pass request.' });
 
-        // Check if student has pending group request
-        const existingGroup = await prisma.exitPass.findFirst({
-            where: {
-                studentId,
-                groupRequest: {
+            // Check if student is already in a pending group request
+            const existingGroup = await tx.exitPass.findFirst({
+                where: {
+                    studentId,
+                    groupRequest: { status: 'PENDING' }
+                }
+            });
+            if (existingGroup) {
+                const err = new Error('DUPLICATE_GROUP');
+                err.statusCode = 400;
+                throw err;
+            }
+
+            return tx.exitPass.create({
+                data: {
+                    studentId,
+                    reason,
+                    destination,
+                    exitTime: exitDate,
+                    returnTime: returnDate,
+                    emergencyContact,
+                    remarks: remarks || null,
+                    requestedDate: exitDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
                     status: 'PENDING'
                 }
-            }
+            });
+        }, {
+            isolationLevel: 'Serializable',
+            maxWait: 10000,
+            timeout: 15000
         });
-        if (existingGroup) return res.status(400).json({ error: 'You are already part of a pending group exit pass request.' });
 
-        const pass = await prisma.exitPass.create({
-            data: { 
-                studentId, 
-                reason, 
-                destination, 
-                exitTime: exitDate,
-                returnTime: returnDate,
-                emergencyContact,
-                remarks: remarks || null,
-                requestedDate: exitDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-                status: 'PENDING' 
-            }
-        });
         res.status(201).json({ success: true, ...pass });
-    } catch (err) { 
+    } catch (err) {
+        if (err.message === 'DUPLICATE_PENDING') {
+            return res.status(400).json({ error: 'You already have a pending exit pass request.' });
+        }
+        if (err.message === 'DUPLICATE_GROUP') {
+            return res.status(400).json({ error: 'You are already part of a pending group exit pass request.' });
+        }
         logger.error('[ExitPass] apply error:', err);
-        res.status(500).json({ error: 'Failed to submit exit pass' }); 
+        res.status(500).json({ error: 'Failed to submit exit pass' });
     }
 };
 

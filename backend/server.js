@@ -60,10 +60,26 @@ const corsWhitelist = [
     'https://sitamecap.co.in',
     'https://admin.sitamecap.co.in'
 ];
+
+// Add local development origins when not in production.
+// These are intentionally excluded from production to prevent CORS widening.
+if (process.env.NODE_ENV !== 'production') {
+    corsWhitelist.push(
+        'http://localhost:3000',   // React CRA / legacy
+        'http://localhost:3001',   // Admin portal Vite
+        'http://localhost:5173',   // Vite default
+        'http://localhost:8080',   // Backend self-test
+        'http://127.0.0.1:3000',
+        'http://127.0.0.1:3001',
+        'http://127.0.0.1:5173'
+    );
+}
+
 if (process.env.ALLOWED_ORIGINS) {
     const extraOrigins = process.env.ALLOWED_ORIGINS.split(',').map(item => item.trim()).filter(Boolean);
     corsWhitelist.push(...extraOrigins);
 }
+
 app.use(cors({
     origin: (origin, callback) => {
         if (!origin || corsWhitelist.includes(origin) || origin.startsWith('chrome-extension://')) {
