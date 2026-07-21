@@ -202,6 +202,9 @@ class DemoProvider {
     }
 
     async getLmsCourses(userId) {
+        if (typeof prisma.courseEnrollment === 'undefined' || typeof prisma.certificate === 'undefined') {
+            return { courses: [], certificates: [] };
+        }
         try {
             const student = await prisma.student.findUnique({
                 where: { userId },

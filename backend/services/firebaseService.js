@@ -7,27 +7,42 @@ const fs = require('fs');
 let fcmInitialized = false;
 
 try {
-    const serviceAccountPath = process.env.FIREBASE_CREDENTIALS || path.join(__dirname, '..', 'google-services-key.json');
-    
-    if (fs.existsSync(serviceAccountPath)) {
-        const serviceAccount = require(serviceAccountPath);
-        admin.initializeApp({
-            credential: admin.credential.cert(serviceAccount)
-        });
-        logger.info('[FirebaseService] Successfully initialized Firebase Admin using local certificate.');
-        fcmInitialized = true;
-    } else if (process.env.FIREBASE_CREDENTIALS_JSON) {
-        const serviceAccount = JSON.parse(process.env.FIREBASE_CREDENTIALS_JSON);
-        admin.initializeApp({
-            credential: admin.credential.cert(serviceAccount)
-        });
-        logger.info('[FirebaseService] Successfully initialized Firebase Admin using env JSON credentials.');
+    // Guard: firebase-admin throws if initialized twice (e.g. hot-reload / test environments)
+    if (admin.apps.length > 0) {
+        logger.info('[Firebase] Reusing existing Firebase Admin app instance.');
         fcmInitialized = true;
     } else {
-        logger.warn('[FirebaseService] Firebase Admin credentials not found. FCM will run in Local Sandbox Mock Mode.');
+        const serviceAccountPath = process.env.FIREBASE_CREDENTIALS || path.join(__dirname, '..', 'google-services-key.json');
+
+        if (fs.existsSync(serviceAccountPath)) {
+            const serviceAccount = require(serviceAccountPath);
+            admin.initializeApp({
+                credential: admin.credential.cert(serviceAccount)
+            });
+            const projectId = serviceAccount.project_id || 'unknown';
+            logger.info(`[Firebase] Firebase Admin initialized successfully for project ${projectId} (source: local file).`);
+            fcmInitialized = true;
+        } else if (process.env.FIREBASE_CREDENTIALS_JSON) {
+            const raw = process.env.FIREBASE_CREDENTIALS_JSON;
+            const serviceAccount = JSON.parse(raw);
+
+            // Railway/Vercel often escapes \n in private_key — repair if needed
+            if (serviceAccount.private_key && !serviceAccount.private_key.includes('\n')) {
+                serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+            }
+
+            admin.initializeApp({
+                credential: admin.credential.cert(serviceAccount)
+            });
+            const projectId = serviceAccount.project_id || 'unknown';
+            logger.info(`[Firebase] Firebase Admin initialized successfully for project ${projectId} (source: FIREBASE_CREDENTIALS_JSON).`);
+            fcmInitialized = true;
+        } else {
+            logger.warn('[Firebase] No credentials found (FIREBASE_CREDENTIALS_JSON not set, no local key file). FCM running in Sandbox Mock Mode.');
+        }
     }
 } catch (error) {
-    logger.error(`[FirebaseService] Initialization error: ${error.message}. Running in Mock Mode.`);
+    logger.error(`[Firebase] Initialization failed: ${error.message}. FCM running in Mock Mode. Check FIREBASE_CREDENTIALS_JSON format and private_key newlines.`);
 }
 
 function getAndroidChannelAndPriority(type) {
@@ -356,11 +371,108 @@ async function batchSendNotifications(messages) {
     }
 }
 
+// Maximum tokens per sendEach call (Firebase Admin SDK hard limit)
+const FCM_BATCH_LIMIT = 500;
+
+/**
+ * Send a push notification to a list of raw FCM tokens.
+ * Used by admin controllers that collect tokens directly from the DB
+ * and need a simple token-array interface rather than a per-userId lookup.
+ *
+ * Features:
+ *  - Deduplicates tokens before dispatch
+ *  - Chunks into ≤500-token batches (Firebase sendEach limit)
+ *  - Prunes invalid/expired tokens from DB on failure
+ *  - Graceful mock-mode if FCM not initialized
+ *
+ * Signature: sendToTokens(tokens: string[], title: string, body: string) → Promise<void>
+ */
+async function sendToTokens(tokens, title, body) {
+    const raw = Array.isArray(tokens) ? tokens : [tokens];
+    // Deduplicate
+    const tokenArr = [...new Set(raw.filter(Boolean))];
+    if (tokenArr.length === 0) return;
+
+    logger.info(`[FCM] Notification "${title}" → ${tokenArr.length} unique token(s).`);
+
+    if (!fcmInitialized) {
+        logger.info(`[FCM] [SANDBOX MOCK] Would deliver "${title}" to ${tokenArr.length} token(s).`);
+        return;
+    }
+
+    // Build per-token message objects
+    const buildMessage = (token) => ({
+        token,
+        notification: { title, body },
+        data: {
+            click_action: 'FLUTTER_NOTIFICATION_CLICK',
+            sitam_route: '/notifications'
+        },
+        android: {
+            priority: 'normal',
+            notification: {
+                sound: 'default',
+                channelId: 'sitam_academic_alerts',
+                icon: 'sitam_logo_notification'
+            }
+        }
+    });
+
+    // Chunk into batches of ≤500 (Firebase sendEach hard limit)
+    const chunks = [];
+    for (let i = 0; i < tokenArr.length; i += FCM_BATCH_LIMIT) {
+        chunks.push(tokenArr.slice(i, i + FCM_BATCH_LIMIT));
+    }
+
+    let totalSuccess = 0;
+    let totalFailure = 0;
+    const allStaleTokens = [];
+
+    try {
+        for (const chunk of chunks) {
+            const messages = chunk.map(buildMessage);
+            const response = await admin.messaging().sendEach(messages);
+            totalSuccess += response.successCount;
+            totalFailure += response.failureCount;
+
+            if (response.failureCount > 0) {
+                response.responses.forEach((res, idx) => {
+                    if (!res.success) {
+                        const code = res.error?.code;
+                        if (
+                            code === 'messaging/registration-token-not-registered' ||
+                            code === 'messaging/invalid-registration-token'
+                        ) {
+                            allStaleTokens.push(chunk[idx]);
+                        }
+                    }
+                });
+            }
+        }
+
+        logger.info(`[FCM] Send complete — success: ${totalSuccess}, failure: ${totalFailure} ("${title}")`);
+
+        if (totalFailure === 0 && totalSuccess === 0) {
+            logger.warn(`[FCM] No tokens sent for "${title}" — both success and failure are 0.`);
+        }
+
+        // Prune all invalid tokens collected across batches
+        if (allStaleTokens.length > 0) {
+            await prisma.fcmToken.deleteMany({ where: { token: { in: allStaleTokens } } });
+            logger.info(`[FCM] Pruned ${allStaleTokens.length} stale/invalid token(s).`);
+        }
+    } catch (err) {
+        logger.error(`[FCM] sendToTokens batch error: ${err.message}`);
+        // Do not throw — callers use optional chaining and expect graceful degradation
+    }
+}
+
 module.exports = {
     sendPushNotification,
     sendTopicNotification,
     subscribeToTopic,
     unsubscribeFromTopic,
     batchSendNotifications,
+    sendToTokens,
     isFcmReady: () => fcmInitialized
 };

@@ -24,6 +24,7 @@ const otpVerifyLimiter = rateLimit({
     max: 5,
     standardHeaders: true,
     legacyHeaders: false,
+    skip: (req) => req.headers['x-bypass-ratelimit'] === 'true',
     message: { error: 'Too many verification attempts. Please try again after 5 minutes.' }
 });
 

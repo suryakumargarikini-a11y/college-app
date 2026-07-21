@@ -79,9 +79,9 @@ class SreService {
         }
         this.lastDbCheck = now;
         try {
-            // Fast ping check with 1s timeout
+            // Fast ping check with 5s timeout to accommodate WAN round-trip latency
             const pingPromise = prisma.$queryRaw`SELECT 1`;
-            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1000));
+            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000));
             await Promise.race([pingPromise, timeoutPromise]);
             this.isDbOffline = false;
             return true;

@@ -43,12 +43,16 @@ router.get('/status', async (req, res) => {
             placementCount = await prisma.placement.count();
 
             // Check LMS availability
-            const courseProgressCount = await prisma.courseProgress.count();
-            const courseEnrollmentCount = await prisma.courseEnrollment.count();
-            if (courseEnrollmentCount > 0 && courseProgressCount > 0) {
-                lmsStatus = 'READY';
+            if (typeof prisma.courseProgress !== 'undefined' && typeof prisma.courseEnrollment !== 'undefined') {
+                const courseProgressCount = await prisma.courseProgress.count();
+                const courseEnrollmentCount = await prisma.courseEnrollment.count();
+                if (courseEnrollmentCount > 0 && courseProgressCount > 0) {
+                    lmsStatus = 'READY';
+                } else {
+                    reasons.push(`LMS not ready: Enrollments = ${courseEnrollmentCount}, Progress records = ${courseProgressCount}`);
+                }
             } else {
-                reasons.push(`LMS not ready: Enrollments = ${courseEnrollmentCount}, Progress records = ${courseProgressCount}`);
+                lmsStatus = 'SKIPPED';
             }
 
             // Check Analytics availability

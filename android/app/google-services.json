@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "123456789012",
-    "project_id": "sitam-smart-erp",
-    "storage_bucket": "sitam-smart-erp.appspot.com"
+    "project_number": "623919201943",
+    "project_id": "sitam-ecap",
+    "storage_bucket": "sitam-ecap.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:123456789012:android:abcdef123456",
+        "mobilesdk_app_id": "1:623919201943:android:20d24bdd88d8e7c88233d2",
         "android_client_info": {
           "package_name": "co.in.sitamecap.erp"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyDummyKeyForSandboxTestingReadyPlaceholder"
+          "current_key": "AIzaSyCIFwI7pxpinnkR0gN9jBFqmAO1ezB8YPY"
         }
       ],
       "services": {

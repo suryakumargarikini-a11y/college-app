@@ -5,7 +5,7 @@
 
 const PRODUCTION_API = 'https://web-production-259f33.up.railway.app/api';
 const isMobileNative = window.Capacitor && window.Capacitor.platform !== 'web';
-const API_BASE = isMobileNative ? PRODUCTION_API : (window.API_BASE_URL || PRODUCTION_API);
+const API_BASE = isMobileNative ? PRODUCTION_API : (window.API_BASE_URL || '/api');
 
 let _decryptedToken = null;
 
@@ -961,10 +961,27 @@ const api = {
             console.log(`Headers: ${JSON.stringify(mergedHeaders)}`);
             console.log(`-----------------------------\n`);
 
+            if (endpoint.includes('/auth/login')) {
+                console.log('[AUDIT-LOG] LOGIN REQUEST START');
+            }
+
             const resp = await RequestQueue.enqueue(
-                () => fetch(fullUrl, { ...options, headers: mergedHeaders }),
+                () => {
+                    if (endpoint.includes('/auth/login')) {
+                        console.log('[AUDIT-LOG] LOGIN REQUEST START (INNER)');
+                    }
+                    const p = fetch(fullUrl, { ...options, headers: mergedHeaders });
+                    if (endpoint.includes('/auth/login')) {
+                        console.log('[AUDIT-LOG] LOGIN REQUEST SENT');
+                    }
+                    return p;
+                },
                 endpoint
             );
+
+            if (endpoint.includes('/auth/login')) {
+                console.log('[AUDIT-LOG] LOGIN RESPONSE RECEIVED');
+            }
 
             const duration = Date.now() - startTime;
             console.log(`\n--- NETWORK RESPONSE RECEIVED ---`);
@@ -1554,8 +1571,18 @@ const pages = {
                 if (!uid || !pwd) { if (errEl) { errEl.textContent = 'Please fill all fields.'; errEl.classList.remove('hidden'); } return; }
                 if (errEl) errEl.classList.add('hidden');
                 if (btnText) btnText.textContent = 'Signing in...';
+
+                // --- TEMPORARY LOGIN AUDIT LOGGING ---
+                console.log('[AUDIT-LOG] API Base URL:', API_BASE);
+                console.log('[AUDIT-LOG] Full request URL:', API_BASE + '/auth/login');
+                console.log('[AUDIT-LOG] HTTP Method: POST');
+                console.log('[AUDIT-LOG] Payload (masked):', JSON.stringify({ userId: uid, password: '[MASKED]' }));
+
                 try {
                     const res = await api.post('/auth/login', { userId: uid, password: pwd });
+                    console.log('[AUDIT-LOG] Response received status: SUCCESS');
+                    console.log('[AUDIT-LOG] Response body (masked):', JSON.stringify({ success: res.success, hasToken: !!res.token, studentName: res.studentName }));
+
                     if (res.success && res.token) {
                         state.token = res.token;
                         // Store token + expiry (7 days) so session survives app restarts
@@ -1578,6 +1605,18 @@ const pages = {
                         }
                     }
                 } catch (err) {
+                    console.error('[AUDIT-LOG] Login execution failed!');
+                    console.error('[AUDIT-LOG] Complete error object:', err);
+                    console.error('[AUDIT-LOG] Error message:', err.message);
+                    console.error('[AUDIT-LOG] Error stack:', err.stack);
+                    if (err.response) {
+                        console.error('[AUDIT-LOG] response.status:', err.response.status);
+                        console.error('[AUDIT-LOG] response.data:', JSON.stringify(err.response.data));
+                    }
+                    if (err.code) {
+                        console.error('[AUDIT-LOG] Axios/Error code:', err.code);
+                    }
+
                     if (errEl) {
                         errEl.textContent = 'Network error. Please try again.';
                         errEl.classList.remove('hidden');
@@ -5906,8 +5945,14 @@ const pages = {
 
             loading.show('Loading LMS Data...');
             try {
-                const res = await api.get('/lms');
-                const data = res.data || {};
+                let data = {};
+                try {
+                    const res = await api.get('/lms');
+                    data = res.data || {};
+                } catch (e) {
+                    console.warn('[LMS] Backend fetch failed, using fallback empty arrays:', e);
+                    data = { courses: [], certificates: [] };
+                }
                 const courses = data.courses || [];
                 const certificates = data.certificates || [];
 

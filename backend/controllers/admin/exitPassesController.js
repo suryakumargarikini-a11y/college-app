@@ -263,6 +263,21 @@ const reject = async (req, res) => {
             return res.status(result.status).json({ error: result.error });
         }
 
+        // Trigger FCM outside transaction (mirrors the approve path)
+        try {
+            const tokens = await prisma.fcmToken.findMany({ where: { studentId: result.pass.studentId } });
+            if (tokens.length > 0) {
+                const firebaseService = require('../../services/firebaseService');
+                await firebaseService.sendToTokens?.(
+                    tokens.map(t => t.token),
+                    'Exit Pass Rejected',
+                    `Your exit pass request was rejected. Reason: ${result.pass.rejectionNote || 'See app for details.'}`
+                );
+            }
+        } catch (fcmErr) {
+            logger.warn('[ExitPass] Optional FCM (reject) delivery failed:', fcmErr.message);
+        }
+
         res.json(result.pass);
     } catch (err) { 
         logger.error('[ExitPass] Reject error:', err);
@@ -498,7 +513,7 @@ const verifyOTP = async (req, res) => {
         }
 
         const pass = await prisma.exitPass.findFirst({
-            where: { studentId: student.id, status: 'APPROVED' },
+            where: { studentId: student.id, status: { in: ['APPROVED', 'UNDER_REVIEW'] } },
             include: { student: { select: { id: true, name: true, roll: true, phone: true, branch: true, year: true, section: true, photoUrl: true } } }
         });
 
@@ -506,7 +521,7 @@ const verifyOTP = async (req, res) => {
             return res.status(400).json({ valid: false, error: 'No active approved exit pass found for this student' });
         }
 
-        if (pass.otpAttempts >= 3) {
+        if (pass.status === 'UNDER_REVIEW' || pass.otpAttempts >= 3) {
             return res.status(400).json({ valid: false, error: 'This pass has been locked due to too many failed OTP attempts.' });
         }
 
@@ -655,13 +670,41 @@ const markUsed = async (req, res) => {
     }
 };
 
+// Run a transaction with Serializable isolation level and automatic retry on conflicts
+const runSerializableTransaction = async (fn, maxRetries = 5, delayMs = 150) => {
+    let attempt = 0;
+    while (true) {
+        try {
+            return await prisma.$transaction(fn, {
+                isolationLevel: 'Serializable',
+                maxWait: 10000,
+                timeout: 15000
+            });
+        } catch (err) {
+            attempt++;
+            const isSerializationError = 
+                err.code === 'P2034' || 
+                err.message?.includes('serialization failure') || 
+                err.message?.includes('deadlock') || 
+                err.message?.includes('40001');
+
+            if (isSerializationError && attempt < maxRetries) {
+                logger.warn(`[DB-Concurrency] Serialization conflict detected on attempt ${attempt}. Retrying in ${delayMs}ms...`);
+                await new Promise(resolve => setTimeout(resolve, delayMs));
+                continue;
+            }
+            throw err;
+        }
+    }
+};
+
 // Security Guard: confirm student campus exit
 const confirmExit = async (req, res) => {
     try {
         const { id } = req.params;
         const { gate, verificationMethod } = req.body || {};
 
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await runSerializableTransaction(async (tx) => {
             const pass = await tx.exitPass.findUnique({
                 where: { id },
                 include: { student: true }
@@ -760,7 +803,7 @@ const rejectIdentity = async (req, res) => {
         const { reason } = req.body || {};
         if (!reason) return res.status(400).json({ error: 'Reason for mismatch is required' });
 
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await runSerializableTransaction(async (tx) => {
             const pass = await tx.exitPass.findUnique({ where: { id }, include: { student: true } });
             if (!pass) return { status: 404, error: 'Exit pass not found' };
 
@@ -788,7 +831,7 @@ const rejectIdentity = async (req, res) => {
                 }
             });
 
-            return { status: 200, pass: updated };
+            return { status: 200, success: true, pass: updated };
         });
 
         if (result.error) {

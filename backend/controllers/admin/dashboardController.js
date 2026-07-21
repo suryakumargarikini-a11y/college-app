@@ -111,7 +111,7 @@ const getStats = async (req, res) => {
         });
         const statusBreakdown = { paid: { count: 0, amount: 0 }, partial: { count: 0, amount: 0 }, unpaid: { count: 0, amount: 0 } };
         feeStatusGroup.forEach(g => {
-            const statusKey = g.paymentStatus.toLowerCase();
+            const statusKey = (g.paymentStatus || 'unpaid').toLowerCase();
             const mappedKey = statusKey === 'completed' || statusKey === 'paid' ? 'paid' : (statusKey === 'partial' ? 'partial' : 'unpaid');
             statusBreakdown[mappedKey].count += g._count.id;
             statusBreakdown[mappedKey].amount += g._sum.amount || 0;

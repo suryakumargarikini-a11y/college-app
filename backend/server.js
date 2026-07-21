@@ -97,6 +97,16 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
+app.use((req, res, next) => {
+   console.log(
+      new Date().toISOString(),
+      req.method,
+      req.originalUrl,
+      req.ip
+   );
+   next();
+});
+
 // ─── Correlation IDs ──────────────────────────────────────────────────────────
 app.use(correlationMiddleware);
 
