@@ -33,6 +33,7 @@ const observabilityScheduler = require('./services/ObservabilityScheduler');
 const sreScheduler = require('./services/SREScheduler');
 const devSecOpsScheduler = require('./services/DevSecOpsScheduler');
 const feeReminderScheduler = require('./services/feeReminderScheduler');
+const firebaseService = require('./services/firebaseService');
 
 
 const app = express();
