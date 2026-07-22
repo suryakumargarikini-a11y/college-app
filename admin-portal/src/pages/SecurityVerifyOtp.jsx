@@ -46,6 +46,8 @@ export default function SecurityVerifyOtp() {
     setError('');
     processingRef.current = false;
 
+    console.log('[CAMERA] startCamera entered');
+
     // Check secure context / mediaDevices support
     if (typeof window !== 'undefined' && !window.isSecureContext && window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
       setCameraError('Camera access requires a secure HTTPS connection. Please use HTTPS or use the image upload option below.');
@@ -56,20 +58,23 @@ export default function SecurityVerifyOtp() {
       setCameraError('Camera access is not supported by this browser. Please use the image upload fallback.');
       return;
     }
+    console.log('[CAMERA] mediaDevices available');
 
     await stopCamera();
 
     try {
-      console.log('[QR-SCAN] scanner creating...');
+      console.log('[CAMERA] requesting/enumerating cameras');
       const html5QrCode = new Html5Qrcode('qr-reader');
       html5QrCodeRef.current = html5QrCode;
-      console.log('[QR-SCAN] scanner created');
+      console.log('[CAMERA] Html5Qrcode created');
 
       // 1. Enumerate cameras to find exact device ID (preferred method for Android Chrome)
       let cameraConfig = { facingMode: 'environment' };
 
       try {
         const cameras = await Html5Qrcode.getCameras();
+        const camCount = cameras ? cameras.length : 0;
+        console.log(`[CAMERA] cameras found=${camCount}`);
         if (cameras && cameras.length > 0) {
           const rearCam = cameras.find(c => {
             const label = (c.label || '').toLowerCase();
@@ -78,29 +83,36 @@ export default function SecurityVerifyOtp() {
           const selectedCam = rearCam || (cameras.length > 1 ? cameras[cameras.length - 1] : cameras[0]);
           if (selectedCam && selectedCam.id) {
             cameraConfig = selectedCam.id;
-            console.log('[QR-SCAN] selected camera device ID:', selectedCam.id, 'label:', selectedCam.label);
+            console.log('[CAMERA] selected camera device ID:', selectedCam.id, 'label:', selectedCam.label || 'unlabeled');
           }
         }
       } catch (e) {
-        console.warn('[QR-SCAN] camera enumeration fallback to facingMode string:', e);
+        console.warn('[CAMERA] camera enumeration fallback to facingMode string:', e);
       }
+
+      const qrboxCalc = (viewfinderWidth, viewfinderHeight) => {
+        const minDim = Math.min(viewfinderWidth, viewfinderHeight);
+        const boxSize = Math.floor(minDim * 0.7);
+        const clampedSize = Math.max(150, Math.min(250, boxSize));
+        return { width: clampedSize, height: clampedSize };
+      };
 
       const scanConfig = {
         fps: 10,
-        qrbox: { width: 250, height: 250 }
+        qrbox: qrboxCalc
       };
 
-      const handleScanSuccess = (decodedText, decodedResult) => {
+      const handleScanSuccess = async (decodedText, decodedResult) => {
         if (processingRef.current) return;
         processingRef.current = true;
 
         const textLen = decodedText ? decodedText.length : 0;
-        console.log(`[QR-SCAN] QR detected — decoded text length=${textLen}`);
+        console.log(`[QR-SCAN] QR detected length=${textLen}`);
         console.log('[QR-SCAN] success callback entered');
 
         if (decodedText && decodedText.startsWith('SITAM-QR-TEST')) {
-          console.log('[QR-SCAN] Dummy test QR detected successfully!');
-          setSuccessMsg(`✓ Test QR Code Detected (Length: ${textLen}) — Camera scanner is working cleanly!`);
+          console.log('[QR-SCAN] Dummy QR detected');
+          setSuccessMsg(`✓ Test QR Code Detected (Length: ${textLen}) — Camera scanner working cleanly!`);
           setTimeout(() => {
             setSuccessMsg('');
             processingRef.current = false;
@@ -108,41 +120,49 @@ export default function SecurityVerifyOtp() {
           return;
         }
 
-        // Real QR token: safely stop camera in background and trigger backend verification
-        setTimeout(() => {
-          stopCamera().catch(err => console.warn('Background stopCamera error:', err));
-        }, 100);
+        console.log('[QR-SCAN] Verification starting');
 
-        verifyToken(decodedText);
+        try {
+          const success = await verifyToken(decodedText);
+          if (success) {
+            // Stop camera ONLY after verification succeeds
+            await stopCamera();
+          } else {
+            processingRef.current = false;
+          }
+        } catch (err) {
+          console.error('[QR-SCAN] Verification error:', err);
+          processingRef.current = false;
+        }
       };
 
       const handleScanFailure = (errStr) => {
         const now = Date.now();
         if (now - lastFailLogRef.current > 2000) {
           lastFailLogRef.current = now;
-          console.log('[QR-SCAN] scan loop active (fps=10) — searching for QR frame...');
+          console.log('[QR-SCAN] scan loop active (fps=10)');
         }
       };
 
       try {
-        console.log('[QR-SCAN] starting camera with config:', cameraConfig);
+        console.log('[CAMERA] scanner.start beginning with config:', cameraConfig);
         await html5QrCode.start(
           cameraConfig,
           scanConfig,
           handleScanSuccess,
           handleScanFailure
         );
-        console.log('[QR-SCAN] camera started successfully! scanner state isScanning=true');
+        console.log('[CAMERA] scanner.start resolved — preview active');
       } catch (startErr) {
         if (typeof cameraConfig !== 'string' || cameraConfig !== 'environment') {
-          console.warn('[QR-SCAN] First camera config failed, retrying with facingMode: "environment"', startErr);
+          console.warn('[CAMERA] First camera config failed, retrying with facingMode: "environment"', startErr);
           await html5QrCode.start(
             { facingMode: 'environment' },
             scanConfig,
             handleScanSuccess,
             handleScanFailure
           );
-          console.log('[QR-SCAN] camera started with facingMode fallback!');
+          console.log('[CAMERA] scanner.start resolved with facingMode fallback — preview active');
         } else {
           throw startErr;
         }
@@ -150,7 +170,7 @@ export default function SecurityVerifyOtp() {
 
       setIsScanning(true);
     } catch (err) {
-      console.error('[QR-SCAN] Camera initialization failed:', err);
+      console.error('[CAMERA] scanner.start failed:', err);
       const errName = err?.name || '';
       const errMsg = err?.message || String(err);
 
@@ -174,7 +194,7 @@ export default function SecurityVerifyOtp() {
   const verifyToken = async (rawToken) => {
     if (!rawToken || !rawToken.trim()) {
       processingRef.current = false;
-      return;
+      return false;
     }
     setError('');
     setLoading(true);
@@ -185,12 +205,15 @@ export default function SecurityVerifyOtp() {
       console.log('[QR-SCAN] verification response status=', res.status, 'valid=', res.data.valid, 'alreadyUsed=', res.data.alreadyUsed);
       if (res.data.valid) {
         setPassData({ ...res.data, method: 'QR_SCAN' });
+        return true;
       } else if (res.data.alreadyUsed) {
         setError(res.data.error || 'QR ALREADY USED — This code has already been scanned.');
         processingRef.current = false;
+        return false;
       } else {
         setError(res.data.error || 'Invalid Exit Pass. Token is invalid or expired.');
         processingRef.current = false;
+        return false;
       }
     } catch (err) {
       const status = err.response?.status || 500;
@@ -198,6 +221,7 @@ export default function SecurityVerifyOtp() {
       console.log('[QR-SCAN] verification response status=', status, 'error=', errMsg);
       setError(errMsg);
       processingRef.current = false;
+      return false;
     } finally {
       setLoading(false);
     }
