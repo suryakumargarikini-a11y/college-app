@@ -22,6 +22,7 @@ export default function SecurityVerifyOtp() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const html5QrCodeRef = useRef(null);
   const fileInputRef = useRef(null);
+  const startingRef = useRef(false);
 
   const processingRef = useRef(false);
   const lastFailLogRef = useRef(0);
@@ -29,6 +30,7 @@ export default function SecurityVerifyOtp() {
   // Stop camera and release all MediaStream tracks (Idempotent & Safe)
   const stopCamera = async () => {
     console.log('[CAMERA-DEBUG] stopCamera called');
+    startingRef.current = false;
     const scanner = html5QrCodeRef.current;
     if (!scanner) {
       console.log('[CAMERA-DEBUG] stopCamera skipped — reference already null');
@@ -55,8 +57,14 @@ export default function SecurityVerifyOtp() {
     }
   };
 
-  // Start Rear Camera Scanning with Diagnostic Checkpoints
+  // Start Rear Camera Scanning with Diagnostic Checkpoints & Initialization Mutex
   const startCamera = async () => {
+    if (startingRef.current || html5QrCodeRef.current) {
+      console.log('[CAMERA-DEBUG] startCamera skipped — initialization already in progress or scanner active');
+      return;
+    }
+    startingRef.current = true;
+
     setCameraError('');
     setError('');
     processingRef.current = false;
@@ -74,15 +82,15 @@ export default function SecurityVerifyOtp() {
 
     if (!isSecure) {
       setCameraError('Camera access requires a secure HTTPS connection. Please use HTTPS or use the image upload option below.');
+      startingRef.current = false;
       return;
     }
 
     if (!hasGetUserMedia) {
       setCameraError('Camera access is not supported by this browser. Please use the image upload fallback.');
+      startingRef.current = false;
       return;
     }
-
-    await stopCamera();
 
     try {
       console.log('[CAMERA-DEBUG] 5 requesting cameras');
@@ -308,6 +316,8 @@ export default function SecurityVerifyOtp() {
       }
       setIsScanning(false);
       processingRef.current = false;
+    } finally {
+      startingRef.current = false;
     }
   };
 
