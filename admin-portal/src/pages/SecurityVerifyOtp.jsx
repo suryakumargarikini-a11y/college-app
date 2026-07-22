@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Html5Qrcode } from 'html5-qrcode';
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import api from '../lib/api';
 
 export default function SecurityVerifyOtp() {
@@ -52,7 +52,7 @@ export default function SecurityVerifyOtp() {
 
     console.log('[CAMERA-DEBUG] 1 startCamera entered');
 
-    const isSecure = typeof window !== 'undefined' && (window.isSecureContext || window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    const isSecure = typeof window !== 'undefined' && (window.isSecureContext || window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname !== '127.0.0.1');
     console.log(`[CAMERA-DEBUG] 2 secureContext=${isSecure}`);
 
     const hasMediaDevices = typeof navigator !== 'undefined' && Boolean(navigator.mediaDevices);
@@ -114,7 +114,10 @@ export default function SecurityVerifyOtp() {
       html5QrCodeRef.current = html5QrCode;
       console.log('[CAMERA-DEBUG] 9 Html5Qrcode created');
 
-      const scanConfig = { fps: 10 };
+      const scanConfig = {
+        fps: 10,
+        formatsToSupport: [ Html5QrcodeSupportedFormats.QR_CODE ]
+      };
 
       const handleScanSuccess = async (decodedText, decodedResult) => {
         const textLen = decodedText ? decodedText.length : 0;
@@ -155,7 +158,7 @@ export default function SecurityVerifyOtp() {
         const now = Date.now();
         if (now - lastFailLogRef.current > 2000) {
           lastFailLogRef.current = now;
-          console.log('[QR-SCAN] scan loop active (fps=10)');
+          console.log(`[QR-DECODE-FAIL] message=${errStr || 'QR code not found'}`);
         }
       };
 
@@ -228,6 +231,23 @@ export default function SecurityVerifyOtp() {
             if (currentRS >= 2 && currentRW > 0 && currentRH > 0) {
               const elapsed = Date.now() - startTime;
               console.log(`[CAMERA-STREAM] VIDEO READY AFTER ${elapsed} ms: readyState=${currentRS} dims=${currentRW}x${currentRH}`);
+
+              // Capture single diagnostic frame
+              setTimeout(() => {
+                try {
+                  const c = document.createElement('canvas');
+                  c.width = currentRW;
+                  c.height = currentRH;
+                  const ctx = c.getContext('2d');
+                  ctx.drawImage(videoEl, 0, 0);
+                  const imgData = ctx.getImageData(0, 0, Math.min(10, currentRW), Math.min(10, currentRH));
+                  const hasPixels = imgData.data.some(p => p > 0);
+                  console.log(`[FRAME-CAPTURE] canvas ${c.width}x${c.height} non-empty pixels=${hasPixels}`);
+                } catch (e) {
+                  console.warn('[FRAME-CAPTURE] error:', e);
+                }
+              }, 1000);
+
             } else if (Date.now() - startTime < 5000) {
               setTimeout(checkReady, 100);
             } else {
@@ -327,16 +347,16 @@ export default function SecurityVerifyOtp() {
     setError('');
 
     try {
-      console.log('[QR-DECODE] Image file scan started...');
+      console.log('[QR-FILE] scan started');
       const html5QrCode = new Html5Qrcode('qr-reader-temp');
       const decodedText = await html5QrCode.scanFile(file, true);
       await html5QrCode.clear();
 
       const textLen = decodedText ? decodedText.length : 0;
-      console.log(`[QR-DECODE] Image file QR detected length=${textLen}`);
+      console.log(`[QR-FILE] decode success length=${textLen}`);
 
       if (decodedText && decodedText.startsWith('SITAM-QR-TEST')) {
-        console.log('[QR-DECODE] Dummy QR detected in uploaded image!');
+        console.log('[QR-FILE] Dummy QR detected in uploaded image!');
         setSuccessMsg(`✓ Test QR Code Detected from Uploaded Image (Length: ${textLen}) — Decoder working cleanly!`);
         setTimeout(() => setSuccessMsg(''), 4000);
         return;
@@ -344,7 +364,9 @@ export default function SecurityVerifyOtp() {
 
       verifyToken(decodedText);
     } catch (err) {
-      console.error('[QR-DECODE] Image file decode error:', err);
+      const errName = err?.name || 'Error';
+      const errMsg = err?.message || String(err);
+      console.error(`[QR-FILE] decode failed name=${errName} message=${errMsg}`);
       setError('Could not decode QR code from the uploaded image. Please ensure the QR is clearly visible.');
     } finally {
       setUploadingImage(false);
