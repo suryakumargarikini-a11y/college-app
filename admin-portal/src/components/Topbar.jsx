@@ -19,9 +19,9 @@ const TITLES = {
   '/fee-notices':          'Fee Notices',
   '/exit-passes':          'Exit Pass Management',
   '/notifications':        'Notifications',
-  '/settings':             'Settings',
+  '/settings':              'Settings',
   '/security/dashboard':   'Security Dashboard',
-  '/security/verify-otp':  'OTP Verification',
+  '/security/verify-otp':  'Gate QR Verification',
   '/security/history':     'Verification History',
 };
 
@@ -58,8 +58,9 @@ export default function Topbar({ onMenuClick, sidebarWidth, onCmdOpen }) {
 
   return (
     <header
-      className="fixed top-0 right-0 h-14 bg-white/90 backdrop-blur-sm border-b border-gray-200 flex items-center px-4 z-20 gap-3"
-      style={{ left: sidebarWidth }}
+      className={`fixed top-0 right-0 h-14 bg-white/90 backdrop-blur-sm border-b border-gray-200 flex items-center px-4 z-20 gap-3 left-0 ${
+        sidebarWidth === '64px' ? 'md:left-16' : 'md:left-60'
+      }`}
     >
       {/* Mobile hamburger */}
       <button className="btn-icon md:hidden flex-shrink-0" onClick={onMenuClick} aria-label="Open navigation menu">

@@ -4,9 +4,9 @@ import { authStore } from '../store/authStore';
 
 const NAV_BY_ROLE = {
   SECURITY_GUARD: [
-    { path: '/security/dashboard', icon: 'security',    label: 'Dashboard' },
-    { path: '/security/verify-otp', icon: 'pin',        label: 'OTP Verification' },
-    { path: '/security/history',    icon: 'history',    label: 'Verification History' },
+    { path: '/security/dashboard', icon: 'security',        label: 'Dashboard' },
+    { path: '/security/verify-otp', icon: 'qr_code_scanner', label: 'Gate QR Scan' },
+    { path: '/security/history',    icon: 'history',        label: 'Verification History' },
   ],
   ACCOUNTS_ADMIN: [
     { path: '/dashboard',           icon: 'dashboard',              label: 'Dashboard' },

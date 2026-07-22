@@ -55,11 +55,11 @@ export default function AdminLayout() {
       />
 
       <main
-        className="transition-all duration-300 pt-14 min-h-screen"
-        style={{ marginLeft: `${sidebarPx}px` }}
+        className={`transition-all duration-300 pt-14 min-h-screen ml-0 ${
+          collapsed ? 'md:ml-16' : 'md:ml-60'
+        }`}
       >
-        <div className="md:hidden" style={{ marginLeft: 0 }} />
-        <div className="p-5 sm:p-6 max-w-screen-2xl">
+        <div className="p-3 sm:p-6 max-w-screen-2xl mx-auto w-full">
           <Outlet />
         </div>
       </main>

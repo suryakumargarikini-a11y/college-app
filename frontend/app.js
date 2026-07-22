@@ -4469,7 +4469,7 @@ const pages = {
                 </main>
 
                 <div id="ep-sheet-backdrop" class="bottom-sheet-backdrop hidden opacity-0"></div>
-                <div id="ep-sheet" class="bottom-sheet">
+                <div id="ep-sheet" class="bottom-sheet hidden translate-y-full">
                     <div class="px-6 py-4 flex items-center justify-between border-b border-slate-100">
                         <h3 class="font-extrabold text-slate-800 text-lg">Apply for Exit Pass</h3>
                         <button id="close-ep-sheet" class="p-2 hover:bg-slate-100 rounded-full transition-colors"><span class="material-symbols-outlined text-slate-500">close</span></button>
@@ -4591,8 +4591,12 @@ const pages = {
                 sheet.classList.remove('open');
                 setTimeout(() => {
                     backdrop.classList.add('hidden');
+                    sheet.classList.add('translate-y-full');
                 }, 300);
             };
+
+            // Ensure Apply modal is strictly CLOSED on page mount / refresh
+            closeSheet();
 
             applyBtn?.addEventListener('click', openSheet);
             backdrop?.addEventListener('click', closeSheet);
@@ -4780,47 +4784,44 @@ const pages = {
                             const errEl = document.getElementById('ep-qr-error');
                             const retryBtn = document.getElementById('ep-qr-retry');
 
-                            console.log(`[ExitPass QR] Starting QR load: ${active.id}`);
-                            console.log(`[ExitPass QR] Requesting QR token`);
+                            console.log(`[ExitPass QR] loadQr entered for pass: ${active.id}`);
 
                             try {
-                                const tokRes = await api.get(`/exit-passes/${active.id}/qr-token`);
-                                console.log(`[ExitPass QR] QR API status: 200 OK`);
+                                const fetchAndRender = async () => {
+                                    const tokRes = await api.get(`/exit-passes/${active.id}/qr-token`, { bypassCache: true });
+                                    const token = tokRes?.qrToken || tokRes?.token || tokRes?.data?.qrToken || tokRes?.data?.token;
 
-                                // Robust token unwrapping supporting all possible response wrapper formats
-                                const token = tokRes?.qrToken || tokRes?.token || tokRes?.data?.qrToken || tokRes?.data?.token;
-                                console.log(`[ExitPass QR] Token received: ${token ? 'YES' : 'NO'}`);
+                                    if (!token) throw new Error('Token missing in API response');
+                                    if (!canvas) throw new Error('QR Canvas element not found in DOM');
 
-                                const isQriousAvailable = typeof window.QRious !== 'undefined' || typeof QRious !== 'undefined';
-                                console.log(`[ExitPass QR] QRious available: ${isQriousAvailable ? 'YES' : 'NO'}`);
-                                console.log(`[ExitPass QR] Canvas found: ${canvas ? 'YES' : 'NO'}`);
+                                    const QRConstructor = window.QRCode || (typeof QRCode !== 'undefined' ? QRCode : null);
+                                    if (typeof QRConstructor !== 'function') throw new Error('QRCode renderer library not loaded');
 
-                                if (token) {
-                                    if (canvas && loadingEl) {
-                                        const QRConstructor = window.QRious || (typeof QRious !== 'undefined' ? QRious : null);
-                                        if (typeof QRConstructor === 'function') {
-                                            new QRConstructor({ element: canvas, value: token, size: 150 });
-                                            canvas.classList.remove('hidden');
-                                            loadingEl.classList.add('hidden');
-                                            if (errEl) errEl.classList.add('hidden');
-                                            console.log(`[ExitPass QR] Render success`);
-                                        } else {
-                                            console.error('[ExitPass QR] Render failed: QRious constructor unavailable');
-                                            if (loadingEl) loadingEl.classList.add('hidden');
-                                            if (errEl) errEl.classList.remove('hidden');
-                                        }
-                                    }
-                                } else {
-                                    console.error('[ExitPass QR] Render failed: Token missing in API response');
-                                    if (loadingEl) loadingEl.classList.add('hidden');
-                                    if (errEl) errEl.classList.remove('hidden');
-                                }
+                                    // Render QR Code onto canvas using QRCode library
+                                    new QRConstructor(canvas, {
+                                        text: token,
+                                        width: 180,
+                                        height: 180,
+                                        colorDark: '#000000',
+                                        colorLight: '#ffffff'
+                                    });
+
+                                    canvas.classList.remove('hidden');
+                                    if (errEl) errEl.classList.add('hidden');
+                                    console.log(`[ExitPass QR] QR rendered successfully`);
+                                };
+
+                                const timeoutWatchdog = new Promise((_, reject) => {
+                                    setTimeout(() => reject(new Error('QR rendering timed out')), 5000);
+                                });
+
+                                await Promise.race([fetchAndRender(), timeoutWatchdog]);
+
                             } catch (err) {
-                                const errMsg = err.message || err.response?.data?.error || '';
-                                console.log(`[ExitPass QR] Render failed: ${errMsg}`);
+                                const errMsg = err?.message || err?.response?.data?.error || '';
+                                console.error('[ExitPass QR] Render failed:', errMsg);
 
                                 if (errMsg.includes('scanned by Security') || errMsg.includes('already been confirmed') || errMsg.includes('scanned')) {
-                                    // QR consumed by Security — show consumed state
                                     const qrSection = document.getElementById('ep-qr-section');
                                     if (qrSection) {
                                         qrSection.innerHTML = `
@@ -4832,8 +4833,10 @@ const pages = {
                                         `;
                                     }
                                 } else {
-                                    if (loadingEl) loadingEl.classList.add('hidden');
-                                    if (errEl) errEl.classList.remove('hidden');
+                                    if (canvas) canvas.classList.add('hidden');
+                                    if (errEl) {
+                                        errEl.classList.remove('hidden');
+                                    }
                                     if (retryBtn) {
                                         retryBtn.onclick = () => {
                                             if (errEl) errEl.classList.add('hidden');
@@ -4842,9 +4845,13 @@ const pages = {
                                         };
                                     }
                                 }
+                            } finally {
+                                if (loadingEl) loadingEl.classList.add('hidden');
                             }
                         };
-                        setTimeout(loadQr, 50);
+
+                        // Deterministic post-DOM execution
+                        requestAnimationFrame(() => loadQr());
                     }
                 }
 
@@ -4917,19 +4924,29 @@ const pages = {
                 }
             };
 
-            const loadPasses = async () => {
-                loading.show('Loading Exit Passes...');
+            window.reloadExitPasses = async () => {
                 try {
                     await loadQuota();
                     try { removeCachedData('/exit-passes/my'); } catch (_) {}
-                    const res = await api.get('/exit-passes/my');
+                    const res = await api.get('/exit-passes/my', { bypassCache: true });
                     const passes = Array.isArray(res) ? res : (res.data || res.passes || []);
                     renderPasses(passes);
                 } catch (err) {
                     console.error('[ExitPass] Load failed:', err);
-                } finally {
-                    loading.hide();
                 }
+            };
+
+            const loadPasses = async () => {
+                if (activeContainer) {
+                    activeContainer.innerHTML = `
+                        <div class="p-5 bg-white border border-slate-200/60 rounded-3xl shadow-sm space-y-3 animate-pulse">
+                            <div class="h-4 bg-slate-100 rounded w-1/3"></div>
+                            <div class="h-6 bg-slate-100 rounded w-2/3"></div>
+                            <div class="h-12 bg-slate-100 rounded w-full"></div>
+                        </div>
+                    `;
+                }
+                await window.reloadExitPasses();
             };
 
             form?.addEventListener('submit', async (e) => {
@@ -4948,7 +4965,13 @@ const pages = {
                     return;
                 }
 
-                loading.show('Submitting exit pass request...');
+                const submitBtn = form.querySelector('button[type="submit"]');
+                const origBtnHtml = submitBtn ? submitBtn.innerHTML : 'Submit Request';
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = `<span class="inline-block animate-spin mr-2">◌</span> Submitting...`;
+                }
+
                 try {
                     let res;
                     if (selectedType === 'GROUP') {
@@ -4958,7 +4981,7 @@ const pages = {
 
                         if (!groupName) {
                             showToast('Group Name is required', 'error');
-                            loading.hide();
+                            if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = origBtnHtml; }
                             return;
                         }
 
@@ -4973,7 +4996,7 @@ const pages = {
                         const emergencyContact = $('ep-emergency-contact').value.trim();
                         if (!emergencyContact) {
                             showToast('Emergency contact is required', 'error');
-                            loading.hide();
+                            if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = origBtnHtml; }
                             return;
                         }
 
@@ -4998,7 +5021,10 @@ const pages = {
                     console.error('[ExitPass] submission error:', err);
                     showToast(err.response?.data?.error || 'Submission failed. Server error.', 'error', 3000);
                 } finally {
-                    loading.hide();
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = origBtnHtml;
+                    }
                 }
             });
 
