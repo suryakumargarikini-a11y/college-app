@@ -62,21 +62,66 @@ export default function SecurityVerifyOtp() {
       const html5QrCode = new Html5Qrcode('qr-reader');
       html5QrCodeRef.current = html5QrCode;
 
-      await html5QrCode.start(
-        { facingMode: { ideal: 'environment' } }, // Prefer rear camera
-        {
-          fps: 10,
-          qrbox: { width: 220, height: 220 }
-        },
-        async (decodedText) => {
-          // Token decoded! Stop camera immediately
-          await stopCamera();
-          verifyToken(decodedText);
-        },
-        () => {
-          // Continuous frame scan error (normal when no QR in view)
+      // 1. Enumerate cameras to find exact device ID (preferred method for Android Chrome)
+      let cameraConfig = { facingMode: 'environment' }; // String, NOT object { ideal: ... }
+
+      try {
+        const cameras = await Html5Qrcode.getCameras();
+        if (cameras && cameras.length > 0) {
+          // Search for a rear/back/environment camera in camera labels
+          const rearCam = cameras.find(c => {
+            const label = (c.label || '').toLowerCase();
+            return label.includes('back') || label.includes('rear') || label.includes('environment') || label.includes('facing back');
+          });
+          const selectedCam = rearCam || (cameras.length > 1 ? cameras[cameras.length - 1] : cameras[0]);
+          if (selectedCam && selectedCam.id) {
+            cameraConfig = selectedCam.id;
+          }
         }
-      );
+      } catch (e) {
+        console.warn('Camera enumeration fallback to facingMode string:', e);
+      }
+
+      const qrboxCalc = (viewfinderWidth, viewfinderHeight) => {
+        const minDim = Math.min(viewfinderWidth, viewfinderHeight);
+        const boxSize = Math.floor(minDim * 0.75);
+        const clampedSize = Math.max(180, Math.min(260, boxSize));
+        return { width: clampedSize, height: clampedSize };
+      };
+
+      try {
+        await html5QrCode.start(
+          cameraConfig,
+          {
+            fps: 10,
+            qrbox: qrboxCalc
+          },
+          async (decodedText) => {
+            // Token decoded! Stop camera immediately
+            await stopCamera();
+            verifyToken(decodedText);
+          },
+          () => {
+            // Continuous frame scan error (normal when no QR in view)
+          }
+        );
+      } catch (startErr) {
+        // Fallback to facingMode: "environment" string if device ID fails
+        if (typeof cameraConfig !== 'string' || cameraConfig !== 'environment') {
+          console.warn('First camera config failed, retrying with facingMode: "environment"', startErr);
+          await html5QrCode.start(
+            { facingMode: 'environment' },
+            { fps: 10, qrbox: qrboxCalc },
+            async (decodedText) => {
+              await stopCamera();
+              verifyToken(decodedText);
+            },
+            () => {}
+          );
+        } else {
+          throw startErr;
+        }
+      }
 
       setIsScanning(true);
     } catch (err) {
@@ -90,6 +135,8 @@ export default function SecurityVerifyOtp() {
         setCameraError('No camera found on this device.');
       } else if (errName === 'NotReadableError' || errMsg.includes('Could not start video source')) {
         setCameraError('Camera is currently in use by another app or inaccessible.');
+      } else if (errMsg.includes('facingMode')) {
+        setCameraError(`Camera constraint error: ${errMsg}`);
       } else {
         setCameraError(`Camera error: ${errMsg || 'Unable to access camera'}`);
       }
