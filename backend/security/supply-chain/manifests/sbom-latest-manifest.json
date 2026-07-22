@@ -1,0 +1,9 @@
+{
+  "artifactName": "sbom-latest",
+  "artifactHash": "65653425987f9f1a28150a7145b6adb8f9e9c853d28a29b354358d5c32d0b45e",
+  "signature": "869288dc0e374bde735c4d702cbb7d437850135d1a44dcfd5dbd7f8e2d6e38de",
+  "algorithm": "HMAC-SHA256",
+  "signingKeyId": "default-hmac-key",
+  "timestamp": "2026-07-21T11:06:09.400Z",
+  "provenanceId": "d5b62527-b49d-4156-a54b-09a94d63f27a"
+}
