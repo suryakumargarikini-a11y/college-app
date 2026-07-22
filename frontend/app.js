@@ -4775,37 +4775,52 @@ const pages = {
                     // Load QR if approved
                     if (isApproved) {
                         const loadQr = async () => {
+                            const canvas = document.getElementById('exit-pass-qr-canvas');
+                            const loadingEl = document.getElementById('ep-qr-loading');
+                            const errEl = document.getElementById('ep-qr-error');
+                            const retryBtn = document.getElementById('ep-qr-retry');
+
+                            console.log(`[ExitPass QR] Starting QR load: ${active.id}`);
+                            console.log(`[ExitPass QR] Requesting QR token`);
+
                             try {
                                 const tokRes = await api.get(`/exit-passes/${active.id}/qr-token`);
-                                if (tokRes.data?.qrToken) {
-                                    const canvas = document.getElementById('exit-pass-qr-canvas');
-                                    const loadingEl = document.getElementById('ep-qr-loading');
+                                console.log(`[ExitPass QR] QR API status: 200 OK`);
+
+                                // Robust token unwrapping supporting all possible response wrapper formats
+                                const token = tokRes?.qrToken || tokRes?.token || tokRes?.data?.qrToken || tokRes?.data?.token;
+                                console.log(`[ExitPass QR] Token received: ${token ? 'YES' : 'NO'}`);
+
+                                const isQriousAvailable = typeof window.QRious !== 'undefined' || typeof QRious !== 'undefined';
+                                console.log(`[ExitPass QR] QRious available: ${isQriousAvailable ? 'YES' : 'NO'}`);
+                                console.log(`[ExitPass QR] Canvas found: ${canvas ? 'YES' : 'NO'}`);
+
+                                if (token) {
                                     if (canvas && loadingEl) {
-                                        new QRious({ element: canvas, value: tokRes.data.qrToken, size: 150 });
-                                        canvas.classList.remove('hidden');
-                                        loadingEl.classList.add('hidden');
+                                        const QRConstructor = window.QRious || (typeof QRious !== 'undefined' ? QRious : null);
+                                        if (typeof QRConstructor === 'function') {
+                                            new QRConstructor({ element: canvas, value: token, size: 150 });
+                                            canvas.classList.remove('hidden');
+                                            loadingEl.classList.add('hidden');
+                                            if (errEl) errEl.classList.add('hidden');
+                                            console.log(`[ExitPass QR] Render success`);
+                                        } else {
+                                            console.error('[ExitPass QR] Render failed: QRious constructor unavailable');
+                                            if (loadingEl) loadingEl.classList.add('hidden');
+                                            if (errEl) errEl.classList.remove('hidden');
+                                        }
                                     }
-                                } else if (tokRes.data?.error) {
-                                    // QR consumed by Security — show appropriate state
-                                    const qrSection = document.getElementById('ep-qr-section');
-                                    if (qrSection) {
-                                        qrSection.innerHTML = `
-                                            <div class="text-center py-3 space-y-1">
-                                                <span class="material-symbols-outlined text-blue-500 text-3xl">verified_user</span>
-                                                <p class="text-xs font-bold text-blue-800">QR Scanned by Security</p>
-                                                <p class="text-[10px] text-slate-500">Your exit is being processed. Waiting for guard confirmation.</p>
-                                            </div>
-                                        `;
-                                    }
+                                } else {
+                                    console.error('[ExitPass QR] Render failed: Token missing in API response');
+                                    if (loadingEl) loadingEl.classList.add('hidden');
+                                    if (errEl) errEl.classList.remove('hidden');
                                 }
                             } catch (err) {
-                                // QR consumed or error
-                                const errMsg = err.response?.data?.error || '';
-                                const loadingEl = document.getElementById('ep-qr-loading');
-                                const errEl = document.getElementById('ep-qr-error');
-                                const retryBtn = document.getElementById('ep-qr-retry');
-                                if (errMsg.includes('scanned by Security') || errMsg.includes('already been confirmed')) {
-                                    // QR consumed — show consumed state
+                                const errMsg = err.message || err.response?.data?.error || '';
+                                console.log(`[ExitPass QR] Render failed: ${errMsg}`);
+
+                                if (errMsg.includes('scanned by Security') || errMsg.includes('already been confirmed') || errMsg.includes('scanned')) {
+                                    // QR consumed by Security — show consumed state
                                     const qrSection = document.getElementById('ep-qr-section');
                                     if (qrSection) {
                                         qrSection.innerHTML = `
@@ -4819,9 +4834,14 @@ const pages = {
                                 } else {
                                     if (loadingEl) loadingEl.classList.add('hidden');
                                     if (errEl) errEl.classList.remove('hidden');
-                                    if (retryBtn) retryBtn.addEventListener('click', () => { errEl.classList.add('hidden'); loadingEl.classList.remove('hidden'); loadQr(); });
+                                    if (retryBtn) {
+                                        retryBtn.onclick = () => {
+                                            if (errEl) errEl.classList.add('hidden');
+                                            if (loadingEl) loadingEl.classList.remove('hidden');
+                                            loadQr();
+                                        };
+                                    }
                                 }
-                                console.error('[ExitPass] QR load error:', err);
                             }
                         };
                         setTimeout(loadQr, 50);

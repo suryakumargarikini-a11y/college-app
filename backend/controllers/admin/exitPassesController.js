@@ -1232,7 +1232,7 @@ const getQrToken = async (req, res) => {
         }
 
         const rawToken = qrEncryptionService.decrypt(pass.qrCode);
-        res.json({ qrToken: rawToken });
+        res.json({ qrToken: rawToken, token: rawToken });
     } catch (err) {
         logger.error('[ExitPass] getQrToken error:', err);
         res.status(500).json({ error: 'Failed to retrieve QR token' });
