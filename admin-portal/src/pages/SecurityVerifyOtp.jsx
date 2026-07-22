@@ -168,18 +168,72 @@ export default function SecurityVerifyOtp() {
         );
         console.log('[CAMERA-DEBUG] 11 scanner.start resolved');
 
-        // Check video element state
+        // Inspect video element state and stream details
         const videoEl = qrReaderEl.querySelector('video');
         const videoExists = Boolean(videoEl);
         console.log(`[CAMERA-DEBUG] 12 video element exists=${videoExists}`);
 
         if (videoEl) {
-          const readyState = videoEl.readyState;
-          console.log(`[CAMERA-DEBUG] 13 video readyState=${readyState}`);
+          videoEl.setAttribute('playsinline', 'true');
+          videoEl.muted = true;
 
-          const vW = videoEl.videoWidth || 0;
-          const vH = videoEl.videoHeight || 0;
-          console.log(`[CAMERA-DEBUG] 14 video dimensions=${vW}x${vH}`);
+          videoEl.addEventListener('loadedmetadata', () => console.log('[CAMERA-STREAM] EVENT: loadedmetadata fired'));
+          videoEl.addEventListener('canplay', () => console.log('[CAMERA-STREAM] EVENT: canplay fired'));
+          videoEl.addEventListener('playing', () => console.log('[CAMERA-STREAM] EVENT: playing fired'));
+
+          const srcObj = videoEl.srcObject;
+          const hasSrcObj = Boolean(srcObj);
+          console.log(`[CAMERA-STREAM] srcObject=${hasSrcObj}`);
+
+          if (srcObj) {
+            console.log(`[CAMERA-STREAM] stream active=${srcObj.active}`);
+            const tracks = srcObj.getVideoTracks ? srcObj.getVideoTracks() : [];
+            console.log(`[CAMERA-STREAM] tracks=${tracks.length}`);
+            if (tracks.length > 0) {
+              const tr = tracks[0];
+              console.log(`[CAMERA-STREAM] track readyState=${tr.readyState}`);
+              console.log(`[CAMERA-STREAM] track enabled=${tr.enabled}`);
+              console.log(`[CAMERA-STREAM] track muted=${tr.muted}`);
+              try {
+                const settings = tr.getSettings ? tr.getSettings() : {};
+                console.log(`[CAMERA-STREAM] track settings facingMode=${settings.facingMode || 'N/A'} width=${settings.width || 0} height=${settings.height || 0} frameRate=${settings.frameRate || 0}`);
+              } catch (e) {
+                console.warn('[CAMERA-STREAM] getSettings error:', e);
+              }
+            }
+          }
+
+          console.log(`[CAMERA-STREAM] video paused=${videoEl.paused}`);
+          console.log(`[CAMERA-DEBUG] 13 video readyState=${videoEl.readyState}`);
+          console.log(`[CAMERA-DEBUG] 14 video dimensions=${videoEl.videoWidth}x${videoEl.videoHeight}`);
+
+          if (videoEl.paused) {
+            try {
+              console.log('[CAMERA-STREAM] attempting video.play()...');
+              await videoEl.play();
+              console.log('[CAMERA-STREAM] video.play() resolved successfully!');
+            } catch (playErr) {
+              console.error(`[CAMERA-STREAM] video.play() failed name=${playErr?.name} msg=${playErr?.message}`);
+            }
+          }
+
+          // Polling bounded readiness wait (up to 5000ms)
+          const startTime = Date.now();
+          const checkReady = () => {
+            const currentRW = videoEl.videoWidth || 0;
+            const currentRH = videoEl.videoHeight || 0;
+            const currentRS = videoEl.readyState;
+
+            if (currentRS >= 2 && currentRW > 0 && currentRH > 0) {
+              const elapsed = Date.now() - startTime;
+              console.log(`[CAMERA-STREAM] VIDEO READY AFTER ${elapsed} ms: readyState=${currentRS} dims=${currentRW}x${currentRH}`);
+            } else if (Date.now() - startTime < 5000) {
+              setTimeout(checkReady, 100);
+            } else {
+              console.warn(`[CAMERA-STREAM] VIDEO READINESS TIMEOUT after 5000 ms: final readyState=${currentRS} dims=${currentRW}x${currentRH}`);
+            }
+          };
+          setTimeout(checkReady, 100);
         }
       } catch (startErr) {
         console.error('[CAMERA-DEBUG] START FAILED');
