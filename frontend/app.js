@@ -365,7 +365,7 @@ async function registerPush() {
                 });
 
                 PushNotifications.addListener('pushNotificationReceived', async (notification) => {
-                    console.log('[Push] Native push notification received in foreground');
+                    console.log('[LocalNotification] Foreground FCM received');
                     const title = notification.title || 'SITAM Smart ERP';
                     const body = notification.body || '';
                     const route = notification.data?.sitam_route || notification.data?.route || '/notifications';
@@ -379,26 +379,26 @@ async function registerPush() {
                         router.routes[route]?.afterRender?.();
                     }
 
-                    // 2. Present Android status bar notification using LocalNotifications API
+                    // 2. Present Android status bar notification using LocalNotifications API (Immediate Delivery)
                     if (window.Capacitor?.Plugins?.LocalNotifications) {
                         try {
-                            const notifId = Math.floor(Math.random() * 1000000) + 1;
+                            console.log('[LocalNotification] Scheduling Android notification');
+                            const notifId = (Date.now() % 2147483647) + 1;
                             await window.Capacitor.Plugins.LocalNotifications.schedule({
                                 notifications: [
                                     {
                                         title,
                                         body,
                                         id: notifId,
-                                        schedule: { at: new Date(Date.now() + 100) },
                                         sound: 'default',
-                                        channelId: 'sitam_academic_alerts',
+                                        channelId: 'sitam_academic_alerts_v2',
                                         extra: { route }
                                     }
                                 ]
                             });
-                            console.log(`[Push] Foreground status bar notification created (id: ${notifId})`);
+                            console.log('[LocalNotification] Schedule success');
                         } catch (localErr) {
-                            console.warn('[Push] LocalNotification creation error:', localErr);
+                            console.error(`[LocalNotification] Schedule failed: ${localErr.message || localErr}`);
                         }
                     }
                 });
@@ -412,10 +412,22 @@ async function registerPush() {
                 });
             }
 
-            // Setup LocalNotifications channel & tap listener
+            // Setup LocalNotifications permission, channel & tap listener
             if (window.Capacitor?.Plugins?.LocalNotifications) {
+                const LocalNotifications = window.Capacitor.Plugins.LocalNotifications;
                 try {
-                    await window.Capacitor.Plugins.LocalNotifications.createChannel({
+                    let localPerm = await LocalNotifications.checkPermissions();
+                    if (localPerm.display === 'prompt') {
+                        localPerm = await LocalNotifications.requestPermissions();
+                    }
+                    console.log(`[LocalNotification] Permission: ${localPerm.display}`);
+                } catch (permErr) {
+                    console.warn(`[LocalNotification] Permission check error: ${permErr.message || permErr}`);
+                }
+
+                try {
+                    // Preserve existing background FCM channel
+                    await LocalNotifications.createChannel({
                         id: 'sitam_academic_alerts',
                         name: 'SITAM Academic Alerts',
                         description: 'Important notifications, marks, fees, and academic alerts',
@@ -424,11 +436,24 @@ async function registerPush() {
                         sound: 'default',
                         vibration: true
                     });
-                } catch (_) {}
+                    // Create new high-priority foreground channel
+                    await LocalNotifications.createChannel({
+                        id: 'sitam_academic_alerts_v2',
+                        name: 'SITAM Academic Alerts (Foreground)',
+                        description: 'High-priority foreground notifications and alerts',
+                        importance: 5,
+                        visibility: 1,
+                        sound: 'default',
+                        vibration: true
+                    });
+                    console.log('[LocalNotification] Channel ready: sitam_academic_alerts_v2');
+                } catch (chanErr) {
+                    console.warn(`[LocalNotification] Channel creation error: ${chanErr.message || chanErr}`);
+                }
 
                 if (!window._localPushListenersRegistered) {
                     window._localPushListenersRegistered = true;
-                    window.Capacitor.Plugins.LocalNotifications.addListener('localNotificationActionPerformed', (action) => {
+                    LocalNotifications.addListener('localNotificationActionPerformed', (action) => {
                         console.log('[Push] Local notification tapped');
                         const route = action.notification.extra?.route || '/notifications';
                         if (route) {
@@ -437,6 +462,46 @@ async function registerPush() {
                     });
                 }
             }
+
+            // Diagnostic helper for testing isolated local notification without FCM trigger
+            window.testLocalNotification = async function () {
+                console.log('[LocalNotification] Isolated test trigger initiated');
+                if (!window.Capacitor?.Plugins?.LocalNotifications) {
+                    console.error('[LocalNotification] Plugin not available on window.Capacitor.Plugins.LocalNotifications');
+                    return false;
+                }
+                const LocalNotifications = window.Capacitor.Plugins.LocalNotifications;
+                try {
+                    let localPerm = await LocalNotifications.checkPermissions();
+                    if (localPerm.display === 'prompt') {
+                        localPerm = await LocalNotifications.requestPermissions();
+                    }
+                    console.log(`[LocalNotification] Permission: ${localPerm.display}`);
+                    if (localPerm.display !== 'granted') {
+                        console.error('[LocalNotification] Permission not granted for local notification test');
+                        return false;
+                    }
+                    const notifId = (Date.now() % 2147483647) + 1;
+                    console.log('[LocalNotification] Scheduling Android notification');
+                    await LocalNotifications.schedule({
+                        notifications: [
+                            {
+                                title: 'SITAM ERP Test Alert',
+                                body: 'Isolated foreground local notification verification successful.',
+                                id: notifId,
+                                sound: 'default',
+                                channelId: 'sitam_academic_alerts_v2',
+                                extra: { route: '/notifications' }
+                            }
+                        ]
+                    });
+                    console.log('[LocalNotification] Schedule success');
+                    return true;
+                } catch (err) {
+                    console.error(`[LocalNotification] Schedule failed: ${err.message || err}`);
+                    return false;
+                }
+            };
 
             // Register with FCM
             await PushNotifications.register();
