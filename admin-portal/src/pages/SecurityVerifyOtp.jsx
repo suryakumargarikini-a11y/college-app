@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
+import QrScanner from 'qr-scanner';
 import api from '../lib/api';
 
 export default function SecurityVerifyOtp() {
@@ -367,27 +368,43 @@ export default function SecurityVerifyOtp() {
     }
 
     let fileScanner = null;
+    let decodedText = null;
+
     try {
       console.log('[QR-FILE] scan started');
       fileScanner = new Html5Qrcode('qr-reader-temp');
-      const decodedText = await fileScanner.scanFile(file, true);
-
-      const textLen = decodedText ? decodedText.length : 0;
-      console.log(`[QR-FILE] decode success length=${textLen}`);
-
-      if (decodedText && decodedText.startsWith('SITAM-QR-TEST')) {
-        console.log('[QR-FILE] Dummy QR detected in uploaded image!');
-        setSuccessMsg(`✓ Test QR Code Detected from Uploaded Image (Length: ${textLen}) — Decoder working cleanly!`);
-        setTimeout(() => setSuccessMsg(''), 4000);
-        return;
+      decodedText = await fileScanner.scanFile(file, true);
+      console.log(`[QR-FILE] Html5Qrcode decode success length=${decodedText?.length || 0}`);
+    } catch (html5Err) {
+      console.warn('[QR-FILE] Html5Qrcode.scanFile failed:', html5Err?.message || html5Err);
+      try {
+        console.log('[QR-FILE] attempting QrScanner.scanImage fallback...');
+        decodedText = await QrScanner.scanImage(file);
+        console.log(`[QR-FILE] QrScanner.scanImage success length=${decodedText?.length || 0}`);
+      } catch (qrScannerErr) {
+        console.error('[QR-FILE] QrScanner.scanImage failed:', qrScannerErr?.message || qrScannerErr);
       }
+    }
 
-      verifyToken(decodedText);
+    try {
+      if (decodedText) {
+        const textLen = decodedText.length;
+        console.log(`[QR-FILE] final decoded text length=${textLen}`);
+
+        if (decodedText.startsWith('SITAM-QR-TEST')) {
+          console.log('[QR-FILE] Dummy QR detected in uploaded image!');
+          setSuccessMsg(`✓ Test QR Code Detected from Uploaded Image (Length: ${textLen}) — Decoder working cleanly!`);
+          setTimeout(() => setSuccessMsg(''), 4000);
+          return;
+        }
+
+        verifyToken(decodedText);
+      } else {
+        setError('Could not decode QR code from the uploaded image. Please ensure the QR is clearly visible.');
+      }
     } catch (err) {
-      const errName = err?.name || 'Error';
-      const errMsg = err?.message || String(err);
-      console.error(`[QR-FILE] decode failed name=${errName} message=${errMsg}`);
-      setError('Could not decode QR code from the uploaded image. Please ensure the QR is clearly visible.');
+      console.error('[QR-FILE] verification error:', err);
+      setError('Could not decode QR code from the uploaded image.');
     } finally {
       if (fileScanner) {
         try {
