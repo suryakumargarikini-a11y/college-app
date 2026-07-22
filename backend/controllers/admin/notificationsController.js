@@ -169,10 +169,32 @@ const createNotification = async (req, res) => {
 
         logger.info(`[Admin Notification] Record created: ${notification.id}`);
 
-        // Trigger optional FCM only if published
+        // Trigger optional FCM & WebSocket push only if published
         let notifiedCount = 0;
         if (normStatus === 'PUBLISHED') {
             notifiedCount = await triggerFcm(notification);
+            
+            // Dispatch WebSocket real-time event to connected active students
+            try {
+                const socketService = require('../../services/socketService');
+                const notifPayload = { id: notification.id, title: notification.title, message: notification.message, priority: notification.priority };
+                
+                if (notification.targetAudience === 'ALL') {
+                    socketService.broadcast('new_notification', notifPayload);
+                } else if (notification.targetAudience === 'STUDENT' && notification.targetStudentId) {
+                    const targetStudent = await prisma.student.findUnique({ where: { id: notification.targetStudentId }, select: { userId: true, roll: true } });
+                    if (targetStudent) {
+                        socketService.sendToUser(targetStudent.userId, 'new_notification', notifPayload);
+                        if (targetStudent.roll && targetStudent.roll !== targetStudent.userId) {
+                            socketService.sendToUser(targetStudent.roll, 'new_notification', notifPayload);
+                        }
+                    }
+                } else if (notification.targetAudience === 'FILTERED') {
+                    socketService.broadcast('new_notification', notifPayload);
+                }
+            } catch (wsErr) {
+                logger.warn('[Admin Notification] Real-time socket dispatch error:', wsErr.message);
+            }
         }
 
         logger.info(`[Notifications] Created alert '${title}' [${normStatus}] by ${req.admin.email}`);
@@ -302,10 +324,30 @@ const editNotification = async (req, res) => {
             data: updateData
         });
 
-        // Trigger FCM if transitioning to PUBLISHED
+        // Trigger FCM & WebSocket if transitioning to PUBLISHED
         let notifiedCount = 0;
         if (updated.status === 'PUBLISHED' && current.status === 'DRAFT') {
             notifiedCount = await triggerFcm(updated);
+            
+            try {
+                const socketService = require('../../services/socketService');
+                const notifPayload = { id: updated.id, title: updated.title, message: updated.message, priority: updated.priority };
+                if (updated.targetAudience === 'ALL') {
+                    socketService.broadcast('new_notification', notifPayload);
+                } else if (updated.targetAudience === 'STUDENT' && updated.targetStudentId) {
+                    const targetStudent = await prisma.student.findUnique({ where: { id: updated.targetStudentId }, select: { userId: true, roll: true } });
+                    if (targetStudent) {
+                        socketService.sendToUser(targetStudent.userId, 'new_notification', notifPayload);
+                        if (targetStudent.roll && targetStudent.roll !== targetStudent.userId) {
+                            socketService.sendToUser(targetStudent.roll, 'new_notification', notifPayload);
+                        }
+                    }
+                } else if (updated.targetAudience === 'FILTERED') {
+                    socketService.broadcast('new_notification', notifPayload);
+                }
+            } catch (wsErr) {
+                logger.warn('[Admin Notification] Real-time socket dispatch error:', wsErr.message);
+            }
         }
 
         res.json({ success: true, notification: updated, devicesNotified: notifiedCount });

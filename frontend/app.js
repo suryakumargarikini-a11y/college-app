@@ -614,8 +614,13 @@ const wsService = {
             updateUnreadBadge().catch(() => { });
         }
 
-        else if (event === 'notification_refresh') {
+        else if (event === 'notification_refresh' || event === 'new_notification') {
+            try { removeCachedData('/notifications'); } catch (_) {}
+            try { removeCachedData('/notifications/unread'); } catch (_) {}
             updateUnreadBadge().catch(() => { });
+            if (data?.title || data?.message) {
+                showPushBanner(data.title || 'SITAM Notification', data.message || '', '/notifications');
+            }
             if (router.currentRoute === '/notifications') {
                 router.routes['/notifications']?.afterRender?.();
             }
@@ -6699,10 +6704,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     .catch(e => console.log('[BOOT] Liveness check skipped:', e.message));
             }, 0);
 
-            // ── Non-blocking: warm cache for returning session ───────────────
+            // ── Non-blocking: warm cache & register FCM push for returning session ──
             if (state.token) {
                 setTimeout(() => {
                     prefetchAll().catch(e => console.error('[BOOT] prefetchAll error:', e));
+                    registerPush().catch(e => console.error('[BOOT] registerPush error:', e));
                 }, 500);
             }
         }
