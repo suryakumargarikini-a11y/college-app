@@ -7,10 +7,9 @@ const fs = require('fs');
 let fcmInitialized = false;
 
 try {
-    // Guard: firebase-admin throws if initialized twice (e.g. hot-reload / test environments)
     if (admin.apps.length > 0) {
-        logger.info('[Firebase] Reusing existing Firebase Admin app instance.');
         fcmInitialized = true;
+        logger.info('[Firebase] FCM initialized successfully — REAL MODE');
     } else {
         const serviceAccountPath = process.env.FIREBASE_CREDENTIALS || path.join(__dirname, '..', 'google-services-key.json');
 
@@ -19,30 +18,32 @@ try {
             admin.initializeApp({
                 credential: admin.credential.cert(serviceAccount)
             });
-            const projectId = serviceAccount.project_id || 'unknown';
-            logger.info(`[Firebase] Firebase Admin initialized successfully for project ${projectId} (source: local file).`);
             fcmInitialized = true;
+            logger.info('[Firebase] FCM initialized successfully — REAL MODE');
         } else if (process.env.FIREBASE_CREDENTIALS_JSON) {
-            const raw = process.env.FIREBASE_CREDENTIALS_JSON;
-            const serviceAccount = JSON.parse(raw);
+            let serviceAccount;
+            try {
+                serviceAccount = JSON.parse(process.env.FIREBASE_CREDENTIALS_JSON);
+            } catch (jsonErr) {
+                throw new Error(`Invalid JSON syntax in FIREBASE_CREDENTIALS_JSON: ${jsonErr.message}`);
+            }
 
-            // Railway/Vercel often escapes \n in private_key — repair if needed
-            if (serviceAccount.private_key && !serviceAccount.private_key.includes('\n')) {
+            if (serviceAccount && serviceAccount.private_key && typeof serviceAccount.private_key === 'string' && !serviceAccount.private_key.includes('\n')) {
                 serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
             }
 
             admin.initializeApp({
                 credential: admin.credential.cert(serviceAccount)
             });
-            const projectId = serviceAccount.project_id || 'unknown';
-            logger.info(`[Firebase] Firebase Admin initialized successfully for project ${projectId} (source: FIREBASE_CREDENTIALS_JSON).`);
             fcmInitialized = true;
+            logger.info('[Firebase] FCM initialized successfully — REAL MODE');
         } else {
-            logger.warn('[Firebase] No credentials found (FIREBASE_CREDENTIALS_JSON not set, no local key file). FCM running in Sandbox Mock Mode.');
+            logger.info('[Firebase] FIREBASE_CREDENTIALS_JSON missing — MOCK MODE');
         }
     }
 } catch (error) {
-    logger.error(`[Firebase] Initialization failed: ${error.message}. FCM running in Mock Mode. Check FIREBASE_CREDENTIALS_JSON format and private_key newlines.`);
+    const safeErrorMsg = error && error.message ? error.message : 'Unknown error';
+    logger.error(`[Firebase] Initialization failed — ${safeErrorMsg}`);
 }
 
 function getAndroidChannelAndPriority(type) {
