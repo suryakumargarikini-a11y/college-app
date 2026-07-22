@@ -364,24 +364,78 @@ async function registerPush() {
                     console.error('[Push] Native token registration error:', error);
                 });
 
-                PushNotifications.addListener('pushNotificationReceived', (notification) => {
-                    console.log('[Push] Native push notification received');
+                PushNotifications.addListener('pushNotificationReceived', async (notification) => {
+                    console.log('[Push] Native push notification received in foreground');
                     const title = notification.title || 'SITAM Smart ERP';
                     const body = notification.body || '';
-                    const route = notification.data?.sitam_route || notification.data?.route;
+                    const route = notification.data?.sitam_route || notification.data?.route || '/notifications';
+
+                    // 1. In-app updates
                     showPushBanner(title, body, route);
+                    try { removeCachedData('/notifications'); } catch (_) {}
+                    try { removeCachedData('/notifications/unread'); } catch (_) {}
+                    updateUnreadBadge().catch(() => { });
                     if (route && route === router.currentRoute) {
                         router.routes[route]?.afterRender?.();
+                    }
+
+                    // 2. Present Android status bar notification using LocalNotifications API
+                    if (window.Capacitor?.Plugins?.LocalNotifications) {
+                        try {
+                            const notifId = Math.floor(Math.random() * 1000000) + 1;
+                            await window.Capacitor.Plugins.LocalNotifications.schedule({
+                                notifications: [
+                                    {
+                                        title,
+                                        body,
+                                        id: notifId,
+                                        schedule: { at: new Date(Date.now() + 100) },
+                                        sound: 'default',
+                                        channelId: 'sitam_academic_alerts',
+                                        extra: { route }
+                                    }
+                                ]
+                            });
+                            console.log(`[Push] Foreground status bar notification created (id: ${notifId})`);
+                        } catch (localErr) {
+                            console.warn('[Push] LocalNotification creation error:', localErr);
+                        }
                     }
                 });
 
                 PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
                     console.log('[Push] Native push action performed');
-                    const route = action.notification.data?.sitam_route || action.notification.data?.route;
+                    const route = action.notification.data?.sitam_route || action.notification.data?.route || '/notifications';
                     if (route) {
                         router.navigate(route);
                     }
                 });
+            }
+
+            // Setup LocalNotifications channel & tap listener
+            if (window.Capacitor?.Plugins?.LocalNotifications) {
+                try {
+                    await window.Capacitor.Plugins.LocalNotifications.createChannel({
+                        id: 'sitam_academic_alerts',
+                        name: 'SITAM Academic Alerts',
+                        description: 'Important notifications, marks, fees, and academic alerts',
+                        importance: 5,
+                        visibility: 1,
+                        sound: 'default',
+                        vibration: true
+                    });
+                } catch (_) {}
+
+                if (!window._localPushListenersRegistered) {
+                    window._localPushListenersRegistered = true;
+                    window.Capacitor.Plugins.LocalNotifications.addListener('localNotificationActionPerformed', (action) => {
+                        console.log('[Push] Local notification tapped');
+                        const route = action.notification.extra?.route || '/notifications';
+                        if (route) {
+                            router.navigate(route);
+                        }
+                    });
+                }
             }
 
             // Register with FCM
