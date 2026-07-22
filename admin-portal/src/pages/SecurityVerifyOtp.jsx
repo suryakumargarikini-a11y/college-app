@@ -358,7 +358,7 @@ export default function SecurityVerifyOtp() {
     }
   };
 
-  // Handle File Upload Fallback
+  // Handle File Upload Fallback with Strict Decoder A/B Test
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -378,54 +378,58 @@ export default function SecurityVerifyOtp() {
     }
 
     let fileScanner = null;
-    let decodedText = null;
+    let html5Result = null;
+    let qrScannerResult = null;
 
+    // Test 1: Html5Qrcode.scanFile
+    console.log('[DECODER-AB] Html5Qrcode START');
     try {
-      console.log('[QR-FILE] scan started');
       fileScanner = new Html5Qrcode('qr-reader-temp');
-      decodedText = await fileScanner.scanFile(file, true);
-      console.log(`[QR-FILE] Html5Qrcode decode success length=${decodedText?.length || 0}`);
+      html5Result = await fileScanner.scanFile(file, true);
+      console.log(`[DECODER-AB] Html5Qrcode SUCCESS text=${html5Result}`);
     } catch (html5Err) {
-      console.warn('[QR-FILE] Html5Qrcode.scanFile failed:', html5Err?.message || html5Err);
-      try {
-        console.log('[QR-FILE] attempting QrScanner.scanImage fallback...');
-        decodedText = await QrScanner.scanImage(file);
-        console.log(`[QR-FILE] QrScanner.scanImage success length=${decodedText?.length || 0}`);
-      } catch (qrScannerErr) {
-        console.error('[QR-FILE] QrScanner.scanImage failed:', qrScannerErr?.message || qrScannerErr);
+      const msg = html5Err?.message || String(html5Err);
+      console.log(`[DECODER-AB] Html5Qrcode FAIL ${msg}`);
+    } finally {
+      if (fileScanner) {
+        try { await fileScanner.clear(); } catch {}
+      }
+      if (createdTemp && temp) {
+        try { temp.remove(); } catch {}
       }
     }
+
+    // Test 2: QrScanner.scanImage
+    console.log('[DECODER-AB] QrScanner START');
+    try {
+      qrScannerResult = await QrScanner.scanImage(file, { returnDetailedScanResult: true });
+      const text = typeof qrScannerResult === 'string' ? qrScannerResult : qrScannerResult.data;
+      console.log(`[DECODER-AB] QrScanner SUCCESS text=${text}`);
+      qrScannerResult = text;
+    } catch (qrErr) {
+      const msg = qrErr?.message || String(qrErr);
+      console.log(`[DECODER-AB] QrScanner FAIL ${msg}`);
+    }
+
+    const decodedText = qrScannerResult || html5Result;
 
     try {
       if (decodedText) {
         const textLen = decodedText.length;
-        console.log(`[QR-FILE] final decoded text length=${textLen}`);
-
         if (decodedText.startsWith('SITAM-QR-TEST')) {
-          console.log('[QR-FILE] Dummy QR detected in uploaded image!');
-          setSuccessMsg(`✓ Test QR Code Detected from Uploaded Image (Length: ${textLen}) — Decoder working cleanly!`);
+          console.log(`[DECODER-AB] Dummy QR detected text=${decodedText}`);
+          setSuccessMsg(`✓ Test QR Code Detected (Length: ${textLen}) — Decoder A/B Test Complete!`);
           setTimeout(() => setSuccessMsg(''), 4000);
           return;
         }
-
         verifyToken(decodedText);
       } else {
         setError('Could not decode QR code from the uploaded image. Please ensure the QR is clearly visible.');
       }
     } catch (err) {
-      console.error('[QR-FILE] verification error:', err);
+      console.error('[DECODER-AB] Verification error:', err);
       setError('Could not decode QR code from the uploaded image.');
     } finally {
-      if (fileScanner) {
-        try {
-          await fileScanner.clear();
-        } catch (e) {
-          console.warn('[QR-FILE] clear error:', e);
-        }
-      }
-      if (createdTemp && temp) {
-        temp.remove();
-      }
       setUploadingImage(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
