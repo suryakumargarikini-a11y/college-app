@@ -25,22 +25,32 @@ export default function SecurityVerifyOtp() {
   const processingRef = useRef(false);
   const lastFailLogRef = useRef(0);
 
-  // Stop camera and release all MediaStream tracks
+  // Stop camera and release all MediaStream tracks (Idempotent & Safe)
   const stopCamera = async () => {
     console.log('[CAMERA-DEBUG] stopCamera called');
-    if (html5QrCodeRef.current) {
-      try {
-        if (html5QrCodeRef.current.isScanning) {
-          await html5QrCodeRef.current.stop();
-        }
-        await html5QrCodeRef.current.clear();
-        console.log('[CAMERA-DEBUG] scanner stopped');
-      } catch (err) {
-        console.warn('[CAMERA-DEBUG] Camera stop cleanup error:', err);
-      } finally {
-        html5QrCodeRef.current = null;
-        setIsScanning(false);
+    const scanner = html5QrCodeRef.current;
+    if (!scanner) {
+      console.log('[CAMERA-DEBUG] stopCamera skipped — reference already null');
+      setIsScanning(false);
+      return;
+    }
+
+    html5QrCodeRef.current = null;
+    setIsScanning(false);
+
+    try {
+      if (scanner.isScanning) {
+        await scanner.stop();
       }
+    } catch (err) {
+      console.warn('[CAMERA-DEBUG] scanner.stop error:', err);
+    }
+
+    try {
+      await scanner.clear();
+      console.log('[CAMERA-DEBUG] scanner stopped & cleared safely');
+    } catch (err) {
+      console.warn('[CAMERA-DEBUG] scanner.clear error:', err);
     }
   };
 
@@ -346,11 +356,21 @@ export default function SecurityVerifyOtp() {
     setUploadingImage(true);
     setError('');
 
+    let temp = document.getElementById('qr-reader-temp');
+    let createdTemp = false;
+    if (!temp) {
+      temp = document.createElement('div');
+      temp.id = 'qr-reader-temp';
+      temp.style.display = 'none';
+      document.body.appendChild(temp);
+      createdTemp = true;
+    }
+
+    let fileScanner = null;
     try {
       console.log('[QR-FILE] scan started');
-      const html5QrCode = new Html5Qrcode('qr-reader-temp');
-      const decodedText = await html5QrCode.scanFile(file, true);
-      await html5QrCode.clear();
+      fileScanner = new Html5Qrcode('qr-reader-temp');
+      const decodedText = await fileScanner.scanFile(file, true);
 
       const textLen = decodedText ? decodedText.length : 0;
       console.log(`[QR-FILE] decode success length=${textLen}`);
@@ -369,6 +389,16 @@ export default function SecurityVerifyOtp() {
       console.error(`[QR-FILE] decode failed name=${errName} message=${errMsg}`);
       setError('Could not decode QR code from the uploaded image. Please ensure the QR is clearly visible.');
     } finally {
+      if (fileScanner) {
+        try {
+          await fileScanner.clear();
+        } catch (e) {
+          console.warn('[QR-FILE] clear error:', e);
+        }
+      }
+      if (createdTemp && temp) {
+        temp.remove();
+      }
       setUploadingImage(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
