@@ -8,12 +8,20 @@ const {
     getDetail, 
     editNotification, 
     deleteNotification, 
-    publishNotification 
+    publishNotification,
+    getAudienceOptions,
+    getAudiencePreview,
+    searchStudents
 } = require('../../controllers/admin/notificationsController');
 const { adminAuth, authorizeRoles } = require('../../middleware/adminAuth');
 
 router.post('/send', adminAuth, authorizeRoles('SUPER_ADMIN', 'PLACEMENT_ADMIN'), sendNotification);
 router.get('/history', adminAuth, authorizeRoles('SUPER_ADMIN', 'PLACEMENT_ADMIN'), getHistory);
+
+// Dynamic Audience Targeting Endpoints
+router.get('/audience-options', adminAuth, authorizeRoles('SUPER_ADMIN', 'PLACEMENT_ADMIN'), getAudienceOptions);
+router.post('/audience-preview', adminAuth, authorizeRoles('SUPER_ADMIN', 'PLACEMENT_ADMIN'), getAudiencePreview);
+router.get('/search-students', adminAuth, authorizeRoles('SUPER_ADMIN', 'PLACEMENT_ADMIN'), searchStudents);
 
 // REST routes
 router.post('/', adminAuth, authorizeRoles('SUPER_ADMIN', 'PLACEMENT_ADMIN'), createNotification);
