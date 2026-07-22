@@ -4,11 +4,14 @@ const logger = require('../../services/logger');
 
 const resolveStudentId = async (rollNumber) => {
     if (!rollNumber) return null;
+    const cleanRoll = String(rollNumber).trim();
     const student = await prisma.student.findFirst({
         where: {
             OR: [
-                { roll: rollNumber },
-                { userId: rollNumber }
+                { id: cleanRoll },
+                { roll: { equals: cleanRoll, mode: 'insensitive' } },
+                { userId: { equals: cleanRoll, mode: 'insensitive' } },
+                { roll_number: { equals: cleanRoll, mode: 'insensitive' } }
             ]
         }
     });
@@ -48,8 +51,14 @@ const validateTargeting = async (targetAudience, targetStudentRoll, targetBranch
 const triggerFcm = async (notification) => {
     try {
         const studentFilter = {};
-        if (notification.targetAudience === 'STUDENT' && notification.targetStudentId) {
-            studentFilter.id = notification.targetStudentId;
+        if (notification.targetAudience === 'STUDENT') {
+            if (notification.targetStudentId) {
+                studentFilter.id = notification.targetStudentId;
+            } else {
+                logger.info(`[Admin Notification] Audience resolved: 0 student(s) (missing targetStudentId)`);
+                logger.info(`[Admin Notification] Push-capable recipients: 0`);
+                return 0;
+            }
         } else if (notification.targetAudience === 'FILTERED') {
             const branches = notification.targetBranches ? JSON.parse(notification.targetBranches) : [];
             const years = notification.targetYears ? JSON.parse(notification.targetYears) : [];
@@ -492,7 +501,8 @@ const searchStudents = async (req, res) => {
                 semester: true,
                 section: true
             },
-            take: 10
+            take: 20,
+            orderBy: { roll: 'asc' }
         });
 
         res.json(students);
