@@ -117,35 +117,36 @@ export default function SecurityVerifyOtp() {
       const scanConfig = { fps: 10 };
 
       const handleScanSuccess = async (decodedText, decodedResult) => {
-        if (processingRef.current) return;
+        const textLen = decodedText ? decodedText.length : 0;
+        console.log(`[QR-DECODE] onScanSuccess entered length=${textLen}`);
+
+        if (processingRef.current) {
+          console.log('[QR-DECODE] handleScanSuccess skipped — processingRef is true');
+          return;
+        }
         processingRef.current = true;
 
-        const textLen = decodedText ? decodedText.length : 0;
-        console.log(`[QR-SCAN] QR detected length=${textLen}`);
-        console.log('[QR-SCAN] success callback entered');
-
         if (decodedText && decodedText.startsWith('SITAM-QR-TEST')) {
-          console.log('[QR-SCAN] Dummy QR detected');
-          setSuccessMsg(`✓ Test QR Code Detected (Length: ${textLen}) — Camera scanner working cleanly!`);
+          console.log('[QR-DECODE] Dummy QR detected in live camera frame!');
+          setSuccessMsg(`✓ Test QR Code Detected (Length: ${textLen}) — Scanner & Decoder working cleanly!`);
           setTimeout(() => {
             setSuccessMsg('');
             processingRef.current = false;
-          }, 3500);
+          }, 4000);
           return;
         }
 
-        console.log('[QR-SCAN] Verification starting');
+        console.log('[QR-DECODE] Verification starting');
 
         try {
           const success = await verifyToken(decodedText);
           if (success) {
-            // Stop camera ONLY after verification succeeds
             await stopCamera();
           } else {
             processingRef.current = false;
           }
         } catch (err) {
-          console.error('[QR-SCAN] Verification error:', err);
+          console.error('[QR-DECODE] Verification error:', err);
           processingRef.current = false;
         }
       };
@@ -326,11 +327,24 @@ export default function SecurityVerifyOtp() {
     setError('');
 
     try {
+      console.log('[QR-DECODE] Image file scan started...');
       const html5QrCode = new Html5Qrcode('qr-reader-temp');
       const decodedText = await html5QrCode.scanFile(file, true);
       await html5QrCode.clear();
+
+      const textLen = decodedText ? decodedText.length : 0;
+      console.log(`[QR-DECODE] Image file QR detected length=${textLen}`);
+
+      if (decodedText && decodedText.startsWith('SITAM-QR-TEST')) {
+        console.log('[QR-DECODE] Dummy QR detected in uploaded image!');
+        setSuccessMsg(`✓ Test QR Code Detected from Uploaded Image (Length: ${textLen}) — Decoder working cleanly!`);
+        setTimeout(() => setSuccessMsg(''), 4000);
+        return;
+      }
+
       verifyToken(decodedText);
     } catch (err) {
+      console.error('[QR-DECODE] Image file decode error:', err);
       setError('Could not decode QR code from the uploaded image. Please ensure the QR is clearly visible.');
     } finally {
       setUploadingImage(false);
