@@ -872,12 +872,12 @@ const apply = async (req, res) => {
         // Without this, concurrent requests from the same student can all pass the
         // findFirst check before any create runs, producing multiple PENDING passes.
         const pass = await prisma.$transaction(async (tx) => {
-            // Prevent duplicate pending requests (individual)
+            // Prevent duplicate active requests (individual PENDING or APPROVED)
             const existing = await tx.exitPass.findFirst({
-                where: { studentId, status: 'PENDING' }
+                where: { studentId, status: { in: ['PENDING', 'APPROVED'] } }
             });
             if (existing) {
-                const err = new Error('DUPLICATE_PENDING');
+                const err = new Error(existing.status === 'APPROVED' ? 'ACTIVE_APPROVED' : 'DUPLICATE_PENDING');
                 err.statusCode = 400;
                 throw err;
             }
@@ -916,6 +916,9 @@ const apply = async (req, res) => {
 
         res.status(201).json({ success: true, ...pass });
     } catch (err) {
+        if (err.message === 'ACTIVE_APPROVED') {
+            return res.status(400).json({ error: 'You already have an active approved exit pass. Please use or cancel it before requesting a new one.' });
+        }
         if (err.message === 'DUPLICATE_PENDING') {
             return res.status(400).json({ error: 'You already have a pending exit pass request.' });
         }
