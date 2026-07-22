@@ -326,6 +326,7 @@ function showPushBanner(title, body, route) {
 async function registerPush() {
     if (window.Capacitor?.Plugins?.PushNotifications) {
         try {
+            console.log('[Push] Native initialization started');
             const PushNotifications = window.Capacitor.Plugins.PushNotifications;
             let permStatus = await PushNotifications.checkPermissions();
 
@@ -333,23 +334,29 @@ async function registerPush() {
                 permStatus = await PushNotifications.requestPermissions();
             }
 
+            console.log(`[Push] Permission status: ${permStatus.receive}`);
+
             if (permStatus.receive !== 'granted') {
                 console.warn('[Push] Native permission denied');
                 return;
             }
 
-            // Register with FCM
-            await PushNotifications.register();
-
-            // Add listeners
+            // Attach listeners BEFORE calling register() to prevent missing synchronous token event
             if (!window._pushListenersRegistered) {
                 window._pushListenersRegistered = true;
                 PushNotifications.addListener('registration', async (token) => {
-                    console.log('[Push] Native token registration successful:', token.value);
+                    console.log('[Push] Registration event received');
+                    console.log('[Push] Sending device registration to backend');
                     try {
-                        await api.post('/auth/fcm-token', { token: token.value, deviceType: 'android' });
+                        const res = await api.post('/auth/fcm-token', { token: token.value, deviceType: 'android' });
+                        if (res.status >= 200 && res.status < 300) {
+                            console.log('[Push] Backend registration successful');
+                        } else {
+                            console.warn(`[Push] Backend registration failed: HTTP ${res.status}`);
+                        }
                     } catch (err) {
-                        console.error('[Push] Failed to register token on backend:', err);
+                        const status = err.response?.status || 'network_error';
+                        console.error(`[Push] Backend registration failed: HTTP ${status}`);
                     }
                 });
 
@@ -358,7 +365,7 @@ async function registerPush() {
                 });
 
                 PushNotifications.addListener('pushNotificationReceived', (notification) => {
-                    console.log('[Push] Native push notification received:', notification);
+                    console.log('[Push] Native push notification received');
                     const title = notification.title || 'SITAM Smart ERP';
                     const body = notification.body || '';
                     const route = notification.data?.sitam_route || notification.data?.route;
@@ -369,13 +376,16 @@ async function registerPush() {
                 });
 
                 PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
-                    console.log('[Push] Native push action performed:', action);
+                    console.log('[Push] Native push action performed');
                     const route = action.notification.data?.sitam_route || action.notification.data?.route;
                     if (route) {
                         router.navigate(route);
                     }
                 });
             }
+
+            // Register with FCM
+            await PushNotifications.register();
         } catch (err) {
             console.error('[Push] Error setting up native PushNotifications:', err);
         }
@@ -395,7 +405,7 @@ async function registerPush() {
         const token = await messaging.getToken({ serviceWorkerRegistration: registration });
 
         if (token) {
-            console.log('[Push] Acquired FCM token:', token);
+            console.log('[Push] Acquired FCM token via ServiceWorker');
             await api.post('/auth/fcm-token', { token, deviceType: 'android' });
         }
     } catch (err) {
@@ -492,7 +502,7 @@ async function updateUnreadBadge() {
     if (!state.token) return;
     try {
         const res = await api.get('/notifications/unread');
-        const count = res.data?.count || 0;
+        const count = res.data?.data?.count ?? res.data?.count ?? 0;
         const dot = $('notif-dot');
         if (dot) {
             if (count > 0) {
@@ -3758,8 +3768,8 @@ const pages = {
             // Load from server
             try {
                 const res = await api.get('/notifications');
-                const data = res.data || {};
-                const notifications = data.notifications || [];
+                const body = res.data || {};
+                const notifications = body.data?.notifications || body.notifications || [];
 
                 allNotifications = notifications;
                 await SITAMDb.set('erp_cache', '/notifications', { notifications }, 24 * 60 * 60 * 1000);

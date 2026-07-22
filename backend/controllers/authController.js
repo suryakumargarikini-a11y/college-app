@@ -281,6 +281,8 @@ const registerFcmToken = async (req, res) => {
     const { token, deviceType = 'android' } = req.body;
     const { userId } = req.session;
 
+    logger.info('[FCM Registration] Request received');
+
     if (!token) {
         return res.status(400).json({
             success: false,
@@ -289,17 +291,19 @@ const registerFcmToken = async (req, res) => {
     }
 
     try {
-        logger.info(`[AuthController] Registering FCM token for student ${userId}`);
         const student = await prisma.student.findUnique({
             where: { userId }
         });
 
         if (!student) {
+            logger.warn(`[FCM Registration] Student record not found for user`);
             return res.status(404).json({
                 success: false,
                 message: 'Student record not found'
             });
         }
+
+        logger.info('[FCM Registration] Authenticated student resolved');
 
         // Upsert or findOrCreate token record
         await prisma.fcmToken.upsert({
@@ -315,14 +319,14 @@ const registerFcmToken = async (req, res) => {
             }
         });
 
-        logger.info(`[AuthController] Successfully registered FCM Token for student: ${userId}`);
+        logger.info('[FCM Registration] Device registration persisted');
         return res.json({
             success: true,
             message: 'FCM token registered successfully'
         });
 
     } catch (error) {
-        logger.error(`[AuthController] FCM token registration failed for ${userId}: ${error.message}`);
+        logger.error(`[FCM Registration] FCM token registration failed: ${error.message}`);
         return res.status(500).json({
             success: false,
             message: 'Internal server error while registering token'

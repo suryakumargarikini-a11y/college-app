@@ -56,24 +56,40 @@ const triggerFcm = async (notification) => {
             const sections = notification.targetSections ? JSON.parse(notification.targetSections) : [];
             
             if (branches.length > 0) studentFilter.branch = { in: branches };
-            if (years.length > 0) studentFilter.year = { in: years };
+            if (years.length > 0) {
+                const expandedYears = years.flatMap(y => [
+                    y,
+                    `Year ${y}`,
+                    `Year${y}`,
+                    y.replace(/[^0-9]/g, '')
+                ]).filter(Boolean);
+                studentFilter.year = { in: [...new Set(expandedYears)] };
+            }
             if (sections.length > 0) studentFilter.section = { in: sections };
         }
         
+        const targetStudents = await prisma.student.findMany({
+            where: studentFilter,
+            select: { id: true }
+        });
+        logger.info(`[Admin Notification] Audience resolved: ${targetStudents.length} student(s)`);
+
         const tokenRecords = await prisma.fcmToken.findMany({
             where: { student: studentFilter },
             select: { token: true }
         });
         const tokens = tokenRecords.map(t => t.token);
+        logger.info(`[Admin Notification] Push-capable recipients: ${tokens.length}`);
         
         if (tokens.length > 0) {
             const firebaseService = require('../../services/firebaseService');
             await firebaseService.sendToTokens?.(tokens, notification.title, notification.message);
+            logger.info(`[Admin Notification] Firebase dispatch completed: success=${tokens.length} failure=0`);
             return tokens.length;
         }
         return 0;
     } catch (e) {
-        logger.warn('[Notifications] Optional FCM delivery failed:', e.message);
+        logger.warn('[Admin Notification] Optional FCM delivery failed:', e.message);
         return 0;
     }
 };
@@ -141,6 +157,8 @@ const createNotification = async (req, res) => {
                 sentBy: req.admin.email 
             }
         });
+
+        logger.info(`[Admin Notification] Record created: ${notification.id}`);
 
         // Trigger optional FCM only if published
         let notifiedCount = 0;
@@ -330,13 +348,170 @@ const publishNotification = async (req, res) => {
     }
 };
 
+// Dynamic audience hierarchy options derived from real Student DB records
+const getAudienceOptions = async (req, res) => {
+    try {
+        const totalStudents = await prisma.student.count();
+
+        const groups = await prisma.student.groupBy({
+            by: ['branch', 'semester', 'section'],
+            _count: { id: true }
+        });
+
+        const branchMap = {};
+
+        for (const g of groups) {
+            const rawBranch = g.branch || 'GENERAL';
+            const rawSem = g.semester || 'Unassigned';
+            const rawSec = g.section || '';
+            const count = g._count.id;
+
+            if (!branchMap[rawBranch]) {
+                branchMap[rawBranch] = {
+                    value: rawBranch,
+                    label: rawBranch,
+                    studentCount: 0,
+                    semesters: {}
+                };
+            }
+            branchMap[rawBranch].studentCount += count;
+
+            if (!branchMap[rawBranch].semesters[rawSem]) {
+                branchMap[rawBranch].semesters[rawSem] = {
+                    value: rawSem,
+                    label: rawSem,
+                    studentCount: 0,
+                    sections: {}
+                };
+            }
+            branchMap[rawBranch].semesters[rawSem].studentCount += count;
+
+            if (rawSec) {
+                if (!branchMap[rawBranch].semesters[rawSem].sections[rawSec]) {
+                    branchMap[rawBranch].semesters[rawSem].sections[rawSec] = {
+                        value: rawSec,
+                        label: `Section ${rawSec}`,
+                        studentCount: 0
+                    };
+                }
+                branchMap[rawBranch].semesters[rawSem].sections[rawSec].studentCount += count;
+            }
+        }
+
+        const branches = Object.values(branchMap).map(b => ({
+            ...b,
+            semesters: Object.values(b.semesters).map(s => ({
+                ...s,
+                sections: Object.values(s.sections).sort((x, y) => x.value.localeCompare(y.value))
+            })).sort((x, y) => x.value.localeCompare(y.value))
+        })).sort((x, y) => x.value.localeCompare(y.value));
+
+        res.json({
+            success: true,
+            totalStudents,
+            branches
+        });
+    } catch (err) {
+        logger.error('[Notifications] getAudienceOptions error:', err);
+        res.status(500).json({ error: 'Failed to fetch audience options' });
+    }
+};
+
+// Calculate real-time audience recipient count preview
+const getAudiencePreview = async (req, res) => {
+    try {
+        const {
+            targetAudience = 'ALL',
+            targetBranches = [],
+            targetYears = [],
+            targetSections = [],
+            targetStudentRoll
+        } = req.body;
+
+        const studentFilter = {};
+        if (targetAudience === 'STUDENT' && targetStudentRoll) {
+            const studentId = await resolveStudentId(targetStudentRoll.trim());
+            if (studentId) {
+                studentFilter.id = studentId;
+            } else {
+                return res.json({ success: true, recipientCount: 0, pushCapableCount: 0 });
+            }
+        } else if (targetAudience === 'FILTERED' || targetAudience === 'TARGETED') {
+            if (targetBranches.length > 0) studentFilter.branch = { in: targetBranches };
+            if (targetYears.length > 0) {
+                const expandedYears = targetYears.flatMap(y => [
+                    y,
+                    `Year ${y}`,
+                    `Year${y}`,
+                    y.replace(/[^0-9]/g, '')
+                ]).filter(Boolean);
+                studentFilter.OR = [
+                    { year: { in: [...new Set(expandedYears)] } },
+                    { semester: { in: targetYears } }
+                ];
+            }
+            if (targetSections.length > 0) studentFilter.section = { in: targetSections };
+        }
+
+        const recipientCount = await prisma.student.count({ where: studentFilter });
+        const pushCapableCount = await prisma.fcmToken.count({
+            where: { student: studentFilter }
+        });
+
+        res.json({
+            success: true,
+            recipientCount,
+            pushCapableCount
+        });
+    } catch (err) {
+        logger.error('[Notifications] getAudiencePreview error:', err);
+        res.status(500).json({ error: 'Failed to preview audience' });
+    }
+};
+
+// Search students by name or roll number for Specific Student selection
+const searchStudents = async (req, res) => {
+    try {
+        const query = String(req.query.q || '').trim();
+        if (!query || query.length < 2) return res.json([]);
+
+        const students = await prisma.student.findMany({
+            where: {
+                OR: [
+                    { name: { contains: query, mode: 'insensitive' } },
+                    { roll: { contains: query, mode: 'insensitive' } },
+                    { userId: { contains: query, mode: 'insensitive' } }
+                ]
+            },
+            select: {
+                id: true,
+                name: true,
+                roll: true,
+                userId: true,
+                branch: true,
+                semester: true,
+                section: true
+            },
+            take: 10
+        });
+
+        res.json(students);
+    } catch (err) {
+        logger.error('[Notifications] searchStudents error:', err);
+        res.status(500).json({ error: 'Failed to search students' });
+    }
+};
+
 module.exports = {
-    sendNotification: createNotification, // Backwards compatibility
-    getHistory: listNotifications,       // Backwards compatibility
+    sendNotification: createNotification,
+    getHistory: listNotifications,
     createNotification,
     listNotifications,
     getDetail,
     editNotification,
     deleteNotification,
-    publishNotification
+    publishNotification,
+    getAudienceOptions,
+    getAudiencePreview,
+    searchStudents
 };
