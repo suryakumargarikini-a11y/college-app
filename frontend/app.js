@@ -374,7 +374,14 @@ async function registerPush() {
                     showPushBanner(title, body, route);
                     try { removeCachedData('/notifications'); } catch (_) {}
                     try { removeCachedData('/notifications/unread'); } catch (_) {}
+                    try { removeCachedData('/exit-passes/my'); } catch (_) {}
                     updateUnreadBadge().catch(() => { });
+
+                    // Trigger exit pass real-time refresh hooks
+                    if (Array.isArray(window._epNotifHandlers)) {
+                        window._epNotifHandlers.forEach(fn => { try { fn(notification); } catch (_) {} });
+                    }
+
                     if (route && route === router.currentRoute) {
                         router.routes[route]?.afterRender?.();
                     }
@@ -4495,10 +4502,6 @@ const pages = {
                             <label class="text-xs font-bold text-slate-500 uppercase tracking-wide">Exit Time *</label>
                             <input type="datetime-local" id="ep-exit-time" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary transition-all font-mono" />
                         </div>
-                        <div class="space-y-1">
-                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wide">Return Time *</label>
-                            <input type="datetime-local" id="ep-return-time" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary transition-all font-mono" />
-                        </div>
 
                         <!-- Group Members Field (hidden by default) -->
                         <div id="group-members-field" class="space-y-1 hidden">
@@ -4721,8 +4724,8 @@ const pages = {
                                 </div>
                                 <canvas id="exit-pass-qr-canvas" class="w-full h-full object-contain hidden"></canvas>
                             </div>
-                            <div id="ep-qr-error" class="hidden text-center space-y-2">
-                                <p class="text-[10px] text-rose-600 font-bold">Unable to load QR code</p>
+                            <div id="ep-qr-error" class="hidden text-center space-y-2 p-2">
+                                <p class="text-[11px] text-rose-600 font-bold">QR unavailable. Please refresh or contact administration.</p>
                                 <button id="ep-qr-retry" class="text-[10px] font-bold text-primary border border-primary/30 px-3 py-1 rounded-full active-scale">Retry</button>
                             </div>
                             <div class="text-center text-[10px] text-slate-400 leading-relaxed max-w-xs">
@@ -4898,8 +4901,9 @@ const pages = {
                 loading.show('Loading Exit Passes...');
                 try {
                     await loadQuota();
+                    try { removeCachedData('/exit-passes/my'); } catch (_) {}
                     const res = await api.get('/exit-passes/my');
-                    const passes = res.data || res.passes || [];
+                    const passes = Array.isArray(res) ? res : (res.data || res.passes || []);
                     renderPasses(passes);
                 } catch (err) {
                     console.error('[ExitPass] Load failed:', err);
@@ -4982,25 +4986,24 @@ const pages = {
 
             // Real-time status refresh: reload when exit-pass notification arrives
             const epNotifHandler = (notification) => {
-                const type = notification?.type || notification?.data?.type || '';
-                if (type === 'exit-pass' || type === 'EXIT_PASS') {
-                    setTimeout(() => loadPasses(), 500);
+                const type = notification?.type || notification?.data?.type || notification?.data?.sitam_type || '';
+                const title = notification?.title || notification?.data?.title || '';
+                if (type.toLowerCase().includes('exit') || title.toLowerCase().includes('exit pass')) {
+                    try { removeCachedData('/exit-passes/my'); } catch (_) {}
+                    setTimeout(() => loadPasses(), 300);
                 }
             };
             if (window._epNotifHandlers === undefined) window._epNotifHandlers = [];
             window._epNotifHandlers.push(epNotifHandler);
-            // Hook into the global notification received event
-            if (typeof window.addExitPassRefreshHook === 'function') {
-                window.addExitPassRefreshHook(epNotifHandler);
-            }
 
             // Refresh when app comes back to foreground on this screen
             const epVisibilityHandler = () => {
                 if (!document.hidden && window.location && window.location.hash && window.location.hash.includes('exit-pass')) {
+                    try { removeCachedData('/exit-passes/my'); } catch (_) {}
                     loadPasses();
                 }
             };
-            document.addEventListener('visibilitychange', epVisibilityHandler, { once: true });
+            document.addEventListener('visibilitychange', epVisibilityHandler);
         }
     },
 

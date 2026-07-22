@@ -886,11 +886,12 @@ const rejectIdentity = async (req, res) => {
 
 // Student: submit a new individual exit pass application
 const apply = async (req, res) => {
+    let studentId = null;
     try {
-        const studentId = await getAuthenticatedStudent(req);
+        studentId = await getAuthenticatedStudent(req);
         if (!studentId) return res.status(401).json({ error: 'Not authenticated' });
 
-        const { reason, destination, exitTime, returnTime, emergencyContact, remarks } = req.body;
+        const { reason, destination, exitTime, returnTime, emergencyContact, remarks } = req.body || {};
         if (!reason || !destination || !exitTime || !emergencyContact) {
             return res.status(400).json({ error: 'Reason, destination, exit time, and emergency contact are required' });
         }
@@ -903,9 +904,9 @@ const apply = async (req, res) => {
             return res.status(400).json({ error: 'Exit time must be in the future' });
         }
 
-        // returnTime is optional — validate only if provided
+        // returnTime is optional — validate only if provided and non-empty string
         let returnDate = null;
-        if (returnTime) {
+        if (returnTime && typeof returnTime === 'string' && returnTime.trim() !== '' && returnTime !== 'null' && returnTime !== 'undefined') {
             returnDate = new Date(returnTime);
             if (isNaN(returnDate.getTime())) {
                 return res.status(400).json({ error: 'Invalid return date/time format' });
@@ -942,19 +943,33 @@ const apply = async (req, res) => {
                 throw err;
             }
 
-            return tx.exitPass.create({
+            const newPass = await tx.exitPass.create({
                 data: {
                     studentId,
                     reason,
                     destination,
                     exitTime: exitDate,
-                    returnTime: returnDate,  // null if not provided
+                    returnTime: returnDate,  // null if omitted
                     emergencyContact,
                     remarks: remarks || null,
                     requestedDate: exitDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
                     status: 'PENDING'
                 }
             });
+
+            await tx.notification.create({
+                data: {
+                    studentId,
+                    title: 'Exit Pass Request Submitted',
+                    message: `Your exit pass request for ${destination} has been submitted and is waiting for approval.`,
+                    type: 'exit-pass',
+                    category: 'info',
+                    createdAt: new Date(),
+                    date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                }
+            });
+
+            return newPass;
         }, {
             isolationLevel: 'Serializable',
             maxWait: 10000,
@@ -972,18 +987,19 @@ const apply = async (req, res) => {
         if (err.message === 'DUPLICATE_GROUP') {
             return res.status(400).json({ error: 'You are already part of a pending group exit pass request.' });
         }
-        logger.error('[ExitPass] apply error:', err);
-        res.status(500).json({ error: 'Failed to submit exit pass' });
+        logger.error(`[ExitPass] Apply failed for student ${studentId || 'unknown'}: ${err.message}`, { stack: err.stack });
+        res.status(500).json({ error: `Failed to submit exit pass: ${err.message || 'Server error'}` });
     }
 };
 
 // Student: submit a new group exit pass application
 const applyGroup = async (req, res) => {
+    let studentId = null;
     try {
-        const studentId = await getAuthenticatedStudent(req);
+        studentId = await getAuthenticatedStudent(req);
         if (!studentId) return res.status(401).json({ error: 'Not authenticated' });
 
-        const { groupName, reason, destination, exitTime, returnTime, members } = req.body;
+        const { groupName, reason, destination, exitTime, returnTime, members } = req.body || {};
         if (!groupName || !reason || !destination || !exitTime || !Array.isArray(members) || members.length === 0) {
             return res.status(400).json({ error: 'Group name, reason, destination, exit time, and members list are required' });
         }
@@ -996,9 +1012,9 @@ const applyGroup = async (req, res) => {
             return res.status(400).json({ error: 'Exit time must be in the future' });
         }
 
-        // returnTime is optional — validate only if provided
+        // returnTime is optional — validate only if provided and non-empty string
         let returnDate = null;
-        if (returnTime) {
+        if (returnTime && typeof returnTime === 'string' && returnTime.trim() !== '' && returnTime !== 'null' && returnTime !== 'undefined') {
             returnDate = new Date(returnTime);
             if (isNaN(returnDate.getTime())) {
                 return res.status(400).json({ error: 'Invalid return date/time format' });
@@ -1069,7 +1085,7 @@ const applyGroup = async (req, res) => {
                     reason,
                     destination,
                     exitTime: exitDate,
-                    returnTime: returnDate,
+                    returnTime: returnDate || exitDate, // fallback to exitDate if returnDate is null (GroupExitPassRequest schema requires non-null DateTime)
                     leaderId: leader.id,
                     status: 'PENDING'
                 }
@@ -1084,13 +1100,26 @@ const applyGroup = async (req, res) => {
                         reason,
                         destination,
                         exitTime: exitDate,
-                        returnTime: returnDate,
-                        emergencyContact: student.emergencyContact || student.fatherMobile || student.phone,
+                        returnTime: returnDate, // null if omitted
+                        emergencyContact: student.emergencyContact || student.fatherMobile || student.phone || 'N/A',
                         remarks: `Group: ${groupName} (Leader: ${leader.name})`,
                         requestedDate: exitDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
                         status: 'PENDING'
                     }
                 });
+
+                await tx.notification.create({
+                    data: {
+                        studentId: student.id,
+                        title: 'Group Exit Pass Request Submitted',
+                        message: `Your group exit pass request (${groupName}) for ${destination} has been submitted and is waiting for approval.`,
+                        type: 'exit-pass',
+                        category: 'info',
+                        createdAt: new Date(),
+                        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                    }
+                });
+
                 passes.push(pass);
             }
 
@@ -1099,8 +1128,8 @@ const applyGroup = async (req, res) => {
 
         res.status(201).json({ success: true, ...result });
     } catch (err) {
-        logger.error('[ExitPass] applyGroup error:', err);
-        res.status(500).json({ error: 'Failed to submit group exit pass' });
+        logger.error(`[ExitPass] applyGroup failed for student ${studentId || 'unknown'}: ${err.message}`, { stack: err.stack });
+        res.status(500).json({ error: `Failed to submit group exit pass: ${err.message || 'Server error'}` });
     }
 };
 
