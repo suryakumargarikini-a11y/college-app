@@ -4366,7 +4366,7 @@ const pages = {
                             </div>
                             <div>
                                 <h4 class="font-extrabold text-slate-800 text-sm tracking-wide">Exit Pass</h4>
-                                <p class="text-[10px] text-slate-400 mt-1 leading-snug">Request gate passes &amp; get verification OTPs</p>
+                                <p class="text-[10px] text-slate-400 mt-1 leading-snug">Request gate passes &amp; QR-verified campus exits</p>
                             </div>
                         </div>
 
@@ -4600,141 +4600,252 @@ const pages = {
                 return new Date(dtStr).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
             };
 
+            // ---- RENDER PASSES ----
             const renderPasses = (passes) => {
                 if (!activeContainer || !historyList) return;
 
-                const activeIndex = passes.findIndex(p => p.status === 'PENDING' || p.status === 'APPROVED');
-                let active = null;
-                let history = passes;
-                if (activeIndex !== -1) {
-                    active = passes[activeIndex];
-                    history = passes.filter((_, idx) => idx !== activeIndex);
-                }
+                // Show the most recent active (non-terminal) pass, or the most recent pass overall
+                const ACTIVE_STATUSES = ['PENDING', 'APPROVED', 'UNDER_REVIEW'];
+                let active = passes.find(p => ACTIVE_STATUSES.includes(p.status)) || passes[0] || null;
+                const history = active ? passes.filter(p => p !== active) : [];
 
                 if (!active) {
-                    activeContainer.innerHTML = `<div class="p-6 rounded-2xl bg-white/60 border border-slate-200/50 text-center text-slate-400 font-bold text-xs uppercase tracking-wider animate-reveal">No active exit passes.</div>`;
+                    activeContainer.innerHTML = `<div class="p-6 rounded-2xl bg-white/60 border border-slate-200/50 text-center text-slate-400 font-bold text-xs uppercase tracking-wider animate-reveal">No exit passes found. Tap Apply to get started.</div>`;
                 } else {
-                    const statusColors = {
-                        PENDING: 'bg-amber-100 text-amber-800 border-amber-200',
-                        APPROVED: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-                        USED: 'bg-indigo-100 text-indigo-800 border-indigo-200',
-                        EXITED: 'bg-indigo-100 text-indigo-800 border-indigo-200',
-                        EXPIRED: 'bg-slate-100 text-slate-800 border-slate-200',
-                        REJECTED: 'bg-rose-100 text-rose-800 border-rose-200',
-                        UNDER_REVIEW: 'bg-red-100 text-red-800 border-red-200'
+                    const STATUS_CONFIG = {
+                        PENDING:      { badge: 'bg-amber-100 text-amber-800 border-amber-200',  label: 'Pending Approval',  icon: 'hourglass_top' },
+                        APPROVED:     { badge: 'bg-emerald-100 text-emerald-800 border-emerald-200', label: 'Approved',         icon: 'check_circle' },
+                        REJECTED:     { badge: 'bg-rose-100 text-rose-800 border-rose-200',      label: 'Rejected',          icon: 'cancel' },
+                        CANCELLED:    { badge: 'bg-slate-100 text-slate-500 border-slate-200',   label: 'Cancelled',         icon: 'do_not_disturb' },
+                        EXPIRED:      { badge: 'bg-slate-100 text-slate-600 border-slate-200',   label: 'Expired',           icon: 'timer_off' },
+                        UNDER_REVIEW: { badge: 'bg-orange-100 text-orange-800 border-orange-200', label: 'Under Review',      icon: 'manage_search' },
+                        EXITED:       { badge: 'bg-blue-100 text-blue-800 border-blue-200',      label: 'Exit Verified',     icon: 'how_to_reg' },
                     };
+                    const cfg = STATUS_CONFIG[active.status] || { badge: 'bg-slate-100 text-slate-600', label: active.status, icon: 'info' };
 
-                    const sc = statusColors[active.status] || 'bg-slate-100 text-slate-600';
-                    const isApproved = active.status === 'APPROVED';
-                    const isPending = active.status === 'PENDING';
-                    const isExited = active.status === 'EXITED';
-                    const isExpired = active.status === 'EXPIRED';
+                    const isPending     = active.status === 'PENDING';
+                    const isApproved    = active.status === 'APPROVED';
+                    const isRejected    = active.status === 'REJECTED';
+                    const isCancelled   = active.status === 'CANCELLED';
+                    const isExpired     = active.status === 'EXPIRED';
+                    const isUnderReview = active.status === 'UNDER_REVIEW';
+                    const isExited      = active.status === 'EXITED';
+                    const isTerminal    = isRejected || isCancelled;
 
-                    const steps = [
-                        { label: 'Applied', active: true, completed: true },
-                        { label: 'Approval', active: isApproved || isExited || isExpired, completed: isApproved || isExited || isExpired },
-                        { label: 'Security Gate Pass', active: isExited, completed: isExited }
-                    ];
+                    // --- STATUS MESSAGE ---
+                    const STATUS_MESSAGES = {
+                        PENDING:      { headline: 'Waiting for Approval', body: 'Your exit pass request has been submitted. You will be notified once Admin reviews it.', color: 'bg-amber-50 border-amber-200 text-amber-800' },
+                        APPROVED:     { headline: 'Exit Pass Approved', body: 'Show the QR code below to Security at the gate to complete your exit.', color: 'bg-emerald-50 border-emerald-200 text-emerald-800' },
+                        REJECTED:     { headline: 'Exit Pass Rejected', body: active.adminRemark ? `Reason: ${active.adminRemark}` : 'Your request was not approved.', color: 'bg-rose-50 border-rose-200 text-rose-800' },
+                        CANCELLED:    { headline: 'Request Cancelled', body: 'This exit pass request was cancelled.', color: 'bg-slate-50 border-slate-200 text-slate-600' },
+                        EXPIRED:      { headline: 'Pass Expired', body: 'This exit pass is no longer valid.', color: 'bg-slate-50 border-slate-200 text-slate-600' },
+                        UNDER_REVIEW: { headline: 'Under Security Review', body: 'Your exit pass has been flagged for review. Please contact Security or Admin.', color: 'bg-orange-50 border-orange-200 text-orange-800' },
+                        EXITED:       { headline: 'Exit Verified ✓', body: `Your campus exit was confirmed by Security.${active.exitConfirmedAt ? ' At: ' + new Date(active.exitConfirmedAt).toLocaleString('en-GB', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }) : ''}`, color: 'bg-blue-50 border-blue-200 text-blue-800' },
+                    };
+                    const msg = STATUS_MESSAGES[active.status];
+
+                    // --- TIMELINE STEPS ---
+                    let steps;
+                    if (isTerminal) {
+                        steps = [
+                            { label: 'Applied', done: true, current: false, failed: false },
+                            { label: isRejected ? 'Rejected' : 'Cancelled', done: false, current: false, failed: true }
+                        ];
+                    } else if (isExpired) {
+                        steps = [
+                            { label: 'Applied', done: true, current: false, failed: false },
+                            { label: 'Approved', done: true, current: false, failed: false },
+                            { label: 'Expired', done: false, current: false, failed: true },
+                            { label: 'Security', done: false, current: false, failed: false }
+                        ];
+                    } else if (isUnderReview) {
+                        steps = [
+                            { label: 'Applied', done: true, current: false, failed: false },
+                            { label: 'Approved', done: true, current: false, failed: false },
+                            { label: 'Under Review', done: false, current: true, failed: false },
+                            { label: 'Security', done: false, current: false, failed: false }
+                        ];
+                    } else if (isExited) {
+                        steps = [
+                            { label: 'Applied', done: true, current: false, failed: false },
+                            { label: 'Approved', done: true, current: false, failed: false },
+                            { label: 'Security Verified', done: true, current: false, failed: false },
+                            { label: 'Exit Confirmed', done: true, current: false, failed: false }
+                        ];
+                    } else if (isApproved) {
+                        steps = [
+                            { label: 'Applied', done: true, current: false, failed: false },
+                            { label: 'Approved', done: true, current: false, failed: false },
+                            { label: 'Gate Scan', done: false, current: true, failed: false },
+                            { label: 'Exit Confirmed', done: false, current: false, failed: false }
+                        ];
+                    } else { // PENDING
+                        steps = [
+                            { label: 'Applied', done: true, current: false, failed: false },
+                            { label: 'Awaiting Approval', done: false, current: true, failed: false },
+                            { label: 'Gate Scan', done: false, current: false, failed: false },
+                            { label: 'Exit Confirmed', done: false, current: false, failed: false }
+                        ];
+                    }
 
                     const timelineHtml = `
                         <div class="mt-4 p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
-                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Workflow Timeline</p>
-                            <div class="flex flex-col gap-3">
+                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Workflow Progress</p>
+                            <div class="flex flex-col gap-2.5">
                                 ${steps.map(step => `
-                                    <div class="timeline-step ${step.active ? 'active' : ''} ${step.completed ? 'completed' : ''}">
-                                        <div class="timeline-dot"></div>
-                                        <p class="text-xs font-bold text-slate-800 leading-none">${step.label}</p>
+                                    <div class="flex items-center gap-2.5">
+                                        <div class="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-[11px] font-black
+                                            ${step.done ? 'bg-emerald-500 text-white' :
+                                              step.failed ? 'bg-rose-500 text-white' :
+                                              step.current ? 'bg-primary text-white ring-4 ring-primary/20' :
+                                              'bg-slate-200 text-slate-400'}
+                                        ">${step.done ? '✓' : step.failed ? '✕' : step.current ? '●' : '○'}</div>
+                                        <p class="text-xs font-bold ${step.current ? 'text-primary' : step.done ? 'text-slate-700' : step.failed ? 'text-rose-600' : 'text-slate-400'}">${step.label}</p>
                                     </div>
                                 `).join('')}
                             </div>
                         </div>
                     `;
 
-                    let cancelBtnHtml = '';
-                    if (isPending) {
-                        cancelBtnHtml = `
-                            <button id="cancel-pass-btn" class="w-full mt-3 py-2.5 border border-rose-200 text-rose-600 bg-rose-50/50 hover:bg-rose-50 text-xs font-bold rounded-xl active-scale transition-colors flex items-center justify-center gap-1.5" data-id="${active.id}">
-                                <span class="material-symbols-outlined text-[15px]">cancel</span> Cancel Request
-                            </button>
-                        `;
-                    }
+                    // --- QR SECTION (only for APPROVED, unconsumed) ---
+                    const qrSectionHtml = isApproved ? `
+                        <div id="ep-qr-section" class="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 flex flex-col items-center gap-3 animate-reveal">
+                            <div class="text-center mb-1">
+                                <p class="text-xs font-black text-emerald-800 uppercase tracking-widest">Security Gate QR Code</p>
+                                <p class="text-[10px] text-emerald-600 mt-0.5">Show this to Security at the gate</p>
+                            </div>
+                            <div id="ep-qr-wrapper" class="w-40 h-40 bg-white rounded-xl border border-emerald-200 flex items-center justify-center p-2 overflow-hidden shadow-inner">
+                                <div id="ep-qr-loading" class="flex flex-col items-center gap-2">
+                                    <div class="w-6 h-6 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin"></div>
+                                    <p class="text-[9px] text-slate-400">Loading QR...</p>
+                                </div>
+                                <canvas id="exit-pass-qr-canvas" class="w-full h-full object-contain hidden"></canvas>
+                            </div>
+                            <div id="ep-qr-error" class="hidden text-center space-y-2">
+                                <p class="text-[10px] text-rose-600 font-bold">Unable to load QR code</p>
+                                <button id="ep-qr-retry" class="text-[10px] font-bold text-primary border border-primary/30 px-3 py-1 rounded-full active-scale">Retry</button>
+                            </div>
+                            <div class="text-center text-[10px] text-slate-400 leading-relaxed max-w-xs">
+                                <span class="font-bold text-amber-700">⚠ Your exit has not been recorded yet.</span><br>Security must scan this QR to confirm your exit.
+                            </div>
+                        </div>
+                    ` : '';
 
-                    const activeExitStr = active.exitTime ? formatDateTime(active.exitTime) : (active.requestedDate || active.requestDate);
-                    const activeReturnStr = active.returnTime ? formatDateTime(active.returnTime) : '';
+                    const cancelBtnHtml = isPending ? `
+                        <button id="cancel-pass-btn" class="w-full mt-3 py-2.5 border border-rose-200 text-rose-600 bg-rose-50/50 hover:bg-rose-50 text-xs font-bold rounded-xl active-scale transition-colors flex items-center justify-center gap-1.5" data-id="${active.id}">
+                            <span class="material-symbols-outlined text-[15px]">cancel</span> Cancel Request
+                        </button>
+                    ` : '';
+
+                    const exitStr = active.exitTime ? formatDateTime(active.exitTime) : (active.requestedDate || active.requestDate || '—');
 
                     activeContainer.innerHTML = `
                         <div class="glass-panel p-5 space-y-4 border border-slate-200/50 relative overflow-hidden animate-reveal">
                             <div class="flex justify-between items-start">
                                 <div>
-                                    <span class="px-2.5 py-0.5 rounded-full border text-[10px] font-extrabold uppercase tracking-wide ${sc}">${active.status}</span>
+                                    <span class="px-2.5 py-0.5 rounded-full border text-[10px] font-extrabold uppercase tracking-wide ${cfg.badge}">
+                                        <span class="material-symbols-outlined align-middle" style="font-size:11px">${cfg.icon}</span>
+                                        ${cfg.label}
+                                    </span>
                                     <h3 class="font-extrabold text-slate-800 text-base mt-2">${active.destination}</h3>
                                     <p class="text-xs text-slate-500 mt-0.5">${active.reason}</p>
                                 </div>
                                 <div class="text-right">
                                     <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Exit Time</p>
-                                    <p class="font-black text-slate-800 text-xs mt-0.5 font-mono">${activeExitStr}</p>
-                                    ${activeReturnStr ? `<p class="text-[9px] text-slate-400 mt-1 font-mono">Return: ${activeReturnStr}</p>` : ''}
+                                    <p class="font-black text-slate-800 text-xs mt-0.5 font-mono">${exitStr}</p>
                                 </div>
                             </div>
-                            
-                            ${active.adminRemark ? `
-                                <div class="text-xs text-blue-700 bg-blue-50/70 border border-blue-100 rounded-xl p-2.5 leading-normal">
-                                    <span class="font-bold">Admin remark:</span> "${active.adminRemark}"
+
+                            ${msg ? `
+                                <div class="text-xs border rounded-xl p-3 leading-relaxed ${msg.color}">
+                                    <p class="font-black mb-0.5">${msg.headline}</p>
+                                    <p>${msg.body}</p>
                                 </div>
                             ` : ''}
 
-                            ${isApproved ? `
-                                <div class="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 flex flex-col items-center gap-3 animate-reveal">
-                                    <div class="w-36 h-36 bg-white rounded-xl border border-emerald-200 flex items-center justify-center p-2.5 overflow-hidden shadow-inner">
-                                        <canvas id="exit-pass-qr-canvas" class="w-full h-full object-contain"></canvas>
-                                    </div>
-                                    <div class="text-center">
-                                        <p class="text-[10px] font-bold text-emerald-700 uppercase tracking-widest leading-none">Security Gate Pass QR</p>
-                                        <p class="text-xs text-slate-400 mt-1 font-mono">Check Notifications for OTP</p>
-                                    </div>
-                                </div>` : ''}
-
+                            ${qrSectionHtml}
                             ${timelineHtml}
                             ${cancelBtnHtml}
                         </div>
                     `;
 
-                    // Render local offline QR using QRious if approved
+                    // Load QR if approved
                     if (isApproved) {
-                        setTimeout(async () => {
+                        const loadQr = async () => {
                             try {
                                 const tokRes = await api.get(`/exit-passes/${active.id}/qr-token`);
                                 if (tokRes.data?.qrToken) {
-                                    new QRious({
-                                        element: document.getElementById('exit-pass-qr-canvas'),
-                                        value: tokRes.data.qrToken,
-                                        size: 150
-                                    });
+                                    const canvas = document.getElementById('exit-pass-qr-canvas');
+                                    const loadingEl = document.getElementById('ep-qr-loading');
+                                    if (canvas && loadingEl) {
+                                        new QRious({ element: canvas, value: tokRes.data.qrToken, size: 150 });
+                                        canvas.classList.remove('hidden');
+                                        loadingEl.classList.add('hidden');
+                                    }
+                                } else if (tokRes.data?.error) {
+                                    // QR consumed by Security — show appropriate state
+                                    const qrSection = document.getElementById('ep-qr-section');
+                                    if (qrSection) {
+                                        qrSection.innerHTML = `
+                                            <div class="text-center py-3 space-y-1">
+                                                <span class="material-symbols-outlined text-blue-500 text-3xl">verified_user</span>
+                                                <p class="text-xs font-bold text-blue-800">QR Scanned by Security</p>
+                                                <p class="text-[10px] text-slate-500">Your exit is being processed. Waiting for guard confirmation.</p>
+                                            </div>
+                                        `;
+                                    }
                                 }
                             } catch (err) {
-                                console.error('[ExitPass] Local QR generation failed:', err);
+                                // QR consumed or error
+                                const errMsg = err.response?.data?.error || '';
+                                const loadingEl = document.getElementById('ep-qr-loading');
+                                const errEl = document.getElementById('ep-qr-error');
+                                const retryBtn = document.getElementById('ep-qr-retry');
+                                if (errMsg.includes('scanned by Security') || errMsg.includes('already been confirmed')) {
+                                    // QR consumed — show consumed state
+                                    const qrSection = document.getElementById('ep-qr-section');
+                                    if (qrSection) {
+                                        qrSection.innerHTML = `
+                                            <div class="text-center py-3 space-y-1">
+                                                <span class="material-symbols-outlined text-blue-500 text-3xl">verified_user</span>
+                                                <p class="text-xs font-bold text-blue-800">QR Scanned by Security</p>
+                                                <p class="text-[10px] text-slate-500">Your exit is being confirmed. Refresh for latest status.</p>
+                                            </div>
+                                        `;
+                                    }
+                                } else {
+                                    if (loadingEl) loadingEl.classList.add('hidden');
+                                    if (errEl) errEl.classList.remove('hidden');
+                                    if (retryBtn) retryBtn.addEventListener('click', () => { errEl.classList.add('hidden'); loadingEl.classList.remove('hidden'); loadQr(); });
+                                }
+                                console.error('[ExitPass] QR load error:', err);
                             }
-                        }, 50);
+                        };
+                        setTimeout(loadQr, 50);
                     }
                 }
 
+                // History section
                 if (history.length === 0) {
                     historyList.innerHTML = `<div class="text-center py-6 text-slate-400 text-xs font-bold uppercase animate-reveal">No history records</div>`;
                 } else {
                     historyList.innerHTML = history.map(h => {
                         const dateFormatted = h.exitTime ? new Date(h.exitTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : (h.requestedDate || h.requestDate);
+                        const hCfg = { PENDING: 'bg-amber-100 text-amber-700', APPROVED: 'bg-emerald-100 text-emerald-700', REJECTED: 'bg-rose-100 text-rose-700', CANCELLED: 'bg-slate-100 text-slate-500', EXPIRED: 'bg-slate-100 text-slate-500', EXITED: 'bg-blue-100 text-blue-700', UNDER_REVIEW: 'bg-orange-100 text-orange-700' };
                         return `
                         <div class="p-4 bg-white/60 border border-slate-200/40 rounded-2xl flex justify-between items-center animate-reveal">
                             <div>
                                 <h4 class="text-sm font-extrabold text-slate-700 leading-tight">${h.destination}</h4>
                                 <p class="text-[10px] text-slate-400 mt-0.5 font-mono">${dateFormatted}</p>
+                                ${h.reason ? `<p class="text-[10px] text-slate-400 mt-0.5 truncate max-w-[180px]">${h.reason}</p>` : ''}
                             </div>
-                            <span class="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 bg-slate-100 text-slate-500 rounded-full border border-slate-200">${h.status}</span>
+                            <span class="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border border-transparent ${hCfg[h.status] || 'bg-slate-100 text-slate-500'}">${h.status}</span>
                         </div>
                     `;
                     }).join('');
                 }
 
+                // Cancel button handler
                 const cancelBtn = $('cancel-pass-btn');
                 if (cancelBtn) {
                     cancelBtn.addEventListener('click', async (e) => {
@@ -4803,19 +4914,13 @@ const pages = {
                 const destination = $('ep-destination').value.trim();
                 const reason = $('ep-reason').value.trim();
                 const exitTime = $('ep-exit-time').value;
-                const returnTime = $('ep-return-time').value;
                 const remarks = $('ep-remarks').value.trim();
 
-                if (!destination || !reason || !exitTime || !returnTime) return;
+                if (!destination || !reason || !exitTime) return;
 
                 const exitDate = new Date(exitTime);
-                const returnDate = new Date(returnTime);
                 if (exitDate <= new Date()) {
                     showToast('Exit time must be in the future', 'error', 3000);
-                    return;
-                }
-                if (returnDate <= exitDate) {
-                    showToast('Return time must be after exit time', 'error', 3000);
                     return;
                 }
 
@@ -4838,7 +4943,6 @@ const pages = {
                             destination,
                             reason,
                             exitTime,
-                            returnTime,
                             members
                         });
                     } else {
@@ -4853,7 +4957,6 @@ const pages = {
                             destination,
                             reason,
                             exitTime,
-                            returnTime,
                             emergencyContact,
                             remarks
                         });
@@ -4876,6 +4979,28 @@ const pages = {
             });
 
             loadPasses();
+
+            // Real-time status refresh: reload when exit-pass notification arrives
+            const epNotifHandler = (notification) => {
+                const type = notification?.type || notification?.data?.type || '';
+                if (type === 'exit-pass' || type === 'EXIT_PASS') {
+                    setTimeout(() => loadPasses(), 500);
+                }
+            };
+            if (window._epNotifHandlers === undefined) window._epNotifHandlers = [];
+            window._epNotifHandlers.push(epNotifHandler);
+            // Hook into the global notification received event
+            if (typeof window.addExitPassRefreshHook === 'function') {
+                window.addExitPassRefreshHook(epNotifHandler);
+            }
+
+            // Refresh when app comes back to foreground on this screen
+            const epVisibilityHandler = () => {
+                if (!document.hidden && window.location && window.location.hash && window.location.hash.includes('exit-pass')) {
+                    loadPasses();
+                }
+            };
+            document.addEventListener('visibilitychange', epVisibilityHandler, { once: true });
         }
     },
 
