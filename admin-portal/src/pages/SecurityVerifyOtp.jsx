@@ -19,20 +19,24 @@ export default function SecurityVerifyOtp() {
   const [cameraError, setCameraError] = useState('');
   const [showFileUpload, setShowFileUpload] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const html5QrCodeRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   const processingRef = useRef(false);
   const lastFailLogRef = useRef(0);
 
   // Stop camera and release all MediaStream tracks
   const stopCamera = async () => {
+    console.log('[CAMERA-DEBUG] stopCamera called');
     if (html5QrCodeRef.current) {
       try {
         if (html5QrCodeRef.current.isScanning) {
           await html5QrCodeRef.current.stop();
         }
         await html5QrCodeRef.current.clear();
+        console.log('[CAMERA-DEBUG] scanner stopped');
       } catch (err) {
-        console.warn('Camera stop cleanup error:', err);
+        console.warn('[CAMERA-DEBUG] Camera stop cleanup error:', err);
       } finally {
         html5QrCodeRef.current = null;
         setIsScanning(false);
@@ -40,41 +44,46 @@ export default function SecurityVerifyOtp() {
     }
   };
 
-  // Start Rear Camera Scanning
+  // Start Rear Camera Scanning with Diagnostic Checkpoints
   const startCamera = async () => {
     setCameraError('');
     setError('');
     processingRef.current = false;
 
-    console.log('[CAMERA] startCamera entered');
+    console.log('[CAMERA-DEBUG] 1 startCamera entered');
 
-    // Check secure context / mediaDevices support
-    if (typeof window !== 'undefined' && !window.isSecureContext && window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    const isSecure = typeof window !== 'undefined' && (window.isSecureContext || window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    console.log(`[CAMERA-DEBUG] 2 secureContext=${isSecure}`);
+
+    const hasMediaDevices = typeof navigator !== 'undefined' && Boolean(navigator.mediaDevices);
+    console.log(`[CAMERA-DEBUG] 3 mediaDevices=${hasMediaDevices}`);
+
+    const hasGetUserMedia = hasMediaDevices && Boolean(navigator.mediaDevices.getUserMedia);
+    console.log(`[CAMERA-DEBUG] 4 getUserMedia=${hasGetUserMedia}`);
+
+    if (!isSecure) {
       setCameraError('Camera access requires a secure HTTPS connection. Please use HTTPS or use the image upload option below.');
       return;
     }
 
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    if (!hasGetUserMedia) {
       setCameraError('Camera access is not supported by this browser. Please use the image upload fallback.');
       return;
     }
-    console.log('[CAMERA] mediaDevices available');
 
     await stopCamera();
 
     try {
-      console.log('[CAMERA] requesting/enumerating cameras');
-      const html5QrCode = new Html5Qrcode('qr-reader');
-      html5QrCodeRef.current = html5QrCode;
-      console.log('[CAMERA] Html5Qrcode created');
-
-      // 1. Enumerate cameras to find exact device ID (preferred method for Android Chrome)
+      console.log('[CAMERA-DEBUG] 5 requesting cameras');
       let cameraConfig = { facingMode: 'environment' };
+      let selectedLabel = 'facingMode: environment fallback';
+      let camCount = 0;
 
       try {
         const cameras = await Html5Qrcode.getCameras();
-        const camCount = cameras ? cameras.length : 0;
-        console.log(`[CAMERA] cameras found=${camCount}`);
+        camCount = cameras ? cameras.length : 0;
+        console.log(`[CAMERA-DEBUG] 6 cameras found=${camCount}`);
+
         if (cameras && cameras.length > 0) {
           const rearCam = cameras.find(c => {
             const label = (c.label || '').toLowerCase();
@@ -83,24 +92,29 @@ export default function SecurityVerifyOtp() {
           const selectedCam = rearCam || (cameras.length > 1 ? cameras[cameras.length - 1] : cameras[0]);
           if (selectedCam && selectedCam.id) {
             cameraConfig = selectedCam.id;
-            console.log('[CAMERA] selected camera device ID:', selectedCam.id, 'label:', selectedCam.label || 'unlabeled');
+            selectedLabel = selectedCam.label || 'unlabeled camera';
           }
         }
       } catch (e) {
-        console.warn('[CAMERA] camera enumeration fallback to facingMode string:', e);
+        console.warn('[CAMERA-DEBUG] camera enumeration error:', e);
+      }
+      console.log(`[CAMERA-DEBUG] 7 selected camera=${selectedLabel}`);
+
+      const qrReaderEl = document.getElementById('qr-reader');
+      const qrReaderExists = Boolean(qrReaderEl);
+      console.log(`[CAMERA-DEBUG] 8 creating Html5Qrcode (qr-reader exists=${qrReaderExists})`);
+
+      if (!qrReaderExists) {
+        console.error('[CAMERA-DEBUG] START FAILED: qr-reader DOM element missing');
+        setCameraError('Camera container element missing in DOM.');
+        return;
       }
 
-      const qrboxCalc = (viewfinderWidth, viewfinderHeight) => {
-        const minDim = Math.min(viewfinderWidth, viewfinderHeight);
-        const boxSize = Math.floor(minDim * 0.7);
-        const clampedSize = Math.max(150, Math.min(250, boxSize));
-        return { width: clampedSize, height: clampedSize };
-      };
+      const html5QrCode = new Html5Qrcode('qr-reader');
+      html5QrCodeRef.current = html5QrCode;
+      console.log('[CAMERA-DEBUG] 9 Html5Qrcode created');
 
-      const scanConfig = {
-        fps: 10,
-        qrbox: qrboxCalc
-      };
+      const scanConfig = { fps: 10 };
 
       const handleScanSuccess = async (decodedText, decodedResult) => {
         if (processingRef.current) return;
@@ -145,24 +159,42 @@ export default function SecurityVerifyOtp() {
       };
 
       try {
-        console.log('[CAMERA] scanner.start beginning with config:', cameraConfig);
+        console.log('[CAMERA-DEBUG] 10 scanner.start called');
         await html5QrCode.start(
           cameraConfig,
           scanConfig,
           handleScanSuccess,
           handleScanFailure
         );
-        console.log('[CAMERA] scanner.start resolved — preview active');
+        console.log('[CAMERA-DEBUG] 11 scanner.start resolved');
+
+        // Check video element state
+        const videoEl = qrReaderEl.querySelector('video');
+        const videoExists = Boolean(videoEl);
+        console.log(`[CAMERA-DEBUG] 12 video element exists=${videoExists}`);
+
+        if (videoEl) {
+          const readyState = videoEl.readyState;
+          console.log(`[CAMERA-DEBUG] 13 video readyState=${readyState}`);
+
+          const vW = videoEl.videoWidth || 0;
+          const vH = videoEl.videoHeight || 0;
+          console.log(`[CAMERA-DEBUG] 14 video dimensions=${vW}x${vH}`);
+        }
       } catch (startErr) {
+        console.error('[CAMERA-DEBUG] START FAILED');
+        console.error(`name=${startErr?.name || 'Error'}`);
+        console.error(`message=${startErr?.message || String(startErr)}`);
+
         if (typeof cameraConfig !== 'string' || cameraConfig !== 'environment') {
-          console.warn('[CAMERA] First camera config failed, retrying with facingMode: "environment"', startErr);
+          console.warn('[CAMERA-DEBUG] retrying with facingMode: "environment" string');
           await html5QrCode.start(
             { facingMode: 'environment' },
             scanConfig,
             handleScanSuccess,
             handleScanFailure
           );
-          console.log('[CAMERA] scanner.start resolved with facingMode fallback — preview active');
+          console.log('[CAMERA-DEBUG] 11 scanner.start resolved (facingMode fallback)');
         } else {
           throw startErr;
         }
@@ -170,7 +202,10 @@ export default function SecurityVerifyOtp() {
 
       setIsScanning(true);
     } catch (err) {
-      console.error('[CAMERA] scanner.start failed:', err);
+      console.error('[CAMERA-DEBUG] START FAILED');
+      console.error(`name=${err?.name || 'Error'}`);
+      console.error(`message=${err?.message || String(err)}`);
+
       const errName = err?.name || '';
       const errMsg = err?.message || String(err);
 
@@ -251,16 +286,19 @@ export default function SecurityVerifyOtp() {
 
   // Auto-start camera when scanner UI is visible (and no pass is verified yet)
   useEffect(() => {
+    console.log('[CAMERA-DEBUG] component mounted');
     if (!passData && !showFileUpload) {
       const timer = setTimeout(() => {
         startCamera();
       }, 300);
       return () => {
+        console.log('[CAMERA-DEBUG] component cleanup');
         clearTimeout(timer);
         stopCamera();
       };
     }
     return () => {
+      console.log('[CAMERA-DEBUG] component cleanup');
       stopCamera();
     };
   }, [passData, showFileUpload]);
