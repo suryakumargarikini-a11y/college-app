@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import QrScanner from 'qr-scanner';
 import api from '../lib/api';
 
@@ -20,10 +19,11 @@ export default function SecurityVerifyOtp() {
   const [cameraError, setCameraError] = useState('');
   const [showFileUpload, setShowFileUpload] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
-  const html5QrCodeRef = useRef(null);
+
+  const videoRef = useRef(null);
+  const qrScannerRef = useRef(null);
   const fileInputRef = useRef(null);
   const startingRef = useRef(false);
-
   const processingRef = useRef(false);
   const lastFailLogRef = useRef(0);
 
@@ -31,35 +31,28 @@ export default function SecurityVerifyOtp() {
   const stopCamera = async () => {
     console.log('[CAMERA-DEBUG] stopCamera called');
     startingRef.current = false;
-    const scanner = html5QrCodeRef.current;
+    const scanner = qrScannerRef.current;
     if (!scanner) {
       console.log('[CAMERA-DEBUG] stopCamera skipped — reference already null');
       setIsScanning(false);
       return;
     }
 
-    html5QrCodeRef.current = null;
+    qrScannerRef.current = null;
     setIsScanning(false);
 
     try {
-      if (scanner.isScanning) {
-        await scanner.stop();
-      }
+      scanner.stop();
+      scanner.destroy();
+      console.log('[CAMERA-DEBUG] QrScanner stopped & destroyed safely');
     } catch (err) {
-      console.warn('[CAMERA-DEBUG] scanner.stop error:', err);
-    }
-
-    try {
-      await scanner.clear();
-      console.log('[CAMERA-DEBUG] scanner stopped & cleared safely');
-    } catch (err) {
-      console.warn('[CAMERA-DEBUG] scanner.clear error:', err);
+      console.warn('[CAMERA-DEBUG] QrScanner cleanup warning:', err);
     }
   };
 
-  // Start Rear Camera Scanning with Diagnostic Checkpoints & Initialization Mutex
+  // Start Rear Camera Scanning with QrScanner Live API & Initialization Mutex
   const startCamera = async () => {
-    if (startingRef.current || html5QrCodeRef.current) {
+    if (startingRef.current || qrScannerRef.current) {
       console.log('[CAMERA-DEBUG] startCamera skipped — initialization already in progress or scanner active');
       return;
     }
@@ -92,214 +85,46 @@ export default function SecurityVerifyOtp() {
       return;
     }
 
+    const videoEl = videoRef.current;
+    if (!videoEl) {
+      console.error('[CAMERA-DEBUG] START FAILED: video DOM element missing');
+      setCameraError('Camera container element missing in DOM.');
+      startingRef.current = false;
+      return;
+    }
+
     try {
-      console.log('[CAMERA-DEBUG] 5 requesting cameras');
-      let cameraConfig = { facingMode: 'environment' };
-      let selectedLabel = 'facingMode: environment fallback';
-      let camCount = 0;
-
-      try {
-        const cameras = await Html5Qrcode.getCameras();
-        camCount = cameras ? cameras.length : 0;
-        console.log(`[CAMERA-DEBUG] 6 cameras found=${camCount}`);
-
-        if (cameras && cameras.length > 0) {
-          const rearCam = cameras.find(c => {
-            const label = (c.label || '').toLowerCase();
-            return label.includes('back') || label.includes('rear') || label.includes('environment') || label.includes('facing back');
-          });
-          const selectedCam = rearCam || (cameras.length > 1 ? cameras[cameras.length - 1] : cameras[0]);
-          if (selectedCam && selectedCam.id) {
-            cameraConfig = selectedCam.id;
-            selectedLabel = selectedCam.label || 'unlabeled camera';
-          }
-        }
-      } catch (e) {
-        console.warn('[CAMERA-DEBUG] camera enumeration error:', e);
-      }
-      console.log(`[CAMERA-DEBUG] 7 selected camera=${selectedLabel}`);
-
-      const qrReaderEl = document.getElementById('qr-reader');
-      const qrReaderExists = Boolean(qrReaderEl);
-      console.log(`[CAMERA-DEBUG] 8 creating Html5Qrcode (qr-reader exists=${qrReaderExists})`);
-
-      if (!qrReaderExists) {
-        console.error('[CAMERA-DEBUG] START FAILED: qr-reader DOM element missing');
-        setCameraError('Camera container element missing in DOM.');
-        return;
-      }
-
-      const html5QrCode = new Html5Qrcode('qr-reader');
-      html5QrCodeRef.current = html5QrCode;
-      console.log('[CAMERA-DEBUG] 9 Html5Qrcode created');
-
-      const scanConfig = {
-        fps: 10,
-        formatsToSupport: [ Html5QrcodeSupportedFormats.QR_CODE ]
-      };
-
-      const handleScanSuccess = async (decodedText, decodedResult) => {
-        const textLen = decodedText ? decodedText.length : 0;
-        console.log(`[QR-DECODE] onScanSuccess entered length=${textLen}`);
-
-        if (processingRef.current) {
-          console.log('[QR-DECODE] handleScanSuccess skipped — processingRef is true');
-          return;
-        }
-        processingRef.current = true;
-
-        if (decodedText && decodedText.startsWith('SITAM-QR-TEST')) {
-          console.log('[QR-DECODE] Dummy QR detected in live camera frame!');
-          setSuccessMsg(`✓ Test QR Code Detected (Length: ${textLen}) — Scanner & Decoder working cleanly!`);
-          setTimeout(() => {
-            setSuccessMsg('');
-            processingRef.current = false;
-          }, 4000);
-          return;
-        }
-
-        console.log('[QR-DECODE] Verification starting');
-
-        try {
-          const success = await verifyToken(decodedText);
-          if (success) {
-            await stopCamera();
-          } else {
-            processingRef.current = false;
-          }
-        } catch (err) {
-          console.error('[QR-DECODE] Verification error:', err);
-          processingRef.current = false;
-        }
-      };
-
-      const handleScanFailure = (errStr) => {
-        const now = Date.now();
-        if (now - lastFailLogRef.current > 2000) {
-          lastFailLogRef.current = now;
-          console.log(`[QR-DECODE-FAIL] message=${errStr || 'QR code not found'}`);
-        }
-      };
-
-      try {
-        console.log('[CAMERA-DEBUG] 10 scanner.start called');
-        await html5QrCode.start(
-          cameraConfig,
-          scanConfig,
-          handleScanSuccess,
-          handleScanFailure
-        );
-        console.log('[CAMERA-DEBUG] 11 scanner.start resolved');
-
-        // Inspect video element state and stream details
-        const videoEl = qrReaderEl.querySelector('video');
-        const videoExists = Boolean(videoEl);
-        console.log(`[CAMERA-DEBUG] 12 video element exists=${videoExists}`);
-
-        if (videoEl) {
-          videoEl.setAttribute('playsinline', 'true');
-          videoEl.muted = true;
-
-          videoEl.addEventListener('loadedmetadata', () => console.log('[CAMERA-STREAM] EVENT: loadedmetadata fired'));
-          videoEl.addEventListener('canplay', () => console.log('[CAMERA-STREAM] EVENT: canplay fired'));
-          videoEl.addEventListener('playing', () => console.log('[CAMERA-STREAM] EVENT: playing fired'));
-
-          const srcObj = videoEl.srcObject;
-          const hasSrcObj = Boolean(srcObj);
-          console.log(`[CAMERA-STREAM] srcObject=${hasSrcObj}`);
-
-          if (srcObj) {
-            console.log(`[CAMERA-STREAM] stream active=${srcObj.active}`);
-            const tracks = srcObj.getVideoTracks ? srcObj.getVideoTracks() : [];
-            console.log(`[CAMERA-STREAM] tracks=${tracks.length}`);
-            if (tracks.length > 0) {
-              const tr = tracks[0];
-              console.log(`[CAMERA-STREAM] track readyState=${tr.readyState}`);
-              console.log(`[CAMERA-STREAM] track enabled=${tr.enabled}`);
-              console.log(`[CAMERA-STREAM] track muted=${tr.muted}`);
-              try {
-                const settings = tr.getSettings ? tr.getSettings() : {};
-                console.log(`[CAMERA-STREAM] track settings facingMode=${settings.facingMode || 'N/A'} width=${settings.width || 0} height=${settings.height || 0} frameRate=${settings.frameRate || 0}`);
-              } catch (e) {
-                console.warn('[CAMERA-STREAM] getSettings error:', e);
-              }
+      console.log('[CAMERA-DEBUG] Instantiating QrScanner with environment camera...');
+      const scanner = new QrScanner(
+        videoEl,
+        (result) => {
+          console.log('[QR-SCANNER] LIVE DECODE CALLBACK');
+          const decodedText = typeof result === 'string' ? result : (result?.data || '');
+          handleScanSuccess(decodedText);
+        },
+        {
+          preferredCamera: 'environment',
+          highlightScanRegion: true,
+          highlightCodeOutline: true,
+          returnDetailedScanResult: true,
+          onDecodeError: (errStr) => {
+            const now = Date.now();
+            if (now - lastFailLogRef.current > 3000) {
+              lastFailLogRef.current = now;
+              console.log(`[QR-DECODE-FAIL] message=${errStr || 'QR code not found'}`);
             }
           }
-
-          console.log(`[CAMERA-STREAM] video paused=${videoEl.paused}`);
-          console.log(`[CAMERA-DEBUG] 13 video readyState=${videoEl.readyState}`);
-          console.log(`[CAMERA-DEBUG] 14 video dimensions=${videoEl.videoWidth}x${videoEl.videoHeight}`);
-
-          if (videoEl.paused) {
-            try {
-              console.log('[CAMERA-STREAM] attempting video.play()...');
-              await videoEl.play();
-              console.log('[CAMERA-STREAM] video.play() resolved successfully!');
-            } catch (playErr) {
-              console.error(`[CAMERA-STREAM] video.play() failed name=${playErr?.name} msg=${playErr?.message}`);
-            }
-          }
-
-          // Polling bounded readiness wait (up to 5000ms)
-          const startTime = Date.now();
-          const checkReady = () => {
-            const currentRW = videoEl.videoWidth || 0;
-            const currentRH = videoEl.videoHeight || 0;
-            const currentRS = videoEl.readyState;
-
-            if (currentRS >= 2 && currentRW > 0 && currentRH > 0) {
-              const elapsed = Date.now() - startTime;
-              console.log(`[CAMERA-STREAM] VIDEO READY AFTER ${elapsed} ms: readyState=${currentRS} dims=${currentRW}x${currentRH}`);
-
-              // Capture single diagnostic frame
-              setTimeout(() => {
-                try {
-                  const c = document.createElement('canvas');
-                  c.width = currentRW;
-                  c.height = currentRH;
-                  const ctx = c.getContext('2d');
-                  ctx.drawImage(videoEl, 0, 0);
-                  const imgData = ctx.getImageData(0, 0, Math.min(10, currentRW), Math.min(10, currentRH));
-                  const hasPixels = imgData.data.some(p => p > 0);
-                  console.log(`[FRAME-CAPTURE] canvas ${c.width}x${c.height} non-empty pixels=${hasPixels}`);
-                } catch (e) {
-                  console.warn('[FRAME-CAPTURE] error:', e);
-                }
-              }, 1000);
-
-            } else if (Date.now() - startTime < 5000) {
-              setTimeout(checkReady, 100);
-            } else {
-              console.warn(`[CAMERA-STREAM] VIDEO READINESS TIMEOUT after 5000 ms: final readyState=${currentRS} dims=${currentRW}x${currentRH}`);
-            }
-          };
-          setTimeout(checkReady, 100);
         }
-      } catch (startErr) {
-        console.error('[CAMERA-DEBUG] START FAILED');
-        console.error(`name=${startErr?.name || 'Error'}`);
-        console.error(`message=${startErr?.message || String(startErr)}`);
+      );
 
-        if (typeof cameraConfig !== 'string' || cameraConfig !== 'environment') {
-          console.warn('[CAMERA-DEBUG] retrying with facingMode: "environment" string');
-          await html5QrCode.start(
-            { facingMode: 'environment' },
-            scanConfig,
-            handleScanSuccess,
-            handleScanFailure
-          );
-          console.log('[CAMERA-DEBUG] 11 scanner.start resolved (facingMode fallback)');
-        } else {
-          throw startErr;
-        }
-      }
+      qrScannerRef.current = scanner;
 
+      console.log('[CAMERA-DEBUG] Starting QrScanner live stream...');
+      await scanner.start();
+      console.log('[CAMERA-DEBUG] QrScanner started successfully!');
       setIsScanning(true);
     } catch (err) {
-      console.error('[CAMERA-DEBUG] START FAILED');
-      console.error(`name=${err?.name || 'Error'}`);
-      console.error(`message=${err?.message || String(err)}`);
-
+      console.error('[CAMERA-DEBUG] QrScanner START FAILED:', err);
       const errName = err?.name || '';
       const errMsg = err?.message || String(err);
 
@@ -309,8 +134,6 @@ export default function SecurityVerifyOtp() {
         setCameraError('No camera found on this device.');
       } else if (errName === 'NotReadableError' || errMsg.includes('Could not start video source')) {
         setCameraError('Camera is currently in use by another app or inaccessible.');
-      } else if (errMsg.includes('facingMode')) {
-        setCameraError(`Camera constraint error: ${errMsg}`);
       } else {
         setCameraError(`Camera error: ${errMsg || 'Unable to access camera'}`);
       }
@@ -321,7 +144,44 @@ export default function SecurityVerifyOtp() {
     }
   };
 
-  // Verify Opaque QR Token with Backend
+  // Handle Decoded QR Callback (Live Camera or Image Upload)
+  const handleScanSuccess = async (decodedText) => {
+    const textLen = decodedText ? decodedText.length : 0;
+    console.log(`[QR-DECODE] handleScanSuccess entered length=${textLen}`);
+
+    if (processingRef.current) {
+      console.log('[QR-DECODE] handleScanSuccess skipped — processingRef is true');
+      return;
+    }
+    processingRef.current = true;
+
+    // Check for Known-Good Dummy Test QR Code
+    if (decodedText && decodedText.startsWith('SITAM-QR-TEST')) {
+      console.log('[QR-DECODE] Dummy QR detected in live camera frame!');
+      setSuccessMsg(`✓ Dummy QR detected successfully. (Content: ${decodedText})`);
+      setTimeout(() => {
+        setSuccessMsg('');
+        processingRef.current = false;
+      }, 3000);
+      return;
+    }
+
+    console.log('[QR-DECODE] Production Exit Pass verification starting');
+
+    try {
+      const success = await verifyToken(decodedText);
+      if (success) {
+        await stopCamera();
+      } else {
+        processingRef.current = false;
+      }
+    } catch (err) {
+      console.error('[QR-DECODE] Verification error:', err);
+      processingRef.current = false;
+    }
+  };
+
+  // Verify Opaque QR Token with Backend (Production Exit Pass Only)
   const verifyToken = async (rawToken) => {
     if (!rawToken || !rawToken.trim()) {
       processingRef.current = false;
@@ -358,7 +218,7 @@ export default function SecurityVerifyOtp() {
     }
   };
 
-  // Handle File Upload Fallback with Strict Decoder A/B Test
+  // Handle File Upload Fallback with QrScanner.scanImage
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -367,58 +227,17 @@ export default function SecurityVerifyOtp() {
     setUploadingImage(true);
     setError('');
 
-    let temp = document.getElementById('qr-reader-temp');
-    let createdTemp = false;
-    if (!temp) {
-      temp = document.createElement('div');
-      temp.id = 'qr-reader-temp';
-      temp.style.display = 'none';
-      document.body.appendChild(temp);
-      createdTemp = true;
-    }
-
-    let fileScanner = null;
-    let html5Result = null;
-    let qrScannerResult = null;
-
-    // Test 1: Html5Qrcode.scanFile
-    console.log('[DECODER-AB] Html5Qrcode START');
+    console.log('[QR-SCANNER] IMAGE TEST START');
     try {
-      fileScanner = new Html5Qrcode('qr-reader-temp');
-      html5Result = await fileScanner.scanFile(file, true);
-      console.log(`[DECODER-AB] Html5Qrcode SUCCESS text=${html5Result}`);
-    } catch (html5Err) {
-      const msg = html5Err?.message || String(html5Err);
-      console.log(`[DECODER-AB] Html5Qrcode FAIL ${msg}`);
-    } finally {
-      if (fileScanner) {
-        try { await fileScanner.clear(); } catch {}
-      }
-      if (createdTemp && temp) {
-        try { temp.remove(); } catch {}
-      }
-    }
+      const result = await QrScanner.scanImage(file, { returnDetailedScanResult: true });
+      const decodedText = typeof result === 'string' ? result : (result?.data || '');
+      console.log(`[QR-SCANNER] IMAGE DECODE SUCCESS text=${decodedText}`);
 
-    // Test 2: QrScanner.scanImage
-    console.log('[DECODER-AB] QrScanner START');
-    try {
-      qrScannerResult = await QrScanner.scanImage(file, { returnDetailedScanResult: true });
-      const text = typeof qrScannerResult === 'string' ? qrScannerResult : qrScannerResult.data;
-      console.log(`[DECODER-AB] QrScanner SUCCESS text=${text}`);
-      qrScannerResult = text;
-    } catch (qrErr) {
-      const msg = qrErr?.message || String(qrErr);
-      console.log(`[DECODER-AB] QrScanner FAIL ${msg}`);
-    }
-
-    const decodedText = qrScannerResult || html5Result;
-
-    try {
       if (decodedText) {
         const textLen = decodedText.length;
         if (decodedText.startsWith('SITAM-QR-TEST')) {
-          console.log(`[DECODER-AB] Dummy QR detected text=${decodedText}`);
-          setSuccessMsg(`✓ Test QR Code Detected (Length: ${textLen}) — Decoder A/B Test Complete!`);
+          console.log(`[QR-SCANNER] Dummy QR image detected text=${decodedText}`);
+          setSuccessMsg(`✓ Dummy QR Image Detected (Length: ${textLen}) — QrScanner.scanImage OK!`);
           setTimeout(() => setSuccessMsg(''), 4000);
           return;
         }
@@ -426,9 +245,10 @@ export default function SecurityVerifyOtp() {
       } else {
         setError('Could not decode QR code from the uploaded image. Please ensure the QR is clearly visible.');
       }
-    } catch (err) {
-      console.error('[DECODER-AB] Verification error:', err);
-      setError('Could not decode QR code from the uploaded image.');
+    } catch (qrErr) {
+      const msg = qrErr?.message || String(qrErr);
+      console.log(`[QR-SCANNER] IMAGE DECODE FAIL: ${msg}`);
+      setError('Could not decode QR code from the uploaded image. Please ensure the QR is clearly visible.');
     } finally {
       setUploadingImage(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -544,7 +364,7 @@ export default function SecurityVerifyOtp() {
               <div className="flex justify-between items-center">
                 <span className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
                   <span className="material-symbols-outlined text-blue-600 text-sm">photo_camera</span>
-                  Live Camera Scanner
+                  Live Camera Scanner (QrScanner)
                 </span>
                 {isScanning && (
                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
@@ -554,12 +374,14 @@ export default function SecurityVerifyOtp() {
                 )}
               </div>
 
-              {/* QR Reader Viewport */}
+              {/* QR Reader Viewport — Powered by HTML <video> & QrScanner */}
               <div className="relative w-full aspect-square max-w-sm mx-auto rounded-2xl border-2 border-gray-200 bg-black overflow-hidden flex flex-col items-center justify-center shadow-inner">
-                <div id="qr-reader" className="w-full h-full object-cover"></div>
-
-                {/* Hidden container for file scan */}
-                <div id="qr-reader-temp" className="hidden"></div>
+                <video
+                  ref={videoRef}
+                  className="w-full h-full object-cover"
+                  playsInline
+                  muted
+                ></video>
 
                 {/* Camera Overlay Reticle */}
                 {isScanning && (
@@ -576,6 +398,14 @@ export default function SecurityVerifyOtp() {
                   </div>
                 )}
               </div>
+
+              {/* Success Message Banner */}
+              {successMsg && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs flex items-center gap-2 font-bold animate-pulse">
+                  <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                  <span>{successMsg}</span>
+                </div>
+              )}
 
               {/* Camera Error Banner & Controls */}
               {cameraError && (
@@ -596,7 +426,7 @@ export default function SecurityVerifyOtp() {
               {/* Fallback Switcher */}
               <div className="pt-2 border-t border-gray-100 flex flex-col sm:flex-row gap-2 justify-between items-center">
                 <button
-                  onClick={startCamera}
+                  onClick={async () => { await stopCamera(); startCamera(); }}
                   className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1"
                 >
                   <span className="material-symbols-outlined text-[16px]">refresh</span>
@@ -617,7 +447,7 @@ export default function SecurityVerifyOtp() {
               <div className="flex justify-between items-center">
                 <span className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
                   <span className="material-symbols-outlined text-blue-600 text-sm">upload_file</span>
-                  Upload QR Image Fallback
+                  Upload QR Image Fallback (QrScanner)
                 </span>
                 <button
                   onClick={() => { setShowFileUpload(false); startCamera(); }}
@@ -650,6 +480,13 @@ export default function SecurityVerifyOtp() {
                 <div className="p-3 bg-blue-50 text-blue-800 rounded-xl text-xs flex items-center gap-2 font-semibold">
                   <span className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></span>
                   Decoding QR code from image...
+                </div>
+              )}
+
+              {successMsg && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs flex items-center gap-2 font-bold animate-pulse">
+                  <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                  <span>{successMsg}</span>
                 </div>
               )}
             </div>
@@ -801,23 +638,26 @@ export default function SecurityVerifyOtp() {
                 <>
                   <button
                     onClick={() => setShowMismatchModal(true)}
-                    className="w-full sm:w-auto px-4 py-2.5 bg-red-50 border border-red-200 text-red-700 hover:bg-red-100 rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition-all"
+                    className="px-4 py-2.5 border border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100 rounded-xl text-xs font-bold transition-all text-center flex items-center justify-center gap-1"
                     disabled={verifying}
                   >
-                    <span className="material-symbols-outlined text-[15px]">warning</span>
-                    Identity Mismatch
+                    <span className="material-symbols-outlined text-[16px]">person_off</span>
+                    Report Identity Mismatch
                   </button>
                   <button
                     onClick={handleConfirmExit}
-                    className="w-full sm:w-auto px-5 py-2.5 bg-gray-900 text-white hover:bg-black rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.98]"
                     disabled={verifying}
+                    className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-sm transition-all text-center flex items-center justify-center gap-1.5"
                   >
                     {verifying ? (
-                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                      <>
+                        <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                        Recording Exit...
+                      </>
                     ) : (
                       <>
-                        <span className="material-symbols-outlined text-[16px]">how_to_reg</span>
-                        <span>Confirm Exit &amp; Record</span>
+                        <span className="material-symbols-outlined text-[16px]">door_open</span>
+                        Confirm Campus Exit
                       </>
                     )}
                   </button>
@@ -829,42 +669,41 @@ export default function SecurityVerifyOtp() {
         </div>
       )}
 
-      {/* Identity Mismatch Modal */}
+      {/* IDENTITY MISMATCH REJECTION MODAL */}
       {showMismatchModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white border border-gray-200 rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-xl space-y-4 animate-reveal">
-            <h3 className="text-sm sm:text-base font-bold text-gray-900 flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-red-600 text-[20px]">warning</span>
-              Report Identity Mismatch
-            </h3>
-            <p className="text-xs text-gray-500 leading-relaxed">
-              This action blocks the exit pass, suspends it under review, and logs a security audit event.
-            </p>
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1.5">Mismatch details / Observation *</label>
-              <textarea
-                className="w-full h-24 border border-gray-200 rounded-xl p-3 focus:outline-none focus:border-red-500 focus:ring-4 focus:ring-red-500/10 text-xs resize-none"
-                placeholder="E.g. Profile photo does not match student at gate; wrong roll number"
-                value={mismatchReason}
-                onChange={e => setMismatchReason(e.target.value)}
-                autoFocus
-              />
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white rounded-2xl max-w-md w-full p-5 space-y-4 shadow-xl border border-gray-100">
+            <div className="flex items-center gap-2 text-amber-800 font-extrabold text-sm">
+              <span className="material-symbols-outlined text-amber-600">warning</span>
+              <span>Report Student Identity Mismatch</span>
             </div>
-            <div className="flex gap-2.5 justify-end">
+
+            <p className="text-xs text-gray-600 leading-relaxed">
+              If the physical person present at the gate does NOT match the student photo or roll number above, report it below to suspend the exit pass and notify admin.
+            </p>
+
+            <textarea
+              value={mismatchReason}
+              onChange={(e) => setMismatchReason(e.target.value)}
+              placeholder="State reason (e.g. Person at gate is not the student shown in photo)..."
+              rows={3}
+              className="w-full text-xs p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none"
+            />
+
+            <div className="flex justify-end gap-2 pt-2">
               <button
                 onClick={() => setShowMismatchModal(false)}
-                className="px-4 py-2 border border-gray-200 rounded-xl text-xs font-semibold text-gray-600 hover:bg-gray-100"
+                className="px-4 py-2 border border-gray-300 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50"
                 disabled={reportingMismatch}
               >
                 Cancel
               </button>
               <button
                 onClick={handleRejectIdentity}
-                className="px-4 py-2 bg-red-600 text-white rounded-xl text-xs font-bold hover:bg-red-700 flex items-center gap-1.5 shadow-sm"
                 disabled={reportingMismatch || !mismatchReason.trim()}
+                className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold disabled:opacity-50 flex items-center gap-1"
               >
-                {reportingMismatch && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>}
-                Confirm Mismatch
+                {reportingMismatch ? 'Submitting...' : 'Submit Report'}
               </button>
             </div>
           </div>
