@@ -4849,11 +4849,12 @@ const pages = {
                                     const QRConstructor = window.QRCode || (typeof QRCode !== 'undefined' ? QRCode : null);
                                     if (typeof QRConstructor !== 'function') throw new Error('QRCode renderer library not loaded');
 
-                                    // Render QR Code onto canvas using QRCode library
+                                    // Render QR Code onto canvas using QRCode library (320x320, margin: 4)
                                     new QRConstructor(canvas, {
                                         text: token,
-                                        width: 180,
-                                        height: 180,
+                                        width: 320,
+                                        height: 320,
+                                        margin: 4,
                                         colorDark: '#000000',
                                         colorLight: '#ffffff'
                                     });
