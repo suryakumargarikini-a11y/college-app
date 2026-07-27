@@ -611,20 +611,24 @@ if (process.env.AUTO_MIGRATE === 'true' || process.env.NODE_ENV !== 'production'
 async function validateChromiumStartup() {
     const { createStandaloneBrowser } = require('./services/browserPool/providers/providerFactory');
 
-    logger.info('[Browser] Launching test browser instance using provider factory...');
-    console.log('[Browser] Launching test browser instance using provider factory...');
+    logger.info('[Browser] Launching test browser instance using provider factory (10s timeout guard)...');
+    console.log('[Browser] Launching test browser instance using provider factory (10s timeout guard)...');
 
     try {
-        const { provider, close } = await createStandaloneBrowser({ headless: true });
-        await close();
-        logger.info(`[Browser] Browser launch successful via ${provider.name}`);
-        console.log(`[Browser] Browser launch successful via ${provider.name}`);
-        logger.info('[Browser] Launch test successful');
-        console.log('[Browser] Launch test successful');
+        const result = await Promise.race([
+            createStandaloneBrowser({ headless: true }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Chromium launch timed out after 10000ms')), 10000))
+        ]);
+
+        if (result && typeof result.close === 'function') {
+            await result.close().catch(() => {});
+        }
+        logger.info(`[Browser] Browser launch successful via ${result.provider?.name || 'Playwright'}`);
+        console.log(`[Browser] Browser launch successful via ${result.provider?.name || 'Playwright'}`);
         return true;
     } catch (err) {
-        logger.error(`[Browser] Launch test failed: ${err.message}`);
-        console.error(`[Browser] Launch test failed: ${err.message}`);
+        logger.error(`[Browser] Launch test failed/timed out: ${err.message}`);
+        console.error(`[Browser] Launch test failed/timed out: ${err.message}`);
         logger.warn('[Browser] Scraping features will be disabled. API continues in read-only mode.');
         return false;
     }
