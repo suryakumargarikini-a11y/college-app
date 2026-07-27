@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QR A/B Scanner Diagnostic</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+           background: #0f172a; color: #e2e8f0; padding: 16px; }
+    h1 { font-size: 1rem; font-weight: 800; color: #38bdf8; margin-bottom: 8px; }
+    .card { background: #1e293b; border-radius: 12px; padding: 16px; margin-bottom: 16px;
+            border: 1px solid #334155; }
+    .label { font-size: 10px; font-weight: 700; text-transform: uppercase;
+             letter-spacing: .1em; color: #94a3b8; margin-bottom: 8px; }
+    .row { display: flex; gap: 16px; flex-wrap: wrap; }
+    .col { flex: 1; min-width: 0; }
+    canvas { display: block; image-rendering: pixelated;
+             image-rendering: -moz-crisp-edges; image-rendering: crisp-edges;
+             border: 2px solid #334155; }
+    .result { margin-top: 8px; padding: 8px 12px; border-radius: 8px; font-size: 11px;
+              font-weight: 700; min-height: 36px; }
+    .pass { background: #052e16; color: #4ade80; border: 1px solid #16a34a; }
+    .fail { background: #450a0a; color: #f87171; border: 1px solid #b91c1c; }
+    .info { background: #0f172a; color: #94a3b8; border: 1px solid #1e3a5f; }
+    .log  { font-family: monospace; font-size: 9px; color: #64748b; margin-top: 4px;
+             word-break: break-all; }
+    button { background: #0284c7; color: #fff; border: none; border-radius: 8px;
+             padding: 10px 20px; font-weight: 700; font-size: 12px; cursor: pointer;
+             width: 100%; margin-top: 4px; }
+    button:active { opacity: .8; }
+    .token-info { font-size: 9px; color: #64748b; margin-top: 4px; }
+    #scan-log { font-family: monospace; font-size: 9px; color: #34d399; background: #022c22;
+                padding: 8px; border-radius: 6px; margin-top: 8px;
+                min-height: 40px; word-break: break-all; }
+  </style>
+</head>
+<body>
+  <h1>SITAM QR A/B Diagnostic</h1>
+  <p style="font-size:10px;color:#64748b;margin-bottom:16px">
+    Generates a random 64-char hex test token (NOT a real exit pass token).<br>
+    Renders using both OLD and NEW generators, then scans both with QrScanner.
+  </p>
+
+  <div class="card">
+    <div class="label">Test Payload</div>
+    <div id="payload-info" class="token-info">Generating…</div>
+    <div style="height:6px"></div>
+    <button onclick="runTest()">▶ Run A/B Test</button>
+  </div>
+
+  <div class="row">
+    <!-- Column A: Current/new generator -->
+    <div class="col card">
+      <div class="label">A — NEW Generator (fixed)</div>
+      <canvas id="canvas-a"></canvas>
+      <div id="result-a" class="result info">Waiting…</div>
+      <div id="log-a" class="log"></div>
+    </div>
+
+    <!-- Column B: Reference (qrcode-generator CDN) -->
+    <div class="col card">
+      <div class="label">B — Reference (qrcodegen)</div>
+      <canvas id="canvas-b"></canvas>
+      <div id="result-b" class="result info">Waiting…</div>
+      <div id="log-b" class="log"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="label">Scanner Output</div>
+    <div id="scan-log">Scan results will appear here…</div>
+  </div>
+
+  <!-- Load the fixed QRCode library (same file the student app uses) -->
+  <script src="./qrcode.min.js"></script>
+
+  <!-- qr-scanner worker shim for static page -->
+  <script type="module">
+    // Dynamic import of qr-scanner from the admin-portal build if available,
+    // otherwise from jsDelivr CDN as fallback.
+    let QrScanner;
+    try {
+      const mod = await import('https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.min.js');
+      QrScanner = mod.default || mod;
+    } catch (e) {
+      document.getElementById('scan-log').textContent = 'QrScanner not available: ' + e.message;
+    }
+
+    // qrcode-generator reference library (kazuhikoarase)
+    const QRCG_URL = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js';
+    await new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = QRCG_URL; s.onload = res; s.onerror = rej;
+      document.head.appendChild(s);
+    }).catch(() => { console.warn('Reference library load failed'); });
+
+    function generateToken() {
+      const bytes = new Uint8Array(32);
+      crypto.getRandomValues(bytes);
+      return Array.from(bytes).map(b => b.toString(16).padStart(2,'0')).join('');
+    }
+
+    function renderRef(token, canvas) {
+      // kazuhikoarase qrcode-generator API
+      if (typeof qrcode === 'undefined') {
+        document.getElementById('log-b').textContent = 'Reference library not loaded';
+        return false;
+      }
+      try {
+        const qr = qrcode(0, 'L');
+        qr.addData(token);
+        qr.make();
+        const mc = qr.getModuleCount();
+        const margin = 4;
+        const ppm = 10;
+        const size = (mc + margin * 2) * ppm;
+        canvas.width = canvas.height = size;
+        canvas.style.imageRendering = 'pixelated';
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, size, size);
+        ctx.fillStyle = '#000000';
+        for (let r = 0; r < mc; r++)
+          for (let c = 0; c < mc; c++)
+            if (qr.isDark(r, c))
+              ctx.fillRect((c + margin) * ppm, (r + margin) * ppm, ppm, ppm);
+        document.getElementById('log-b').textContent =
+          'moduleCount=' + mc + ' canvasSize=' + size + 'x' + size + ' ppm=' + ppm;
+        return true;
+      } catch(e) {
+        document.getElementById('log-b').textContent = 'Render error: ' + e.message;
+        return false;
+      }
+    }
+
+    async function scanCanvas(canvas) {
+      if (!QrScanner) return { decoded: false, error: 'QrScanner unavailable' };
+      try {
+        const result = await QrScanner.scanImage(canvas, { returnDetailedScanResult: true });
+        const text = (typeof result === 'string') ? result : (result?.data || '');
+        return { decoded: true, text, length: text.length };
+      } catch (e) {
+        return { decoded: false, error: e.message || String(e) };
+      }
+    }
+
+    function setResult(id, data) {
+      const el = document.getElementById(id);
+      if (data.decoded) {
+        el.className = 'result pass';
+        el.textContent = '✓ DECODE PASS — length=' + data.length + ' matchesOriginal=' + data.match;
+      } else {
+        el.className = 'result fail';
+        el.textContent = '✗ DECODE FAIL — ' + (data.error || 'no result');
+      }
+    }
+
+    window.runTest = async function () {
+      const token = generateToken();
+      document.getElementById('payload-info').textContent =
+        'length=' + token.length + '  type=hex64  [token NOT shown]';
+
+      const logEl = document.getElementById('scan-log');
+      logEl.textContent = 'Running…\n';
+
+      // --- A: new generator ---
+      const canvasA = document.getElementById('canvas-a');
+      document.getElementById('result-a').className = 'result info';
+      document.getElementById('result-a').textContent = 'Rendering…';
+      document.getElementById('log-a').textContent = '';
+
+      try {
+        new QRCode(canvasA, {
+          text: token, margin: 4, minPixels: 10,
+          colorDark: '#000000', colorLight: '#ffffff'
+        });
+        const mc = Math.round(canvasA.width / 10) - 8; // reverse-compute
+        document.getElementById('log-a').textContent =
+          'canvasSize=' + canvasA.width + 'x' + canvasA.height + ' ppm=10';
+      } catch(e) {
+        document.getElementById('result-a').className = 'result fail';
+        document.getElementById('result-a').textContent = 'Render failed: ' + e.message;
+      }
+
+      // --- B: reference generator ---
+      const canvasB = document.getElementById('canvas-b');
+      document.getElementById('result-b').className = 'result info';
+      document.getElementById('result-b').textContent = 'Rendering…';
+      renderRef(token, canvasB);
+
+      // --- Scan A ---
+      logEl.textContent += 'Scanning A (new generator)…\n';
+      const resA = await scanCanvas(canvasA);
+      resA.match = resA.decoded && resA.text === token;
+      setResult('result-a', resA);
+      logEl.textContent += 'A: decoded=' + resA.decoded + ' length=' + (resA.length || 0) +
+                           ' match=' + (resA.match || false) + '\n';
+
+      // --- Scan B ---
+      logEl.textContent += 'Scanning B (reference)…\n';
+      const resB = await scanCanvas(canvasB);
+      resB.match = resB.decoded && resB.text === token;
+      setResult('result-b', resB);
+      logEl.textContent += 'B: decoded=' + resB.decoded + ' length=' + (resB.length || 0) +
+                           ' match=' + (resB.match || false) + '\n';
+
+      // Summary
+      logEl.textContent += '\n--- SUMMARY ---\n';
+      logEl.textContent += 'CUSTOM_GENERATOR_SCANIMAGE: ' + (resA.decoded ? 'PASS' : 'FAIL') + '\n';
+      logEl.textContent += 'CONTROL_GENERATOR_SCANIMAGE: ' + (resB.decoded ? 'PASS' : 'FAIL') + '\n';
+      logEl.textContent += 'SAME_PAYLOAD_MATCH: A=' + (resA.match||false) + ' B=' + (resB.match||false) + '\n';
+    };
+  </script>
+</body>
+</html>

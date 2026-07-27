@@ -4832,12 +4832,12 @@ const pages = {
                                 <p class="text-xs font-black text-emerald-800 uppercase tracking-widest">Security Gate QR Code</p>
                                 <p class="text-[10px] text-emerald-600 mt-0.5">Show this to Security at the gate</p>
                             </div>
-                            <div id="ep-qr-wrapper" class="w-48 h-48 bg-white border-2 border-emerald-300 flex items-center justify-center p-3 shadow-md" style="border-radius:0;">
-                                <div id="ep-qr-loading" class="flex flex-col items-center gap-2">
+                            <div id="ep-qr-wrapper" class="bg-white border-2 border-emerald-300 shadow-md flex flex-col items-center justify-center" style="border-radius:0; padding:0;">
+                                <div id="ep-qr-loading" class="flex flex-col items-center gap-2 p-6">
                                     <div class="w-6 h-6 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin"></div>
                                     <p class="text-[9px] text-slate-400">Loading QR...</p>
                                 </div>
-                                <canvas id="exit-pass-qr-canvas" class="w-full h-full object-contain hidden" style="border-radius:0; image-rendering:pixelated;"></canvas>
+                                <canvas id="exit-pass-qr-canvas" class="hidden" style="border-radius:0; display:block; max-width:100%; image-rendering:pixelated; image-rendering:-moz-crisp-edges; image-rendering:crisp-edges;"></canvas>
                             </div>
                             <div id="ep-qr-error" class="hidden text-center space-y-2 p-2">
                                 <p class="text-[11px] text-rose-600 font-bold">QR unavailable. Please refresh or contact administration.</p>
@@ -4908,19 +4908,26 @@ const pages = {
                                     const QRConstructor = window.QRCode || (typeof QRCode !== 'undefined' ? QRCode : null);
                                     if (typeof QRConstructor !== 'function') throw new Error('QRCode renderer library not loaded');
 
-                                    // Render QR Code onto canvas using QRCode library (320x320, margin: 4)
+                                    // Render QR Code onto canvas — library computes intrinsic size
+                                    // for integer pixels-per-module (no fractional rendering).
                                     new QRConstructor(canvas, {
                                         text: token,
-                                        width: 320,
-                                        height: 320,
                                         margin: 4,
+                                        minPixels: 10,
                                         colorDark: '#000000',
                                         colorLight: '#ffffff'
                                     });
 
+                                    // Phase-2 diagnostic: log canvas metrics (token NOT logged)
+                                    console.log('[QR-GEN] tokenLength=' + token.length);
+                                    console.log('[QR-GEN] tokenType=' + (/^[0-9a-f]{64}$/.test(token) ? 'hex64' : 'other'));
+                                    console.log('[QR-GEN] canvasWidth=' + canvas.width);
+                                    console.log('[QR-GEN] canvasHeight=' + canvas.height);
+
+                                    canvas.style.display = 'block';
                                     canvas.classList.remove('hidden');
                                     if (errEl) errEl.classList.add('hidden');
-                                    console.log(`[ExitPass QR] QR rendered successfully`);
+                                    console.log('[ExitPass QR] QR rendered — intrinsicSize=' + canvas.width + 'x' + canvas.height);
                                 };
 
                                 const timeoutWatchdog = new Promise((_, reject) => {
