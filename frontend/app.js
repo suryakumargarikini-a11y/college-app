@@ -977,6 +977,10 @@ function getPriority(ep) {
 //  • Fast Wi-Fi / Ethernet / Downlink >= 5 Mbps: MAX = 4
 //  • 4G / Downlink >= 1.5 Mbps: MAX = 3
 //  • Poor network / 2G / 3G / Data Saver: MAX = 2
+// --- Login Race & Cancel Tracker ---
+let currentLoginAttemptId = 0;
+const cancelledLoginAttempts = new Set();
+
 // Automatically re-sorts queued requests by priority (High -> Medium -> Low)
 // with a stable FIFO fallback index to ensure users see critical data first.
 const RequestQueue = (() => {
@@ -998,7 +1002,20 @@ const RequestQueue = (() => {
     function _drain() {
         const limit = getLimit();
         while (_active < limit && _queue.length > 0) {
-            const { fn, resolve, reject } = _queue.shift();
+            const item = _queue.shift();
+            const { fn, resolve, reject, signal, attemptId } = item;
+            if (signal && signal.aborted) {
+                if (attemptId) {
+                    console.log(`[LOGIN-RACE] attempt=${attemptId} ABORT (aborted while queued)`);
+                }
+                reject(new Error(signal.reason || 'TIMEOUT'));
+                continue;
+            }
+            if (attemptId && cancelledLoginAttempts.has(attemptId)) {
+                console.log(`[LOGIN-RACE] attempt=${attemptId} ABORT (cancelled while queued)`);
+                reject(new Error('TIMEOUT'));
+                continue;
+            }
             _active++;
             fn()
                 .then(resolve)
@@ -1011,12 +1028,15 @@ const RequestQueue = (() => {
      * Enqueue a network call with priority sorting.
      * @param {() => Promise<*>} fn  Zero-argument async factory
      * @param {string} endpoint The endpoint string to look up priority
+     * @param {object} opts Optional options containing signal & attemptId
      */
-    function enqueue(fn, endpoint = '') {
+    function enqueue(fn, endpoint = '', opts = {}) {
         const priority = getPriority(endpoint);
         const id = _nextId++;
+        const signal = opts.signal;
+        const attemptId = opts.attemptId;
         return new Promise((resolve, reject) => {
-            _queue.push({ fn, resolve, reject, priority, id });
+            _queue.push({ fn, resolve, reject, priority, id, signal, attemptId });
             // Sort queue: highest priority first. If same priority, preserve insertion order (FIFO)
             _queue.sort((a, b) => {
                 if (b.priority !== a.priority) {
@@ -1077,8 +1097,14 @@ const api = {
         const headers = { 'Content-Type': 'application/json' };
         if (state.token) headers['Authorization'] = `Bearer ${state.token}`;
 
-        const MAX_RETRIES = 2;
+        const isLogin = endpoint.includes('/auth/login');
+        const loginAttemptId = options.attemptId || (isLogin ? currentLoginAttemptId : null);
+        const MAX_RETRIES = isLogin ? 0 : 2; // LOGIN POST MUST NEVER RETRY AUTOMATICALLY
         const attempt = options._retryAttempt || 0;
+
+        if (isLogin && loginAttemptId) {
+            console.log(`[LOGIN-RACE] attempt=${loginAttemptId} QUEUED`);
+        }
 
         const isGet = !options.method || options.method.toUpperCase() === 'GET';
 
@@ -1086,6 +1112,11 @@ const api = {
         const requestController = new AbortController();
         const TIMEOUT_MS = isCritical ? 20000 : 30000; // 20s for auth/health/sync, 30s default
         let timeoutTimer = setTimeout(() => {
+            if (isLogin && loginAttemptId) {
+                console.log(`[LOGIN-RACE] attempt=${loginAttemptId} TIMEOUT`);
+                cancelledLoginAttempts.add(loginAttemptId);
+                console.log(`[LOGIN-RACE] attempt=${loginAttemptId} ABORT`);
+            }
             try {
                 requestController.abort('TIMEOUT');
             } catch (_) { }
@@ -1124,27 +1155,24 @@ const api = {
             console.log(`Headers: ${JSON.stringify(mergedHeaders)}`);
             console.log(`-----------------------------\n`);
 
-            if (endpoint.includes('/auth/login')) {
-                console.log('[AUDIT-LOG] LOGIN REQUEST START');
-            }
-
             const resp = await RequestQueue.enqueue(
-                () => {
-                    if (endpoint.includes('/auth/login')) {
-                        console.log('[AUDIT-LOG] LOGIN REQUEST START (INNER)');
+                async () => {
+                    if (isLogin && loginAttemptId) {
+                        if (requestController.signal.aborted || cancelledLoginAttempts.has(loginAttemptId)) {
+                            console.log(`[LOGIN-RACE] attempt=${loginAttemptId} ABORT (before fetch)`);
+                            throw new Error('TIMEOUT');
+                        }
+                        console.log(`[LOGIN-RACE] attempt=${loginAttemptId} FETCH_START`);
                     }
-                    const p = fetch(fullUrl, { ...fetchOpts, headers: mergedHeaders });
-                    if (endpoint.includes('/auth/login')) {
-                        console.log('[AUDIT-LOG] LOGIN REQUEST SENT');
+                    const p = await fetch(fullUrl, { ...fetchOpts, headers: mergedHeaders });
+                    if (isLogin && loginAttemptId) {
+                        console.log(`[LOGIN-RACE] attempt=${loginAttemptId} FETCH_RESOLVED`);
                     }
                     return p;
                 },
-                endpoint
+                endpoint,
+                { signal: requestController.signal, attemptId: loginAttemptId }
             );
-
-            if (endpoint.includes('/auth/login')) {
-                console.log('[AUDIT-LOG] LOGIN RESPONSE RECEIVED');
-            }
 
             const duration = Date.now() - startTime;
             console.log(`\n--- NETWORK RESPONSE RECEIVED ---`);
@@ -1743,14 +1771,37 @@ const pages = {
                 const pwd = $('login-password')?.value?.trim();
                 const errEl = $('login-error');
                 const btnText = $('login-btn-text');
+                const submitBtn = $('login-btn');
+
                 if (!uid || !pwd) { if (errEl) { errEl.textContent = 'Please fill all fields.'; errEl.classList.remove('hidden'); } return; }
+
+                // Double submit protection
+                if (submitBtn?.disabled) return;
+                if (submitBtn) submitBtn.disabled = true;
+
                 if (errEl) errEl.classList.add('hidden');
                 if (btnText) btnText.textContent = 'Signing in...';
 
+                // Cancel any prior active attempt before starting a new one
+                if (currentLoginAttemptId > 0) {
+                    cancelledLoginAttempts.add(currentLoginAttemptId);
+                    console.log(`[LOGIN-RACE] attempt=${currentLoginAttemptId} ABORT (superseded by new submit)`);
+                }
+
+                const attemptId = ++currentLoginAttemptId;
+                console.log(`[LOGIN-RACE] attempt=${attemptId} SUBMIT`);
+
                 try {
-                    const res = await api.post('/auth/login', { userId: uid, password: pwd });
+                    const res = await api.post('/auth/login', { userId: uid, password: pwd }, { attemptId });
+
+                    // HARD INVARIANT: If attempt was cancelled/timed out, NEVER store token or navigate!
+                    if (attemptId !== currentLoginAttemptId || cancelledLoginAttempts.has(attemptId)) {
+                        console.warn(`[LOGIN-RACE] attempt=${attemptId} ABORT (ignored late response)`);
+                        return;
+                    }
 
                     if (res.success && res.token) {
+                        console.log(`[LOGIN-RACE] attempt=${attemptId} TOKEN_STORE`);
                         state.token = res.token;
                         // Store token + expiry (7 days) so session survives app restarts
                         const SESSION_7_DAYS = 7 * 24 * 60 * 60 * 1000;
@@ -1762,9 +1813,9 @@ const pages = {
                             console.error('[Token Storage] Error:', storeErr);
                         }
                         // ── DASHBOARD-FIRST: navigate immediately, sync in background ──
+                        console.log(`[LOGIN-RACE] attempt=${attemptId} NAVIGATE`);
                         router.navigate('/dashboard');
                         // Fire push registration and full prefetch asynchronously
-                        // Dashboard will paint from IndexedDB cache in <300ms
                         Promise.all([
                             registerPush().catch(() => { }),
                             prefetchAll().catch(() => { })
@@ -1776,6 +1827,13 @@ const pages = {
                         }
                     }
                 } catch (err) {
+                    console.log(`[LOGIN-RACE] attempt=${attemptId} FETCH_REJECTED`);
+
+                    if (err.message === 'TIMEOUT' || cancelledLoginAttempts.has(attemptId)) {
+                        console.log(`[LOGIN-RACE] attempt=${attemptId} TIMEOUT`);
+                        cancelledLoginAttempts.add(attemptId);
+                    }
+
                     if (err.code) {
                         console.error('[AUDIT-LOG] Axios/Error code:', err.code);
                     }
@@ -1793,6 +1851,7 @@ const pages = {
                         errEl.classList.remove('hidden');
                     }
                 } finally {
+                    if (submitBtn) submitBtn.disabled = false;
                     if (btnText) btnText.textContent = 'Sign In';
                 }
             });
