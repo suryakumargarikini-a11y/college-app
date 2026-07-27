@@ -600,16 +600,28 @@ const verifyQrToken = async (req, res) => {
                 return { status: 200, valid: false, alreadyUsed: true, error: 'QR ALREADY USED — This QR code has already been scanned. Please confirm the exit for the student shown.' };
             }
 
+            // Check pass status and expiration
+            const now = new Date();
+            const isExpiredTime = pass.exitTime && now > new Date(pass.exitTime);
+
+            if (isExpiredTime && pass.status === 'APPROVED') {
+                await tx.exitPass.update({
+                    where: { id: pass.id },
+                    data: { status: 'EXPIRED' }
+                });
+                pass.status = 'EXPIRED';
+            }
+
             // Only APPROVED passes are valid at the gate
             if (pass.status !== 'APPROVED') {
                 const messages = {
                     PENDING:      'This exit pass is still pending approval.',
                     REJECTED:     'This exit pass has been rejected.',
                     CANCELLED:    'This exit pass has been cancelled.',
-                    EXPIRED:      'This exit pass has expired.',
+                    EXPIRED:      `This Exit Pass expired at ${pass.exitTime ? new Date(pass.exitTime).toLocaleString('en-GB', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }) : 'its scheduled exit time'}.`,
                     UNDER_REVIEW: 'This exit pass is under security review. Do not permit exit.'
                 };
-                return { status: 400, valid: false, error: messages[pass.status] || `Pass is in ${pass.status} state.` };
+                return { status: 400, valid: false, error: messages[pass.status] || `Pass is in ${pass.status} state.`, state: pass.status };
             }
 
             // Atomically consume the QR — mark verifiedAt so second scan fails
@@ -1184,11 +1196,22 @@ const getMyPasses = async (req, res) => {
             orderBy: { createdAt: 'desc' }
         });
 
-        // Hide raw token hashes and internal otp secrets from students
-        const filtered = passes.map(p => {
+        const now = new Date();
+
+        // Auto-expire approved passes past exitTime
+        const filtered = await Promise.all(passes.map(async (p) => {
+            if (p.status === 'APPROVED' && p.exitTime && new Date(p.exitTime) < now) {
+                try {
+                    await prisma.exitPass.update({
+                        where: { id: p.id },
+                        data: { status: 'EXPIRED' }
+                    });
+                    p.status = 'EXPIRED';
+                } catch (_) {}
+            }
             const { otpHash, qrCode, qrTokenHash, ...rest } = p;
             return rest;
-        });
+        }));
 
         res.json(filtered);
     } catch (err) { 
@@ -1213,8 +1236,19 @@ const getQrToken = async (req, res) => {
             return res.status(403).json({ error: 'Access denied: You do not own this exit pass' });
         }
 
+        const now = new Date();
+        if (pass.status === 'APPROVED' && pass.exitTime && new Date(pass.exitTime) < now) {
+            try {
+                await prisma.exitPass.update({
+                    where: { id: pass.id },
+                    data: { status: 'EXPIRED' }
+                });
+            } catch (_) {}
+            return res.status(400).json({ error: 'This Exit Pass has expired.', state: 'EXPIRED' });
+        }
+
         if (pass.status !== 'APPROVED') {
-            return res.status(400).json({ error: `Exit pass is in ${pass.status} state, not APPROVED` });
+            return res.status(400).json({ error: `Exit pass is in ${pass.status} state, not APPROVED`, state: pass.status });
         }
 
         if (pass.exitConfirmedAt) {

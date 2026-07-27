@@ -439,16 +439,23 @@ h1, h2, h3, h4, h5, h6 {
     border-top-right-radius: 32px;
     box-shadow: 0 -10px 40px rgba(0,0,0,0.15);
     z-index: 101;
-    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), visibility 0.3s;
     /* Leave room below for the dock so max-height counts from the raised bottom */
     max-height: calc(85vh - var(--bottom-sheet-bottom, 80px));
     display: flex;
     flex-direction: column;
     /* Prevent the sheet itself from overflowing */
     overflow: hidden;
+    visibility: hidden;
+    pointer-events: none;
 }
 .bottom-sheet.open {
     transform: translate(-50%, 0);
+    visibility: visible;
+    pointer-events: auto;
+}
+.bottom-sheet.hidden {
+    display: none !important;
 }
 /* Inner scroll container — the form (or any direct scrollable child) fills
  * available height and scrolls independently so the Submit button is always

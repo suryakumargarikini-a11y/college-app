@@ -1776,7 +1776,6 @@ const pages = {
                         }
                     }
                 } catch (err) {
-                    }
                     if (err.code) {
                         console.error('[AUDIT-LOG] Axios/Error code:', err.code);
                     }
@@ -4500,7 +4499,7 @@ const pages = {
                 </main>
 
                 <div id="ep-sheet-backdrop" class="bottom-sheet-backdrop hidden opacity-0"></div>
-                <div id="ep-sheet" class="bottom-sheet hidden translate-y-full">
+                <div id="ep-sheet" class="bottom-sheet hidden">
                     <div class="px-6 py-4 flex items-center justify-between border-b border-slate-100">
                         <h3 class="font-extrabold text-slate-800 text-lg">Apply for Exit Pass</h3>
                         <button id="close-ep-sheet" class="p-2 hover:bg-slate-100 rounded-full transition-colors"><span class="material-symbols-outlined text-slate-500">close</span></button>
@@ -4611,10 +4610,10 @@ const pages = {
 
                 backdrop.classList.remove('hidden');
                 sheet.classList.remove('hidden');
-                setTimeout(() => {
+                requestAnimationFrame(() => {
                     backdrop.classList.add('opacity-100');
                     sheet.classList.add('open');
-                }, 10);
+                });
             };
 
             const closeSheet = () => {
@@ -4622,7 +4621,7 @@ const pages = {
                 sheet.classList.remove('open');
                 setTimeout(() => {
                     backdrop.classList.add('hidden');
-                    sheet.classList.add('translate-y-full');
+                    sheet.classList.add('hidden');
                 }, 300);
             };
 
@@ -4645,7 +4644,30 @@ const pages = {
                 // Show the most recent active (non-terminal) pass, or the most recent pass overall
                 const ACTIVE_STATUSES = ['PENDING', 'APPROVED', 'UNDER_REVIEW'];
                 let active = passes.find(p => ACTIVE_STATUSES.includes(p.status)) || passes[0] || null;
+
+                // Evaluate effective expiration using authoritative exit date & time
+                const nowTs = Date.now();
+                const isExpiredTime = active && active.exitTime && nowTs > new Date(active.exitTime).getTime();
+                if (active && active.status === 'APPROVED' && isExpiredTime) {
+                    active.status = 'EXPIRED';
+                }
+
                 const history = active ? passes.filter(p => p !== active) : [];
+
+                // Schedule lightweight one-shot expiry timer for active approved pass
+                if (window._epExpiryTimer) {
+                    clearTimeout(window._epExpiryTimer);
+                    window._epExpiryTimer = null;
+                }
+                if (active && active.status === 'APPROVED' && active.exitTime && !isExpiredTime) {
+                    const msUntilExpiry = new Date(active.exitTime).getTime() - nowTs;
+                    if (msUntilExpiry > 0 && msUntilExpiry < 24 * 60 * 60 * 1000) {
+                        window._epExpiryTimer = setTimeout(() => {
+                            console.log('[ExitPass] Expiry timer fired — auto-refreshing expired pass');
+                            loadPasses();
+                        }, msUntilExpiry + 500);
+                    }
+                }
 
                 if (!active) {
                     activeContainer.innerHTML = `<div class="p-6 rounded-2xl bg-white/60 border border-slate-200/50 text-center text-slate-400 font-bold text-xs uppercase tracking-wider animate-reveal">No exit passes found. Tap Apply to get started.</div>`;
@@ -4676,7 +4698,7 @@ const pages = {
                         APPROVED:     { headline: 'Exit Pass Approved', body: 'Show the QR code below to Security at the gate to complete your exit.', color: 'bg-emerald-50 border-emerald-200 text-emerald-800' },
                         REJECTED:     { headline: 'Exit Pass Rejected', body: active.adminRemark ? `Reason: ${active.adminRemark}` : 'Your request was not approved.', color: 'bg-rose-50 border-rose-200 text-rose-800' },
                         CANCELLED:    { headline: 'Request Cancelled', body: 'This exit pass request was cancelled.', color: 'bg-slate-50 border-slate-200 text-slate-600' },
-                        EXPIRED:      { headline: 'Pass Expired', body: 'This exit pass is no longer valid.', color: 'bg-slate-50 border-slate-200 text-slate-600' },
+                        EXPIRED:      { headline: 'Pass Expired', body: active.exitTime ? `This Exit Pass expired at ${formatDateTime(active.exitTime)}. Apply for a new Exit Pass if required.` : 'This exit pass is no longer valid.', color: 'bg-slate-50 border-slate-200 text-slate-600' },
                         UNDER_REVIEW: { headline: 'Under Security Review', body: 'Your exit pass has been flagged for review. Please contact Security or Admin.', color: 'bg-orange-50 border-orange-200 text-orange-800' },
                         EXITED:       { headline: 'Exit Verified ✓', body: `Your campus exit was confirmed by Security.${active.exitConfirmedAt ? ' At: ' + new Date(active.exitConfirmedAt).toLocaleString('en-GB', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }) : ''}`, color: 'bg-blue-50 border-blue-200 text-blue-800' },
                     };
@@ -4693,8 +4715,7 @@ const pages = {
                         steps = [
                             { label: 'Applied', done: true, current: false, failed: false },
                             { label: 'Approved', done: true, current: false, failed: false },
-                            { label: 'Expired', done: false, current: false, failed: true },
-                            { label: 'Security', done: false, current: false, failed: false }
+                            { label: 'Expired', done: false, current: false, failed: true }
                         ];
                     } else if (isUnderReview) {
                         steps = [
@@ -4745,19 +4766,19 @@ const pages = {
                         </div>
                     `;
 
-                    // --- QR SECTION (only for APPROVED, unconsumed) ---
+                    // --- QR SECTION (SQUARE DESIGN — only for APPROVED, unconsumed, unexpired) ---
                     const qrSectionHtml = isApproved ? `
                         <div id="ep-qr-section" class="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 flex flex-col items-center gap-3 animate-reveal">
                             <div class="text-center mb-1">
                                 <p class="text-xs font-black text-emerald-800 uppercase tracking-widest">Security Gate QR Code</p>
                                 <p class="text-[10px] text-emerald-600 mt-0.5">Show this to Security at the gate</p>
                             </div>
-                            <div id="ep-qr-wrapper" class="w-40 h-40 bg-white rounded-xl border border-emerald-200 flex items-center justify-center p-2 overflow-hidden shadow-inner">
+                            <div id="ep-qr-wrapper" class="w-48 h-48 bg-white border-2 border-emerald-300 flex items-center justify-center p-3 shadow-md" style="border-radius:0;">
                                 <div id="ep-qr-loading" class="flex flex-col items-center gap-2">
                                     <div class="w-6 h-6 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin"></div>
                                     <p class="text-[9px] text-slate-400">Loading QR...</p>
                                 </div>
-                                <canvas id="exit-pass-qr-canvas" class="w-full h-full object-contain hidden"></canvas>
+                                <canvas id="exit-pass-qr-canvas" class="w-full h-full object-contain hidden" style="border-radius:0; image-rendering:pixelated;"></canvas>
                             </div>
                             <div id="ep-qr-error" class="hidden text-center space-y-2 p-2">
                                 <p class="text-[11px] text-rose-600 font-bold">QR unavailable. Please refresh or contact administration.</p>
@@ -5075,20 +5096,19 @@ const pages = {
             // [EP-LISTENER] accumulation probe — remove after audit
             console.log(`[EP-LISTENER] NOTIF_HANDLER_REGISTERED ts=${Date.now()} totalHandlers=${window._epNotifHandlers.length}`);
 
-            // Refresh when app comes back to foreground on this screen
-            // [EP-LISTENER] accumulation probe — remove after audit
-            if (window._epVisibilityCount === undefined) window._epVisibilityCount = 0;
-            window._epVisibilityCount++;
-            console.log(`[EP-LISTENER] VISIBILITY_HANDLER_REGISTERED ts=${Date.now()} registrationCount=${window._epVisibilityCount}`);
-            const epVisibilityHandler = () => {
-                if (!document.hidden && window.location && window.location.hash && window.location.hash.includes('exit-pass')) {
-                    // [EP-LISTENER] fires on foreground-return — count tells us how many are active
-                    console.log(`[EP-LISTENER] VISIBILITY_FIRED ts=${Date.now()} activeRegistrations=${window._epVisibilityCount} callsThisEvent=${window._epVisibilityCount}`);
-                    try { removeCachedData('/exit-passes/my'); } catch (_) {}
-                    loadPasses();
-                }
-            };
-            document.addEventListener('visibilitychange', epVisibilityHandler);
+            // Refresh when app comes back to foreground on this screen (guarded against listener accumulation)
+            if (!window._epVisibilityHandlerRegistered) {
+                window._epVisibilityHandlerRegistered = true;
+                document.addEventListener('visibilitychange', () => {
+                    if (!document.hidden && window.location && window.location.hash && window.location.hash.includes('exit-pass')) {
+                        console.log('[EP-LISTENER] Foreground return — refreshing exit passes');
+                        try { removeCachedData('/exit-passes/my'); } catch (_) {}
+                        if (typeof window.reloadExitPasses === 'function') {
+                            window.reloadExitPasses();
+                        }
+                    }
+                });
+            }
         }
     },
 
