@@ -576,25 +576,31 @@ app.use('/api/lost-found',    lostFoundRoutes);
 app.use(errorHandler);
 
 // ─── Database Initialization ──────────────────────────────────────────────────
-try {
-    const { execSync } = require('child_process');
-    logger.info('[DB-Init] Automatically syncing database schema with Prisma...');
-    execSync('npx prisma db push --accept-data-loss --skip-generate', {
-        cwd: __dirname,
-        stdio: 'inherit',
-        env: { ...process.env }
-    });
-    logger.info('[DB-Init] Database schema sync successful.');
+if (process.env.AUTO_MIGRATE === 'true' || process.env.NODE_ENV !== 'production') {
+    try {
+        const { execSync } = require('child_process');
+        logger.info('[DB-Init] Automatically syncing database schema with Prisma...');
+        execSync('npx prisma db push --accept-data-loss --skip-generate', {
+            cwd: __dirname,
+            stdio: 'inherit',
+            env: { ...process.env },
+            timeout: 15000
+        });
+        logger.info('[DB-Init] Database schema sync successful.');
 
-    logger.info('[DB-Init] Seeding default administrative accounts...');
-    execSync('node scripts/seed-admin.js', {
-        cwd: __dirname,
-        stdio: 'inherit',
-        env: { ...process.env }
-    });
-    logger.info('[DB-Init] Database seeding successful.');
-} catch (err) {
-    logger.error(`[DB-Init] Database initialization/seeding failed: ${err.message}`);
+        logger.info('[DB-Init] Seeding default administrative accounts...');
+        execSync('node scripts/seed-admin.js', {
+            cwd: __dirname,
+            stdio: 'inherit',
+            env: { ...process.env },
+            timeout: 10000
+        });
+        logger.info('[DB-Init] Database seeding successful.');
+    } catch (err) {
+        logger.error(`[DB-Init] Database initialization/seeding failed: ${err.message}`);
+    }
+} else {
+    logger.info('[DB-Init] Skipping top-level execSync DB push in production runtime — process binding port immediately.');
 }
 
 // ─── Startup Browser Validation ──────────────────────────────────────────────

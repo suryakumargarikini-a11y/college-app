@@ -173,12 +173,15 @@ class DevSecOpsScheduler {
             logger.error(`[DevSecOpsScheduler] Bootstrap: KeyRotationScheduler error: ${err.message}`);
         }
 
-        // Vulnerability scan (runs npm audit — may take a few seconds)
-        try {
-            const scanResult = this.vulnScanner.scan();
-            logger.info(`[DevSecOpsScheduler] Bootstrap: VulnerabilityScanner.scan() OK — ${scanResult.summary.totalCount} findings`);
-        } catch (err) {
-            logger.error(`[DevSecOpsScheduler] Bootstrap: VulnerabilityScanner error: ${err.message}`);
+        // Vulnerability scan (asynchronous, non-blocking)
+        if (this.vulnScanner && typeof this.vulnScanner.runScan === 'function') {
+            Promise.resolve(this.vulnScanner.runScan()).then(scanResult => {
+                if (scanResult && scanResult.summary) {
+                    logger.info(`[DevSecOpsScheduler] Bootstrap: VulnerabilityScanner.runScan() OK — ${scanResult.summary.totalCount} findings`);
+                }
+            }).catch(err => {
+                logger.error(`[DevSecOpsScheduler] Bootstrap: VulnerabilityScanner error: ${err.message}`);
+            });
         }
 
         // Security report aggregation
