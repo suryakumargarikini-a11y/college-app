@@ -1081,20 +1081,28 @@ const api = {
         const attempt = options._retryAttempt || 0;
 
         const isGet = !options.method || options.method.toUpperCase() === 'GET';
-        let controller = null;
+
+        // ── AbortController & Timeout Setup ─────────────────────────────────────
+        const requestController = new AbortController();
+        const TIMEOUT_MS = isCritical ? 20000 : 30000; // 20s for auth/health/sync, 30s default
+        let timeoutTimer = setTimeout(() => {
+            try {
+                requestController.abort('TIMEOUT');
+            } catch (_) { }
+        }, TIMEOUT_MS);
 
         if (isGet) {
-            // Abort previous in-flight request for the exact same endpoint
             if (_abortControllers[endpoint]) {
                 try {
-                    _abortControllers[endpoint].abort();
-                    console.log(`[API] Aborted previous in-flight GET request: ${endpoint}`);
+                    _abortControllers[endpoint].abort('ROUTE_CHANGE');
                 } catch (_) { }
             }
-            controller = new AbortController();
-            _abortControllers[endpoint] = controller;
-            options.signal = controller.signal;
+            _abortControllers[endpoint] = requestController;
         }
+
+        // Clone options and attach signal (without mutating caller's original object or leaking stale signals on retries)
+        const fetchOpts = { ...options, signal: requestController.signal };
+        delete fetchOpts._retryAttempt;
 
         const startTime = Date.now();
         const fullUrl = API_BASE + endpoint;
@@ -1125,7 +1133,7 @@ const api = {
                     if (endpoint.includes('/auth/login')) {
                         console.log('[AUDIT-LOG] LOGIN REQUEST START (INNER)');
                     }
-                    const p = fetch(fullUrl, { ...options, headers: mergedHeaders });
+                    const p = fetch(fullUrl, { ...fetchOpts, headers: mergedHeaders });
                     if (endpoint.includes('/auth/login')) {
                         console.log('[AUDIT-LOG] LOGIN REQUEST SENT');
                     }
@@ -1252,17 +1260,32 @@ const api = {
             console.error(`Error: ${err.message || err}`);
             console.error(`------------------------------\n`);
 
-            if (err.name === 'AbortError') {
-                console.warn(`[API] Request to ${endpoint} was aborted.`);
+            if (timeoutTimer) {
+                clearTimeout(timeoutTimer);
+                timeoutTimer = null;
+            }
+
+            if (requestController.signal.aborted) {
+                const reason = requestController.signal.reason || err.message;
+                if (reason === 'TIMEOUT' || (err.name === 'AbortError' && duration >= (TIMEOUT_MS - 2000))) {
+                    console.warn(`[API] Request to ${endpoint} timed out after ${duration}ms — throwing TIMEOUT`);
+                    throw new Error('TIMEOUT');
+                }
+                console.warn(`[API] Request to ${endpoint} was aborted (${reason}).`);
                 throw err;
             }
+
             if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
                 console.warn(`[API Request] TypeError/Failed to fetch on ${fullUrl} - forcing OFFLINE error`);
                 throw new Error('OFFLINE');
             }
             throw err;
         } finally {
-            if (isGet && _abortControllers[endpoint] === controller) {
+            if (timeoutTimer) {
+                clearTimeout(timeoutTimer);
+                timeoutTimer = null;
+            }
+            if (isGet && _abortControllers[endpoint] === requestController) {
                 delete _abortControllers[endpoint];
             }
         }
@@ -1793,7 +1816,15 @@ const pages = {
                     }
 
                     if (errEl) {
-                        errEl.textContent = 'Network error. Please try again.';
+                        if (err.message === 'TIMEOUT') {
+                            errEl.textContent = 'Server is taking too long to respond. Please try again.';
+                        } else if (err.message === 'OFFLINE') {
+                            errEl.textContent = 'You are currently offline. Check your internet connection.';
+                        } else if (err.message && !err.message.includes('HTTP') && !err.message.includes('fetch') && !err.message.includes('OFFLINE') && !err.message.includes('TIMEOUT')) {
+                            errEl.textContent = err.message;
+                        } else {
+                            errEl.textContent = 'Network error. Please try again.';
+                        }
                         errEl.classList.remove('hidden');
                     }
                 } finally {
