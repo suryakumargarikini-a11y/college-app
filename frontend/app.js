@@ -645,18 +645,23 @@ async function updateUnreadBadge() {
 // --- Real-time WebSocket Service ---
 const wsService = {
     socket: null,
+    _reconnectCount: 0,   // [WS-BATTERY] instrumentation counter — remove after audit
     connect(userId) {
         if (!userId) return;
         if (this.socket && (this.socket.readyState === WebSocket.CONNECTING || this.socket.readyState === WebSocket.OPEN)) {
             return;
         }
 
+        // [WS-BATTERY] CONNECT — new WebSocket() about to be called
+        console.log(`[WS-BATTERY] CONNECT ts=${Date.now()} userId=<redacted> reconnects=${this._reconnectCount} visible=${!document.hidden} online=${navigator.onLine}`);
         console.log(`[WebSocket] Establishing real-time sync socket for user: ${userId}`);
         const wsUrl = API_BASE.replace(/^http/, 'ws').replace(/\/api$/, '') + `/?userId=${userId}`;
 
         this.socket = new WebSocket(wsUrl);
 
         this.socket.onopen = () => {
+            // [WS-BATTERY] OPEN
+            console.log(`[WS-BATTERY] OPEN ts=${Date.now()} visible=${!document.hidden} online=${navigator.onLine}`);
             console.log(`[WebSocket] Connection established for student: ${userId}`);
             updateLiveIndicator(true);
         };
@@ -671,9 +676,18 @@ const wsService = {
         };
 
         this.socket.onclose = () => {
+            // [WS-BATTERY] CLOSE — reconnect timer is about to be scheduled unconditionally
+            console.log(`[WS-BATTERY] CLOSE ts=${Date.now()} visible=${!document.hidden} online=${navigator.onLine} totalReconnects=${this._reconnectCount}`);
             console.log(`[WebSocket] Sync socket disconnected. Attempting reconnection in 5 seconds...`);
             updateLiveIndicator(false);
-            setTimeout(() => this.connect(userId), 5000);
+            // [WS-BATTERY] RECONNECT_SCHEDULED — NOTE: no background check, always fires
+            console.log(`[WS-BATTERY] RECONNECT_SCHEDULED ts=${Date.now()} delayMs=5000 visible=${!document.hidden}`);
+            setTimeout(() => {
+                // [WS-BATTERY] RECONNECT_ATTEMPT — timer fired, calling connect()
+                this._reconnectCount++;
+                console.log(`[WS-BATTERY] RECONNECT_ATTEMPT ts=${Date.now()} attempt=${this._reconnectCount} visible=${!document.hidden} online=${navigator.onLine}`);
+                this.connect(userId);
+            }, 5000);
         };
 
         this.socket.onerror = (err) => {
@@ -5041,10 +5055,18 @@ const pages = {
             };
             if (window._epNotifHandlers === undefined) window._epNotifHandlers = [];
             window._epNotifHandlers.push(epNotifHandler);
+            // [EP-LISTENER] accumulation probe — remove after audit
+            console.log(`[EP-LISTENER] NOTIF_HANDLER_REGISTERED ts=${Date.now()} totalHandlers=${window._epNotifHandlers.length}`);
 
             // Refresh when app comes back to foreground on this screen
+            // [EP-LISTENER] accumulation probe — remove after audit
+            if (window._epVisibilityCount === undefined) window._epVisibilityCount = 0;
+            window._epVisibilityCount++;
+            console.log(`[EP-LISTENER] VISIBILITY_HANDLER_REGISTERED ts=${Date.now()} registrationCount=${window._epVisibilityCount}`);
             const epVisibilityHandler = () => {
                 if (!document.hidden && window.location && window.location.hash && window.location.hash.includes('exit-pass')) {
+                    // [EP-LISTENER] fires on foreground-return — count tells us how many are active
+                    console.log(`[EP-LISTENER] VISIBILITY_FIRED ts=${Date.now()} activeRegistrations=${window._epVisibilityCount} callsThisEvent=${window._epVisibilityCount}`);
                     try { removeCachedData('/exit-passes/my'); } catch (_) {}
                     loadPasses();
                 }
