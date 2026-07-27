@@ -1457,9 +1457,7 @@ const loading = {
 
 // --- Sync Status Banner (non-blocking, one-shot check) ---
 function checkSyncStatus() {
-    console.log('[LOGIN-DEBUG] 8 checkSyncStatus starting');
     if (!state.token) {
-        console.log('[LOGIN-DEBUG] 9 checkSyncStatus completed (no token)');
         return;
     }
     // NOTE: Do NOT use bypassCache:true here.
@@ -1468,12 +1466,9 @@ function checkSyncStatus() {
     // milliseconds of prefetchAll, doubling the post-login request count and
     // contributing to 429 bursts. Reading from cache is sufficient for the
     // drawer label and WebSocket userId — both are non-critical for first render.
-    console.log('[LOGIN-DEBUG] 6 profile request starting');
     api.get('/profile').then(res => {
-        console.log('[LOGIN-DEBUG] 7 profile response received');
         if (res && res.data && res.data.userId) {
             // Establish real-time sync socket connection
-            console.log('[LOGIN-DEBUG] 10 websocket initialization starting');
             wsService.connect(res.data.userId);
 
             // Drawer labels mapping
@@ -1664,10 +1659,8 @@ const pages = {
     },
 
     // ---- LOGIN ----
-    // ---- LOGIN ----
     login: {
         render: () => {
-            console.log('[NAV] Login render started');
             const html = `<div class="min-h-screen w-full flex flex-col items-center justify-center relative bg-[#F8FAFC] overflow-hidden">
             <!-- Organic Background Orbs -->
             <div style="filter:blur(90px);opacity:0.35;position:absolute;z-index:0;" class="w-[500px] h-[500px] rounded-full top-[-10%] left-[-10%] bg-blue-200"></div>
@@ -1738,18 +1731,14 @@ const pages = {
                 </div>
             </main>
         </div>`;
-            console.log('[NAV] Login render completed');
             return html;
         },
         afterRender: () => {
-            console.log('[NAV] Login afterRender started');
             toggleShell(false);
             const form = $('login-form');
-            console.log('[DOM] Login container found, form exists:', !!form);
             if (!form) return;
             form.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                console.log('[LOGIN-DEBUG] 1 submit fired');
                 const uid = $('login-userid')?.value?.trim();
                 const pwd = $('login-password')?.value?.trim();
                 const errEl = $('login-error');
@@ -1758,21 +1747,8 @@ const pages = {
                 if (errEl) errEl.classList.add('hidden');
                 if (btnText) btnText.textContent = 'Signing in...';
 
-                // --- TEMPORARY LOGIN AUDIT LOGGING ---
-                console.log('[AUDIT-LOG] API Base URL:', API_BASE);
-                console.log('[AUDIT-LOG] Full request URL:', API_BASE + '/auth/login');
-                console.log('[AUDIT-LOG] HTTP Method: POST');
-                console.log('[AUDIT-LOG] Payload (masked):', JSON.stringify({ userId: uid, password: '[MASKED]' }));
-
                 try {
-                    console.log('[LOGIN-DEBUG] 2 request starting');
                     const res = await api.post('/auth/login', { userId: uid, password: pwd });
-                    console.log('[LOGIN-DEBUG] 3 login response received');
-                    console.log('[AUDIT-LOG] Response received status: SUCCESS');
-                    console.log('[AUDIT-LOG] Response body (masked):', JSON.stringify({ success: res.success, hasToken: !!res.token, studentName: res.studentName }));
-
-                    const hasTok = !!(res && res.token);
-                    console.log(`[LOGIN-DEBUG] 4 token present=${hasTok}`);
 
                     if (res.success && res.token) {
                         state.token = res.token;
@@ -1782,12 +1758,10 @@ const pages = {
                             await secureStorage.setItem('token', res.token);
                             await secureStorage.setItem('tokenExpiry', String(Date.now() + SESSION_7_DAYS));
                             await secureStorage.setItem('studentName', res.studentName || '');
-                            console.log('[LOGIN-DEBUG] 5 token stored');
                         } catch (storeErr) {
-                            console.log(`[LOGIN-DEBUG] ERROR stage=token_storage name=${storeErr?.name || 'Error'} message=${storeErr?.message || String(storeErr)}`);
+                            console.error('[Token Storage] Error:', storeErr);
                         }
                         // ── DASHBOARD-FIRST: navigate immediately, sync in background ──
-                        console.log('[LOGIN-DEBUG] 11 dashboard navigation starting');
                         router.navigate('/dashboard');
                         // Fire push registration and full prefetch asynchronously
                         // Dashboard will paint from IndexedDB cache in <300ms
@@ -1802,14 +1776,6 @@ const pages = {
                         }
                     }
                 } catch (err) {
-                    console.log(`[LOGIN-DEBUG] ERROR stage=login_request name=${err?.name || 'Error'} message=${err?.message || String(err)}`);
-                    console.error('[AUDIT-LOG] Login execution failed!');
-                    console.error('[AUDIT-LOG] Complete error object:', err);
-                    console.error('[AUDIT-LOG] Error message:', err.message);
-                    console.error('[AUDIT-LOG] Error stack:', err.stack);
-                    if (err.response) {
-                        console.error('[AUDIT-LOG] response.status:', err.response.status);
-                        console.error('[AUDIT-LOG] response.data:', JSON.stringify(err.response.data));
                     }
                     if (err.code) {
                         console.error('[AUDIT-LOG] Axios/Error code:', err.code);
@@ -1986,7 +1952,6 @@ const pages = {
             </main>
         </div>`,
         afterRender: () => {
-            console.log('[LOGIN-DEBUG] 12 dashboard rendered');
             toggleShell(true);
             setActiveNav('dashboard');
             checkSyncStatus();
