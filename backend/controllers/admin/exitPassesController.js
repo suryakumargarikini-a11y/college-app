@@ -651,10 +651,10 @@ const verifyQrToken = async (req, res) => {
             });
 
             return {
-                status: 200,
+                httpStatus: 200,
                 valid: true,
                 id: pass.id,
-                status: pass.status,
+                passStatus: pass.status,
                 student: pass.student,
                 destination: pass.destination,
                 reason: pass.reason,
@@ -667,9 +667,10 @@ const verifyQrToken = async (req, res) => {
             };
         });
 
-        return res.status(result.status).json(
+        const httpCode = result.httpStatus || result.status || 200;
+        return res.status(httpCode).json(
             result.valid
-                ? { valid: true, id: result.id, status: result.status, student: result.student, destination: result.destination, reason: result.reason, requestedDate: result.requestedDate, approvedBy: result.approvedBy, exitTime: result.exitTime, emergencyContact: result.emergencyContact, remarks: result.remarks, adminRemark: result.adminRemark }
+                ? { valid: true, id: result.id, status: result.passStatus, student: result.student, destination: result.destination, reason: result.reason, requestedDate: result.requestedDate, approvedBy: result.approvedBy, exitTime: result.exitTime, emergencyContact: result.emergencyContact, remarks: result.remarks, adminRemark: result.adminRemark }
                 : { valid: false, alreadyUsed: result.alreadyUsed || false, error: result.error }
         );
     } catch (err) {
