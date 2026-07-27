@@ -4928,6 +4928,69 @@ const pages = {
                                     canvas.classList.remove('hidden');
                                     if (errEl) errEl.classList.add('hidden');
                                     console.log('[ExitPass QR] QR rendered — intrinsicSize=' + canvas.width + 'x' + canvas.height);
+
+                                    // ── STEP 1: SELF-DECODE ─────────────────────────────────────────
+                                    // Decode the EXACT canvas bitmap using jsQR (pure JS, no camera).
+                                    // This isolates: invalid QR matrix  vs  camera/display failure.
+                                    // If this fails → matrix is the problem (generator bug).
+                                    // If this passes → matrix is valid → camera path is the problem.
+                                    try {
+                                        const jsQRfn = window.jsQR;
+                                        if (typeof jsQRfn === 'function') {
+                                            console.log('[QR-SELFTEST] START canvas=' + canvas.width + 'x' + canvas.height);
+                                            const ctx2 = canvas.getContext('2d');
+                                            const imgData = ctx2.getImageData(0, 0, canvas.width, canvas.height);
+                                            const decoded = jsQRfn(imgData.data, canvas.width, canvas.height, {
+                                                inversionAttempts: 'dontInvert'
+                                            });
+                                            if (decoded && decoded.data) {
+                                                const match = decoded.data === token;
+                                                console.log('[QR-SELFTEST] SUCCESS decodedLength=' + decoded.data.length + ' match=' + match);
+                                            } else {
+                                                // Try with inversion in case foreground/background swapped
+                                                const decoded2 = jsQRfn(imgData.data, canvas.width, canvas.height, {
+                                                    inversionAttempts: 'onlyInvert'
+                                                });
+                                                if (decoded2 && decoded2.data) {
+                                                    const match = decoded2.data === token;
+                                                    console.log('[QR-SELFTEST] SUCCESS(inverted) decodedLength=' + decoded2.data.length + ' match=' + match);
+                                                } else {
+                                                    console.log('[QR-SELFTEST] FAIL error=jsQR returned null — matrix may be invalid');
+                                                }
+                                            }
+                                        } else {
+                                            console.log('[QR-SELFTEST] SKIP jsQR not loaded');
+                                        }
+                                    } catch (selfErr) {
+                                        console.log('[QR-SELFTEST] FAIL error=' + (selfErr.message || selfErr));
+                                    }
+
+                                    // ── STEP 2: PNG EXPORT BUTTON ───────────────────────────────────
+                                    // Inject a temporary download button so the guard can upload the
+                                    // exact canvas PNG via "Upload QR Image instead" on the portal.
+                                    // Remove after testing by re-opening the exit pass page.
+                                    try {
+                                        const wrapper = document.getElementById('ep-qr-wrapper');
+                                        if (wrapper && !document.getElementById('ep-qr-export-btn')) {
+                                            const pngUrl = canvas.toDataURL('image/png');
+                                            const exportBtn = document.createElement('a');
+                                            exportBtn.id = 'ep-qr-export-btn';
+                                            exportBtn.href = pngUrl;
+                                            exportBtn.download = 'exit-pass-qr.png';
+                                            exportBtn.style.cssText = [
+                                                'display:block', 'margin-top:8px',
+                                                'padding:6px 16px', 'background:#0284c7',
+                                                'color:#fff', 'font-size:11px', 'font-weight:700',
+                                                'border-radius:8px', 'text-align:center',
+                                                'text-decoration:none', 'letter-spacing:.05em'
+                                            ].join(';');
+                                            exportBtn.textContent = '⬇ Save QR as PNG (diagnostic)';
+                                            wrapper.parentNode.insertBefore(exportBtn, wrapper.nextSibling);
+                                            console.log('[QR-EXPORT] PNG export button injected');
+                                        }
+                                    } catch (exportErr) {
+                                        console.log('[QR-EXPORT] button injection failed: ' + exportErr.message);
+                                    }
                                 };
 
                                 const timeoutWatchdog = new Promise((_, reject) => {
