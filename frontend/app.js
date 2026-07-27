@@ -1434,16 +1434,23 @@ const loading = {
 
 // --- Sync Status Banner (non-blocking, one-shot check) ---
 function checkSyncStatus() {
-    if (!state.token) return;
+    console.log('[LOGIN-DEBUG] 8 checkSyncStatus starting');
+    if (!state.token) {
+        console.log('[LOGIN-DEBUG] 9 checkSyncStatus completed (no token)');
+        return;
+    }
     // NOTE: Do NOT use bypassCache:true here.
     // The profile is already being fetched by prefetchAll() Group 1 and cached in
     // IndexedDB. bypassCache:true would issue a duplicate network request within
     // milliseconds of prefetchAll, doubling the post-login request count and
     // contributing to 429 bursts. Reading from cache is sufficient for the
     // drawer label and WebSocket userId — both are non-critical for first render.
+    console.log('[LOGIN-DEBUG] 6 profile request starting');
     api.get('/profile').then(res => {
+        console.log('[LOGIN-DEBUG] 7 profile response received');
         if (res && res.data && res.data.userId) {
             // Establish real-time sync socket connection
+            console.log('[LOGIN-DEBUG] 10 websocket initialization starting');
             wsService.connect(res.data.userId);
 
             // Drawer labels mapping
@@ -1719,6 +1726,7 @@ const pages = {
             if (!form) return;
             form.addEventListener('submit', async (e) => {
                 e.preventDefault();
+                console.log('[LOGIN-DEBUG] 1 submit fired');
                 const uid = $('login-userid')?.value?.trim();
                 const pwd = $('login-password')?.value?.trim();
                 const errEl = $('login-error');
@@ -1734,18 +1742,29 @@ const pages = {
                 console.log('[AUDIT-LOG] Payload (masked):', JSON.stringify({ userId: uid, password: '[MASKED]' }));
 
                 try {
+                    console.log('[LOGIN-DEBUG] 2 request starting');
                     const res = await api.post('/auth/login', { userId: uid, password: pwd });
+                    console.log('[LOGIN-DEBUG] 3 login response received');
                     console.log('[AUDIT-LOG] Response received status: SUCCESS');
                     console.log('[AUDIT-LOG] Response body (masked):', JSON.stringify({ success: res.success, hasToken: !!res.token, studentName: res.studentName }));
+
+                    const hasTok = !!(res && res.token);
+                    console.log(`[LOGIN-DEBUG] 4 token present=${hasTok}`);
 
                     if (res.success && res.token) {
                         state.token = res.token;
                         // Store token + expiry (7 days) so session survives app restarts
                         const SESSION_7_DAYS = 7 * 24 * 60 * 60 * 1000;
-                        await secureStorage.setItem('token', res.token);
-                        await secureStorage.setItem('tokenExpiry', String(Date.now() + SESSION_7_DAYS));
-                        await secureStorage.setItem('studentName', res.studentName || '');
+                        try {
+                            await secureStorage.setItem('token', res.token);
+                            await secureStorage.setItem('tokenExpiry', String(Date.now() + SESSION_7_DAYS));
+                            await secureStorage.setItem('studentName', res.studentName || '');
+                            console.log('[LOGIN-DEBUG] 5 token stored');
+                        } catch (storeErr) {
+                            console.log(`[LOGIN-DEBUG] ERROR stage=token_storage name=${storeErr?.name || 'Error'} message=${storeErr?.message || String(storeErr)}`);
+                        }
                         // ── DASHBOARD-FIRST: navigate immediately, sync in background ──
+                        console.log('[LOGIN-DEBUG] 11 dashboard navigation starting');
                         router.navigate('/dashboard');
                         // Fire push registration and full prefetch asynchronously
                         // Dashboard will paint from IndexedDB cache in <300ms
@@ -1760,6 +1779,7 @@ const pages = {
                         }
                     }
                 } catch (err) {
+                    console.log(`[LOGIN-DEBUG] ERROR stage=login_request name=${err?.name || 'Error'} message=${err?.message || String(err)}`);
                     console.error('[AUDIT-LOG] Login execution failed!');
                     console.error('[AUDIT-LOG] Complete error object:', err);
                     console.error('[AUDIT-LOG] Error message:', err.message);
@@ -1935,6 +1955,7 @@ const pages = {
             </main>
         </div>`,
         afterRender: () => {
+            console.log('[LOGIN-DEBUG] 12 dashboard rendered');
             toggleShell(true);
             setActiveNav('dashboard');
             checkSyncStatus();
