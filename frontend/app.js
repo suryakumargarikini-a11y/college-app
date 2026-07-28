@@ -1698,8 +1698,7 @@ const pages = {
                 <!-- Cohesive Branding Unit -->
                 <div class="mb-6 text-center flex flex-col items-center">
                     <img src="./sitam_logo.png" alt="SITAM Logo" class="w-32 h-32 object-contain rounded-full shadow-md mb-3 transition-transform duration-300 hover:scale-105" />
-                    <h1 class="text-3xl font-black tracking-tight text-[#1e3a8a] leading-none font-headline">SITAM</h1>
-                    <p class="text-xs font-extrabold text-[#2563EB] tracking-[0.24em] uppercase mt-1 font-headline">SMART ERP</p>
+                    <h1 class="text-3xl font-black tracking-tight text-[#1e3a8a] leading-none font-headline">My SITAM</h1>
                 </div>
                 
                 <!-- Login Card -->
@@ -1747,7 +1746,7 @@ const pages = {
                     </div>
                     <div class="flex items-center gap-1.5 text-slate-400 text-[10px] tracking-wider font-semibold">
                         <span class="material-symbols-outlined text-xs text-blue-600">verified_user</span>
-                        <span>SITAM ERP · Secured &amp; Encrypted</span>
+                        <span>My SITAM · Secured &amp; Encrypted</span>
                     </div>
                 </div>
             </main>

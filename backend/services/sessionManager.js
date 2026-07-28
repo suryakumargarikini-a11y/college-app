@@ -45,17 +45,19 @@ class SessionManager {
         });
     }
 
-    createSession(userId, password, cookies, scrapedData = {}) {
-        // Reuse existing in-memory session for same user
+    createSession(userId, password, cookies, scrapedData = {}, role = 'STUDENT', isParent = false) {
+        // Reuse existing in-memory session for same user if role matches
         for (const [token, session] of this.sessions.entries()) {
-            if (session.userId === userId) {
+            if (session.userId === userId && session.role === role) {
                 session.password = password;
                 session.cookies = cookies;
                 session.scrapedData = scrapedData;
+                session.role = role;
+                session.isParent = !!isParent;
                 session.lastUsed = Date.now();
                 session.expiresAt = Date.now() + SESSION_EXPIRY_MS;
                 // P0-5: token value removed from log — Railway logs must not contain session credentials
-                console.log(`[SessionManager] Reused existing session for ${userId}`);
+                console.log(`[SessionManager] Reused existing session for ${userId} (role: ${role})`);
                 this._persistSession(token, session).catch(() => {});
                 return token;
             }
@@ -67,6 +69,8 @@ class SessionManager {
             password,
             cookies,
             scrapedData,
+            role,
+            isParent: !!isParent,
             lastUsed: Date.now(),
             expiresAt: Date.now() + SESSION_EXPIRY_MS
         };
@@ -74,7 +78,7 @@ class SessionManager {
         // Maintain hash index for O(1) WebSocket heartbeat revalidation
         this._hashIndex.set(hashToken(token), token);
         // P0-5: token value removed from log — Railway logs must not contain session credentials
-        console.log(`[SessionManager] Created new session for ${userId}`);
+        console.log(`[SessionManager] Created new session for ${userId} (role: ${role})`);
         this._persistSession(token, session).catch(() => {});
         return token;
     }

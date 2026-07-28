@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">SITAM Smart ERP</string>
-    <string name="title_activity_main">SITAM Smart ERP</string>
+    <string name="app_name">My SITAM</string>
+    <string name="title_activity_main">My SITAM</string>
     <string name="package_name">co.in.sitamecap.erp</string>
     <string name="custom_url_scheme">co.in.sitamecap.erp</string>
 </resources>

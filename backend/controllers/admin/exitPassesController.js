@@ -694,8 +694,8 @@ const runSerializableTransaction = async (fn, maxRetries = 5, delayMs = 150) => 
         try {
             return await prisma.$transaction(fn, {
                 isolationLevel: 'Serializable',
-                maxWait: 10000,
-                timeout: 15000
+                maxWait: 20000,
+                timeout: 30000
             });
         } catch (err) {
             attempt++;
@@ -813,11 +813,37 @@ const confirmExit = async (req, res) => {
             const student = result.pass.student;
             const parentPhone = student.fatherMobile || student.motherMobile || student.guardianPhone || student.phone;
 
+            // Format authoritative exit time
+            const exitDateObj = new Date(result.pass.exitConfirmedAt);
+            const timeStr = exitDateObj.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+
+            // Bilingual Notification Messages
+            const enMsg = `Your child exited the campus at ${timeStr}.`;
+            const teMsg = `మీ బిడ్డ సాయంత్రం ${timeStr} గంటలకు క్యాంపస్ నుండి బయటకు వెళ్లారు.`;
+            const bilingualMsg = `${enMsg}\n${teMsg}`;
+
+            // Save Notification in DB for Parent Mode
+            try {
+                await prisma.notification.create({
+                    data: {
+                        studentId: student.id,
+                        title: 'Campus Exit Confirmed / క్యాంపస్ ఎగ్జిట్ ధృవీకరించబడింది',
+                        message: bilingualMsg,
+                        type: 'exit-pass',
+                        category: 'info',
+                        createdAt: new Date(),
+                        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                    }
+                });
+            } catch (notifDbErr) {
+                logger.warn('[ExitPass] DB notification create failed (non-blocking):', notifDbErr.message);
+            }
+
             if (parentPhone) {
-                const message = `SITAM ERP: Your ward ${student.name} (${student.roll}) has exited campus at ${new Date(result.pass.exitConfirmedAt).toLocaleTimeString()} via ${result.pass.exitGate || 'Main Gate'}.`;
+                const smsMessage = `SITAM ERP: ${enMsg}`;
                 sendSms({
                     to: parentPhone,
-                    message,
+                    message: smsMessage,
                     studentId: student.id,
                     passId: result.pass.id,
                     type: 'EXIT_NOTIFICATION'
@@ -832,8 +858,8 @@ const confirmExit = async (req, res) => {
                     const firebaseService = require('../../services/firebaseService');
                     await firebaseService.sendToTokens?.(
                         tokens.map(t => t.token),
-                        'Campus Exit Confirmed ✓',
-                        `Your campus exit has been recorded at ${result.pass.exitGate || 'Main Gate'}.`
+                        'Campus Exit Confirmed / క్యాంపస్ ఎగ్జిట్ ధృవీకరించబడింది',
+                        bilingualMsg
                     );
                 }
             } catch (fcmErr) {

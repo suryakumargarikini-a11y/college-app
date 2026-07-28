@@ -66,14 +66,15 @@ function sanitizeErrorForClient(error) {
 // ─────────────────────────────────────────────────────────────────────────────
 const login = async (req, res) => {
     const loginStart = Date.now();
-    const { userId, password } = req.body;
+    const rawUserId = (req.body.userId || '').trim();
+    const password = (req.body.password || '').trim();
     const requestId = req.requestId || 'no-req-id';
 
-    logger.info(`[LOGIN-1] ▶ Request received — userId: ${userId || 'MISSING'} | requestId: ${requestId} | ip: ${req.ip}`);
-    console.log(`[LOGIN-1] ▶ Request received — userId: ${userId || 'MISSING'} | requestId: ${requestId}`);
+    logger.info(`[LOGIN-1] ▶ Request received — rawUserId: ${rawUserId || 'MISSING'} | requestId: ${requestId} | ip: ${req.ip}`);
+    console.log(`[LOGIN-1] ▶ Request received — rawUserId: ${rawUserId || 'MISSING'} | requestId: ${requestId}`);
 
-    if (!userId || !password) {
-        logger.warn(`[LOGIN-X] ✗ Validation failed — userId: ${!!userId}, password: ${!!password}`);
+    if (!rawUserId || !password) {
+        logger.warn(`[LOGIN-X] ✗ Validation failed — rawUserId: ${!!rawUserId}, password: ${!!password}`);
         return res.status(400).json({
             success: false,
             message: 'userId and password are required',
@@ -81,11 +82,19 @@ const login = async (req, res) => {
         });
     }
 
+    // Server-Side Parent Mode Detection:
+    // Registration IDs ending with P/p indicate Parent Mode login.
+    // Strip ONLY the trailing P/p to resolve the target student's account.
+    const isParent = /p$/i.test(rawUserId) || req.body.isParent === true;
+    const cleanUserId = rawUserId.replace(/p$/i, '');
+    const userRole = isParent ? 'PARENT' : 'STUDENT';
+    const userId = cleanUserId; // Use clean student ID for database and session operations
+
     try {
         // ── STAGE 2: Database Lookup ───────────────────────────────────────
         const dbLookupStart = Date.now();
-        logger.info(`[LOGIN-2] DB lookup for student: ${userId}`);
-        console.log(`[LOGIN-2] DB lookup for student: ${userId}`);
+        logger.info(`[LOGIN-2] DB lookup for student: ${userId} (isParent: ${isParent})`);
+        console.log(`[LOGIN-2] DB lookup for student: ${userId} (isParent: ${isParent})`);
 
         const cachedStudent = await prisma.student.findUnique({
             where: { userId }
@@ -130,8 +139,8 @@ const login = async (req, res) => {
             } catch (_) {}
 
             if (decryptedPassword === password || hmacMatch) {
-                logger.info(`[LOGIN-3] ✓ Credentials matched — instant login for: ${userId}`);
-                console.log(`[LOGIN-3] ✓ Credentials matched — instant login for: ${userId}`);
+                logger.info(`[LOGIN-3] ✓ Credentials matched — instant login for: ${userId} (role: ${userRole})`);
+                console.log(`[LOGIN-3] ✓ Credentials matched — instant login for: ${userId} (role: ${userRole})`);
 
                 // ── STAGE 4: Session Token Creation ───────────────────────
                 const sessionStart = Date.now();
@@ -143,14 +152,14 @@ const login = async (req, res) => {
                     profileHtml: cachedStudent.address ? 'Cached' : ''
                 };
 
-                const token = sessionManager.createSession(userId, password, 'cached_cookie', mockScrapedData);
+                const token = sessionManager.createSession(userId, password, 'cached_cookie', mockScrapedData, userRole, isParent);
                 const sessionMs = Date.now() - sessionStart;
                 logger.info(`[LOGIN-4] Session token created in ${sessionMs}ms — token present: ${!!token}`);
                 console.log(`[LOGIN-4] Session token created in ${sessionMs}ms — token present: ${!!token}`);
 
                 // ── STAGE 5: Audit Log (non-blocking) ─────────────────────
                 logger.info(`[LOGIN-5] Writing audit log for: ${userId}`);
-                auditLogRepository.log(cachedStudent.id, 'LOGIN_INSTANT', `Student logged in instantly via cached credentials`)
+                auditLogRepository.log(cachedStudent.id, isParent ? 'LOGIN_PARENT_INSTANT' : 'LOGIN_INSTANT', `Logged in instantly via cached credentials (role: ${userRole})`)
                     .catch(e => logger.warn(`[LOGIN-5] Audit log failed (non-blocking): ${e.message}`));
 
                 // ── STAGE 6: Business Metrics (non-blocking) ──────────────
@@ -182,12 +191,14 @@ const login = async (req, res) => {
 
                 // ── STAGE 8: Send Response ─────────────────────────────────
                 const totalMs = Date.now() - loginStart;
-                logger.info(`[LOGIN-8] ✓ INSTANT LOGIN SUCCESS for ${userId} — total: ${totalMs}ms`);
-                console.log(`[LOGIN-8] ✓ INSTANT LOGIN SUCCESS for ${userId} — total: ${totalMs}ms`);
+                logger.info(`[LOGIN-8] ✓ INSTANT LOGIN SUCCESS for ${userId} (role: ${userRole}) — total: ${totalMs}ms`);
+                console.log(`[LOGIN-8] ✓ INSTANT LOGIN SUCCESS for ${userId} (role: ${userRole}) — total: ${totalMs}ms`);
 
                 return res.json({
                     success: true,
                     token,
+                    role: userRole,
+                    isParent,
                     message: 'Login successful (instant cached)',
                     studentName: cachedStudent.name,
                     timestamp: new Date().toISOString()
@@ -230,13 +241,13 @@ const login = async (req, res) => {
 
         const token = sessionManager.createSession(userId, password, cookies, {
             studentName: student.name
-        });
+        }, userRole, isParent);
         const jwtMs = Date.now() - jwtStart;
         logger.info(`[LOGIN-6] JWT created in ${jwtMs}ms — token present: ${!!token}`);
         console.log(`[LOGIN-6] JWT created in ${jwtMs}ms — token present: ${!!token}`);
 
         // ── STAGE 7: Audit Log (non-blocking) ─────────────────────────────
-        auditLogRepository.log(student.id, 'LOGIN_EXTERNAL', `Student successfully verified credentials and synced via Provider`)
+        auditLogRepository.log(student.id, isParent ? 'LOGIN_PARENT_EXTERNAL' : 'LOGIN_EXTERNAL', `Successfully verified credentials and synced via Provider (role: ${userRole})`)
             .catch(e => logger.warn(`[LOGIN-7] Audit log failed (non-blocking): ${e.message}`));
 
         // ── STAGE 8: Business Metrics (non-blocking) ──────────────────────
@@ -247,6 +258,16 @@ const login = async (req, res) => {
                 bc.trackFeatureAccess('login').catch(() => {});
             }
         } catch (_) {}
+
+        return res.json({
+            success: true,
+            token,
+            role: userRole,
+            isParent,
+            message: 'Login successful',
+            studentName: student.name,
+            timestamp: new Date().toISOString()
+        });
 
         // ── STAGE 9: Send Response ─────────────────────────────────────────
         const totalMs = Date.now() - loginStart;
