@@ -372,14 +372,14 @@ async function registerPush() {
 
                     // 1. In-app updates
                     showPushBanner(title, body, route);
-                    try { removeCachedData('/notifications'); } catch (_) {}
-                    try { removeCachedData('/notifications/unread'); } catch (_) {}
-                    try { removeCachedData('/exit-passes/my'); } catch (_) {}
+                    try { removeCachedData('/notifications'); } catch (_) { }
+                    try { removeCachedData('/notifications/unread'); } catch (_) { }
+                    try { removeCachedData('/exit-passes/my'); } catch (_) { }
                     updateUnreadBadge().catch(() => { });
 
                     // Trigger exit pass real-time refresh hooks
                     if (Array.isArray(window._epNotifHandlers)) {
-                        window._epNotifHandlers.forEach(fn => { try { fn(notification); } catch (_) {} });
+                        window._epNotifHandlers.forEach(fn => { try { fn(notification); } catch (_) { } });
                     }
 
                     if (route && route === router.currentRoute) {
@@ -642,155 +642,58 @@ async function updateUnreadBadge() {
     }
 }
 
-// --- Real-time WebSocket Service (P0-2 hardened) ---
-//
-// Authentication protocol (first-message auth):
-//   1. Client opens WebSocket with NO credentials in the URL.
-//   2. In onopen, client immediately sends: {"type":"auth","token":"<bearerToken>"}
-//   3. Server validates token via sessionManager. If valid, sends {"event":"auth_success",...}
-//   4. Client transitions to LIVE state ONLY after receiving auth_success.
-//      updateLiveIndicator(true) fires ONLY here — never on raw socket open.
-//   5. Distinct server close codes:
-//      4001 = INVALID_OR_EXPIRED_SESSION  → no reconnect, trigger logout
-//      4002 = AUTHENTICATION_TIMEOUT      → reconnect normally (network issue), do NOT logout
-//      4003 = MALFORMED_AUTH_MESSAGE      → no reconnect, log diagnostic only
-//      1000 = NORMAL_CLOSURE              → no reconnect (server-initiated clean close)
-//      other → reconnect with existing battery-safe backoff
-//
+// --- Real-time WebSocket Service ---
 const wsService = {
     socket: null,
-    _reconnectTimer: null,     // stored reference so logout can cancel it
-    _reconnectCount: 0,        // [WS-BATTERY] instrumentation counter
-    _sessionInvalid: false,    // blocks reconnect after 4001 until re-login
-
+    _reconnectCount: 0,   // [WS-BATTERY] instrumentation counter — remove after audit
     connect(userId) {
         if (!userId) return;
-        // Guard: prevent duplicate sockets and duplicate reconnect timers
-        if (this.socket && (
-            this.socket.readyState === WebSocket.CONNECTING ||
-            this.socket.readyState === WebSocket.OPEN
-        )) {
+        if (this.socket && (this.socket.readyState === WebSocket.CONNECTING || this.socket.readyState === WebSocket.OPEN)) {
             return;
         }
-        // Guard: do not reconnect if session was invalidated (4001) — wait for re-login
-        if (this._sessionInvalid) return;
 
-        // [WS-BATTERY] CONNECT — instrumentation
+        // [WS-BATTERY] CONNECT — new WebSocket() about to be called
         console.log(`[WS-BATTERY] CONNECT ts=${Date.now()} userId=<redacted> reconnects=${this._reconnectCount} visible=${!document.hidden} online=${navigator.onLine}`);
+        console.log(`[WebSocket] Establishing real-time sync socket for user: ${userId}`);
+        const wsUrl = API_BASE.replace(/^http/, 'ws').replace(/\/api$/, '') + `/?userId=${userId}`;
 
-        // P0-2: userId is NOT in the URL — sending credentials in query strings
-        // would expose them in Railway access logs and any intermediate proxy.
-        // Identity comes exclusively from the server-side session validation.
-        const wsUrl = API_BASE.replace(/^http/, 'ws').replace(/\/api$/, '') + '/';
         this.socket = new WebSocket(wsUrl);
 
         this.socket.onopen = () => {
-            // [WS-BATTERY] OPEN — instrumentation
+            // [WS-BATTERY] OPEN
             console.log(`[WS-BATTERY] OPEN ts=${Date.now()} visible=${!document.hidden} online=${navigator.onLine}`);
-            // P0-2: Do NOT call updateLiveIndicator(true) here — socket is open but NOT yet
-            // authenticated. The live indicator turns on only after auth_success is received.
-            console.log('[WebSocket] Socket open. Sending auth message...');
-            if (state.token) {
-                this.socket.send(JSON.stringify({ type: 'auth', token: state.token }));
-            } else {
-                console.warn('[WebSocket] No session token available. Closing socket.');
-                this.socket.close(1000, 'No session token');
-            }
+            console.log(`[WebSocket] Connection established for student: ${userId}`);
+            updateLiveIndicator(true);
         };
 
         this.socket.onmessage = (event) => {
             try {
                 const message = JSON.parse(event.data);
-                // P0-2: auth_success is the gate to LIVE state.
-                // All application events before auth_success are ignored.
-                if (message.event === 'auth_success') {
-                    console.log('[WebSocket] auth_success received. Connection is now LIVE.');
-                    updateLiveIndicator(true);  // ← ONLY here
-                    return;
-                }
                 this.handleEvent(message.event, message.data);
             } catch (err) {
-                console.error('[WebSocket] Message parse error:', err);
+                console.error('[WebSocket] Parsing error:', err);
             }
         };
 
-        this.socket.onclose = (event) => {
-            // [WS-BATTERY] CLOSE — instrumentation
-            console.log(`[WS-BATTERY] CLOSE ts=${Date.now()} code=${event.code} visible=${!document.hidden} online=${navigator.onLine} totalReconnects=${this._reconnectCount}`);
+        this.socket.onclose = () => {
+            // [WS-BATTERY] CLOSE — reconnect timer is about to be scheduled unconditionally
+            console.log(`[WS-BATTERY] CLOSE ts=${Date.now()} visible=${!document.hidden} online=${navigator.onLine} totalReconnects=${this._reconnectCount}`);
+            console.log(`[WebSocket] Sync socket disconnected. Attempting reconnection in 5 seconds...`);
             updateLiveIndicator(false);
-            this.socket = null;
-
-            if (event.code === 4001) {
-                // INVALID_OR_EXPIRED_SESSION: token is no longer valid.
-                // Do NOT reconnect — the session is gone. Trigger logout so the
-                // user is redirected to the login screen to get a new token.
-                console.warn('[WebSocket] Session invalidated by server (4001). Logging out.');
-                this._sessionInvalid = true;
-                api.logout();
-                return;
-            }
-
-            if (event.code === 4003) {
-                // MALFORMED_AUTH_MESSAGE: client sent a bad auth message format.
-                // This is a client-side bug. Log a diagnostic and do NOT reconnect
-                // in a loop — the same malformed message would just fail again.
-                console.error('[WebSocket] Server rejected auth message format (4003). Not reconnecting. Check auth message structure.');
-                return;
-            }
-
-            if (event.code === 1000) {
-                // NORMAL_CLOSURE: server closed cleanly (graceful shutdown, explicit logout).
-                // Do not reconnect.
-                console.log('[WebSocket] Normal closure (1000). Not reconnecting.');
-                return;
-            }
-
-            // 4002 (AUTH_TIMEOUT) and all other codes (network errors, abnormal closes):
-            // reconnect using existing battery-safe bounded backoff.
-            // 4002 specifically means the server timed out waiting for auth — likely a
-            // slow network. Reconnecting will allow the auth message to arrive in time.
-            console.log(`[WebSocket] Disconnected (code=${event.code}). Scheduling reconnect in 5 seconds...`);
-            // [WS-BATTERY] RECONNECT_SCHEDULED
+            // [WS-BATTERY] RECONNECT_SCHEDULED — NOTE: no background check, always fires
             console.log(`[WS-BATTERY] RECONNECT_SCHEDULED ts=${Date.now()} delayMs=5000 visible=${!document.hidden}`);
-            // Guard: cancel any existing timer before scheduling a new one
-            if (this._reconnectTimer) {
-                clearTimeout(this._reconnectTimer);
-                this._reconnectTimer = null;
-            }
-            this._reconnectTimer = setTimeout(() => {
-                this._reconnectTimer = null;
+            setTimeout(() => {
+                // [WS-BATTERY] RECONNECT_ATTEMPT — timer fired, calling connect()
                 this._reconnectCount++;
-                // [WS-BATTERY] RECONNECT_ATTEMPT
                 console.log(`[WS-BATTERY] RECONNECT_ATTEMPT ts=${Date.now()} attempt=${this._reconnectCount} visible=${!document.hidden} online=${navigator.onLine}`);
                 this.connect(userId);
             }, 5000);
         };
 
         this.socket.onerror = (err) => {
-            console.error('[WebSocket] Socket error:', err);
+            console.error('[WebSocket] Error:', err);
             updateLiveIndicator(false);
         };
-    },
-
-    /**
-     * Cleanly disconnect the WebSocket.
-     * Called on logout to cancel pending reconnect timers and close the socket.
-     */
-    disconnect() {
-        // Cancel any pending reconnect timer first — prevents race where timer fires
-        // after logout and tries to connect with an invalidated session.
-        if (this._reconnectTimer) {
-            clearTimeout(this._reconnectTimer);
-            this._reconnectTimer = null;
-        }
-        if (this.socket && (
-            this.socket.readyState === WebSocket.OPEN ||
-            this.socket.readyState === WebSocket.CONNECTING
-        )) {
-            this.socket.close(1000, 'LOGOUT');
-        }
-        this.socket = null;
-        this._sessionInvalid = false; // reset so re-login can reconnect
     },
 
     handleEvent(event, data) {
@@ -852,8 +755,8 @@ const wsService = {
         }
 
         else if (event === 'notification_refresh' || event === 'new_notification') {
-            try { removeCachedData('/notifications'); } catch (_) {}
-            try { removeCachedData('/notifications/unread'); } catch (_) {}
+            try { removeCachedData('/notifications'); } catch (_) { }
+            try { removeCachedData('/notifications/unread'); } catch (_) { }
             updateUnreadBadge().catch(() => { });
             if (data?.title || data?.message) {
                 showPushBanner(data.title || 'SITAM Notification', data.message || '', '/notifications');
@@ -1238,7 +1141,19 @@ const api = {
         const mergedHeaders = { ...headers, ...(options.headers || {}) };
 
         try {
-            console.log(`[API Request] ${method} ${fullUrl}`);
+            const isFeesOrNotices = endpoint && (endpoint.includes('fees') || endpoint.includes('fee-notices'));
+            if (isFeesOrNotices) {
+                console.log(`[FEES-FLOW] [Frontend Request] URL: ${fullUrl}`);
+                console.log(`[FEES-FLOW] [Frontend Request] Method: ${method}`);
+                console.log(`[FEES-FLOW] [Frontend Request] Authorization header: ${mergedHeaders.Authorization || 'NONE'}`);
+                console.log(`[FEES-FLOW] [Frontend Request] Token prefix: ${(mergedHeaders.Authorization || '').substring(0, 15)}`);
+            }
+
+            console.log(`\n--- NETWORK REQUEST START ---`);
+            console.log(`METHOD: ${method}`);
+            console.log(`Full URL: ${fullUrl}`);
+            console.log(`Headers: ${JSON.stringify(mergedHeaders)}`);
+            console.log(`-----------------------------\n`);
 
             const resp = await RequestQueue.enqueue(
                 async () => {
@@ -1260,9 +1175,20 @@ const api = {
             );
 
             const duration = Date.now() - startTime;
-            console.log(`[API Response] ${method} ${fullUrl} -> Status: ${resp.status} (${duration}ms)`);
+            console.log(`\n--- NETWORK RESPONSE RECEIVED ---`);
+            console.log(`METHOD: ${method}`);
+            console.log(`Full URL: ${fullUrl}`);
+            console.log(`Response Status: ${resp.status}`);
+            console.log(`Response Time: ${duration} ms`);
+            console.log(`---------------------------------\n`);
 
             const text = await resp.text();
+
+            if (isFeesOrNotices) {
+                console.log(`[FEES-FLOW] [Frontend Response] Status: ${resp.status}`);
+                console.log(`[FEES-FLOW] [Frontend Response] Time: ${duration} ms`);
+                console.log(`[FEES-FLOW] [Frontend Response] Body: ${text.slice(0, 1000)}`);
+            }
 
 
             // ── 429 Too Many Requests — exponential backoff retry ───────────
@@ -1479,9 +1405,6 @@ const api = {
 
     logout() {
         const performLogout = () => {
-            // P0-2: Disconnect WebSocket first — cancels reconnect timer and closes socket.
-            // Must happen before state.token is cleared so any in-flight close is clean.
-            wsService.disconnect();
             clearUserCache();
             secureStorage.removeItem('token');
             secureStorage.removeItem('tokenExpiry');
@@ -4809,34 +4732,34 @@ const pages = {
                     activeContainer.innerHTML = `<div class="p-6 rounded-2xl bg-white/60 border border-slate-200/50 text-center text-slate-400 font-bold text-xs uppercase tracking-wider animate-reveal">No exit passes found. Tap Apply to get started.</div>`;
                 } else {
                     const STATUS_CONFIG = {
-                        PENDING:      { badge: 'bg-amber-100 text-amber-800 border-amber-200',  label: 'Pending Approval',  icon: 'hourglass_top' },
-                        APPROVED:     { badge: 'bg-emerald-100 text-emerald-800 border-emerald-200', label: 'Approved',         icon: 'check_circle' },
-                        REJECTED:     { badge: 'bg-rose-100 text-rose-800 border-rose-200',      label: 'Rejected',          icon: 'cancel' },
-                        CANCELLED:    { badge: 'bg-slate-100 text-slate-500 border-slate-200',   label: 'Cancelled',         icon: 'do_not_disturb' },
-                        EXPIRED:      { badge: 'bg-slate-100 text-slate-600 border-slate-200',   label: 'Expired',           icon: 'timer_off' },
-                        UNDER_REVIEW: { badge: 'bg-orange-100 text-orange-800 border-orange-200', label: 'Under Review',      icon: 'manage_search' },
-                        EXITED:       { badge: 'bg-blue-100 text-blue-800 border-blue-200',      label: 'Exit Verified',     icon: 'how_to_reg' },
+                        PENDING: { badge: 'bg-amber-100 text-amber-800 border-amber-200', label: 'Pending Approval', icon: 'hourglass_top' },
+                        APPROVED: { badge: 'bg-emerald-100 text-emerald-800 border-emerald-200', label: 'Approved', icon: 'check_circle' },
+                        REJECTED: { badge: 'bg-rose-100 text-rose-800 border-rose-200', label: 'Rejected', icon: 'cancel' },
+                        CANCELLED: { badge: 'bg-slate-100 text-slate-500 border-slate-200', label: 'Cancelled', icon: 'do_not_disturb' },
+                        EXPIRED: { badge: 'bg-slate-100 text-slate-600 border-slate-200', label: 'Expired', icon: 'timer_off' },
+                        UNDER_REVIEW: { badge: 'bg-orange-100 text-orange-800 border-orange-200', label: 'Under Review', icon: 'manage_search' },
+                        EXITED: { badge: 'bg-blue-100 text-blue-800 border-blue-200', label: 'Exit Verified', icon: 'how_to_reg' },
                     };
                     const cfg = STATUS_CONFIG[active.status] || { badge: 'bg-slate-100 text-slate-600', label: active.status, icon: 'info' };
 
-                    const isPending     = active.status === 'PENDING';
-                    const isApproved    = active.status === 'APPROVED';
-                    const isRejected    = active.status === 'REJECTED';
-                    const isCancelled   = active.status === 'CANCELLED';
-                    const isExpired     = active.status === 'EXPIRED';
+                    const isPending = active.status === 'PENDING';
+                    const isApproved = active.status === 'APPROVED';
+                    const isRejected = active.status === 'REJECTED';
+                    const isCancelled = active.status === 'CANCELLED';
+                    const isExpired = active.status === 'EXPIRED';
                     const isUnderReview = active.status === 'UNDER_REVIEW';
-                    const isExited      = active.status === 'EXITED';
-                    const isTerminal    = isRejected || isCancelled;
+                    const isExited = active.status === 'EXITED';
+                    const isTerminal = isRejected || isCancelled;
 
                     // --- STATUS MESSAGE ---
                     const STATUS_MESSAGES = {
-                        PENDING:      { headline: 'Waiting for Approval', body: 'Your exit pass request has been submitted. You will be notified once Admin reviews it.', color: 'bg-amber-50 border-amber-200 text-amber-800' },
-                        APPROVED:     { headline: 'Exit Pass Approved', body: 'Show the QR code below to Security at the gate to complete your exit.', color: 'bg-emerald-50 border-emerald-200 text-emerald-800' },
-                        REJECTED:     { headline: 'Exit Pass Rejected', body: active.adminRemark ? `Reason: ${active.adminRemark}` : 'Your request was not approved.', color: 'bg-rose-50 border-rose-200 text-rose-800' },
-                        CANCELLED:    { headline: 'Request Cancelled', body: 'This exit pass request was cancelled.', color: 'bg-slate-50 border-slate-200 text-slate-600' },
-                        EXPIRED:      { headline: 'Pass Expired', body: active.exitTime ? `This Exit Pass expired at ${formatDateTime(active.exitTime)}. Apply for a new Exit Pass if required.` : 'This exit pass is no longer valid.', color: 'bg-slate-50 border-slate-200 text-slate-600' },
+                        PENDING: { headline: 'Waiting for Approval', body: 'Your exit pass request has been submitted. You will be notified once Admin reviews it.', color: 'bg-amber-50 border-amber-200 text-amber-800' },
+                        APPROVED: { headline: 'Exit Pass Approved', body: 'Show the QR code below to Security at the gate to complete your exit.', color: 'bg-emerald-50 border-emerald-200 text-emerald-800' },
+                        REJECTED: { headline: 'Exit Pass Rejected', body: active.adminRemark ? `Reason: ${active.adminRemark}` : 'Your request was not approved.', color: 'bg-rose-50 border-rose-200 text-rose-800' },
+                        CANCELLED: { headline: 'Request Cancelled', body: 'This exit pass request was cancelled.', color: 'bg-slate-50 border-slate-200 text-slate-600' },
+                        EXPIRED: { headline: 'Pass Expired', body: active.exitTime ? `This Exit Pass expired at ${formatDateTime(active.exitTime)}. Apply for a new Exit Pass if required.` : 'This exit pass is no longer valid.', color: 'bg-slate-50 border-slate-200 text-slate-600' },
                         UNDER_REVIEW: { headline: 'Under Security Review', body: 'Your exit pass has been flagged for review. Please contact Security or Admin.', color: 'bg-orange-50 border-orange-200 text-orange-800' },
-                        EXITED:       { headline: 'Exit Verified ✓', body: `Your campus exit was confirmed by Security.${active.exitConfirmedAt ? ' At: ' + new Date(active.exitConfirmedAt).toLocaleString('en-GB', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }) : ''}`, color: 'bg-blue-50 border-blue-200 text-blue-800' },
+                        EXITED: { headline: 'Exit Verified ✓', body: `Your campus exit was confirmed by Security.${active.exitConfirmedAt ? ' At: ' + new Date(active.exitConfirmedAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}`, color: 'bg-blue-50 border-blue-200 text-blue-800' },
                     };
                     const msg = STATUS_MESSAGES[active.status];
 
@@ -4891,9 +4814,9 @@ const pages = {
                                     <div class="flex items-center gap-2.5">
                                         <div class="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-[11px] font-black
                                             ${step.done ? 'bg-emerald-500 text-white' :
-                                              step.failed ? 'bg-rose-500 text-white' :
-                                              step.current ? 'bg-primary text-white ring-4 ring-primary/20' :
-                                              'bg-slate-200 text-slate-400'}
+                            step.failed ? 'bg-rose-500 text-white' :
+                                step.current ? 'bg-primary text-white ring-4 ring-primary/20' :
+                                    'bg-slate-200 text-slate-400'}
                                         ">${step.done ? '✓' : step.failed ? '✕' : step.current ? '●' : '○'}</div>
                                         <p class="text-xs font-bold ${step.current ? 'text-primary' : step.done ? 'text-slate-700' : step.failed ? 'text-rose-600' : 'text-slate-400'}">${step.label}</p>
                                     </div>
@@ -4909,12 +4832,12 @@ const pages = {
                                 <p class="text-xs font-black text-emerald-800 uppercase tracking-widest">Security Gate QR Code</p>
                                 <p class="text-[10px] text-emerald-600 mt-0.5">Show this to Security at the gate</p>
                             </div>
-                            <div id="ep-qr-wrapper" class="bg-white border-2 border-emerald-300 shadow-md flex flex-col items-center justify-center" style="border-radius:0; padding:0;">
-                                <div id="ep-qr-loading" class="flex flex-col items-center gap-2 p-6">
+                            <div id="ep-qr-wrapper" class="w-48 h-48 bg-white border-2 border-emerald-300 flex items-center justify-center p-3 shadow-md" style="border-radius:0;">
+                                <div id="ep-qr-loading" class="flex flex-col items-center gap-2">
                                     <div class="w-6 h-6 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin"></div>
                                     <p class="text-[9px] text-slate-400">Loading QR...</p>
                                 </div>
-                                <canvas id="exit-pass-qr-canvas" class="hidden" style="border-radius:0; display:block; max-width:100%; image-rendering:pixelated; image-rendering:-moz-crisp-edges; image-rendering:crisp-edges;"></canvas>
+                                <canvas id="exit-pass-qr-canvas" class="w-full h-full object-contain hidden" style="border-radius:0; image-rendering:pixelated;"></canvas>
                             </div>
                             <div id="ep-qr-error" class="hidden text-center space-y-2 p-2">
                                 <p class="text-[11px] text-rose-600 font-bold">QR unavailable. Please refresh or contact administration.</p>
@@ -4985,20 +4908,19 @@ const pages = {
                                     const QRConstructor = window.QRCode || (typeof QRCode !== 'undefined' ? QRCode : null);
                                     if (typeof QRConstructor !== 'function') throw new Error('QRCode renderer library not loaded');
 
-                                    // Render QR Code onto canvas — library computes intrinsic size
-                                    // for integer pixels-per-module (no fractional rendering).
+                                    // Render QR Code onto canvas using QRCode library (320x320, margin: 4)
                                     new QRConstructor(canvas, {
                                         text: token,
+                                        width: 320,
+                                        height: 320,
                                         margin: 4,
-                                        minPixels: 10,
                                         colorDark: '#000000',
                                         colorLight: '#ffffff'
                                     });
 
-                                    // Show canvas, hide loader
-                                    canvas.style.display = 'block';
                                     canvas.classList.remove('hidden');
                                     if (errEl) errEl.classList.add('hidden');
+                                    console.log(`[ExitPass QR] QR rendered successfully`);
                                 };
 
                                 const timeoutWatchdog = new Promise((_, reject) => {
@@ -5117,7 +5039,7 @@ const pages = {
             window.reloadExitPasses = async () => {
                 try {
                     await loadQuota();
-                    try { removeCachedData('/exit-passes/my'); } catch (_) {}
+                    try { removeCachedData('/exit-passes/my'); } catch (_) { }
                     const res = await api.get('/exit-passes/my', { bypassCache: true });
                     const passes = Array.isArray(res) ? res : (res.data || res.passes || []);
                     renderPasses(passes);
@@ -5225,7 +5147,7 @@ const pages = {
                 const type = notification?.type || notification?.data?.type || notification?.data?.sitam_type || '';
                 const title = notification?.title || notification?.data?.title || '';
                 if (type.toLowerCase().includes('exit') || title.toLowerCase().includes('exit pass')) {
-                    try { removeCachedData('/exit-passes/my'); } catch (_) {}
+                    try { removeCachedData('/exit-passes/my'); } catch (_) { }
                     setTimeout(() => loadPasses(), 300);
                 }
             };
@@ -5240,7 +5162,7 @@ const pages = {
                 document.addEventListener('visibilitychange', () => {
                     if (!document.hidden && window.location && window.location.hash && window.location.hash.includes('exit-pass')) {
                         console.log('[EP-LISTENER] Foreground return — refreshing exit passes');
-                        try { removeCachedData('/exit-passes/my'); } catch (_) {}
+                        try { removeCachedData('/exit-passes/my'); } catch (_) { }
                         if (typeof window.reloadExitPasses === 'function') {
                             window.reloadExitPasses();
                         }
