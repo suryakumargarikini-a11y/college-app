@@ -4918,28 +4918,30 @@ const pages = {
                                         colorLight: '#ffffff'
                                     });
 
-                                    // Phase-2 diagnostic: log canvas metrics (token NOT logged)
+                                    // Show canvas, hide loader
+                                    canvas.style.display = 'block';
+                                    canvas.classList.remove('hidden');
+                                    if (errEl) errEl.classList.add('hidden');
+
+                                    // Phase-2 diagnostic: canvas metrics (token NEVER logged)
                                     console.log('[QR-GEN] tokenLength=' + token.length);
                                     console.log('[QR-GEN] tokenType=' + (/^[0-9a-f]{64}$/.test(token) ? 'hex64' : 'other'));
                                     console.log('[QR-GEN] canvasWidth=' + canvas.width);
                                     console.log('[QR-GEN] canvasHeight=' + canvas.height);
-
-                                    canvas.style.display = 'block';
-                                    canvas.classList.remove('hidden');
-                                    if (errEl) errEl.classList.add('hidden');
                                     console.log('[ExitPass QR] QR rendered — intrinsicSize=' + canvas.width + 'x' + canvas.height);
 
-                                    // ── STEP 1: SELF-DECODE ─────────────────────────────────────────
-                                    // Decode the EXACT canvas bitmap using jsQR (pure JS, no camera).
-                                    // This isolates: invalid QR matrix  vs  camera/display failure.
-                                    // If this fails → matrix is the problem (generator bug).
-                                    // If this passes → matrix is valid → camera path is the problem.
+                                    // ── STEP 1: SELF-DECODE ─────────────────────────────────────
+                                    // jsQR reads the EXACT canvas pixel data — no camera involved.
+                                    // PASS = matrix is valid (camera path must be investigated if scan fails)
+                                    // FAIL = matrix is invalid (generator bug)
                                     try {
                                         const jsQRfn = window.jsQR;
                                         if (typeof jsQRfn === 'function') {
                                             console.log('[QR-SELFTEST] START canvas=' + canvas.width + 'x' + canvas.height);
                                             const ctx2 = canvas.getContext('2d');
                                             const imgData = ctx2.getImageData(0, 0, canvas.width, canvas.height);
+                                            // dontInvert only — 'onlyInvert' crashes jsQR v1.4 when
+                                            // no pattern is found (binarize omits .inverted key).
                                             const decoded = jsQRfn(imgData.data, canvas.width, canvas.height, {
                                                 inversionAttempts: 'dontInvert'
                                             });
@@ -4947,16 +4949,7 @@ const pages = {
                                                 const match = decoded.data === token;
                                                 console.log('[QR-SELFTEST] SUCCESS decodedLength=' + decoded.data.length + ' match=' + match);
                                             } else {
-                                                // Try with inversion in case foreground/background swapped
-                                                const decoded2 = jsQRfn(imgData.data, canvas.width, canvas.height, {
-                                                    inversionAttempts: 'onlyInvert'
-                                                });
-                                                if (decoded2 && decoded2.data) {
-                                                    const match = decoded2.data === token;
-                                                    console.log('[QR-SELFTEST] SUCCESS(inverted) decodedLength=' + decoded2.data.length + ' match=' + match);
-                                                } else {
-                                                    console.log('[QR-SELFTEST] FAIL error=jsQR returned null — matrix may be invalid');
-                                                }
+                                                console.log('[QR-SELFTEST] FAIL error=jsQR returned null matrix invalid');
                                             }
                                         } else {
                                             console.log('[QR-SELFTEST] SKIP jsQR not loaded');
@@ -4965,10 +4958,8 @@ const pages = {
                                         console.log('[QR-SELFTEST] FAIL error=' + (selfErr.message || selfErr));
                                     }
 
-                                    // ── STEP 2: PNG EXPORT BUTTON ───────────────────────────────────
-                                    // Inject a temporary download button so the guard can upload the
-                                    // exact canvas PNG via "Upload QR Image instead" on the portal.
-                                    // Remove after testing by re-opening the exit pass page.
+                                    // ── STEP 2: PNG EXPORT BUTTON ───────────────────────────────
+                                    // Tap this to download the exact canvas PNG for guard-portal upload test.
                                     try {
                                         const wrapper = document.getElementById('ep-qr-wrapper');
                                         if (wrapper && !document.getElementById('ep-qr-export-btn')) {
