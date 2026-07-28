@@ -61,14 +61,14 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' })
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto"
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"
     >
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
+        className="fixed inset-0 bg-black/40 backdrop-blur-[2px]"
         onClick={onClose}
         aria-hidden="true"
       />
@@ -76,7 +76,7 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' })
       {/* Panel */}
       <div
         ref={panelRef}
-        className={`relative bg-white rounded-xl shadow-2xl w-full ${sizeClass} max-h-[90vh] flex flex-col modal-animate`}
+        className={`relative bg-white rounded-xl shadow-2xl w-full ${sizeClass} max-h-[calc(100dvh-2rem)] flex flex-col modal-animate my-auto`}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
@@ -91,7 +91,7 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' })
         </div>
 
         {/* Body */}
-        <div className="overflow-y-auto flex-1 px-5 py-5">{children}</div>
+        <div className="overflow-y-auto flex-1 min-h-0 px-5 py-5">{children}</div>
       </div>
     </div>
   );
