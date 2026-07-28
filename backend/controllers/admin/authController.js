@@ -5,7 +5,24 @@ const { signToken } = require('../../middleware/adminAuth');
 const logger = require('../../services/logger');
 const { auditLogRepository } = require('../../repositories/index');
 
-const SALT = process.env.ADMIN_PASSWORD_SALT || 'sitam-admin-salt';
+// ── P0-4: Startup Guard — ADMIN_PASSWORD_SALT (used as HMAC pepper) ───────────
+// Fail hard at module load if the pepper is absent, empty, or a known default.
+// DO NOT rotate, rename, or migrate in Batch 1 — bcrypt migration is a separate phase.
+// SECURITY: The pepper value is never logged — only its absence or invalidity.
+const _ADMIN_SALT_KNOWN_DEFAULTS = new Set(['sitam-admin-salt']);
+const _rawAdminSalt = process.env.ADMIN_PASSWORD_SALT;
+if (!_rawAdminSalt || _rawAdminSalt.trim() === '') {
+    console.error('[FATAL] ADMIN_PASSWORD_SALT environment variable is missing or empty. ' +
+        'Set the pepper value in Railway → Variables before deploying. Server will not start.');
+    throw new Error('ADMIN_PASSWORD_SALT must be configured before starting the server.');
+}
+if (_ADMIN_SALT_KNOWN_DEFAULTS.has(_rawAdminSalt)) {
+    console.error('[FATAL] ADMIN_PASSWORD_SALT is set to a known public default value. ' +
+        'Replace it with the configured pepper in Railway → Variables.');
+    throw new Error('ADMIN_PASSWORD_SALT must not use a known default value.');
+}
+const SALT = _rawAdminSalt;
+// ─────────────────────────────────────────────────────────────────────────────
 
 function hashPassword(password) {
     return crypto.createHmac('sha256', SALT).update(password).digest('hex');
@@ -24,15 +41,34 @@ const login = async (req, res) => {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
-        const token = signToken({ id: admin.id, email: admin.email, name: admin.name, role: admin.role });
-        logger.info(`[AdminAuth] Admin logged in: ${admin.email}`);
-        
-        // Log to AuditLogs
-        await auditLogRepository.log(null, 'ADMIN_LOGIN', `Admin ${admin.email} signed in successfully`, admin.id, 'SECURITY');
+        await prisma.admin.update({
+            where: { id: admin.id },
+            data: { lastLoginAt: new Date() }
+        });
 
-        res.json({ token, admin: { id: admin.id, name: admin.name, email: admin.email, role: admin.role } });
-    } catch (err) {
-        logger.error('[AdminAuth] Login error:', err);
+        const token = signToken(admin);
+
+        auditLogRepository.logAction({
+            adminId: admin.id,
+            action: 'ADMIN_LOGIN',
+            resource: 'auth',
+            details: { email: admin.email, role: admin.role },
+            ipAddress: req.ip,
+            userAgent: req.get('user-agent')
+        }).catch(err => logger.error(`Failed to log admin login: ${err.message}`));
+
+        res.json({
+            token,
+            admin: {
+                id: admin.id,
+                email: admin.email,
+                name: admin.name,
+                role: admin.role,
+                lastLoginAt: admin.lastLoginAt
+            }
+        });
+    } catch (error) {
+        logger.error(`Admin login error: ${error.message}`);
         res.status(500).json({ error: 'Internal server error' });
     }
 };
@@ -41,45 +77,14 @@ const getMe = async (req, res) => {
     try {
         const admin = await prisma.admin.findUnique({
             where: { id: req.admin.id },
-            select: { id: true, name: true, email: true, role: true, createdAt: true }
+            select: { id: true, email: true, name: true, role: true, isActive: true, lastLoginAt: true }
         });
-        if (!admin) return res.status(404).json({ error: 'Admin not found' });
-        res.json(admin);
-    } catch (err) {
+        if (!admin || !admin.isActive) return res.status(401).json({ error: 'Unauthorized' });
+        res.json({ admin });
+    } catch (error) {
+        logger.error(`Admin getMe error: ${error.message}`);
         res.status(500).json({ error: 'Internal server error' });
     }
 };
 
-const changePassword = async (req, res) => {
-    try {
-        const { currentPassword, newPassword } = req.body;
-        if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Both passwords required' });
-        if (newPassword.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
-
-        const admin = await prisma.admin.findUnique({ where: { id: req.admin.id } });
-        if (hashPassword(currentPassword) !== admin.passwordHash) {
-            return res.status(400).json({ error: 'Current password is incorrect' });
-        }
-        await prisma.admin.update({ where: { id: req.admin.id }, data: { passwordHash: hashPassword(newPassword) } });
-        
-        // Log to AuditLogs
-        await auditLogRepository.log(null, 'PASSWORD_CHANGED', `Admin ${req.admin.email} changed password`, req.admin.id, 'SECURITY');
-
-        res.json({ success: true, message: 'Password changed successfully' });
-    } catch (err) {
-        res.status(500).json({ error: 'Internal server error' });
-    }
-};
-
-const logout = async (req, res) => {
-    try {
-        // Log to AuditLogs
-        await auditLogRepository.log(null, 'ADMIN_LOGOUT', `Admin ${req.admin.email} signed out`, req.admin.id, 'INFO');
-        res.json({ success: true, message: 'Logged out successfully' });
-    } catch (err) {
-        logger.error('[AdminAuth] Logout error:', err);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-};
-
-module.exports = { login, getMe, changePassword, logout, hashPassword };
+module.exports = { login, getMe };

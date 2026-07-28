@@ -1,7 +1,33 @@
 'use strict';
 const crypto = require('crypto');
 
-const ADMIN_JWT_SECRET = process.env.ADMIN_JWT_SECRET || 'sitam-admin-secret-key-change-in-production';
+// ── P0-3: Startup Guard — ADMIN_JWT_SECRET ────────────────────────────────────
+// Fail hard at module load if the secret is absent, empty, a known default,
+// or shorter than 32 characters. This ensures the server cannot start with a
+// weak signing key regardless of deployment environment.
+// SECURITY: The secret value is never logged — only its absence or invalidity.
+const _ADMIN_JWT_KNOWN_DEFAULTS = new Set([
+    'sitam-admin-secret-key-change-in-production',
+    'sitam-admin-secret-key',
+]);
+const _rawAdminJwtSecret = process.env.ADMIN_JWT_SECRET;
+if (!_rawAdminJwtSecret || _rawAdminJwtSecret.trim() === '') {
+    console.error('[FATAL] ADMIN_JWT_SECRET environment variable is missing or empty. ' +
+        'Set a strong unique secret in Railway → Variables before deploying. Server will not start.');
+    throw new Error('ADMIN_JWT_SECRET must be configured before starting the server.');
+}
+if (_ADMIN_JWT_KNOWN_DEFAULTS.has(_rawAdminJwtSecret)) {
+    console.error('[FATAL] ADMIN_JWT_SECRET is set to a known public default value. ' +
+        'Replace it with a strong unique secret in Railway → Variables.');
+    throw new Error('ADMIN_JWT_SECRET must not use a known default value.');
+}
+if (_rawAdminJwtSecret.length < 32) {
+    console.error(`[FATAL] ADMIN_JWT_SECRET is too short (${_rawAdminJwtSecret.length} chars, minimum 32). ` +
+        'Use a longer secret.');
+    throw new Error('ADMIN_JWT_SECRET must be at least 32 characters long.');
+}
+const ADMIN_JWT_SECRET = _rawAdminJwtSecret;
+// ─────────────────────────────────────────────────────────────────────────────
 
 function base64urlEncode(str) {
     return Buffer.from(str).toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');

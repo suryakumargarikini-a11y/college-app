@@ -232,7 +232,6 @@ const getAttendance = async (req, res, next) => {
 
 // Fees controller (supports parsing session scrape, with highly detailed dynamic fallbacks)
 const getFees = async (req, res, next) => {
-    console.log(`[FEES-FLOW] [dataControllers.getFees] Entering getFees for userId: ${req.session?.userId}`);
     try {
         const bc = getBusinessCollector();
         if (bc) bc.trackFeatureAccess('fees').catch(() => {});
@@ -271,7 +270,6 @@ const getFees = async (req, res, next) => {
             const totalDue = dueAmount;
             const paidProgress = totalAmountVal > 0 ? Math.min(100, Math.max(0, Math.round((paidAmountVal / totalAmountVal) * 100))) : 0;
 
-            console.log(`[FEES-FLOW] [dataControllers.getFees] Successfully returning database fees statement`);
             return res.ok({
                 totalAmount,
                 paidAmount,
@@ -281,8 +279,6 @@ const getFees = async (req, res, next) => {
                 transactions
             }, 'Fees statement fetched successfully');
         }
-
-        console.log(`[FEES-FLOW] [dataControllers.getFees] No database records found. Returning fallbacks.`);
 
         const totalAmount = "₹98,000";
         const paidAmount = "₹73,500";
@@ -334,7 +330,6 @@ const getFees = async (req, res, next) => {
             transactions
         }, 'Fees statement generated successfully');
     } catch (error) {
-        console.error(`[FEES-FLOW] [dataControllers.getFees] Thrown exception: ${error.message}`);
         next(error);
     }
 };

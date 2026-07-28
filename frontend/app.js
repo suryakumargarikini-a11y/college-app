@@ -642,58 +642,155 @@ async function updateUnreadBadge() {
     }
 }
 
-// --- Real-time WebSocket Service ---
+// --- Real-time WebSocket Service (P0-2 hardened) ---
+//
+// Authentication protocol (first-message auth):
+//   1. Client opens WebSocket with NO credentials in the URL.
+//   2. In onopen, client immediately sends: {"type":"auth","token":"<bearerToken>"}
+//   3. Server validates token via sessionManager. If valid, sends {"event":"auth_success",...}
+//   4. Client transitions to LIVE state ONLY after receiving auth_success.
+//      updateLiveIndicator(true) fires ONLY here — never on raw socket open.
+//   5. Distinct server close codes:
+//      4001 = INVALID_OR_EXPIRED_SESSION  → no reconnect, trigger logout
+//      4002 = AUTHENTICATION_TIMEOUT      → reconnect normally (network issue), do NOT logout
+//      4003 = MALFORMED_AUTH_MESSAGE      → no reconnect, log diagnostic only
+//      1000 = NORMAL_CLOSURE              → no reconnect (server-initiated clean close)
+//      other → reconnect with existing battery-safe backoff
+//
 const wsService = {
     socket: null,
-    _reconnectCount: 0,   // [WS-BATTERY] instrumentation counter — remove after audit
+    _reconnectTimer: null,     // stored reference so logout can cancel it
+    _reconnectCount: 0,        // [WS-BATTERY] instrumentation counter
+    _sessionInvalid: false,    // blocks reconnect after 4001 until re-login
+
     connect(userId) {
         if (!userId) return;
-        if (this.socket && (this.socket.readyState === WebSocket.CONNECTING || this.socket.readyState === WebSocket.OPEN)) {
+        // Guard: prevent duplicate sockets and duplicate reconnect timers
+        if (this.socket && (
+            this.socket.readyState === WebSocket.CONNECTING ||
+            this.socket.readyState === WebSocket.OPEN
+        )) {
             return;
         }
+        // Guard: do not reconnect if session was invalidated (4001) — wait for re-login
+        if (this._sessionInvalid) return;
 
-        // [WS-BATTERY] CONNECT — new WebSocket() about to be called
+        // [WS-BATTERY] CONNECT — instrumentation
         console.log(`[WS-BATTERY] CONNECT ts=${Date.now()} userId=<redacted> reconnects=${this._reconnectCount} visible=${!document.hidden} online=${navigator.onLine}`);
-        console.log(`[WebSocket] Establishing real-time sync socket for user: ${userId}`);
-        const wsUrl = API_BASE.replace(/^http/, 'ws').replace(/\/api$/, '') + `/?userId=${userId}`;
 
+        // P0-2: userId is NOT in the URL — sending credentials in query strings
+        // would expose them in Railway access logs and any intermediate proxy.
+        // Identity comes exclusively from the server-side session validation.
+        const wsUrl = API_BASE.replace(/^http/, 'ws').replace(/\/api$/, '') + '/';
         this.socket = new WebSocket(wsUrl);
 
         this.socket.onopen = () => {
-            // [WS-BATTERY] OPEN
+            // [WS-BATTERY] OPEN — instrumentation
             console.log(`[WS-BATTERY] OPEN ts=${Date.now()} visible=${!document.hidden} online=${navigator.onLine}`);
-            console.log(`[WebSocket] Connection established for student: ${userId}`);
-            updateLiveIndicator(true);
+            // P0-2: Do NOT call updateLiveIndicator(true) here — socket is open but NOT yet
+            // authenticated. The live indicator turns on only after auth_success is received.
+            console.log('[WebSocket] Socket open. Sending auth message...');
+            if (state.token) {
+                this.socket.send(JSON.stringify({ type: 'auth', token: state.token }));
+            } else {
+                console.warn('[WebSocket] No session token available. Closing socket.');
+                this.socket.close(1000, 'No session token');
+            }
         };
 
         this.socket.onmessage = (event) => {
             try {
                 const message = JSON.parse(event.data);
+                // P0-2: auth_success is the gate to LIVE state.
+                // All application events before auth_success are ignored.
+                if (message.event === 'auth_success') {
+                    console.log('[WebSocket] auth_success received. Connection is now LIVE.');
+                    updateLiveIndicator(true);  // ← ONLY here
+                    return;
+                }
                 this.handleEvent(message.event, message.data);
             } catch (err) {
-                console.error('[WebSocket] Parsing error:', err);
+                console.error('[WebSocket] Message parse error:', err);
             }
         };
 
-        this.socket.onclose = () => {
-            // [WS-BATTERY] CLOSE — reconnect timer is about to be scheduled unconditionally
-            console.log(`[WS-BATTERY] CLOSE ts=${Date.now()} visible=${!document.hidden} online=${navigator.onLine} totalReconnects=${this._reconnectCount}`);
-            console.log(`[WebSocket] Sync socket disconnected. Attempting reconnection in 5 seconds...`);
+        this.socket.onclose = (event) => {
+            // [WS-BATTERY] CLOSE — instrumentation
+            console.log(`[WS-BATTERY] CLOSE ts=${Date.now()} code=${event.code} visible=${!document.hidden} online=${navigator.onLine} totalReconnects=${this._reconnectCount}`);
             updateLiveIndicator(false);
-            // [WS-BATTERY] RECONNECT_SCHEDULED — NOTE: no background check, always fires
+            this.socket = null;
+
+            if (event.code === 4001) {
+                // INVALID_OR_EXPIRED_SESSION: token is no longer valid.
+                // Do NOT reconnect — the session is gone. Trigger logout so the
+                // user is redirected to the login screen to get a new token.
+                console.warn('[WebSocket] Session invalidated by server (4001). Logging out.');
+                this._sessionInvalid = true;
+                api.logout();
+                return;
+            }
+
+            if (event.code === 4003) {
+                // MALFORMED_AUTH_MESSAGE: client sent a bad auth message format.
+                // This is a client-side bug. Log a diagnostic and do NOT reconnect
+                // in a loop — the same malformed message would just fail again.
+                console.error('[WebSocket] Server rejected auth message format (4003). Not reconnecting. Check auth message structure.');
+                return;
+            }
+
+            if (event.code === 1000) {
+                // NORMAL_CLOSURE: server closed cleanly (graceful shutdown, explicit logout).
+                // Do not reconnect.
+                console.log('[WebSocket] Normal closure (1000). Not reconnecting.');
+                return;
+            }
+
+            // 4002 (AUTH_TIMEOUT) and all other codes (network errors, abnormal closes):
+            // reconnect using existing battery-safe bounded backoff.
+            // 4002 specifically means the server timed out waiting for auth — likely a
+            // slow network. Reconnecting will allow the auth message to arrive in time.
+            console.log(`[WebSocket] Disconnected (code=${event.code}). Scheduling reconnect in 5 seconds...`);
+            // [WS-BATTERY] RECONNECT_SCHEDULED
             console.log(`[WS-BATTERY] RECONNECT_SCHEDULED ts=${Date.now()} delayMs=5000 visible=${!document.hidden}`);
-            setTimeout(() => {
-                // [WS-BATTERY] RECONNECT_ATTEMPT — timer fired, calling connect()
+            // Guard: cancel any existing timer before scheduling a new one
+            if (this._reconnectTimer) {
+                clearTimeout(this._reconnectTimer);
+                this._reconnectTimer = null;
+            }
+            this._reconnectTimer = setTimeout(() => {
+                this._reconnectTimer = null;
                 this._reconnectCount++;
+                // [WS-BATTERY] RECONNECT_ATTEMPT
                 console.log(`[WS-BATTERY] RECONNECT_ATTEMPT ts=${Date.now()} attempt=${this._reconnectCount} visible=${!document.hidden} online=${navigator.onLine}`);
                 this.connect(userId);
             }, 5000);
         };
 
         this.socket.onerror = (err) => {
-            console.error('[WebSocket] Error:', err);
+            console.error('[WebSocket] Socket error:', err);
             updateLiveIndicator(false);
         };
+    },
+
+    /**
+     * Cleanly disconnect the WebSocket.
+     * Called on logout to cancel pending reconnect timers and close the socket.
+     */
+    disconnect() {
+        // Cancel any pending reconnect timer first — prevents race where timer fires
+        // after logout and tries to connect with an invalidated session.
+        if (this._reconnectTimer) {
+            clearTimeout(this._reconnectTimer);
+            this._reconnectTimer = null;
+        }
+        if (this.socket && (
+            this.socket.readyState === WebSocket.OPEN ||
+            this.socket.readyState === WebSocket.CONNECTING
+        )) {
+            this.socket.close(1000, 'LOGOUT');
+        }
+        this.socket = null;
+        this._sessionInvalid = false; // reset so re-login can reconnect
     },
 
     handleEvent(event, data) {
@@ -1141,19 +1238,7 @@ const api = {
         const mergedHeaders = { ...headers, ...(options.headers || {}) };
 
         try {
-            const isFeesOrNotices = endpoint && (endpoint.includes('fees') || endpoint.includes('fee-notices'));
-            if (isFeesOrNotices) {
-                console.log(`[FEES-FLOW] [Frontend Request] URL: ${fullUrl}`);
-                console.log(`[FEES-FLOW] [Frontend Request] Method: ${method}`);
-                console.log(`[FEES-FLOW] [Frontend Request] Authorization header: ${mergedHeaders.Authorization || 'NONE'}`);
-                console.log(`[FEES-FLOW] [Frontend Request] Token prefix: ${(mergedHeaders.Authorization || '').substring(0, 15)}`);
-            }
-
-            console.log(`\n--- NETWORK REQUEST START ---`);
-            console.log(`METHOD: ${method}`);
-            console.log(`Full URL: ${fullUrl}`);
-            console.log(`Headers: ${JSON.stringify(mergedHeaders)}`);
-            console.log(`-----------------------------\n`);
+            console.log(`[API Request] ${method} ${fullUrl}`);
 
             const resp = await RequestQueue.enqueue(
                 async () => {
@@ -1175,20 +1260,9 @@ const api = {
             );
 
             const duration = Date.now() - startTime;
-            console.log(`\n--- NETWORK RESPONSE RECEIVED ---`);
-            console.log(`METHOD: ${method}`);
-            console.log(`Full URL: ${fullUrl}`);
-            console.log(`Response Status: ${resp.status}`);
-            console.log(`Response Time: ${duration} ms`);
-            console.log(`---------------------------------\n`);
+            console.log(`[API Response] ${method} ${fullUrl} -> Status: ${resp.status} (${duration}ms)`);
 
             const text = await resp.text();
-
-            if (isFeesOrNotices) {
-                console.log(`[FEES-FLOW] [Frontend Response] Status: ${resp.status}`);
-                console.log(`[FEES-FLOW] [Frontend Response] Time: ${duration} ms`);
-                console.log(`[FEES-FLOW] [Frontend Response] Body: ${text.slice(0, 1000)}`);
-            }
 
 
             // ── 429 Too Many Requests — exponential backoff retry ───────────
@@ -1405,6 +1479,9 @@ const api = {
 
     logout() {
         const performLogout = () => {
+            // P0-2: Disconnect WebSocket first — cancels reconnect timer and closes socket.
+            // Must happen before state.token is cleared so any in-flight close is clean.
+            wsService.disconnect();
             clearUserCache();
             secureStorage.removeItem('token');
             secureStorage.removeItem('tokenExpiry');

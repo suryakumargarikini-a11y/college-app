@@ -16,9 +16,17 @@ const securityService = require('../services/securityService');
 const logger = require('../services/logger');
 const fs = require('fs');
 const path = require('path');
+// P0-1: Replace client-controlled x-sre-role header auth with verified admin JWT
+const { adminAuth, authorizeRoles } = require('../middleware/adminAuth');
 
-// Authorize all control-plane requests using RBAC
-router.use(securityService.authorizeOperator('operator'));
+// ── P0-1: SRE Control Plane — requires verified admin JWT ─────────────────────
+// The previous x-sre-role header check was client-controlled and trivially
+// bypassable by any HTTP client sending `x-sre-role: admin`. This has been
+// replaced with the same adminAuth + role check used by all other admin routes.
+// Alertmanager webhook (POST /remedy/webhook) is also gated — confirmed
+// inactive in production (alertmanager runs in local docker-compose only).
+router.use(adminAuth, authorizeRoles('SUPER_ADMIN', 'ADMIN'));
+// ──────────────────────────────────────────────────────────────────────
 
 /**
  * Live Operational Status API

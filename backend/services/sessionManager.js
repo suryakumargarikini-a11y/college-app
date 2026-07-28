@@ -12,9 +12,19 @@ function getPrisma() {
 // Session lifetime: 7 days (survives Render cold starts via DB persistence)
 const SESSION_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 
+/**
+ * Compute a non-reversible SHA-256 hash of a raw session token.
+ * Used as the key for the token-hash index so raw bearer tokens are never
+ * stored on WebSocket objects or in secondary data structures.
+ */
+function hashToken(rawToken) {
+    return crypto.createHash('sha256').update(rawToken).digest('hex');
+}
+
 class SessionManager {
     constructor() {
-        this.sessions = new Map();
+        this.sessions = new Map();        // rawToken  → session object
+        this._hashIndex = new Map();      // sha256(rawToken) → rawToken  (for O(1) WS heartbeat lookup)
         // Cleanup every 30 min — removes expired in-memory sessions
         setInterval(() => this.cleanup(), 30 * 60 * 1000);
 
@@ -44,7 +54,8 @@ class SessionManager {
                 session.scrapedData = scrapedData;
                 session.lastUsed = Date.now();
                 session.expiresAt = Date.now() + SESSION_EXPIRY_MS;
-                console.log(`[SessionManager] Reused existing session for ${userId}, token: ${token}`);
+                // P0-5: token value removed from log — Railway logs must not contain session credentials
+                console.log(`[SessionManager] Reused existing session for ${userId}`);
                 this._persistSession(token, session).catch(() => {});
                 return token;
             }
@@ -60,7 +71,10 @@ class SessionManager {
             expiresAt: Date.now() + SESSION_EXPIRY_MS
         };
         this.sessions.set(token, session);
-        console.log(`[SessionManager] Created new session for ${userId}, token: ${token}`);
+        // Maintain hash index for O(1) WebSocket heartbeat revalidation
+        this._hashIndex.set(hashToken(token), token);
+        // P0-5: token value removed from log — Railway logs must not contain session credentials
+        console.log(`[SessionManager] Created new session for ${userId}`);
         this._persistSession(token, session).catch(() => {});
         return token;
     }
@@ -100,7 +114,7 @@ class SessionManager {
                 await prisma.session.delete({ where: { token } }).catch(() => {});
                 return null;
             }
-            // Restore into in-memory map
+            // Restore into in-memory map and hash index
             const session = {
                 userId: dbSession.userId,
                 password: dbSession.password || '',
@@ -110,12 +124,24 @@ class SessionManager {
                 expiresAt: new Date(dbSession.expiresAt).getTime()
             };
             this.sessions.set(token, session);
+            this._hashIndex.set(hashToken(token), token); // maintain index for WS heartbeat
             console.log(`[SessionManager] Restored cold-start session for ${dbSession.userId} from DB`);
             return session;
         } catch (err) {
             console.warn(`[SessionManager] DB session lookup failed: ${err.message}`);
             return null;
         }
+    }
+
+    /**
+     * Look up a session by its SHA-256 token hash.
+     * Used by WebSocket heartbeat — the raw bearer token is never stored on the socket.
+     * Returns the live session object, or null if not found / expired.
+     */
+    getSessionByTokenHash(tokenHash) {
+        const rawToken = this._hashIndex.get(tokenHash);
+        if (!rawToken) return null;
+        return this.getSession(rawToken); // getSession() handles expiry check + cleanup
     }
 
     updateCookies(token, newCookies) {
@@ -147,6 +173,7 @@ class SessionManager {
 
     deleteSession(token) {
         this.sessions.delete(token);
+        this._hashIndex.delete(hashToken(token)); // keep hash index consistent
         this._deletePersistedSession(token).catch(() => {});
     }
 
@@ -157,6 +184,7 @@ class SessionManager {
             const expiry = session.expiresAt || (session.lastUsed + SESSION_EXPIRY_MS);
             if (now > expiry) {
                 this.sessions.delete(token);
+                this._hashIndex.delete(hashToken(token)); // keep hash index consistent
                 this._deletePersistedSession(token).catch(() => {});
                 cleaned++;
             }
