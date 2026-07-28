@@ -87,4 +87,50 @@ const getMe = async (req, res) => {
     }
 };
 
-module.exports = { login, getMe };
+const changePassword = async (req, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+        if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Both passwords required' });
+        if (newPassword.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
+
+        const admin = await prisma.admin.findUnique({ where: { id: req.admin.id } });
+        if (hashPassword(currentPassword) !== admin.passwordHash) {
+            return res.status(400).json({ error: 'Current password is incorrect' });
+        }
+        await prisma.admin.update({ where: { id: req.admin.id }, data: { passwordHash: hashPassword(newPassword) } });
+
+        auditLogRepository.logAction({
+            adminId: req.admin.id,
+            action: 'PASSWORD_CHANGED',
+            resource: 'auth',
+            details: { email: req.admin.email },
+            ipAddress: req.ip,
+            userAgent: req.get('user-agent')
+        }).catch(err => logger.error(`Failed to log password change: ${err.message}`));
+
+        res.json({ success: true, message: 'Password changed successfully' });
+    } catch (error) {
+        logger.error(`Admin changePassword error: ${error.message}`);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+const logout = async (req, res) => {
+    try {
+        auditLogRepository.logAction({
+            adminId: req.admin.id,
+            action: 'ADMIN_LOGOUT',
+            resource: 'auth',
+            details: { email: req.admin.email },
+            ipAddress: req.ip,
+            userAgent: req.get('user-agent')
+        }).catch(err => logger.error(`Failed to log admin logout: ${err.message}`));
+
+        res.json({ success: true, message: 'Logged out successfully' });
+    } catch (error) {
+        logger.error(`Admin logout error: ${error.message}`);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+module.exports = { login, getMe, changePassword, logout, hashPassword };
