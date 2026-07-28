@@ -3859,31 +3859,36 @@ const pages = {
                     return;
                 }
 
-                // Group by date categorizations
+                // Ensure chronological sorting (newest first)
+                filtered.sort((a, b) => new Date(b.createdAt || Date.now()) - new Date(a.createdAt || Date.now()));
+
+                // Group by date timeline (Today, Yesterday, Earlier)
                 const now = new Date();
                 const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
                 const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
 
                 const groups = {
-                    Unread: [],
                     Today: [],
                     Yesterday: [],
                     Earlier: []
                 };
 
                 filtered.forEach(n => {
-                    if (!n.isRead) {
-                        groups.Unread.push(n);
-                        return;
-                    }
-                    const nDate = new Date(n.createdAt || Date.now());
-                    const nd = new Date(nDate.getFullYear(), nDate.getMonth(), nDate.getDate());
-                    if (nd.getTime() === today.getTime()) {
-                        groups.Today.push(n);
-                    } else if (nd.getTime() === yesterday.getTime()) {
-                        groups.Yesterday.push(n);
+                    const rawDate = n.createdAt || Date.now();
+                    const nDate = new Date(rawDate);
+                    const isValidDate = !isNaN(nDate.getTime());
+                    
+                    if (isValidDate) {
+                        const nd = new Date(nDate.getFullYear(), nDate.getMonth(), nDate.getDate());
+                        if (nd.getTime() === today.getTime()) {
+                            groups.Today.push(n);
+                        } else if (nd.getTime() === yesterday.getTime()) {
+                            groups.Yesterday.push(n);
+                        } else {
+                            groups.Earlier.push(n);
+                        }
                     } else {
-                        groups.Earlier.push(n);
+                        groups.Today.push(n);
                     }
                 });
 
@@ -3894,15 +3899,17 @@ const pages = {
 
                     html += `
                         <div class="space-y-2.5 animate-reveal">
-                            <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">${key} Alerts</h3>
+                            <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">${key}</h3>
                             <div class="space-y-2">
                                 ${groupList.map(n => {
                         const visuals = getVisuals(n.type);
                         const isRead = n.isRead || false;
                         const route = n.metadata ? (typeof n.metadata === 'string' ? JSON.parse(n.metadata).route : n.metadata.route) : null;
+                        const cardBg = isRead ? 'bg-white border-slate-200/50' : 'bg-blue-50/40 border-blue-200/60 shadow-sm';
+                        const titleStyle = isRead ? 'font-bold text-slate-700' : 'font-black text-slate-900';
 
                         return `
-                                        <div class="p-4 rounded-2xl bg-white border border-slate-200/50 flex gap-4 justify-between items-start active-scale relative cursor-pointer hover:shadow-sm transition-all"
+                                        <div class="p-4 rounded-2xl ${cardBg} flex gap-4 justify-between items-start active-scale relative cursor-pointer hover:shadow-sm transition-all"
                                              data-id="${n.id}" data-route="${route || ''}" data-read="${isRead}">
                                             <div class="flex gap-3 min-w-0 flex-1 notif-card-click-area">
                                                 <div class="w-10 h-10 rounded-xl ${visuals.bg} flex items-center justify-center flex-shrink-0 border mt-0.5">
@@ -3910,8 +3917,8 @@ const pages = {
                                                 </div>
                                                 <div class="min-w-0 flex-1">
                                                     <div class="flex items-center gap-1.5 flex-wrap">
-                                                        <h4 class="font-extrabold text-slate-800 text-sm truncate leading-tight">${n.title}</h4>
-                                                        ${!isRead ? `<span class="w-1.5 h-1.5 bg-primary rounded-full flex-shrink-0" id="unread-dot-${n.id}"></span>` : ''}
+                                                        <h4 class="${titleStyle} text-sm truncate leading-tight" id="notif-title-${n.id}">${n.title}</h4>
+                                                        ${!isRead ? `<span class="w-2 h-2 bg-blue-600 rounded-full flex-shrink-0" id="unread-dot-${n.id}"></span>` : '<span class="material-symbols-outlined text-xs text-slate-300">done</span>'}
                                                         ${n.category === 'alert' ? `<span class="px-1.5 py-0.5 rounded bg-rose-50 border border-rose-200 text-rose-600 text-[8px] font-black uppercase tracking-wider flex-shrink-0">High</span>` : ''}
                                                     </div>
                                                     <p class="text-xs text-slate-500 mt-1.5 leading-normal break-words">${n.message}</p>
@@ -3941,8 +3948,16 @@ const pages = {
 
                         if (!read) {
                             card.dataset.read = 'true';
+                            card.className = card.className.replace('bg-blue-50/40 border-blue-200/60 shadow-sm', 'bg-white border-slate-200/50');
+                            const titleEl = $('notif-title-' + notifId);
+                            if (titleEl) titleEl.className = 'font-bold text-slate-700 text-sm truncate leading-tight';
                             const dot = $('unread-dot-' + notifId);
-                            if (dot) dot.remove();
+                            if (dot) {
+                                const checkmark = document.createElement('span');
+                                checkmark.className = 'material-symbols-outlined text-xs text-slate-300';
+                                checkmark.textContent = 'done';
+                                dot.parentNode.replaceChild(checkmark, dot);
+                            }
 
                             api.post('/notifications/read', { notificationId: notifId }).catch(() => { });
 
