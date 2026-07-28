@@ -41,11 +41,6 @@ const login = async (req, res) => {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
-        await prisma.admin.update({
-            where: { id: admin.id },
-            data: { lastLoginAt: new Date() }
-        });
-
         const token = signToken(admin);
 
         auditLogRepository.logAction({
@@ -63,8 +58,7 @@ const login = async (req, res) => {
                 id: admin.id,
                 email: admin.email,
                 name: admin.name,
-                role: admin.role,
-                lastLoginAt: admin.lastLoginAt
+                role: admin.role
             }
         });
     } catch (error) {
@@ -77,7 +71,7 @@ const getMe = async (req, res) => {
     try {
         const admin = await prisma.admin.findUnique({
             where: { id: req.admin.id },
-            select: { id: true, email: true, name: true, role: true, isActive: true, lastLoginAt: true }
+            select: { id: true, email: true, name: true, role: true, isActive: true }
         });
         if (!admin || !admin.isActive) return res.status(401).json({ error: 'Unauthorized' });
         res.json({ admin });
