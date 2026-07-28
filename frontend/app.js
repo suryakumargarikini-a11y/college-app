@@ -1689,72 +1689,65 @@ const pages = {
     // ---- LOGIN ----
     login: {
         render: () => {
-            const html = `<div class="min-h-screen w-full flex flex-col items-center justify-center relative bg-[#F8FAFC] overflow-hidden">
-            <!-- Organic Background Orbs -->
-            <div style="filter:blur(90px);opacity:0.35;position:absolute;z-index:0;" class="w-[500px] h-[500px] rounded-full top-[-10%] left-[-10%] bg-blue-200"></div>
-            <div style="filter:blur(90px);opacity:0.30;position:absolute;z-index:0;" class="w-[400px] h-[400px] rounded-full bottom-[-5%] right-[-5%] bg-indigo-200"></div>
-            <div style="filter:blur(90px);opacity:0.20;position:absolute;z-index:0;" class="w-[600px] h-[600px] rounded-full top-[20%] right-[10%] bg-white"></div>
-            <main class="relative z-10 w-full max-w-md px-6 flex flex-col items-center">
-                <!-- Logo -->
-                <div class="mb-10 text-center">
-                    <div class="w-24 h-24 bg-white/60 backdrop-blur-3xl rounded-3xl flex items-center justify-center shadow-2xl mx-auto mb-5 border border-white/70 active-scale hover:scale-105 transition-all">
-                        <svg class="w-16 h-16" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <rect width="100" height="100" rx="30" fill="url(#sitamGrad)" />
-                            <path d="M50 18L22 32L50 46L78 32L50 18Z" fill="#fff" />
-                            <path d="M22 36.5V56C22 66.5 50 78 50 78C50 78 78 66.5 78 56V36.5L50 51.5L22 36.5Z" fill="#ffffff" fill-opacity="0.85" />
-                            <circle cx="50" cy="51.5" r="5" fill="#6366F1" />
-                            <defs>
-                                <linearGradient id="sitamGrad" x1="0" y1="0" x2="1" y2="1">
-                                    <stop offset="0%" stop-color="#2563EB"/>
-                                    <stop offset="100%" stop-color="#6366F1"/>
-                                </linearGradient>
-                            </defs>
-                        </svg>
-                    </div>
-                    <h1 class="text-3xl font-extrabold tracking-tighter text-slate-900 bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-indigo-600" style="font-family:'Inter',sans-serif">SITAM Smart ERP</h1>
-                    <p class="text-xs uppercase tracking-widest text-blue-600/70 mt-2 font-extrabold" style="font-family:'Inter',sans-serif">Official Student Campus App</p>
+            const html = `<div class="min-h-screen w-full flex flex-col items-center justify-center relative bg-white overflow-y-auto py-8 px-4 select-none">
+            <!-- Subtle Organic Background Orbs -->
+            <div style="filter:blur(100px);opacity:0.18;position:absolute;z-index:0;" class="w-[450px] h-[450px] rounded-full top-[-10%] left-[-10%] bg-blue-200"></div>
+            <div style="filter:blur(100px);opacity:0.15;position:absolute;z-index:0;" class="w-[400px] h-[400px] rounded-full bottom-[-5%] right-[-5%] bg-indigo-200"></div>
+            
+            <main class="relative z-10 w-full max-w-sm flex flex-col items-center my-auto">
+                <!-- Cohesive Branding Unit -->
+                <div class="mb-6 text-center flex flex-col items-center">
+                    <img src="./sitam_logo.png" alt="SITAM Logo" class="w-32 h-32 object-contain rounded-full shadow-md mb-3 transition-transform duration-300 hover:scale-105" />
+                    <h1 class="text-3xl font-black tracking-tight text-[#1e3a8a] leading-none font-headline">SITAM</h1>
+                    <p class="text-xs font-extrabold text-[#2563EB] tracking-[0.24em] uppercase mt-1 font-headline">SMART ERP</p>
                 </div>
+                
                 <!-- Login Card -->
-                <div class="w-full bg-white/55 backdrop-blur-3xl rounded-3xl p-8 shadow-2xl border border-white/65" style="box-shadow:0 20px 60px rgba(37,99,235,0.1),0 4px 20px rgba(15,23,42,0.06)">
-                    <div class="mb-7">
+                <div class="w-full bg-white/90 backdrop-blur-2xl rounded-3xl p-7 shadow-xl border border-slate-100/90" style="box-shadow:0 20px 50px rgba(37,99,235,0.07),0 4px 18px rgba(15,23,42,0.03)">
+                    <div class="mb-5">
                         <h2 class="text-xl font-bold text-slate-900 tracking-tight" style="font-family:'Inter',sans-serif">Welcome Back</h2>
-                        <p class="text-slate-500 text-sm mt-1">Enter your academic credentials to continue.</p>
+                        <p class="text-slate-500 text-xs mt-1 font-medium">Enter your academic credentials to continue.</p>
                     </div>
-                    <form class="space-y-5" id="login-form">
+                    <form class="space-y-4.5" id="login-form">
                         <div class="space-y-1.5">
-                            <label class="text-[11px] font-bold uppercase tracking-widest text-blue-600 ml-1" for="login-userid">Student ID</label>
+                            <label class="text-[11px] font-bold uppercase tracking-widest text-[#1e3a8a] ml-1" for="login-userid">REGISTRATION ID</label>
                             <div class="relative">
                                 <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                     <span class="material-symbols-outlined text-slate-400 text-lg">badge</span>
                                 </div>
-                                <input class="block w-full pl-11 pr-4 py-3.5 bg-slate-50/80 border border-slate-200/80 rounded-2xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-400 transition-all placeholder:text-slate-400" id="login-userid" placeholder="Enter your Student ID" type="text" autocomplete="username"/>
+                                <input class="block w-full pl-11 pr-4 py-3.5 bg-slate-50/90 border border-slate-200/80 rounded-2xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-400 transition-all placeholder:text-slate-400 font-medium" id="login-userid" placeholder="Enter Registration ID" type="text" autocomplete="username"/>
                             </div>
                         </div>
                         <div class="space-y-1.5">
-                            <label class="text-[11px] font-bold uppercase tracking-widest text-blue-600 ml-1" for="login-password">Password</label>
+                            <label class="text-[11px] font-bold uppercase tracking-widest text-[#1e3a8a] ml-1" for="login-password">PASSWORD</label>
                             <div class="relative">
                                 <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                     <span class="material-symbols-outlined text-slate-400 text-lg">lock</span>
                                 </div>
-                                <input class="block w-full pl-11 pr-12 py-3.5 bg-slate-50/80 border border-slate-200/80 rounded-2xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-400 transition-all placeholder:text-slate-400" id="login-password" placeholder="••••••••" type="password" autocomplete="current-password"/>
+                                <input class="block w-full pl-11 pr-12 py-3.5 bg-slate-50/90 border border-slate-200/80 rounded-2xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-400 transition-all placeholder:text-slate-400 font-medium" id="login-password" placeholder="••••••••" type="password" autocomplete="current-password"/>
+                                <button id="toggle-password-btn" class="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 transition-colors" type="button" aria-label="Toggle password visibility">
+                                    <span class="material-symbols-outlined text-lg" id="toggle-password-icon">visibility</span>
+                                </button>
                             </div>
                         </div>
-                        <div id="login-error" class="hidden text-sm text-red-600 font-bold text-center py-2.5 px-4 bg-red-50 border border-red-200 rounded-2xl"></div>
-                        <button class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-4 rounded-2xl shadow-lg hover:from-blue-700 hover:to-indigo-700 active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 group mt-2" type="submit" id="login-btn" style="font-family:'Inter',sans-serif;box-shadow:0 8px 30px rgba(37,99,235,0.35)">
+                        <div id="login-error" class="hidden text-xs text-red-600 font-bold text-center py-2.5 px-4 bg-red-50 border border-red-200 rounded-2xl"></div>
+                        <button class="w-full bg-gradient-to-r from-blue-700 to-indigo-600 text-white font-bold py-3.5 rounded-2xl shadow-lg hover:from-blue-800 hover:to-indigo-700 active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 group mt-1" type="submit" id="login-btn" style="font-family:'Inter',sans-serif;box-shadow:0 8px 25px rgba(37,99,235,0.28)">
                             <span id="login-btn-text">Sign In</span>
                             <span class="material-symbols-outlined text-lg transition-transform group-hover:translate-x-1">arrow_forward</span>
                         </button>
                     </form>
                 </div>
-                <div class="mt-8 flex flex-col items-center gap-3 opacity-50 text-[10px] font-bold tracking-widest uppercase">
-                    <div class="flex items-center gap-6">
-                        <a href="#" onclick="router.navigate('/privacy');return false;" class="hover:underline text-slate-600">Privacy Policy</a>
+                
+                <!-- Bottom Legal & Security Area -->
+                <div class="mt-6 flex flex-col items-center gap-2 text-[11px] font-bold tracking-widest uppercase text-slate-500">
+                    <div class="flex items-center gap-5">
+                        <a href="#" onclick="router.navigate('/privacy');return false;" class="hover:text-blue-700 transition-colors">Privacy Policy</a>
                         <div class="w-px h-3 bg-slate-300"></div>
-                        <a href="#" onclick="router.navigate('/terms');return false;" class="hover:underline text-slate-600">Terms of Service</a>
+                        <a href="#" onclick="router.navigate('/terms');return false;" class="hover:text-blue-700 transition-colors">Terms of Service</a>
                     </div>
-                    <div class="flex items-center gap-2 opacity-70">
-                        <span class="material-symbols-outlined text-xs">verified_user</span>
-                        <span class="text-slate-600">Secured · Encrypted</span>
+                    <div class="flex items-center gap-1.5 text-slate-400 text-[10px] tracking-wider font-semibold">
+                        <span class="material-symbols-outlined text-xs text-blue-600">verified_user</span>
+                        <span>SITAM ERP · Secured &amp; Encrypted</span>
                     </div>
                 </div>
             </main>
@@ -1763,17 +1756,29 @@ const pages = {
         },
         afterRender: () => {
             toggleShell(false);
+            // Password toggle logic
+            const toggleBtn = $('toggle-password-btn');
+            const pwdInput = $('login-password');
+            const eyeIcon = $('toggle-password-icon');
+            if (toggleBtn && pwdInput && eyeIcon) {
+                toggleBtn.addEventListener('click', () => {
+                    const isText = pwdInput.type === 'text';
+                    pwdInput.type = isText ? 'password' : 'text';
+                    eyeIcon.textContent = isText ? 'visibility' : 'visibility_off';
+                });
+            }
+
             const form = $('login-form');
             if (!form) return;
             form.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                const uid = $('login-userid')?.value?.trim();
-                const pwd = $('login-password')?.value?.trim();
+                const rawUid = $('login-userid')?.value?.trim() || '';
+                const pwd = $('login-password')?.value?.trim() || '';
                 const errEl = $('login-error');
                 const btnText = $('login-btn-text');
                 const submitBtn = $('login-btn');
 
-                if (!uid || !pwd) { if (errEl) { errEl.textContent = 'Please fill all fields.'; errEl.classList.remove('hidden'); } return; }
+                if (!rawUid || !pwd) { if (errEl) { errEl.textContent = 'Please fill all fields.'; errEl.classList.remove('hidden'); } return; }
 
                 // Double submit protection
                 if (submitBtn?.disabled) return;
@@ -1789,10 +1794,11 @@ const pages = {
                 }
 
                 const attemptId = ++currentLoginAttemptId;
-                console.log(`[LOGIN-RACE] attempt=${attemptId} SUBMIT`);
+                console.log(`[LOGIN-RACE] attempt=${attemptId} SUBMIT — rawUid: ${rawUid}`);
 
                 try {
-                    const res = await api.post('/auth/login', { userId: uid, password: pwd }, { attemptId });
+                    // Send rawUid (which will have trailing P stripped server-side if present)
+                    const res = await api.post('/auth/login', { userId: rawUid, password: pwd }, { attemptId });
 
                     // HARD INVARIANT: If attempt was cancelled/timed out, NEVER store token or navigate!
                     if (attemptId !== currentLoginAttemptId || cancelledLoginAttempts.has(attemptId)) {
@@ -1801,14 +1807,18 @@ const pages = {
                     }
 
                     if (res.success && res.token) {
-                        console.log(`[LOGIN-RACE] attempt=${attemptId} TOKEN_STORE`);
+                        console.log(`[LOGIN-RACE] attempt=${attemptId} TOKEN_STORE — role: ${res.role || 'STUDENT'}`);
                         state.token = res.token;
+                        state.role = res.role || (res.isParent ? 'PARENT' : 'STUDENT');
+                        state.isParent = !!(res.isParent || res.role === 'PARENT');
                         // Store token + expiry (7 days) so session survives app restarts
                         const SESSION_7_DAYS = 7 * 24 * 60 * 60 * 1000;
                         try {
                             await secureStorage.setItem('token', res.token);
                             await secureStorage.setItem('tokenExpiry', String(Date.now() + SESSION_7_DAYS));
                             await secureStorage.setItem('studentName', res.studentName || '');
+                            await secureStorage.setItem('role', state.role);
+                            await secureStorage.setItem('isParent', String(state.isParent));
                         } catch (storeErr) {
                             console.error('[Token Storage] Error:', storeErr);
                         }
