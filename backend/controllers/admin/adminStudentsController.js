@@ -1,14 +1,31 @@
 'use strict';
 const prisma = require('../../services/dbService');
 const logger = require('../../services/logger');
+const staffScopeService = require('../../services/staffScopeService');
+const hostelService = require('../../services/hostelService');
 
 /**
  * GET /api/admin/students
- * Returns the full student registry with aggregated attendance, fees, and placement data.
- * Supports: page, limit, search, branch, year, semester, section, hostel, feeStatus, attRisk, placement
+ * Returns student registry filtered by staff authorization scope (HOD, DEAN, CI, Hostel Warden, etc.)
  */
 const getStudents = async (req, res) => {
     try {
+        const admin = req.admin;
+
+        // Special handling for Hostel Warden: Basic fields of hostel resident students only
+        if (admin && admin.role === 'HOSTEL_WARDEN') {
+            const sanitizedStudents = await hostelService.getHostelStudentsForWarden(admin, req.query);
+            return res.json({
+                students: sanitizedStudents,
+                pagination: { page: 1, limit: sanitizedStudents.length, total: sanitizedStudents.length, totalPages: 1 },
+                summary: {
+                    total: sanitizedStudents.length,
+                    hostellers: sanitizedStudents.length,
+                    dayScholars: 0
+                }
+            });
+        }
+
         const page     = Math.max(1, parseInt(req.query.page)  || 1);
         const limit    = Math.min(500, parseInt(req.query.limit) || 50);
         const search   = (req.query.search   || '').toLowerCase();
@@ -21,8 +38,12 @@ const getStudents = async (req, res) => {
         const attRisk      = req.query.attRisk      || '';
         const placement    = req.query.placement    || '';
 
-        // 1. Fetch all students
+        // 1. Build Scope-Constrained Prisma Where Clause
+        const scopeWhere = await staffScopeService.getStudentScopeWhereClause(admin);
+
+        // 2. Fetch authorized students
         const allStudents = await prisma.student.findMany({
+            where: scopeWhere,
             select: {
                 id: true, name: true, roll: true, cgpa: true, semester: true, branch: true,
                 year: true, hostel: true, gender: true, email: true, phone: true, dob: true,
@@ -34,32 +55,36 @@ const getStudents = async (req, res) => {
             }
         });
 
-        // 2. Attendance averages
+        const studentIds = allStudents.map(s => s.id);
+
+        // 3. Attendance averages for scoped students
         const attGroup = await prisma.attendanceRecord.groupBy({
             by: ['studentId'],
+            where: { studentId: { in: studentIds } },
             _avg: { percentage: true }
         });
         const studentAtt = {};
         attGroup.forEach(g => { studentAtt[g.studentId] = g._avg.percentage || 0; });
 
-        // 3. Fee dues per student
+        // 4. Fee dues for scoped students
         const feeGroup = await prisma.fee.groupBy({
             by: ['studentId'],
+            where: { studentId: { in: studentIds } },
             _sum: { dueAmount: true }
         });
         const studentDues = {};
         feeGroup.forEach(f => { studentDues[f.studentId] = f._sum.dueAmount || 0; });
 
-        // 4. Backlog count per student
+        // 5. Backlog count per student
         const backlogGroup = await prisma.markRecord.groupBy({
             by: ['studentId'],
-            where: { status: { in: ['Fail', 'Backlog'] } },
+            where: { studentId: { in: studentIds }, status: { in: ['Fail', 'Backlog'] } },
             _count: { id: true }
         });
         const studentBacklogs = {};
         backlogGroup.forEach(g => { studentBacklogs[g.studentId] = g._count.id; });
 
-        // 5. Build enriched list
+        // 6. Build enriched list
         let enriched = allStudents.map(s => {
             const avgPct    = parseFloat((studentAtt[s.id]    || 0).toFixed(2));
             const feesDue   = studentDues[s.id]  || 0;
@@ -81,7 +106,7 @@ const getStudents = async (req, res) => {
             };
         });
 
-        // 6. Apply filters
+        // 7. Apply query filters
         if (search) {
             enriched = enriched.filter(s =>
                 (s.name || '').toLowerCase().includes(search) ||
@@ -90,7 +115,7 @@ const getStudents = async (req, res) => {
                 (s.admissionNo || '').toLowerCase().includes(search)
             );
         }
-        if (branch)   enriched = enriched.filter(s => s.branch   === branch);
+        if (branch)   enriched = enriched.filter(s => s.branch === branch || staffScopeService.canonicalizeBranch(s.branch) === staffScopeService.canonicalizeBranch(branch));
         if (year)     enriched = enriched.filter(s => s.year     === year);
         if (semester) enriched = enriched.filter(s => s.semester === semester);
         if (section)  enriched = enriched.filter(s => s.section  === section);
@@ -121,22 +146,34 @@ const getStudents = async (req, res) => {
         });
     } catch (err) {
         logger.error('[AdminStudents] Error:', err);
-        res.status(500).json({ error: 'Failed to load students' });
+        const status = err.status || 500;
+        res.status(status).json({ error: err.message || 'Failed to load students' });
     }
 };
 
 /**
  * GET /api/admin/students/:id/detail
- * Returns full detail for a single student (attendance, fees, marks, notifications)
+ * Returns detail for a single student, subject to staff scope authorization and hostel warden sanitization.
  */
 const getStudentDetail = async (req, res) => {
     try {
         const { id } = req.params;
+        const admin = req.admin;
+
+        // Special handling for Hostel Warden: Basic profile only (phone, email, fees, marks omitted)
+        if (admin && admin.role === 'HOSTEL_WARDEN') {
+            const sanitizedStudent = await hostelService.getHostelStudentProfileForWarden(admin, id);
+            return res.json({ student: sanitizedStudent, attendance: [], fees: { totalAmount: 0, paidAmount: 0, dueAmount: 0, transactions: [] }, marks: [], notifications: [] });
+        }
 
         const student = await prisma.student.findFirst({
             where: { OR: [{ id }, { roll: id }] }
         });
+
         if (!student) return res.status(404).json({ error: 'Student not found' });
+
+        // Enforce Server-Side Scope Authorization & Prevent IDOR
+        await staffScopeService.verifyStudentAccessOrThrow(admin, student);
 
         const [attRecords, feeRecords, markRecords, notifications] = await Promise.all([
             prisma.attendanceRecord.findMany({ where: { studentId: student.id }, include: { subject: true } }),
@@ -174,7 +211,8 @@ const getStudentDetail = async (req, res) => {
         res.json({ student, attendance, fees, marks, notifications });
     } catch (err) {
         logger.error('[AdminStudents] Detail error:', err);
-        res.status(500).json({ error: 'Failed to load student detail' });
+        const status = err.status || 500;
+        res.status(status).json({ error: err.message || 'Failed to load student detail' });
     }
 };
 

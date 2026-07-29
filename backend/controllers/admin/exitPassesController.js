@@ -6,6 +6,9 @@ const logger = require('../../services/logger');
 const { auditLogRepository } = require('../../repositories/index');
 const qrEncryptionService = require('../../services/qrEncryptionService');
 const { sendSms } = require('../../services/smsService');
+const staffScopeService = require('../../services/staffScopeService');
+const hostelService = require('../../services/hostelService');
+
 
 // OTP functions removed — QR-only gate verification
 
@@ -53,9 +56,23 @@ const checkSemesterQuota = async (tx, studentId) => {
 // Admin/Faculty: list all exit passes with optional status and search filters
 const getAll = async (req, res) => {
     try {
+        const admin = req.admin;
+
+        // Special handling for Hostel Warden: Exit passes for hostel residents ONLY
+        if (admin && admin.role === 'HOSTEL_WARDEN') {
+            const wardenPasses = await hostelService.getHostelExitPassesForWarden(admin, req.query);
+            return res.json(wardenPasses);
+        }
+
         const { status, search } = req.query;
         const where = {};
-        
+
+        // Apply StaffScope department filter for HODs
+        if (admin && admin.role === 'HOD') {
+            const studentScope = await staffScopeService.getStudentScopeWhereClause(admin);
+            where.student = studentScope;
+        }
+
         if (status && status !== 'ALL') {
             where.status = status;
         }
@@ -112,6 +129,18 @@ const approve = async (req, res) => {
         const result = await prisma.$transaction(async (tx) => {
             const pass = await tx.exitPass.findUnique({ where: { id }, include: { student: true } });
             if (!pass) return { status: 404, error: 'Exit pass not found' };
+
+            if (req.admin && req.admin.role === 'HOSTEL_WARDEN') {
+                return { status: 403, error: 'Forbidden: Hostel Warden has read-only access and cannot modify exit pass state' };
+            }
+
+            if (req.admin && req.admin.role === 'HOD') {
+                const allowed = await staffScopeService.canAccessStudent(req.admin, pass.student);
+                if (!allowed) {
+                    return { status: 403, error: `Forbidden: HOD lacks authorization for student in branch '${pass.student?.branch}'` };
+                }
+            }
+
 
             // Idempotency: if already approved, return success
             if (pass.status !== 'PENDING') {
@@ -213,6 +242,18 @@ const reject = async (req, res) => {
         const result = await prisma.$transaction(async (tx) => {
             const pass = await tx.exitPass.findUnique({ where: { id }, include: { student: true } });
             if (!pass) return { status: 404, error: 'Exit pass not found' };
+
+            if (req.admin && req.admin.role === 'HOSTEL_WARDEN') {
+                return { status: 403, error: 'Forbidden: Hostel Warden has read-only access and cannot modify exit pass state' };
+            }
+
+            if (req.admin && req.admin.role === 'HOD') {
+                const allowed = await staffScopeService.canAccessStudent(req.admin, pass.student);
+                if (!allowed) {
+                    return { status: 403, error: `Forbidden: HOD lacks authorization for student in branch '${pass.student?.branch}'` };
+                }
+            }
+
 
             if (pass.status !== 'PENDING') {
                 if (pass.status === 'REJECTED') {
