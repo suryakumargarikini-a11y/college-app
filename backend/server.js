@@ -579,14 +579,14 @@ app.use(errorHandler);
 if (process.env.AUTO_MIGRATE === 'true' || process.env.NODE_ENV !== 'production') {
     try {
         const { execSync } = require('child_process');
-        logger.info('[DB-Init] Automatically syncing database schema with Prisma...');
-        execSync('npx prisma db push --accept-data-loss --skip-generate', {
+        logger.info('[DB-Init] Running pending Prisma migrations...');
+        execSync('npx prisma migrate deploy', {
             cwd: __dirname,
             stdio: 'inherit',
             env: { ...process.env },
-            timeout: 15000
+            timeout: 30000
         });
-        logger.info('[DB-Init] Database schema sync successful.');
+        logger.info('[DB-Init] Migrations applied successfully.');
 
         logger.info('[DB-Init] Seeding default administrative accounts...');
         execSync('node scripts/seed-admin.js', {
@@ -595,9 +595,18 @@ if (process.env.AUTO_MIGRATE === 'true' || process.env.NODE_ENV !== 'production'
             env: { ...process.env },
             timeout: 10000
         });
-        logger.info('[DB-Init] Database seeding successful.');
+        logger.info('[DB-Init] Admin seeding successful.');
+
+        logger.info('[DB-Init] Seeding department aliases...');
+        execSync('node scripts/seed-department-aliases.js', {
+            cwd: __dirname,
+            stdio: 'inherit',
+            env: { ...process.env },
+            timeout: 10000
+        });
+        logger.info('[DB-Init] Department aliases seeded.');
     } catch (err) {
-        logger.error(`[DB-Init] Database initialization/seeding failed: ${err.message}`);
+        logger.error(`[DB-Init] Database initialization failed: ${err.message}`);
     }
 } else {
     logger.info('[DB-Init] Skipping top-level execSync DB push in production runtime — process binding port immediately.');

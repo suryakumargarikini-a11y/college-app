@@ -84,6 +84,7 @@ model Student {
   syncHistory        SyncHistory[]
   libraryViews       LibraryView[]
   libraryDownloads   LibraryDownload[]
+  libraryAudiences   LibraryAudience[]
 
   @@index([email])
   @@index([roll])
@@ -336,7 +337,9 @@ model Admin {
   isActive     Boolean    @default(true)
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
-  auditLogs    AuditLog[]
+  auditLogs         AuditLog[]
+  staffScopes       StaffScope[]
+  uploadedMaterials LibraryMaterial[]
 
   @@index([role])
 }
@@ -545,11 +548,17 @@ model LibraryMaterial {
   isActive Boolean @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  views LibraryView[]
-  downloads LibraryDownload[]
+  views             LibraryView[]
+  downloads         LibraryDownload[]
+  expiresAt         DateTime?
+  uploadedByAdminId String?
+  uploadedAdmin     Admin?            @relation(fields: [uploadedByAdminId], references: [id], onDelete: SetNull)
+  audiences         LibraryAudience[]
   @@index([isActive, createdAt])
   @@index([branch, semester, section, academicYear])
   @@index([subject])
+  @@index([uploadedByAdminId])
+  @@index([expiresAt])
 }
 model LibraryView {
   id String @id @default(uuid())
@@ -759,4 +768,58 @@ model SyncHistory {
   @@index([studentId])
   @@index([startedAt])
   @@index([status])
+}
+
+
+// ============================================================
+// PHASE 2 — STAFF SCOPE + E-LIBRARY AUDIENCE MODELS
+// ============================================================
+
+/// Maps a staff Admin to one or more canonical academic department scopes.
+/// HOD rows: 1 row per dept (e.g. scopeValue = "AIML").
+/// Dean rows: 9 rows (one per canonical dept).
+/// CI row:    1 row with scopeType = "INSTITUTION_WIDE", scopeValue = "ALL".
+/// Faculty:   1+ rows depending on department assignment.
+/// HOSTEL_WARDEN / SECURITY_GUARD / ACCOUNTS_ADMIN: no rows (different access model).
+model StaffScope {
+  id         String   @id @default(uuid())
+  adminId    String
+  admin      Admin    @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  scopeType  String   @default("DEPARTMENT")
+  scopeValue String
+  createdAt  DateTime @default(now())
+
+  @@unique([adminId, scopeType, scopeValue])
+  @@index([adminId])
+  @@index([scopeValue])
+}
+
+/// Maps raw ERP Student.branch strings to canonical department keys.
+model DepartmentAlias {
+  id        String   @id @default(uuid())
+  rawValue  String   @unique
+  canonical String
+  createdAt DateTime @default(now())
+
+  @@index([canonical])
+}
+
+/// Audience targeting rows for E-Library materials.
+model LibraryAudience {
+  id         String          @id @default(uuid())
+  materialId String
+  material   LibraryMaterial @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  targetType String
+  canonical  String?
+  year       String?
+  semester   String?
+  section    String?
+  studentId  String?
+  student    Student? @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@index([materialId])
+  @@index([canonical])
+  @@index([studentId])
+  @@index([targetType])
 }

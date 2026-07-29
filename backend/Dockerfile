@@ -84,4 +84,11 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
     CMD wget -qO- http://localhost:${PORT:-8080}/api/health/liveness || exit 1
 
-CMD ["node", "server.js"]
+# ── Entrypoint: run migrations then start server ────────────────────────────
+# prisma migrate deploy must run at container startup (not build time)
+# because DATABASE_URL is only available as a runtime env var, not during
+# the Docker image build layer.
+COPY --chown=node:node scripts/start.sh ./scripts/start.sh
+RUN chmod +x ./scripts/start.sh
+
+CMD ["./scripts/start.sh"]
