@@ -23,12 +23,13 @@ router.get('/audience-options', adminAuth, authorizeRoles('SUPER_ADMIN', 'PLACEM
 router.post('/audience-preview', adminAuth, authorizeRoles('SUPER_ADMIN', 'PLACEMENT_ADMIN'), getAudiencePreview);
 router.get('/search-students', adminAuth, authorizeRoles('SUPER_ADMIN', 'PLACEMENT_ADMIN'), searchStudents);
 
-// REST routes
+// REST routes — DEAN can read notifications (institutional oversight); management restricted to SA/PA
 router.post('/', adminAuth, authorizeRoles('SUPER_ADMIN', 'PLACEMENT_ADMIN'), createNotification);
-router.get('/', adminAuth, authorizeRoles('SUPER_ADMIN', 'PLACEMENT_ADMIN'), listNotifications);
-router.get('/:id', adminAuth, authorizeRoles('SUPER_ADMIN', 'PLACEMENT_ADMIN'), getDetail);
+router.get('/', adminAuth, authorizeRoles('SUPER_ADMIN', 'PLACEMENT_ADMIN', 'DEAN'), listNotifications);
+router.get('/:id', adminAuth, authorizeRoles('SUPER_ADMIN', 'PLACEMENT_ADMIN', 'DEAN'), getDetail);
 router.put('/:id', adminAuth, authorizeRoles('SUPER_ADMIN', 'PLACEMENT_ADMIN'), editNotification);
 router.delete('/:id', adminAuth, authorizeRoles('SUPER_ADMIN', 'PLACEMENT_ADMIN'), deleteNotification);
 router.post('/:id/publish', adminAuth, authorizeRoles('SUPER_ADMIN', 'PLACEMENT_ADMIN'), publishNotification);
 
 module.exports = router;
+

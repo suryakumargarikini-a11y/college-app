@@ -8,6 +8,7 @@ import SearchInput from '../components/SearchInput';
 import Badge from '../components/Badge';
 import ToastContainer from '../components/Toast';
 import { useToast } from '../hooks/useToast';
+import { authStore } from '../store/authStore';
 
 const INITIAL_FORM = {
   title: '', description: '', dueDate: '', targetBatch: 'ALL',
@@ -39,6 +40,9 @@ function SkeletonRows({ n = 5 }) {
 
 export default function FeeNotices() {
   const { toasts, showToast, removeToast } = useToast();
+  const currentUser = authStore.getUser();
+  // DEAN and CI are read-only; only SA and AA can manage fee notices
+  const canManage = ['SUPER_ADMIN', 'ACCOUNTS_ADMIN'].includes(currentUser?.role);
   const [items,        setItems]        = useState([]);
   const [loading,      setLoading]      = useState(true);
   const [modalOpen,    setModalOpen]    = useState(false);
@@ -106,10 +110,12 @@ export default function FeeNotices() {
         actions={
           <>
             <SearchInput value={search} onChange={setSearch} placeholder="Search notices…" />
-            <button onClick={openCreate} className="btn-primary">
-              <span className="material-symbols-outlined text-[18px]">add</span>
-              Create Notice
-            </button>
+            {canManage && (
+              <button onClick={openCreate} className="btn-primary">
+                <span className="material-symbols-outlined text-[18px]">add</span>
+                Create Notice
+              </button>
+            )}
           </>
         }
       />
@@ -150,11 +156,14 @@ export default function FeeNotices() {
                     <td className="td"><Badge value={item.isActive ? 'active' : 'inactive'} label={item.isActive ? 'Active' : 'Inactive'} /></td>
                     <td className="td">
                       <div className="flex items-center gap-1.5 justify-end">
-                        <button onClick={() => toggleActive(item)} className={`text-xs px-2.5 py-1 rounded-md font-semibold transition-colors ${item.isActive ? 'bg-gray-100 hover:bg-gray-200 text-gray-600' : 'bg-green-50 hover:bg-green-100 text-green-700'}`}>
-                          {item.isActive ? 'Deactivate' : 'Activate'}
-                        </button>
-                        <button onClick={() => openEdit(item)} className="btn-icon" title="Edit"><span className="material-symbols-outlined text-[17px]">edit</span></button>
-                        <button onClick={() => setDeleteTarget(item)} className="btn-icon text-red-400 hover:bg-red-50 hover:text-red-600" title="Delete"><span className="material-symbols-outlined text-[17px]">delete</span></button>
+                        {canManage && (
+                          <button onClick={() => toggleActive(item)} className={`text-xs px-2.5 py-1 rounded-md font-semibold transition-colors ${item.isActive ? 'bg-gray-100 hover:bg-gray-200 text-gray-600' : 'bg-green-50 hover:bg-green-100 text-green-700'}`}>
+                            {item.isActive ? 'Deactivate' : 'Activate'}
+                          </button>
+                        )}
+                        {canManage && <button onClick={() => openEdit(item)} className="btn-icon" title="Edit"><span className="material-symbols-outlined text-[17px]">edit</span></button>}
+                        {canManage && <button onClick={() => setDeleteTarget(item)} className="btn-icon text-red-400 hover:bg-red-50 hover:text-red-600" title="Delete"><span className="material-symbols-outlined text-[17px]">delete</span></button>}
+                        {!canManage && <span className="text-[10px] text-gray-400 italic">Read only</span>}
                       </div>
                     </td>
                   </tr>

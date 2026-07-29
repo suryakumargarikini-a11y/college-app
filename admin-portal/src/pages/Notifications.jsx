@@ -5,6 +5,7 @@ import EmptyState from '../components/EmptyState';
 import Badge from '../components/Badge';
 import ToastContainer from '../components/Toast';
 import { useToast } from '../hooks/useToast';
+import { authStore } from '../store/authStore';
 
 const INITIAL_FORM = { 
   title: '', 
@@ -23,6 +24,9 @@ const MSG_MAX = 200;
 
 export default function Notifications() {
   const { toasts, showToast, removeToast } = useToast();
+  const currentUser = authStore.getUser();
+  // Only SA and PA can compose/manage notifications; DEAN can only view
+  const canManage = ['SUPER_ADMIN', 'PLACEMENT_ADMIN'].includes(currentUser?.role);
   const [form,           setForm]           = useState(INITIAL_FORM);
   const [sending,        setSending]        = useState(false);
   const [sendResult,     setSendResult]     = useState(null);
@@ -70,7 +74,7 @@ export default function Notifications() {
   };
 
   useEffect(() => { 
-    loadAudienceOptions();
+    if (canManage) loadAudienceOptions();
     loadHistory(); 
   }, []);
 
@@ -278,8 +282,8 @@ export default function Notifications() {
 
       <PageHeader title="Notifications" subtitle="Hierarchical audience targeting based on real student data" />
 
-      {/* Compose Card */}
-      <div className="card p-6 shadow-sm border border-gray-200">
+      {/* Compose Card — SA/PA only */}
+      {canManage && <div className="card p-6 shadow-sm border border-gray-200">
         <div className="flex items-center justify-between mb-5 border-b border-gray-100 pb-4">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
@@ -568,7 +572,7 @@ export default function Notifications() {
             </button>
           </div>
         </form>
-      </div>
+      </div>}
 
       {/* History */}
       <div className="card overflow-hidden shadow-sm border border-gray-200">
@@ -637,17 +641,22 @@ export default function Notifications() {
                       </td>
                       <td className="td">
                         <div className="flex items-center justify-end gap-2">
-                          {item.status === 'DRAFT' && (
+                          {canManage && item.status === 'DRAFT' && (
                             <button onClick={() => handlePublish(item.id)} className="text-[11px] font-bold px-2 py-1 rounded bg-blue-50 hover:bg-blue-100 text-blue-700 transition-colors">
                               Publish
                             </button>
                           )}
-                          <button onClick={() => handleEdit(item)} className="text-gray-400 hover:text-blue-600 p-1 flex items-center justify-center transition-colors">
-                            <span className="material-symbols-outlined text-[18px]">edit</span>
-                          </button>
-                          <button onClick={() => handleDelete(item.id)} className="text-gray-400 hover:text-red-600 p-1 flex items-center justify-center transition-colors">
-                            <span className="material-symbols-outlined text-[18px]">delete</span>
-                          </button>
+                          {canManage && (
+                            <button onClick={() => handleEdit(item)} className="text-gray-400 hover:text-blue-600 p-1 flex items-center justify-center transition-colors">
+                              <span className="material-symbols-outlined text-[18px]">edit</span>
+                            </button>
+                          )}
+                          {canManage && (
+                            <button onClick={() => handleDelete(item.id)} className="text-gray-400 hover:text-red-600 p-1 flex items-center justify-center transition-colors">
+                              <span className="material-symbols-outlined text-[18px]">delete</span>
+                            </button>
+                          )}
+                          {!canManage && <span className="text-[10px] text-gray-400 italic">Read only</span>}
                         </div>
                       </td>
                     </tr>

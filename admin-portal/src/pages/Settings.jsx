@@ -41,17 +41,19 @@ export default function Settings() {
   const [pwSaving, setPwSaving] = useState(false);
   const [pwError, setPwError] = useState('');
 
-  /* Maintenance Mode */
+  /* Maintenance Mode — SUPER_ADMIN only */
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
   const [maintenance, setMaintenance] = useState(false);
-  const [maintenanceLoad, setMaintenanceLoad] = useState(true);
+  const [maintenanceLoad, setMaintenanceLoad] = useState(isSuperAdmin);
   const [maintenanceSave, setMaintenanceSave] = useState(false);
 
   useEffect(() => {
+    if (!isSuperAdmin) return; // Only SUPER_ADMIN can access maintenance settings
     api.get('/admin/settings/maintenance')
       .then(res => setMaintenance(res.data.maintenanceMode ?? false))
       .catch(() => { })
       .finally(() => setMaintenanceLoad(false));
-  }, []);
+  }, [isSuperAdmin]);
 
   const handleChangePassword = async (e) => {
     e.preventDefault(); setPwError('');
@@ -140,7 +142,8 @@ export default function Settings() {
         </form>
       </div>
 
-      {/* ── Maintenance Mode Card ── */}
+      {/* ── Maintenance Mode Card — SUPER_ADMIN only ── */}
+      {isSuperAdmin && (
       <div className="card p-6">
         <SectionTitle icon="construction" label="System Maintenance" />
         <div className="flex items-start justify-between gap-4">
@@ -172,6 +175,7 @@ export default function Settings() {
           </div>
         )}
       </div>
+      )}
 
       {/* ── App Info Card ── */}
       <div className="card p-6">
