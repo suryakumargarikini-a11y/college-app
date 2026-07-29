@@ -1,11 +1,9 @@
 'use strict';
+
 const crypto = require('crypto');
+const prisma = require('../services/dbService');
 
 // ── P0-3: Startup Guard — ADMIN_JWT_SECRET ────────────────────────────────────
-// Fail hard at module load if the secret is absent, empty, a known default,
-// or shorter than 32 characters. This ensures the server cannot start with a
-// weak signing key regardless of deployment environment.
-// SECURITY: The secret value is never logged — only its absence or invalidity.
 const _ADMIN_JWT_KNOWN_DEFAULTS = new Set([
     'sitam-admin-secret-key-change-in-production',
     'sitam-admin-secret-key',
@@ -39,7 +37,13 @@ function base64urlDecode(str) {
     return Buffer.from(str, 'base64').toString();
 }
 
-function signToken(payload, expiresInHours = 8) {
+function signToken(admin, expiresInHours = 8) {
+    const payload = {
+        id: admin.id,
+        email: admin.email,
+        role: admin.role,
+        pwHash: admin.passwordHash ? admin.passwordHash.slice(0, 12) : (admin.pwHash || undefined)
+    };
     const header = base64urlEncode(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
     payload.exp = Math.floor(Date.now() / 1000) + (expiresInHours * 3600);
     payload.iat = Math.floor(Date.now() / 1000);
@@ -71,14 +75,40 @@ function verifyToken(token) {
     return decoded;
 }
 
-const adminAuth = (req, res, next) => {
+const adminAuth = async (req, res, next) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
         return res.status(401).json({ error: 'No token provided' });
     }
     const token = authHeader.split(' ')[1];
     try {
-        req.admin = verifyToken(token);
+        const decoded = verifyToken(token);
+        
+        // Query current Admin record from DB
+        const admin = await prisma.admin.findUnique({
+            where: { id: decoded.id },
+            select: { id: true, email: true, role: true, isActive: true, passwordHash: true }
+        });
+        
+        // 1. Account Deactivation Check (Immediate Revocation)
+        if (!admin || !admin.isActive) {
+            return res.status(401).json({ error: 'Account disabled or session invalid' });
+        }
+
+        // 2. Password Reset Revocation Check (Immediate Revocation)
+        if (decoded.pwHash && admin.passwordHash) {
+            const currentHashPrefix = admin.passwordHash.slice(0, 12);
+            if (decoded.pwHash !== currentHashPrefix) {
+                return res.status(401).json({ error: 'Password was changed. Session invalidated. Please log in again.' });
+            }
+        }
+
+        // 3. Current DB Role Authority (Role Change Takes Effect Immediately)
+        req.admin = {
+            id: admin.id,
+            email: admin.email,
+            role: admin.role // Always use current DB role, ignoring outdated token role claims
+        };
         next();
     } catch (err) {
         return res.status(401).json({ error: 'Invalid or expired token' });
@@ -98,4 +128,3 @@ const authorizeRoles = (...roles) => {
 };
 
 module.exports = { adminAuth, signToken, verifyToken, authorizeRoles };
-

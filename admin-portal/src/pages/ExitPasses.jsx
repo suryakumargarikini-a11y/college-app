@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import api from '../lib/api';
+import { authStore } from '../store/authStore';
 import Modal from '../components/Modal';
 import PageHeader from '../components/PageHeader';
 import EmptyState from '../components/EmptyState';
@@ -24,6 +25,8 @@ function SkeletonRows({ n = 5, cols = 6 }) {
 
 export default function ExitPasses() {
   const { toasts, showToast, removeToast } = useToast();
+  const user = authStore.getUser();
+  const canApprove = ['SUPER_ADMIN', 'FACULTY', 'HOD', 'DEAN'].includes(user?.role);
   
   // Main view toggles
   const [activeMainTab, setActiveMainTab] = useState('INDIVIDUAL'); // INDIVIDUAL or GROUP
@@ -399,11 +402,14 @@ export default function ExitPasses() {
                       <td className="td"><Badge value={item.status} /></td>
                       <td className="td">
                         <div className="flex items-center gap-1.5 justify-end">
-                          {item.status === 'PENDING' && !item.groupRequestId && (
+                          {item.status === 'PENDING' && !item.groupRequestId && canApprove && (
                             <>
                               <button onClick={() => { setApproveTarget(item); setApprovedOtp(''); setAdminRemark(''); }} className="text-xs px-2.5 py-1 rounded-md bg-green-50 hover:bg-green-100 text-green-700 font-semibold transition-colors">Approve</button>
                               <button onClick={() => { setRejectTarget(item); setRejectReason(''); }} className="text-xs px-2.5 py-1 rounded-md bg-red-50 hover:bg-red-100 text-red-600 font-semibold transition-colors">Reject</button>
                             </>
+                          )}
+                          {item.status === 'PENDING' && !canApprove && (
+                            <span className="text-xs text-gray-400 font-medium italic">Read Only</span>
                           )}
                           {item.status === 'PENDING' && item.groupRequestId && (
                             <span className="text-[10px] text-amber-600 font-bold uppercase">Pending Group Action</span>

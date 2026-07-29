@@ -16,5 +16,6 @@ router.use('/lost-found',    require('./lostFound'));
 // ── Phase 5: Specialized Analytics Endpoints ──────────────────────────────
 router.use('/students',      require('./students'));
 router.use('/analytics',     require('./analytics'));
+router.use('/staff',         require('./staff'));
 
 module.exports = router;

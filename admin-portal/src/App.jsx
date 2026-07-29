@@ -26,6 +26,7 @@ const Analytics         = lazy(() => import('./pages/Analytics'));
 const RiskDashboard     = lazy(() => import('./pages/RiskDashboard'));
 const ActivityCenter    = lazy(() => import('./pages/ActivityCenter'));
 const ELibrary          = lazy(() => import('./pages/ELibrary'));
+const StaffManagement   = lazy(() => import('./pages/StaffManagement'));
 
 function PageLoader() {
   return (
@@ -35,16 +36,19 @@ function PageLoader() {
   );
 }
 
+function getRedirectPath(role) {
+  if (role === 'SECURITY_GUARD') return '/security/dashboard';
+  if (role === 'HOSTEL_WARDEN') return '/exit-passes';
+  return '/dashboard';
+}
+
 function ProtectedRoute({ children, allowedRoles }) {
   if (!authStore.isAuthenticated()) {
     return <Navigate to="/login" replace />;
   }
   const user = authStore.getUser();
   if (allowedRoles && !allowedRoles.includes(user?.role)) {
-    if (user?.role === 'SECURITY_GUARD') {
-      return <Navigate to="/security/dashboard" replace />;
-    }
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={getRedirectPath(user?.role)} replace />;
   }
   return children;
 }
@@ -52,10 +56,7 @@ function ProtectedRoute({ children, allowedRoles }) {
 function PublicRoute({ children }) {
   if (authStore.isAuthenticated()) {
     const user = authStore.getUser();
-    if (user?.role === 'SECURITY_GUARD') {
-      return <Navigate to="/security/dashboard" replace />;
-    }
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={getRedirectPath(user?.role)} replace />;
   }
   return children;
 }
@@ -65,10 +66,7 @@ function RootRedirect() {
     return <Navigate to="/login" replace />;
   }
   const user = authStore.getUser();
-  if (user?.role === 'SECURITY_GUARD') {
-    return <Navigate to="/security/dashboard" replace />;
-  }
-  return <Navigate to="/dashboard" replace />;
+  return <Navigate to={getRedirectPath(user?.role)} replace />;
 }
 
 export default function App() {
@@ -88,7 +86,7 @@ export default function App() {
         <Route
           path="/dashboard"
           element={
-            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ACCOUNTS_ADMIN', 'PLACEMENT_ADMIN']}>
+            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ACCOUNTS_ADMIN', 'PLACEMENT_ADMIN', 'HOD', 'DEAN', 'CI']}>
               <Dashboard />
             </ProtectedRoute>
           }
@@ -96,7 +94,7 @@ export default function App() {
         <Route
           path="/students"
           element={
-            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ACCOUNTS_ADMIN', 'PLACEMENT_ADMIN']}>
+            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ACCOUNTS_ADMIN', 'PLACEMENT_ADMIN', 'HOD', 'DEAN', 'CI', 'HOSTEL_WARDEN']}>
               <Students />
             </ProtectedRoute>
           }
@@ -104,7 +102,7 @@ export default function App() {
         <Route
           path="/faculty"
           element={
-            <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'DEAN']}>
               <Faculty />
             </ProtectedRoute>
           }
@@ -112,7 +110,7 @@ export default function App() {
         <Route
           path="/attendance-dashboard"
           element={
-            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ACCOUNTS_ADMIN', 'PLACEMENT_ADMIN']}>
+            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ACCOUNTS_ADMIN', 'PLACEMENT_ADMIN', 'HOD', 'DEAN', 'CI']}>
               <AttendanceDashboard />
             </ProtectedRoute>
           }
@@ -120,7 +118,7 @@ export default function App() {
         <Route
           path="/marks-ledger"
           element={
-            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'PLACEMENT_ADMIN']}>
+            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'PLACEMENT_ADMIN', 'HOD', 'DEAN', 'CI']}>
               <MarksLedger />
             </ProtectedRoute>
           }
@@ -128,7 +126,7 @@ export default function App() {
         <Route
           path="/fees-dashboard"
           element={
-            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ACCOUNTS_ADMIN']}>
+            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ACCOUNTS_ADMIN', 'DEAN', 'CI']}>
               <FeesDashboard />
             </ProtectedRoute>
           }
@@ -136,7 +134,7 @@ export default function App() {
         <Route
           path="/placements-dashboard"
           element={
-            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'PLACEMENT_ADMIN']}>
+            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'PLACEMENT_ADMIN', 'DEAN']}>
               <PlacementsDashboard />
             </ProtectedRoute>
           }
@@ -144,7 +142,7 @@ export default function App() {
         <Route
           path="/lms-dashboard"
           element={
-            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ACCOUNTS_ADMIN', 'PLACEMENT_ADMIN']}>
+            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ACCOUNTS_ADMIN', 'PLACEMENT_ADMIN', 'DEAN', 'CI']}>
               <LmsDashboard />
             </ProtectedRoute>
           }
@@ -152,7 +150,7 @@ export default function App() {
         <Route
           path="/analytics"
           element={
-            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ACCOUNTS_ADMIN', 'PLACEMENT_ADMIN']}>
+            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ACCOUNTS_ADMIN', 'PLACEMENT_ADMIN', 'CI']}>
               <Analytics />
             </ProtectedRoute>
           }
@@ -168,7 +166,7 @@ export default function App() {
         <Route
           path="/activity-center"
           element={
-            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ACCOUNTS_ADMIN', 'PLACEMENT_ADMIN']}>
+            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ACCOUNTS_ADMIN', 'PLACEMENT_ADMIN', 'DEAN', 'CI']}>
               <ActivityCenter />
             </ProtectedRoute>
           }
@@ -176,7 +174,7 @@ export default function App() {
         <Route
           path="/announcements"
           element={
-            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'PLACEMENT_ADMIN']}>
+            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'PLACEMENT_ADMIN', 'DEAN', 'CI']}>
               <Announcements />
             </ProtectedRoute>
           }
@@ -192,7 +190,7 @@ export default function App() {
         <Route
           path="/fee-notices"
           element={
-            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ACCOUNTS_ADMIN']}>
+            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ACCOUNTS_ADMIN', 'DEAN', 'CI']}>
               <FeeNotices />
             </ProtectedRoute>
           }
@@ -200,7 +198,7 @@ export default function App() {
         <Route
           path="/exit-passes"
           element={
-            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'FACULTY']}>
+            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'FACULTY', 'HOD', 'DEAN', 'CI', 'HOSTEL_WARDEN']}>
               <ExitPasses />
             </ProtectedRoute>
           }
@@ -208,17 +206,25 @@ export default function App() {
         <Route
           path="/notifications"
           element={
-            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'PLACEMENT_ADMIN']}>
+            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'PLACEMENT_ADMIN', 'DEAN']}>
               <Notifications />
             </ProtectedRoute>
           }
         />
-        <Route path="/e-library" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'PLACEMENT_ADMIN', 'FACULTY']}><ELibrary /></ProtectedRoute>} />
+        <Route path="/e-library" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'PLACEMENT_ADMIN', 'FACULTY', 'HOD', 'DEAN', 'CI']}><ELibrary /></ProtectedRoute>} />
         <Route
           path="/settings"
           element={
-            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ACCOUNTS_ADMIN', 'PLACEMENT_ADMIN']}>
+            <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ACCOUNTS_ADMIN', 'PLACEMENT_ADMIN', 'DEAN', 'CI']}>
               <Settings />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/staff-management"
+          element={
+            <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+              <StaffManagement />
             </ProtectedRoute>
           }
         />

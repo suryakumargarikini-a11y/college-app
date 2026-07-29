@@ -59,6 +59,8 @@ export default function Login() {
       // Role-based redirection
       if (res.data.admin.role === 'SECURITY_GUARD') {
         navigate('/security/dashboard');
+      } else if (res.data.admin.role === 'HOSTEL_WARDEN') {
+        navigate('/exit-passes');
       } else {
         navigate('/dashboard');
       }

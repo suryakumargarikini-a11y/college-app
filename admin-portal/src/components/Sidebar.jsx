@@ -34,6 +34,50 @@ const NAV_BY_ROLE = {
     { path: '/exit-passes',          icon: 'exit_to_app',     label: 'Exit Passes' },
     { path: '/e-library',            icon: 'local_library',   label: 'E-Library' },
   ],
+  HOD: [
+    { path: '/dashboard',            icon: 'dashboard',       label: 'Dashboard' },
+    { path: '/students',             icon: 'groups',          label: 'Students' },
+    { path: '/attendance-dashboard',  icon: 'event_available', label: 'Attendance Analytics' },
+    { path: '/marks-ledger',         icon: 'grading',         label: 'Marks Ledger' },
+    { path: '/exit-passes',          icon: 'exit_to_app',     label: 'Exit Passes' },
+    { path: '/e-library',            icon: 'local_library',   label: 'E-Library' },
+  ],
+  DEAN: [
+    { path: '/dashboard',            icon: 'dashboard',              label: 'Dashboard' },
+    { path: '/students',             icon: 'groups',                 label: 'Students' },
+    { path: '/faculty',              icon: 'school',                 label: 'Faculty' },
+    { path: '/attendance-dashboard', icon: 'event_available',        label: 'Attendance Analytics' },
+    { path: '/marks-ledger',         icon: 'grading',                label: 'Marks Ledger' },
+    { path: '/fees-dashboard',       icon: 'account_balance_wallet', label: 'Fees Analytics' },
+    { path: '/placements-dashboard', icon: 'analytics',              label: 'Placements Analytics' },
+    { path: '/lms-dashboard',        icon: 'import_contacts',        label: 'LMS Progress' },
+    { path: '/activity-center',      icon: 'timeline',               label: 'Activity Center' },
+    { path: '/announcements',        icon: 'campaign',               label: 'Announcements' },
+    { path: '/fee-notices',          icon: 'receipt_long',           label: 'Fee Notices' },
+    { path: '/exit-passes',          icon: 'exit_to_app',            label: 'Exit Passes' },
+    { path: '/notifications',        icon: 'notifications',          label: 'Notifications' },
+    { path: '/e-library',            icon: 'local_library',          label: 'E-Library' },
+    { path: '/settings',             icon: 'settings',               label: 'Settings' },
+  ],
+  CI: [
+    { path: '/dashboard',            icon: 'dashboard',              label: 'Dashboard' },
+    { path: '/students',             icon: 'groups',                 label: 'Students' },
+    { path: '/attendance-dashboard', icon: 'event_available',        label: 'Attendance Analytics' },
+    { path: '/marks-ledger',         icon: 'grading',                label: 'Marks Ledger' },
+    { path: '/fees-dashboard',       icon: 'account_balance_wallet', label: 'Fees Analytics' },
+    { path: '/lms-dashboard',        icon: 'import_contacts',        label: 'LMS Progress' },
+    { path: '/analytics',            icon: 'insights',               label: 'Executive Analytics' },
+    { path: '/activity-center',      icon: 'timeline',               label: 'Activity Center' },
+    { path: '/announcements',        icon: 'campaign',               label: 'Announcements' },
+    { path: '/fee-notices',          icon: 'receipt_long',           label: 'Fee Notices' },
+    { path: '/exit-passes',          icon: 'exit_to_app',            label: 'Exit Passes' },
+    { path: '/e-library',            icon: 'local_library',          label: 'E-Library' },
+    { path: '/settings',             icon: 'settings',               label: 'Settings' },
+  ],
+  HOSTEL_WARDEN: [
+    { path: '/exit-passes',          icon: 'exit_to_app',     label: 'Exit Passes' },
+    { path: '/students',             icon: 'groups',          label: 'Hostel Students' },
+  ],
 };
 
 const SUPER_ADMIN_NAV = [
@@ -55,6 +99,7 @@ const SUPER_ADMIN_NAV = [
   { path: '/notifications',         icon: 'notifications',          label: 'Notifications' },
   { path: '/e-library',             icon: 'local_library',          label: 'E-Library' },
   { path: '/settings',              icon: 'settings',               label: 'Settings' },
+  { path: '/staff-management',      icon: 'manage_accounts',        label: 'Staff Management' },
 ];
 
 const ROLE_LABELS = {
@@ -63,6 +108,10 @@ const ROLE_LABELS = {
   PLACEMENT_ADMIN: 'Placement Officer',
   SECURITY_GUARD:  'Security Guard',
   FACULTY:         'Faculty',
+  HOD:             'Head of Department',
+  DEAN:            'Dean Academics',
+  CI:              'College Admin Head',
+  HOSTEL_WARDEN:   'Hostel Warden',
 };
 
 export default function Sidebar({ collapsed, onCollapse, mobileOpen, onMobileClose }) {
