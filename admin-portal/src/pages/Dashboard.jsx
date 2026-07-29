@@ -106,15 +106,21 @@ export default function Dashboard() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [statsRes, anlRes] = await Promise.all([
-        api.get('/admin/dashboard/stats'),
-        api.get('/admin/analytics')
-      ]);
-      setData(statsRes.data);
-      setAnalytics(anlRes.data);
+      const canAccessAnalytics = ['SUPER_ADMIN', 'ACCOUNTS_ADMIN', 'PLACEMENT_ADMIN'].includes(userRole);
+      const reqs = [api.get('/admin/dashboard/stats')];
+      if (canAccessAnalytics) {
+        reqs.push(api.get('/admin/analytics'));
+      }
+      const results = await Promise.all(reqs);
+      setData(results[0].data);
+      if (canAccessAnalytics && results[1]) {
+        setAnalytics(results[1].data);
+      } else {
+        setAnalytics(null);
+      }
     } catch (_) {}
     setLoading(false);
-  }, []);
+  }, [userRole]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -130,11 +136,27 @@ export default function Dashboard() {
   const logs = data?.recentActivity?.auditLogs || [];
   const health = analytics?.health || {};
   const today  = new Date().toLocaleDateString('en-IN', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+  const canAccessAnalytics = ['SUPER_ADMIN', 'ACCOUNTS_ADMIN', 'PLACEMENT_ADMIN'].includes(userRole);
 
   /* ── Chart datasets ───────────────────────────────────────────────────── */
-  const branchDist = analytics?.studentDistribution?.byBranch || [];
-  const cgpaDist   = analytics?.academics?.cgpaDist || [];
-  const attBands   = analytics?.attendance?.bandDist || [];
+  const branchDist = data?.departments ? data.departments.map(d => ({ label: d.branch, value: d.count })) : (analytics?.studentDistribution?.byBranch || []);
+  
+  const cgpaDist = data?.cgpa ? [
+    { label: '≥ 9.0', value: data.cgpa.above9 || 0 },
+    { label: '8.0 - 8.9', value: data.cgpa['8to9'] || 0 },
+    { label: '7.0 - 7.9', value: data.cgpa['7to8'] || 0 },
+    { label: '6.0 - 6.9', value: data.cgpa['6to7'] || 0 },
+    { label: '< 6.0', value: data.cgpa.below6 || 0 }
+  ] : (analytics?.academics?.cgpaDist || []);
+
+  const attBands = data?.attendance ? [
+    { label: '≥ 95%', value: data.attendance.excellent || 0, color: '#10b981' },
+    { label: '90 - 94%', value: data.attendance.good || 0, color: '#3b82f6' },
+    { label: '80 - 89%', value: data.attendance.acceptable || 0, color: '#6366f1' },
+    { label: '75 - 79%', value: data.attendance.warning || 0, color: '#f59e0b' },
+    { label: '< 75%', value: data.attendance.defaulters || 0, color: '#ef4444' }
+  ] : (analytics?.attendance?.bandDist || []);
+
   const monthlyFees = analytics?.fees?.monthlyCollection || [];
 
   const doughnutData = {
@@ -199,9 +221,11 @@ export default function Dashboard() {
           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 text-xs font-semibold rounded-lg border border-blue-100">
             {ROLE_NAMES[userRole] || userRole}
           </span>
-          <button onClick={() => navigate('/analytics')} className="btn-secondary text-xs px-3 py-1.5">
-            <span className="material-symbols-outlined text-[15px]">insights</span> Full Analytics
-          </button>
+          {canAccessAnalytics && (
+            <button onClick={() => navigate('/analytics')} className="btn-secondary text-xs px-3 py-1.5">
+              <span className="material-symbols-outlined text-[15px]">insights</span> Full Analytics
+            </button>
+          )}
           <button onClick={load} className="btn-icon" title="Refresh">
             <span className="material-symbols-outlined text-[18px]">refresh</span>
           </button>
