@@ -80,9 +80,14 @@ export default function StaffManagement() {
       return;
     }
 
+    const payload = {
+      ...formData,
+      departmentScopes: formData.role === 'HOD' ? formData.departmentScopes : []
+    };
+
     setCreating(true);
     try {
-      await api.post('/admin/staff', formData);
+      await api.post('/admin/staff', payload);
       showToast('Staff account created successfully', 'success');
       setShowCreateModal(false);
       setFormData({
@@ -105,15 +110,17 @@ export default function StaffManagement() {
     e.preventDefault();
     if (!editTarget) return;
 
+    const payload = {
+      name: editTarget.name,
+      email: editTarget.email,
+      role: editTarget.role,
+      isActive: editTarget.isActive,
+      departmentScopes: editTarget.role === 'HOD' ? editTarget.departmentScopes : []
+    };
+
     setUpdating(true);
     try {
-      await api.put(`/admin/staff/${editTarget.id}`, {
-        name: editTarget.name,
-        email: editTarget.email,
-        role: editTarget.role,
-        isActive: editTarget.isActive,
-        departmentScopes: editTarget.departmentScopes
-      });
+      await api.put(`/admin/staff/${editTarget.id}`, payload);
       showToast('Staff account updated successfully', 'success');
       setEditTarget(null);
       loadStaff();
@@ -150,7 +157,7 @@ export default function StaffManagement() {
   const handleToggleStatus = async (user) => {
     try {
       await api.delete(`/admin/staff/${user.id}`);
-      showToast(`Account ${user.email} is now ${user.isActive ? 'Deactivated' : 'Activated'}`, 'info');
+      showToast(`Account ${user.email} status updated to ${user.isActive ? 'Inactive' : 'Active'}`, 'info');
       loadStaff();
     } catch (err) {
       showToast(err.response?.data?.error || 'Failed to toggle status', 'error');
@@ -347,96 +354,102 @@ export default function StaffManagement() {
       </div>
 
       {/* CREATE STAFF MODAL */}
-      {showCreateModal && (
-        <Modal title="Add Special Staff Account" onClose={() => setShowCreateModal(false)}>
-          <form onSubmit={handleCreate} className="space-y-4">
+      <Modal
+        isOpen={showCreateModal}
+        title="Add Special Staff Account"
+        onClose={() => setShowCreateModal(false)}
+      >
+        <form onSubmit={handleCreate} className="space-y-4">
+          <div>
+            <label className="label">Full Name *</label>
+            <input
+              type="text"
+              required
+              className="input-field"
+              placeholder="e.g. Dr. K. Rama Rao"
+              value={formData.name}
+              onChange={e => setFormData({ ...formData, name: e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label className="label">Institutional Email *</label>
+            <input
+              type="email"
+              required
+              className="input-field"
+              placeholder="e.g. hod.aiml@sitam.edu.in"
+              value={formData.email}
+              onChange={e => setFormData({ ...formData, email: e.target.value })}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="label">Full Name *</label>
-              <input
-                type="text"
-                required
+              <label className="label">Staff Role *</label>
+              <select
                 className="input-field"
-                placeholder="e.g. Dr. K. Rama Rao"
-                value={formData.name}
-                onChange={e => setFormData({ ...formData, name: e.target.value })}
+                value={formData.role}
+                onChange={e => setFormData({ ...formData, role: e.target.value })}
+              >
+                {ROLES_LIST.map(r => (
+                  <option key={r.value} value={r.value}>{r.label} ({r.value})</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="label">Initial Password *</label>
+              <input
+                type="password"
+                required
+                minLength={8}
+                className="input-field"
+                placeholder="At least 8 chars"
+                value={formData.initialPassword}
+                onChange={e => setFormData({ ...formData, initialPassword: e.target.value })}
               />
             </div>
+          </div>
 
-            <div>
-              <label className="label">Institutional Email *</label>
-              <input
-                type="email"
-                required
-                className="input-field"
-                placeholder="e.g. hod.aiml@sitam.edu.in"
-                value={formData.email}
-                onChange={e => setFormData({ ...formData, email: e.target.value })}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="label">Staff Role *</label>
-                <select
-                  className="input-field"
-                  value={formData.role}
-                  onChange={e => setFormData({ ...formData, role: e.target.value })}
-                >
-                  {ROLES_LIST.map(r => (
-                    <option key={r.value} value={r.value}>{r.label} ({r.value})</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="label">Initial Password *</label>
-                <input
-                  type="password"
-                  required
-                  minLength={8}
-                  className="input-field"
-                  placeholder="At least 8 chars"
-                  value={formData.initialPassword}
-                  onChange={e => setFormData({ ...formData, initialPassword: e.target.value })}
-                />
+          {formData.role === 'HOD' && (
+            <div className="border border-gray-200 rounded-lg p-3 bg-gray-50/50 space-y-2">
+              <label className="label">Department Scope Assignment *</label>
+              <p className="text-xs text-gray-500">Select department(s) governed by this HOD account:</p>
+              <div className="grid grid-cols-3 gap-2 pt-1">
+                {CANONICAL_DEPARTMENTS.map(dept => (
+                  <label key={dept} className="flex items-center gap-2 text-xs font-semibold text-gray-800 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={(formData.departmentScopes || []).includes(dept)}
+                      onChange={() => toggleDeptScope(dept, false)}
+                      className="rounded text-blue-600"
+                    />
+                    {dept} {dept === 'AIML' ? '(+CSE)' : ''}
+                  </label>
+                ))}
               </div>
             </div>
+          )}
 
-            {formData.role === 'HOD' && (
-              <div className="border border-gray-200 rounded-lg p-3 bg-gray-50/50 space-y-2">
-                <label className="label">Department Scope Assignment *</label>
-                <p className="text-xs text-gray-500">Select department(s) governed by this HOD account:</p>
-                <div className="grid grid-cols-3 gap-2 pt-1">
-                  {CANONICAL_DEPARTMENTS.map(dept => (
-                    <label key={dept} className="flex items-center gap-2 text-xs font-semibold text-gray-800 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={(formData.departmentScopes || []).includes(dept)}
-                        onChange={() => toggleDeptScope(dept, false)}
-                        className="rounded text-blue-600"
-                      />
-                      {dept} {dept === 'AIML' ? '(+CSE)' : ''}
-                    </label>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="flex justify-end gap-2 pt-2">
-              <button type="button" onClick={() => setShowCreateModal(false)} className="btn-secondary">
-                Cancel
-              </button>
-              <button type="submit" disabled={creating} className="btn-primary">
-                {creating ? 'Creating…' : 'Create Staff Account'}
-              </button>
-            </div>
-          </form>
-        </Modal>
-      )}
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={() => setShowCreateModal(false)} className="btn-secondary">
+              Cancel
+            </button>
+            <button type="submit" disabled={creating} className="btn-primary">
+              {creating ? 'Creating…' : 'Create Staff Account'}
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       {/* EDIT STAFF MODAL */}
-      {editTarget && (
-        <Modal title={`Edit Staff: ${editTarget.email}`} onClose={() => setEditTarget(null)}>
+      <Modal
+        isOpen={Boolean(editTarget)}
+        title={`Edit Staff: ${editTarget?.email || ''}`}
+        onClose={() => setEditTarget(null)}
+      >
+        {editTarget && (
           <form onSubmit={handleUpdate} className="space-y-4">
             <div>
               <label className="label">Full Name</label>
@@ -515,12 +528,16 @@ export default function StaffManagement() {
               </button>
             </div>
           </form>
-        </Modal>
-      )}
+        )}
+      </Modal>
 
       {/* RESET PASSWORD MODAL */}
-      {resetTarget && (
-        <Modal title={`Reset Password for ${resetTarget.name}`} onClose={() => setResetTarget(null)}>
+      <Modal
+        isOpen={Boolean(resetTarget)}
+        title={`Reset Password for ${resetTarget?.name || ''}`}
+        onClose={() => setResetTarget(null)}
+      >
+        {resetTarget && (
           <form onSubmit={handleResetPassword} className="space-y-4">
             <p className="text-xs text-gray-600">
               Set a new initial password for <span className="font-bold text-gray-900">{resetTarget.email}</span>. Plaintext passwords are never stored or logged.
@@ -547,8 +564,8 @@ export default function StaffManagement() {
               </button>
             </div>
           </form>
-        </Modal>
-      )}
+        )}
+      </Modal>
     </div>
   );
 }
