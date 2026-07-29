@@ -6,7 +6,7 @@
     "buildCommand": "echo 'Using Dockerfile build'"
   },
   "deploy": {
-    "startCommand": "node server.js",
+    "startCommand": "./scripts/start.sh",
     "healthcheckPath": "/api/health/liveness",
     "healthcheckTimeout": 30,
     "restartPolicyType": "ON_FAILURE",
