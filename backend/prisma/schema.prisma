@@ -85,6 +85,8 @@ model Student {
   libraryViews       LibraryView[]
   libraryDownloads   LibraryDownload[]
   libraryAudiences   LibraryAudience[]
+  lmsSubmissions     LmsSubmission[]
+
 
   @@index([email])
   @@index([roll])
@@ -103,6 +105,8 @@ model Subject {
   attendance AttendanceRecord[]
   timetable  TimetableSlot[]
   syllabus   SyllabusUnit[]
+  studyMaterials StudyMaterial[]
+  lmsAssignments LmsAssignment[]
 }
 
 model MarkRecord {
@@ -340,6 +344,10 @@ model Admin {
   auditLogs         AuditLog[]
   staffScopes       StaffScope[]
   uploadedMaterials LibraryMaterial[]
+  uploadedStudyMaterials StudyMaterial[]
+  createdLmsAssignments  LmsAssignment[]
+  gradedLmsSubmissions   LmsSubmission[]
+
 
   @@index([role])
 }
@@ -826,3 +834,96 @@ model LibraryAudience {
   @@index([studentId])
   @@index([targetType])
 }
+
+// ============================================================
+// LMS V1 MODELS — STUDY MATERIALS, ASSIGNMENTS & SUBMISSIONS
+// ============================================================
+
+model StudyMaterial {
+  id                 String    @id @default(uuid())
+  subjectId          String?
+  subject            Subject?  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  title              String
+  description        String?
+  category           String    @default("LECTURE_NOTE") // LECTURE_NOTE, PDF, PPT, DOCUMENT, LINK, OTHER
+  fileUrl            String?
+  fileName           String?
+  uploadedByAdminId  String?
+  uploadedByAdmin    Admin?    @relation(fields: [uploadedByAdminId], references: [id], onDelete: SetNull)
+  uploadedByName     String?
+  uploadedByRole     String?
+  branch             String?   @default("")
+  year               String?   @default("")
+  semester           String?   @default("")
+  section            String?   @default("ALL")
+  publishedAt        DateTime  @default(now())
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([branch, semester, section])
+  @@index([subjectId])
+  @@index([uploadedByAdminId])
+  @@index([createdAt])
+}
+
+model LmsAssignment {
+  id                 String          @id @default(uuid())
+  subjectId          String?
+  subject            Subject?        @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  subjectCode        String?
+  subjectName        String?
+  title              String
+  description        String?
+  instructions       String?
+  dueDate            DateTime
+  maxMarks           Int             @default(100)
+  attachmentUrl      String?
+  attachmentName     String?
+  createdByAdminId   String?
+  createdByAdmin     Admin?          @relation(fields: [createdByAdminId], references: [id], onDelete: SetNull)
+  createdByName      String?
+  createdByRole      String?
+  branch             String?         @default("")
+  year               String?         @default("")
+  semester           String?         @default("")
+  section            String?         @default("ALL")
+  status             String          @default("PUBLISHED") // DRAFT, PUBLISHED, ARCHIVED
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  submissions        LmsSubmission[]
+
+  @@index([branch, semester, section])
+  @@index([subjectId])
+  @@index([dueDate])
+  @@index([status])
+  @@index([createdByAdminId])
+}
+
+model LmsSubmission {
+  id                 String        @id @default(uuid())
+  assignmentId       String
+  assignment         LmsAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  studentId          String
+  student            Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  submissionText     String?
+  fileUrl            String?
+  fileName           String?
+  submittedAt        DateTime      @default(now())
+  status             String        @default("SUBMITTED") // SUBMITTED, LATE, GRADED
+  marks              Float?
+  grade              String?
+  feedback           String?
+  gradedAt           DateTime?
+  gradedByAdminId    String?
+  gradedByAdmin      Admin?        @relation(fields: [gradedByAdminId], references: [id], onDelete: SetNull)
+  gradedByName       String?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  @@unique([assignmentId, studentId])
+  @@index([assignmentId])
+  @@index([studentId])
+  @@index([status])
+  @@index([gradedByAdminId])
+}
+

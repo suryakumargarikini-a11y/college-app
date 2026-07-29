@@ -330,13 +330,12 @@ const getAnalytics = async (req, res) => {
                 }
             });
 
-            const totalAssignments = await prisma.assignment.count();
-            const submittedAssignments = await prisma.assignment.count({ where: { status: 'Submitted' } });
+            const totalAssignments = await prisma.lmsAssignment.count();
+            const submittedAssignments = await prisma.lmsSubmission.count();
             assignmentStats = {
                 total: totalAssignments,
                 submitted: submittedAssignments
             };
-
             const markAvg = await prisma.markRecord.aggregate({
                 _avg: { marks: true }
             });

@@ -3386,16 +3386,32 @@ const pages = {
         }
     },
 
-    // ---- ASSIGNMENTS ----
+    // ---- ASSIGNMENTS & LMS ----
     assignments: {
         render: () => `<body class="bg-background min-h-screen pb-32">
             <main class="pt-20 px-6 max-w-2xl mx-auto">
                 <section class="mb-6">
-                    <p class="text-[9px] font-bold uppercase tracking-[0.2em] text-on-surface-variant mb-1">Pending Work</p>
+                    <p class="text-[9px] font-bold uppercase tracking-[0.2em] text-on-surface-variant mb-1">Pending &amp; Graded Work</p>
                     <h2 class="text-3xl font-extrabold tracking-tight text-on-surface" style="font-family:'Plus Jakarta Sans',sans-serif">Assignments</h2>
                 </section>
                 <div class="space-y-3" id="asn-list">
                     <div class="h-20 bg-surface-container-low rounded-xl animate-pulse"></div>
+                </div>
+
+                <!-- Assignment Detail & Submission Overlay -->
+                <div id="asn-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+                    <div class="bg-white rounded-3xl p-6 w-full max-w-lg shadow-2xl border border-slate-100 space-y-4 text-slate-800">
+                        <div class="flex justify-between items-start border-b pb-3">
+                            <div>
+                                <p class="text-[10px] font-bold uppercase tracking-widest text-primary" id="asn-modal-subject">Subject</p>
+                                <h3 class="text-xl font-extrabold text-slate-900" id="asn-modal-title">Title</h3>
+                            </div>
+                            <button onclick="document.getElementById('asn-modal').classList.add('hidden')" class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200">
+                                <span class="material-symbols-outlined text-sm font-bold">close</span>
+                            </button>
+                        </div>
+                        <div id="asn-modal-body" class="space-y-3 text-xs"></div>
+                    </div>
                 </div>
             </main>
         </body>`,
@@ -3415,38 +3431,136 @@ const pages = {
                     </div>`;
                     return;
                 }
-                list.innerHTML = asns.map(a => {
-                    const isPending = a.status.toLowerCase() !== 'submitted';
-                    const bg = isPending ? 'bg-surface-container-lowest border border-outline-variant/10' : 'bg-secondary-container/20';
-                    const icon = a.icon || (isPending ? 'pending' : 'check_circle');
-                    const iconColor = isPending ? 'text-tertiary' : 'text-secondary';
+                list.innerHTML = asns.map((a, idx) => {
+                    const isGraded = a.status === 'GRADED';
+                    const isSubmitted = a.status === 'SUBMITTED' || a.status === 'LATE' || isGraded;
+                    const bg = isGraded ? 'bg-emerald-50/60 border border-emerald-200/50' : (isSubmitted ? 'bg-blue-50/50 border border-blue-200/40' : 'bg-surface-container-lowest border border-outline-variant/10');
+                    const icon = isGraded ? 'workspace_premium' : (isSubmitted ? 'check_circle' : 'pending');
+                    const iconColor = isGraded ? 'text-emerald-600' : (isSubmitted ? 'text-blue-600' : 'text-amber-500');
 
                     let deadlineWarning = '';
-                    if (isPending && a.date) {
+                    if (!isSubmitted && a.dueDate) {
                         try {
-                            const due = new Date(a.date);
+                            const due = new Date(a.dueDate);
                             const now = new Date();
                             const timeDiff = due.getTime() - now.getTime();
                             const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
                             if (daysDiff >= 0 && daysDiff <= 2) {
                                 deadlineWarning = `<span class="ml-2 bg-rose-100 text-rose-700 text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded border border-rose-200">Due Soon</span>`;
+                            } else if (daysDiff < 0) {
+                                deadlineWarning = `<span class="ml-2 bg-slate-200 text-slate-700 text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded border border-slate-300">Overdue</span>`;
                             }
                         } catch (_) { }
                     }
 
-                    return `<div class="p-5 rounded-xl ${bg} flex items-center gap-4 justify-between">
+                    return `<div onclick="window.openAsnDetail(${idx})" class="p-5 rounded-2xl ${bg} flex items-center gap-4 justify-between cursor-pointer hover:scale-[1.01] active-scale transition-all shadow-sm">
                         <div class="flex items-center gap-4 min-w-0 flex-1">
-                            <div class="w-12 h-12 rounded-full bg-surface-container-high flex items-center justify-center flex-shrink-0">
+                            <div class="w-12 h-12 rounded-2xl bg-white flex items-center justify-center flex-shrink-0 shadow-sm border border-slate-100">
                                 <span class="material-symbols-outlined ${iconColor}">${icon}</span>
                             </div>
                             <div class="min-w-0 flex-1">
-                                <p class="font-bold text-on-surface text-sm truncate" title="${a.title}">${a.title}</p>
+                                <p class="font-extrabold text-on-surface text-sm truncate" title="${a.title}">${a.title}</p>
                                 <p class="text-[11px] text-on-surface-variant mt-0.5 truncate">${a.subject} · Due ${a.date || '--'}${deadlineWarning}</p>
                             </div>
                         </div>
-                        <span class="text-[10px] px-2 py-1 rounded-full font-bold uppercase flex-shrink-0 ${isPending ? 'bg-tertiary-container/30 text-on-tertiary-container' : 'bg-secondary-container text-on-secondary-container'}">${a.status}</span>
+                        <span class="text-[10px] px-2.5 py-1 rounded-full font-extrabold uppercase flex-shrink-0 ${
+                            isGraded ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' :
+                            (isSubmitted ? 'bg-blue-100 text-blue-800 border border-blue-200' : 'bg-amber-100 text-amber-800 border border-amber-200')
+                        }">${a.status}</span>
                     </div>`;
                 }).join('');
+
+                // Global handler for clicking assignment detail
+                window.openAsnDetail = (index) => {
+                    const a = asns[index];
+                    if (!a) return;
+                    
+                    const subjEl = $('asn-modal-subject');
+                    const titleEl = $('asn-modal-title');
+                    const bodyEl = $('asn-modal-body');
+                    if (!subjEl || !titleEl || !bodyEl) return;
+                    
+                    subjEl.textContent = `${a.subject || 'General'} · Max Marks: ${a.maxMarks || 100}`;
+                    titleEl.textContent = a.title;
+                    
+                    const sub = a.submission;
+                    const isGraded = a.status === 'GRADED';
+                    
+                    let bodyHtml = `
+                        <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-100 space-y-1 text-slate-600">
+                            <p class="font-medium">${a.description || a.instructions || 'No detailed instructions specified.'}</p>
+                            <p class="text-[10px] font-bold text-slate-400 mt-2">Due Date: ${a.dueDate ? new Date(a.dueDate).toLocaleString() : a.date}</p>
+                        </div>
+                    `;
+
+                    if (isGraded && sub) {
+                        bodyHtml += `
+                            <div class="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl space-y-2">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xs font-extrabold text-emerald-900 uppercase tracking-wide">Grade &amp; Score</span>
+                                    <span class="px-2.5 py-0.5 rounded-full text-xs font-black bg-emerald-600 text-white">${sub.grade || 'GRADED'}</span>
+                                </div>
+                                <p class="text-2xl font-black text-emerald-950">${sub.marks} / ${a.maxMarks} <span class="text-xs font-bold text-emerald-700">Marks</span></p>
+                                ${sub.feedback ? `<div class="bg-white p-3 rounded-xl border border-emerald-100 text-xs text-emerald-900"><span class="font-bold">Faculty Feedback:</span> "${sub.feedback}"</div>` : ''}
+                            </div>
+                        `;
+                    } else {
+                        if (sub) {
+                            bodyHtml += `
+                                <div class="bg-blue-50 border border-blue-200 p-3.5 rounded-2xl space-y-1 text-blue-900">
+                                    <div class="flex items-center gap-1.5 font-bold text-xs">
+                                        <span class="material-symbols-outlined text-sm text-blue-600">check_circle</span>
+                                        Submitted on ${new Date(sub.submittedAt).toLocaleString()}
+                                    </div>
+                                    ${sub.submissionText ? `<p class="text-xs text-slate-700 bg-white p-2 rounded-xl border border-blue-100 mt-1">"${sub.submissionText}"</p>` : ''}
+                                </div>
+                            `;
+                        }
+
+                        bodyHtml += `
+                            <form onsubmit="window.submitAsnWork(event, '${a.id}')" class="space-y-3 pt-2">
+                                <div>
+                                    <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Your Submission Notes / Answers</label>
+                                    <textarea id="sub-text" class="w-full h-24 p-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs focus:ring-2 focus:ring-primary focus:bg-white transition-all outline-none resize-none" placeholder="Type your answer, solution notes, or response here…">${sub?.submissionText || ''}</textarea>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Attachment / Work URL (Google Drive / GitHub)</label>
+                                    <input type="url" id="sub-url" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs focus:ring-2 focus:ring-primary focus:bg-white transition-all outline-none" value="${sub?.fileUrl || ''}" placeholder="https://..." />
+                                </div>
+                                <button type="submit" id="sub-btn" class="w-full py-3 bg-primary text-white font-extrabold text-xs rounded-2xl active-scale shadow-md hover:bg-primary-dim transition-all flex items-center justify-center gap-2">
+                                    <span class="material-symbols-outlined text-sm">send</span>
+                                    ${sub ? 'Update Submission' : 'Submit Assignment'}
+                                </button>
+                            </form>
+                        `;
+                    }
+
+                    bodyEl.innerHTML = bodyHtml;
+                    $('asn-modal').classList.remove('hidden');
+                };
+
+                window.submitAsnWork = async (event, asnId) => {
+                    event.preventDefault();
+                    const subText = $('sub-text')?.value || '';
+                    const subUrl = $('sub-url')?.value || '';
+                    const btn = $('sub-btn');
+                    if (btn) { btn.disabled = true; btn.textContent = 'Submitting…'; }
+
+                    try {
+                        await api.post(`/lms/assignments/${asnId}/submit`, {
+                            submissionText: subText,
+                            fileUrl: subUrl
+                        });
+                        alert('Assignment submitted successfully!');
+                        $('asn-modal').classList.add('hidden');
+                        router.routes['/assignments']?.afterRender?.();
+                    } catch (err) {
+                        alert(err.response?.data?.error || 'Failed to submit assignment');
+                    } finally {
+                        if (btn) btn.disabled = false;
+                    }
+                };
+
             } catch (e) {
                 console.error('[Assignments] Error:', e);
                 const list = $('asn-list');

@@ -17,5 +17,6 @@ router.use('/lost-found',    require('./lostFound'));
 router.use('/students',      require('./students'));
 router.use('/analytics',     require('./analytics'));
 router.use('/staff',         require('./staff'));
+router.use('/lms',           require('./lms'));
 
 module.exports = router;

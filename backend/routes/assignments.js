@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { requireAuth } = require('../middleware/auth');
-const dataControllers = require('../controllers/dataControllers');
+const lmsController = require('../controllers/lmsController');
 
-router.get('/', requireAuth, dataControllers.getAssignments);
+router.get('/', requireAuth, lmsController.getStudentAssignments);
 module.exports = router;
