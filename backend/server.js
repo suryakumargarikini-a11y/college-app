@@ -576,41 +576,9 @@ app.use('/api/lost-found',    lostFoundRoutes);
 app.use(errorHandler);
 
 // ─── Database Initialization ──────────────────────────────────────────────────
-if (process.env.AUTO_MIGRATE === 'true' || process.env.NODE_ENV !== 'production') {
-    try {
-        const { execSync } = require('child_process');
-        logger.info('[DB-Init] Running pending Prisma migrations...');
-        execSync('npx prisma migrate deploy', {
-            cwd: __dirname,
-            stdio: 'inherit',
-            env: { ...process.env },
-            timeout: 30000
-        });
-        logger.info('[DB-Init] Migrations applied successfully.');
+// Note: Prisma migration deployment is handled by scripts/start.sh entrypoint prior to server start.
+logger.info('[DB-Init] Database initialization handled by container startup entrypoint — binding port immediately.');
 
-        logger.info('[DB-Init] Seeding default administrative accounts...');
-        execSync('node scripts/seed-admin.js', {
-            cwd: __dirname,
-            stdio: 'inherit',
-            env: { ...process.env },
-            timeout: 10000
-        });
-        logger.info('[DB-Init] Admin seeding successful.');
-
-        logger.info('[DB-Init] Seeding department aliases...');
-        execSync('node scripts/seed-department-aliases.js', {
-            cwd: __dirname,
-            stdio: 'inherit',
-            env: { ...process.env },
-            timeout: 10000
-        });
-        logger.info('[DB-Init] Department aliases seeded.');
-    } catch (err) {
-        logger.error(`[DB-Init] Database initialization failed: ${err.message}`);
-    }
-} else {
-    logger.info('[DB-Init] Skipping top-level execSync DB push in production runtime — process binding port immediately.');
-}
 
 // ─── Startup Browser Validation ──────────────────────────────────────────────
 // Returns true if Chromium launched successfully via the configured provider, false if unavailable.
