@@ -206,33 +206,52 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6 fade-in">
-      {/* ── Header ────────────────────────────────────────────────────────── */}
-      <section className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-5 border-b border-gray-200">
-        <div>
-          <h2 className="text-2xl font-black text-gray-900 leading-tight">
-            Welcome back, {user?.name?.split(' ')[0] || 'Administrator'} 👋
-          </h2>
-          <p className="text-xs text-gray-400 mt-1 flex items-center gap-1.5">
-            <span className="live-dot" />
-            <span>Live · {today}</span>
-          </p>
-        </div>
-        <div className="flex items-center gap-2 flex-shrink-0 no-print">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 text-xs font-semibold rounded-lg border border-blue-100">
-            {ROLE_NAMES[userRole] || userRole}
-          </span>
-          {canAccessAnalytics && (
-            <button onClick={() => navigate('/analytics')} className="btn-secondary text-xs px-3 py-1.5">
-              <span className="material-symbols-outlined text-[15px]">insights</span> Full Analytics
+      {/* Executive Welcome & Role Header */}
+      <section className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-80 h-full bg-gradient-to-l from-blue-500/5 to-transparent pointer-events-none" />
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative z-10">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="px-2.5 py-0.5 rounded-md text-[10px] font-extrabold bg-blue-50 text-blue-700 border border-blue-200/60 uppercase tracking-wider">
+                {ROLE_NAMES[userRole] || userRole}
+              </span>
+              {user?.department && (
+                <span className="px-2.5 py-0.5 rounded-md text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200/60 uppercase tracking-wider">
+                  DEPT: {user.department}
+                </span>
+              )}
+            </div>
+            <h2 className="text-xl sm:text-2xl font-black text-slate-900 leading-tight">
+              Welcome back, {user?.name || 'Administrator'} 👋
+            </h2>
+            <p className="text-xs text-slate-500 mt-1 flex items-center gap-2">
+              <span className="live-dot" />
+              <span>SITAM ERP Academic Portal • Live Feed • {today}</span>
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2.5 flex-shrink-0 no-print">
+            {canAccessAnalytics && (
+              <button
+                onClick={() => navigate('/analytics')}
+                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200/80 hover:bg-blue-100 transition-all shadow-xs"
+              >
+                <span className="material-symbols-outlined text-[16px]">insights</span>
+                <span>Executive Analytics</span>
+              </button>
+            )}
+            <button
+              onClick={load}
+              className="inline-flex items-center justify-center w-9 h-9 rounded-xl border border-slate-200/80 bg-white text-slate-700 hover:bg-slate-50 transition-colors shadow-xs"
+              title="Refresh Dashboard Data"
+            >
+              <span className="material-symbols-outlined text-[18px]">refresh</span>
             </button>
-          )}
-          <button onClick={load} className="btn-icon" title="Refresh">
-            <span className="material-symbols-outlined text-[18px]">refresh</span>
-          </button>
+          </div>
         </div>
       </section>
 
-      {/* ── Institution Health Scores ──────────────────────────────────────── */}
+      {/* Institution Health Scores */}
       {!loading && analytics && (
         <section className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-7 gap-3">
           <HealthBadge label="Overall Health"   score={health.overall    || 88} color="green"  />
@@ -245,7 +264,7 @@ export default function Dashboard() {
         </section>
       )}
 
-      {/* ── 12 KPI Cards ──────────────────────────────────────────────────── */}
+      {/* 12 KPI Cards Grid */}
       {loading ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
           {Array.from({length:12}).map((_,i) => (

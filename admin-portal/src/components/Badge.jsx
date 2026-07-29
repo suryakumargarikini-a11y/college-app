@@ -15,6 +15,8 @@ const VARIANTS = {
   active:    'bg-green-50 text-green-700 border-green-200',
   inactive:  'bg-gray-50  text-gray-500  border-gray-200',
   upcoming:  'bg-violet-50 text-violet-700 border-violet-200',
+  exited:    'bg-indigo-50 text-indigo-700 border-indigo-200',
+  returned:  'bg-emerald-50 text-emerald-700 border-emerald-200',
   info:      'bg-sky-50   text-sky-700   border-sky-200',
 };
 

@@ -37,10 +37,10 @@ export default function AdminLayout() {
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
-  const sidebarPx = collapsed ? 64 : 240;
+  const sidebarPx = collapsed ? 72 : 260;
 
   return (
-    <div className="min-h-screen bg-[#f8fafc]">
+    <div className="min-h-screen bg-[#f8fafc] text-slate-900 selection:bg-blue-500 selection:text-white">
       <Sidebar
         collapsed={collapsed}
         onCollapse={handleCollapse}
@@ -55,11 +55,11 @@ export default function AdminLayout() {
       />
 
       <main
-        className={`transition-all duration-300 pt-14 min-h-screen ml-0 ${
-          collapsed ? 'md:ml-16' : 'md:ml-60'
+        className={`transition-all duration-300 pt-16 min-h-screen ml-0 ${
+          collapsed ? 'md:ml-[72px]' : 'md:ml-[260px]'
         }`}
       >
-        <div className="p-3 sm:p-6 max-w-screen-2xl mx-auto w-full">
+        <div className="p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto w-full">
           <Outlet />
         </div>
       </main>
