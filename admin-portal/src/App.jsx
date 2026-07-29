@@ -39,6 +39,7 @@ function PageLoader() {
 function getRedirectPath(role) {
   if (role === 'SECURITY_GUARD') return '/security/dashboard';
   if (role === 'HOSTEL_WARDEN') return '/exit-passes';
+  if (role === 'FACULTY') return '/exit-passes';
   return '/dashboard';
 }
 
