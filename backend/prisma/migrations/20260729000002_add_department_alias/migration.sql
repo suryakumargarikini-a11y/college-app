@@ -1,13 +1,11 @@
-﻿-- Phase 2 Migration 2: add_department_alias
--- Creates DepartmentAlias table for ERP branch string normalization.
--- Seeds confirmed aliases only. Idempotent via ON CONFLICT DO NOTHING.
+-- Phase 2 Migration 2: add_department_alias
+-- Creates DepartmentAlias table + seeds 13 confirmed aliases. Idempotent.
 
 CREATE TABLE "DepartmentAlias" (
     "id"        TEXT         NOT NULL,
     "rawValue"  TEXT         NOT NULL,
     "canonical" TEXT         NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
     CONSTRAINT "DepartmentAlias_pkey" PRIMARY KEY ("id")
 );
 

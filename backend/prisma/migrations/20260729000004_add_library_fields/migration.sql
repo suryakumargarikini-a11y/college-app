@@ -1,5 +1,5 @@
-﻿-- Phase 2 Migration 4: add_library_fields
--- Adds nullable columns to LibraryMaterial. All additive. No drops or renames.
+-- Phase 2 Migration 4: add_library_fields
+-- Adds nullable columns to LibraryMaterial. All additive, no drops.
 
 ALTER TABLE "LibraryMaterial"
     ADD COLUMN IF NOT EXISTS "expiresAt"         TIMESTAMP(3),

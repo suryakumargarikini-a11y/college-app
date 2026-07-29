@@ -1,6 +1,5 @@
-﻿-- Phase 2 Migration 1: add_staff_scope
--- Creates StaffScope table for HOD/Dean/CI/Faculty academic department scoping.
--- All operations are additive. No existing table is modified.
+-- Phase 2 Migration 1: add_staff_scope
+-- Creates StaffScope table. Additive only.
 
 CREATE TABLE "StaffScope" (
     "id"         TEXT         NOT NULL,
@@ -8,7 +7,6 @@ CREATE TABLE "StaffScope" (
     "scopeType"  TEXT         NOT NULL DEFAULT 'DEPARTMENT',
     "scopeValue" TEXT         NOT NULL,
     "createdAt"  TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
     CONSTRAINT "StaffScope_pkey" PRIMARY KEY ("id")
 );
 

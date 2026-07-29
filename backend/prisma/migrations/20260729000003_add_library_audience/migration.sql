@@ -1,5 +1,5 @@
-﻿-- Phase 2 Migration 3: add_library_audience
--- Creates LibraryAudience table for targeted E-Library material distribution.
+-- Phase 2 Migration 3: add_library_audience
+-- Creates LibraryAudience table. Additive only.
 
 CREATE TABLE "LibraryAudience" (
     "id"         TEXT         NOT NULL,
@@ -11,7 +11,6 @@ CREATE TABLE "LibraryAudience" (
     "section"    TEXT,
     "studentId"  TEXT,
     "createdAt"  TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
     CONSTRAINT "LibraryAudience_pkey" PRIMARY KEY ("id")
 );
 
