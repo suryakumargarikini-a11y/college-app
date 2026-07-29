@@ -27,6 +27,7 @@ const RiskDashboard     = lazy(() => import('./pages/RiskDashboard'));
 const ActivityCenter    = lazy(() => import('./pages/ActivityCenter'));
 const ELibrary          = lazy(() => import('./pages/ELibrary'));
 const StaffManagement   = lazy(() => import('./pages/StaffManagement'));
+const Achievements      = lazy(() => import('./pages/Achievements'));
 
 function PageLoader() {
   return (
@@ -213,6 +214,7 @@ export default function App() {
           }
         />
         <Route path="/e-library" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'PLACEMENT_ADMIN', 'FACULTY', 'HOD', 'DEAN', 'CI']}><ELibrary /></ProtectedRoute>} />
+        <Route path="/achievements" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'HOD', 'DEAN', 'CI']}><Achievements /></ProtectedRoute>} />
         <Route
           path="/settings"
           element={

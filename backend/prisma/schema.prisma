@@ -347,6 +347,8 @@ model Admin {
   uploadedStudyMaterials StudyMaterial[]
   createdLmsAssignments  LmsAssignment[]
   gradedLmsSubmissions   LmsSubmission[]
+  createdAchievements    Achievement[]
+
 
 
   @@index([role])
@@ -926,4 +928,32 @@ model LmsSubmission {
   @@index([status])
   @@index([gradedByAdminId])
 }
+
+// ============================================================
+// BRANCH ACHIEVEMENTS MODEL
+// ============================================================
+
+model Achievement {
+  id                 String    @id @default(uuid())
+  title              String
+  description        String
+  imageUrl           String?
+  achievementDate    DateTime  @default(now())
+  category           String    @default("OTHER") // Student, Faculty, Research, Sports, Competition, Placement, Cultural, Other
+  branch             String    // Branch/department scope
+  participantName    String?   // Optional student/faculty name
+  createdByAdminId   String?
+  createdByAdmin     Admin?    @relation(fields: [createdByAdminId], references: [id], onDelete: SetNull)
+  createdByName      String?
+  createdByRole      String?
+  isPublished        Boolean   @default(true)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([branch])
+  @@index([isPublished])
+  @@index([category])
+  @@index([createdAt])
+}
+
 

@@ -43,12 +43,11 @@ model Student {
   seatType           String?             @default("")
   entranceType       String?             @default("")
   entranceRank       String?             @default("")
-  aadhar             String?             @default("") // Masked in standard API — owner only
-  photoUrl           String?             @default("") // Local cached path (served via /api/profile/photo)
+  aadhar             String?             @default("")
+  photoUrl           String?             @default("")
   guardianName       String?             @default("")
   guardianPhone      String?             @default("")
   guardianAddress    String?             @default("")
-  // Extended profile fields (added Phase 1)
   apaarId            String?             @default("") // Government APAAR/ABC ID — sensitive, owner-only
   motherMobile       String?             @default("")
   annualIncome       String?             @default("")
@@ -82,8 +81,10 @@ model Student {
   notificationReads  NotificationRead[]
   targetedAdminNotifications AdminNotification[] @relation("AdminNotificationTargetStudent")
   syncHistory        SyncHistory[]
+  libraryViews       LibraryView[]
+  libraryDownloads   LibraryDownload[]
+  libraryAudiences   LibraryAudience[]
   lmsSubmissions     LmsSubmission[]
-
 
   @@index([email])
   @@index([roll])
@@ -208,10 +209,10 @@ model Notification {
   student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
   title      String
   message    String
-  type       String   @default("general") // attendance, marks, fees, assignments, timetable, exams, announcement
-  category   String   @default("info") // alert, update, reminder, success
-  metadata   String? // JSON: route, oldValue, newValue, subject, etc.
-  changeHash String? // links to NotificationEvent.changeHash for dedup
+  type       String   @default("general")
+  category   String   @default("info")
+  metadata   String?
+  changeHash String?
   isRead     Boolean  @default(false)
   date       String
   createdAt  DateTime @default(now())
@@ -227,15 +228,15 @@ model NotificationEvent {
   id         String   @id @default(uuid())
   studentId  String
   student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  eventType  String // attendance_dropped, marks_updated, new_assignment, fee_due, etc.
-  changeHash String // SHA-256 of (studentId + eventType + key-fields) — dedup key
-  oldValue   String? // JSON serialized previous value
-  newValue   String? // JSON serialized new value
-  metadata   String? // JSON: subject name, amount, etc.
+  eventType  String
+  changeHash String
+  oldValue   String?
+  newValue   String?
+  metadata   String?
   notified   Boolean  @default(false)
   createdAt  DateTime @default(now())
 
-  @@unique([changeHash]) // Enforces at-DB-level dedup
+  @@unique([changeHash])
   @@index([studentId])
   @@index([studentId, eventType])
   @@index([createdAt])
@@ -247,9 +248,9 @@ model AuditLog {
   student   Student? @relation(fields: [studentId], references: [id], onDelete: SetNull)
   adminId   String?
   admin     Admin?   @relation(fields: [adminId], references: [id], onDelete: SetNull)
-  action    String // E.g., LOGIN, SYNC_START, SYNC_SUCCESS, SYNC_FAILURE
+  action    String
   details   String
-  severity  String   @default("INFO") // "INFO", "WARNING", "CRITICAL", "SECURITY"
+  severity  String   @default("INFO")
   timestamp DateTime @default(now())
 
   @@index([studentId])
@@ -258,7 +259,6 @@ model AuditLog {
   @@index([severity])
 }
 
-// Session table — persists login tokens across Render cold starts.
 model Session {
   id          String   @id @default(uuid())
   token       String   @unique
@@ -290,7 +290,7 @@ model SreAuditChain {
   index         Int      @unique
   timestamp     DateTime @default(now())
   actionType    String
-  payload       String // JSON string
+  payload       String
   prevBlockHash String
   blockHash     String
 }
@@ -300,9 +300,9 @@ model SreQuorumVote {
   proposalId   String   @unique
   timestamp    DateTime @default(now())
   actionType   String
-  payload      String // JSON string
-  status       String // PENDING, APPROVED, EXPIRED, REJECTED
-  voters       String // Comma-separated list of nodes
+  payload      String
+  status       String
+  voters       String
   votesFor     Int      @default(0)
   votesAgainst Int      @default(0)
 }
@@ -319,9 +319,9 @@ model SreTenantQuota {
 
 model SreIncident {
   id          String   @id @default(uuid())
-  level       String // INFO, WARNING, HIGH, CRITICAL, EMERGENCY
-  category    String // API, Queue, Worker, DB, etc.
-  status      String // ACTIVE, RESOLVED, ESCALATED
+  level       String
+  category    String
+  status      String
   description String
   rootCause   String?  @default("")
   durationMs  Int      @default(0)
@@ -334,14 +334,17 @@ model Admin {
   email        String     @unique
   passwordHash String
   name         String
-  role         String     @default("SUPER_ADMIN") // "SUPER_ADMIN", "ACCOUNTS_ADMIN", "PLACEMENT_ADMIN", "SECURITY_GUARD"
+  role         String     @default("SUPER_ADMIN")
   isActive     Boolean    @default(true)
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
-  auditLogs    AuditLog[]
+  auditLogs         AuditLog[]
+  staffScopes       StaffScope[]
+  uploadedMaterials LibraryMaterial[]
   uploadedStudyMaterials StudyMaterial[]
   createdLmsAssignments  LmsAssignment[]
   gradedLmsSubmissions   LmsSubmission[]
+  createdAchievements    Achievement[]
 
   @@index([role])
 }
@@ -447,7 +450,6 @@ model ExitPass {
   createdAt              DateTime              @default(now())
   updatedAt              DateTime              @updatedAt
 
-  // Phase 3 Extensions
   groupRequestId         String?
   groupRequest           GroupExitPassRequest? @relation(fields: [groupRequestId], references: [id], onDelete: SetNull)
   academicYear           String?
@@ -459,6 +461,9 @@ model ExitPass {
   parentSmsStatus        String?
   parentSmsId            String?
   exitGate               String?
+  returnedAt             DateTime?
+  returnedBy             String?
+  returnGate             String?
   identityMismatchReason String?
   otpAttempts            Int                   @default(0)
 
@@ -479,7 +484,7 @@ model GroupExitPassRequest {
   destination   String
   exitTime      DateTime
   returnTime    DateTime
-  status        String     @default("PENDING") // "PENDING", "APPROVED", "REJECTED"
+  status        String     @default("PENDING")
   leaderId      String
   rejectionNote String?
   approvedAt    DateTime?
@@ -496,22 +501,21 @@ model SmsLog {
   id         String   @id @default(uuid())
   studentId  String
   passId     String?
-  type       String   // "EXIT_NOTIFICATION"
-  recipient  String   // Masked phone number
-  status     String   // "SENT", "FAILED"
+  type       String
+  recipient  String
+  status     String
   error      String?
   sentAt     DateTime @default(now())
 }
-
 
 model AdminNotification {
   id              String   @id @default(uuid())
   title           String
   message         String
   targetAudience  String   @default("ALL")
-  targetBranches  String? // Stored as stringified JSON array
-  targetYears     String? // Stored as stringified JSON array
-  targetSections  String? // Stored as stringified JSON array
+  targetBranches  String?
+  targetYears     String?
+  targetSections  String?
   priority        String   @default("NORMAL")
   sentAt          DateTime @default(now())
   sentBy          String
@@ -527,6 +531,60 @@ model AdminNotification {
   @@index([sentAt])
   @@index([status])
   @@index([targetStudentId])
+}
+
+model LibraryMaterial {
+  id String @id @default(uuid())
+  title String
+  description String?
+  fileName String @unique
+  originalFileName String
+  fileUrl String
+  fileType String
+  mimeType String
+  fileSize Int
+  category String @default("GENERAL")
+  subject String?
+  branch String?
+  semester String?
+  section String?
+  academicYear String?
+  uploadedBy String
+  uploadedByRole String
+  isActive Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  views             LibraryView[]
+  downloads         LibraryDownload[]
+  expiresAt         DateTime?
+  uploadedByAdminId String?
+  uploadedAdmin     Admin?            @relation(fields: [uploadedByAdminId], references: [id], onDelete: SetNull)
+  audiences         LibraryAudience[]
+  @@index([isActive, createdAt])
+  @@index([branch, semester, section, academicYear])
+  @@index([subject])
+  @@index([uploadedByAdminId])
+  @@index([expiresAt])
+}
+model LibraryView {
+  id String @id @default(uuid())
+  studentId String
+  materialId String
+  viewedAt DateTime @default(now())
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  material LibraryMaterial @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  @@unique([studentId, materialId])
+  @@index([materialId])
+}
+model LibraryDownload {
+  id String @id @default(uuid())
+  studentId String
+  materialId String
+  downloadedAt DateTime @default(now())
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  material LibraryMaterial @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  @@unique([studentId, materialId])
+  @@index([materialId])
 }
 
 model NotificationRead {
@@ -555,7 +613,7 @@ model FeeReminderLog {
   student       Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
   feeId         String
   fee           Fee      @relation(fields: [feeId], references: [id], onDelete: Cascade)
-  reminderStage String // "15_DAY", "10_DAY", "7_DAY", "5_DAY", "3_DAY", "1_DAY"
+  reminderStage String
   sentAt        DateTime @default(now())
 
   @@unique([studentId, feeId, reminderStage])
@@ -579,7 +637,7 @@ model Survey {
   id          String           @id @default(uuid())
   title       String
   description String
-  status      String           @default("ACTIVE") // DRAFT, ACTIVE, CLOSED
+  status      String           @default("ACTIVE")
   isAnonymous Boolean          @default(false)
   expiresAt   DateTime?
   createdBy   String
@@ -597,8 +655,8 @@ model SurveyQuestion {
   surveyId String
   survey   Survey         @relation(fields: [surveyId], references: [id], onDelete: Cascade)
   text     String
-  type     String         // MCQ, RATING, TEXT
-  options  String?        // JSON array for MCQ
+  type     String
+  options  String?
   order    Int
   answers  SurveyAnswer[]
 
@@ -634,13 +692,13 @@ model HelpTicket {
   id                   String        @id @default(uuid())
   studentId            String
   student              Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  ticketNumber         String        @unique // formatted HD-YYYY-XXXXXX
+  ticketNumber         String        @unique
   subject              String
   description          String
-  category             String        // ACADEMIC, FEES, TECHNICAL, HOSTEL, GENERAL
-  priority             String        @default("NORMAL") // LOW, NORMAL, HIGH, URGENT
-  status               String        @default("OPEN") // OPEN, IN_PROGRESS, RESOLVED, CLOSED
-  estimatedResponseTime String?      // e.g. "24 hours"
+  category             String
+  priority             String        @default("NORMAL")
+  status               String        @default("OPEN")
+  estimatedResponseTime String?
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
   replies              TicketReply[]
@@ -656,7 +714,7 @@ model TicketReply {
   ticketId   String
   ticket     HelpTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   message    String
-  senderType String     // STUDENT, ADMIN
+  senderType String
   senderId   String
   senderName String
   createdAt  DateTime   @default(now())
@@ -669,9 +727,9 @@ model LostFoundItem {
   title       String
   description String
   location    String
-  type        String           // LOST, FOUND
-  imageUrls   String?          @default("") // JSON string array of up to 3 image URLs
-  status      String           @default("ACTIVE") // ACTIVE, CLAIM_REQUESTED, CLAIMED, CLOSED
+  type        String
+  imageUrls   String?          @default("")
+  status      String           @default("ACTIVE")
   ownerName   String
   studentId   String?
   createdAt   DateTime         @default(now())
@@ -690,7 +748,7 @@ model LostFoundClaim {
   studentId String
   student   Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
   message   String?
-  status    String        @default("PENDING") // PENDING, VERIFIED, CONFIRMED, REJECTED
+  status    String        @default("PENDING")
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
@@ -718,9 +776,46 @@ model SyncHistory {
   @@index([status])
 }
 
-// ============================================================
-// LMS V1 MODELS — STUDY MATERIALS, ASSIGNMENTS & SUBMISSIONS
-// ============================================================
+model StaffScope {
+  id         String   @id @default(uuid())
+  adminId    String
+  admin      Admin    @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  scopeType  String   @default("DEPARTMENT")
+  scopeValue String
+  createdAt  DateTime @default(now())
+
+  @@unique([adminId, scopeType, scopeValue])
+  @@index([adminId])
+  @@index([scopeValue])
+}
+
+model DepartmentAlias {
+  id        String   @id @default(uuid())
+  rawValue  String   @unique
+  canonical String
+  createdAt DateTime @default(now())
+
+  @@index([canonical])
+}
+
+model LibraryAudience {
+  id         String          @id @default(uuid())
+  materialId String
+  material   LibraryMaterial @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  targetType String
+  canonical  String?
+  year       String?
+  semester   String?
+  section    String?
+  studentId  String?
+  student    Student? @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@index([materialId])
+  @@index([canonical])
+  @@index([studentId])
+  @@index([targetType])
+}
 
 model StudyMaterial {
   id                 String    @id @default(uuid())
@@ -728,7 +823,7 @@ model StudyMaterial {
   subject            Subject?  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   title              String
   description        String?
-  category           String    @default("LECTURE_NOTE") // LECTURE_NOTE, PDF, PPT, DOCUMENT, LINK, OTHER
+  category           String    @default("LECTURE_NOTE")
   fileUrl            String?
   fileName           String?
   uploadedByAdminId  String?
@@ -770,7 +865,7 @@ model LmsAssignment {
   year               String?         @default("")
   semester           String?         @default("")
   section            String?         @default("ALL")
-  status             String          @default("PUBLISHED") // DRAFT, PUBLISHED, ARCHIVED
+  status             String          @default("PUBLISHED")
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
   submissions        LmsSubmission[]
@@ -792,7 +887,7 @@ model LmsSubmission {
   fileUrl            String?
   fileName           String?
   submittedAt        DateTime      @default(now())
-  status             String        @default("SUBMITTED") // SUBMITTED, LATE, GRADED
+  status             String        @default("SUBMITTED")
   marks              Float?
   grade              String?
   feedback           String?
@@ -810,3 +905,25 @@ model LmsSubmission {
   @@index([gradedByAdminId])
 }
 
+model Achievement {
+  id                 String    @id @default(uuid())
+  title              String
+  description        String
+  imageUrl           String?
+  achievementDate    DateTime  @default(now())
+  category           String    @default("OTHER")
+  branch             String
+  participantName    String?
+  createdByAdminId   String?
+  createdByAdmin     Admin?    @relation(fields: [createdByAdminId], references: [id], onDelete: SetNull)
+  createdByName      String?
+  createdByRole      String?
+  isPublished        Boolean   @default(true)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([branch])
+  @@index([isPublished])
+  @@index([category])
+  @@index([createdAt])
+}

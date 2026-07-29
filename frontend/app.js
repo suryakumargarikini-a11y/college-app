@@ -3386,6 +3386,163 @@ const pages = {
         }
     },
 
+    // ---- BRANCH ACHIEVEMENTS ----
+    achievements: {
+        render: () => `<body class="bg-background min-h-screen pb-32">
+            <main class="pt-20 px-6 max-w-2xl mx-auto">
+                <section class="mb-6 flex justify-between items-end">
+                    <div>
+                        <p class="text-[9px] font-bold uppercase tracking-[0.2em] text-on-surface-variant mb-1">Wall of Honor</p>
+                        <h2 class="text-3xl font-extrabold tracking-tight text-on-surface" style="font-family:'Plus Jakarta Sans',sans-serif">Achievements</h2>
+                    </div>
+                </section>
+
+                <!-- Scope Toggle & Search & Filters -->
+                <div class="space-y-4 mb-6">
+                    <div class="flex p-1 bg-surface-container-high rounded-2xl gap-1">
+                        <button class="ach-scope-btn flex-1 py-2 rounded-xl text-xs font-bold transition-all bg-primary text-white" data-scope="BRANCH" id="ach-scope-branch">My Branch</button>
+                        <button class="ach-scope-btn flex-1 py-2 rounded-xl text-xs font-bold transition-all text-on-surface-variant hover:text-on-surface" data-scope="ALL" id="ach-scope-all">All College</button>
+                    </div>
+
+                    <div class="relative">
+                        <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-[20px]">search</span>
+                        <input type="text" id="ach-search" placeholder="Search achievements, winners..." class="w-full pl-11 pr-4 py-3 bg-surface-container-low border border-outline-variant/10 rounded-2xl text-sm focus:outline-none focus:border-primary text-on-surface" />
+                    </div>
+
+                    <div class="flex gap-2 overflow-x-auto pb-2 hide-scrollbar momentum-scroll select-none" id="ach-category-filters">
+                        <button class="ach-cat-btn flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold bg-primary text-white" data-category="ALL">All</button>
+                        <button class="ach-cat-btn flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold bg-surface-container-high text-on-surface-variant" data-category="Student">Student</button>
+                        <button class="ach-cat-btn flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold bg-surface-container-high text-on-surface-variant" data-category="Faculty">Faculty</button>
+                        <button class="ach-cat-btn flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold bg-surface-container-high text-on-surface-variant" data-category="Research">Research</button>
+                        <button class="ach-cat-btn flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold bg-surface-container-high text-on-surface-variant" data-category="Sports">Sports</button>
+                        <button class="ach-cat-btn flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold bg-surface-container-high text-on-surface-variant" data-category="Competition">Competition</button>
+                        <button class="ach-cat-btn flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold bg-surface-container-high text-on-surface-variant" data-category="Placement">Placement</button>
+                        <button class="ach-cat-btn flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold bg-surface-container-high text-on-surface-variant" data-category="Cultural">Cultural</button>
+                    </div>
+                </div>
+
+                <div class="space-y-4" id="ach-list">
+                    <div class="h-24 bg-surface-container-low rounded-xl animate-pulse"></div>
+                </div>
+            </main>
+        </body>`,
+        afterRender: async () => {
+            toggleShell(true);
+            setActiveNav('services');
+            loading.show('Loading achievements...');
+
+            let currentScope = 'BRANCH';
+            let currentSearch = '';
+            let currentCategory = 'ALL';
+
+            const loadAndRender = async () => {
+                try {
+                    const res = await api.get(`/achievements?scope=${currentScope}`);
+                    const list = $('ach-list');
+                    if (!list) return;
+
+                    const data = res.data || {};
+                    const achievements = data.achievements || [];
+                    const studentBranch = data.studentBranch || 'Your Branch';
+
+                    const scopeBtnBranch = $('ach-scope-branch');
+                    if (scopeBtnBranch) {
+                        scopeBtnBranch.textContent = `My Branch (${studentBranch})`;
+                    }
+
+                    const filtered = achievements.filter(a => {
+                        const matchesSearch = !currentSearch ||
+                            [a.title, a.description, a.participantName, a.category].some(x => x?.toLowerCase().includes(currentSearch.toLowerCase()));
+                        const matchesCat = currentCategory === 'ALL' || a.category === currentCategory;
+                        return matchesSearch && matchesCat;
+                    });
+
+                    if (filtered.length === 0) {
+                        list.innerHTML = `<div class="text-center py-16 text-on-surface-variant">
+                            <span class="material-symbols-outlined text-5xl text-amber-500 mb-4 block">emoji_events</span>
+                            <p class="font-bold">No achievements found</p>
+                            <p class="text-xs text-slate-400 mt-1">There are no published achievements matching this view.</p>
+                        </div>`;
+                        return;
+                    }
+
+                    list.innerHTML = filtered.map(a => {
+                        const dateStr = new Date(a.achievementDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+                        return `<div class="p-5 rounded-2xl bg-surface-container-lowest border border-outline-variant/10 flex flex-col gap-3 animate-reveal shadow-sm hover:shadow-md transition-all">
+                            ${a.imageUrl ? `
+                                <div class="h-44 rounded-xl overflow-hidden bg-surface-container mb-1">
+                                    <img src="${a.imageUrl}" alt="${a.title}" class="w-full h-full object-cover" />
+                                </div>
+                            ` : ''}
+
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="px-2.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider bg-violet-100 text-violet-700 border border-violet-200">${a.category}</span>
+                                <span class="px-2.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200">${a.branch}</span>
+                            </div>
+
+                            <h4 class="font-extrabold text-on-surface text-base leading-snug">${a.title}</h4>
+                            <p class="text-xs text-on-surface-variant leading-relaxed">${a.description}</p>
+
+                            ${a.participantName ? `
+                                <div class="flex items-center gap-1.5 text-xs text-primary font-bold pt-1">
+                                    <span class="material-symbols-outlined text-[16px]">person</span>
+                                    <span>${a.participantName}</span>
+                                </div>
+                            ` : ''}
+
+                            <div class="flex items-center justify-between border-t border-outline-variant/5 pt-3 mt-1 text-[10px] text-on-surface-variant font-medium">
+                                <span>${dateStr}</span>
+                                <span>Published by ${a.createdByName || 'Faculty'}</span>
+                            </div>
+                        </div>`;
+                    }).join('');
+                } catch (err) {
+                    console.error('[Achievements] load failed:', err);
+                    const list = $('ach-list');
+                    if (list) {
+                        list.innerHTML = `<div class="text-center py-16 text-on-surface-variant">
+                            <span class="material-symbols-outlined text-5xl text-rose-500 mb-4 block">error</span>
+                            <p class="font-bold">Failed to load achievements</p>
+                        </div>`;
+                    }
+                }
+            };
+
+            const searchInput = $('ach-search');
+            searchInput?.addEventListener('input', (e) => {
+                currentSearch = e.target.value;
+                loadAndRender();
+            });
+
+            document.querySelectorAll('.ach-scope-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    haptic();
+                    document.querySelectorAll('.ach-scope-btn').forEach(b => b.className = 'ach-scope-btn flex-1 py-2 rounded-xl text-xs font-bold transition-all text-on-surface-variant hover:text-on-surface');
+                    e.currentTarget.className = 'ach-scope-btn flex-1 py-2 rounded-xl text-xs font-bold transition-all bg-primary text-white';
+                    currentScope = e.currentTarget.dataset.scope;
+                    loadAndRender();
+                });
+            });
+
+            document.querySelectorAll('.ach-cat-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    haptic();
+                    document.querySelectorAll('.ach-cat-btn').forEach(b => b.className = 'ach-cat-btn flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold bg-surface-container-high text-on-surface-variant');
+                    e.currentTarget.className = 'ach-cat-btn flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold bg-primary text-white';
+                    currentCategory = e.currentTarget.dataset.category;
+                    loadAndRender();
+                });
+            });
+
+            try {
+                await loadAndRender();
+            } finally {
+                loading.hide();
+            }
+        }
+    },
+
     // ---- ASSIGNMENTS & LMS ----
     assignments: {
         render: () => `<body class="bg-background min-h-screen pb-32">
@@ -6796,7 +6953,8 @@ const router = {
             '/announcements': pages.announcements,
             '/lost-found': pages['lost-found'],
             '/help': pages.help,
-            '/lms': pages.lms
+            '/lms': pages.lms,
+            '/achievements': pages.achievements
         };
     },
 

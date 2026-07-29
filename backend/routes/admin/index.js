@@ -18,5 +18,6 @@ router.use('/students',      require('./students'));
 router.use('/analytics',     require('./analytics'));
 router.use('/staff',         require('./staff'));
 router.use('/lms',           require('./lms'));
+router.use('/achievements',  require('./achievements'));
 
 module.exports = router;

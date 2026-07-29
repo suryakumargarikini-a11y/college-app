@@ -527,6 +527,7 @@ const notificationsRoutes = require('./routes/notifications');
 const examsRoutes       = require('./routes/exams');
 const lmsRoutes         = require('./routes/lms');
 const libraryRoutes     = require('./routes/library');
+const achievementsRoutes = require('./routes/achievements');
 
 const socketService = require('./services/socketService');
 const syncQueue     = require('./services/syncQueue');
@@ -555,6 +556,7 @@ app.use('/api/notifications', notificationsRoutes);
 app.use('/api/exams',         examsRoutes);
 app.use('/api/lms',           lmsRoutes);
 app.use('/api/library',       libraryRoutes);
+app.use('/api/achievements',  achievementsRoutes);
 
 // ─── Admin Portal Routes ──────────────────────────────────────────────────────
 const adminRoutes = require('./routes/admin/index');
