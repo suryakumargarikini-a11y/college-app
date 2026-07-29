@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
 const sizeMap = {
   sm: 'max-w-sm',
@@ -10,9 +11,11 @@ const sizeMap = {
 /**
  * Modal — accessible, animated modal dialog.
  * Keyboard: ESC to close, Tab/Shift+Tab trapped inside.
+ * Uses React Portal to mount directly under document.body for true viewport-centered positioning.
  */
-export default function Modal({ isOpen, onClose, title, children, size = 'md' }) {
+export default function Modal({ isOpen, onClose, title, children, footer, size = 'md' }) {
   const panelRef = useRef(null);
+  const overlayRef = useRef(null);
 
   /* Body scroll lock */
   useEffect(() => {
@@ -59,24 +62,32 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' })
 
   const sizeClass = sizeMap[size] || sizeMap.md;
 
-  return (
+  const handleOverlayClick = (e) => {
+    if (e.target === overlayRef.current) {
+      onClose();
+    }
+  };
+
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto"
+      ref={overlayRef}
+      onClick={handleOverlayClick}
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"
     >
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/40 backdrop-blur-[2px]"
-        onClick={onClose}
+        className="fixed inset-0 bg-black/40 backdrop-blur-[2px] pointer-events-none"
         aria-hidden="true"
       />
 
       {/* Panel */}
       <div
         ref={panelRef}
-        className={`relative bg-white rounded-xl shadow-2xl w-full ${sizeClass} max-h-[calc(100dvh-2rem)] flex flex-col modal-animate my-auto`}
+        className={`relative bg-white rounded-xl shadow-2xl w-full ${sizeClass} max-h-[calc(100dvh-2rem)] flex flex-col modal-animate my-auto z-10`}
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
@@ -91,8 +102,16 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' })
         </div>
 
         {/* Body */}
-        <div className="overflow-y-auto flex-1 min-h-0 px-5 py-5">{children}</div>
+        <div className="overflow-y-auto flex-1 min-h-0 px-5 py-5 overscroll-contain">{children}</div>
+
+        {/* Optional Sticky Footer */}
+        {footer && (
+          <div className="px-5 py-3.5 bg-gray-50/80 border-t border-gray-100 rounded-b-xl flex-shrink-0 flex items-center justify-end gap-3">
+            {footer}
+          </div>
+        )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -510,7 +510,25 @@ export default function ExitPasses() {
       {/* ── MODALS ── */}
 
       {/* Individual Approve Modal */}
-      <Modal isOpen={!!approveTarget && !approvedOtp} onClose={() => setApproveTarget(null)} title="Approve Exit Pass" size="sm">
+      <Modal 
+        isOpen={!!approveTarget && !approvedOtp} 
+        onClose={() => setApproveTarget(null)} 
+        title="Approve Exit Pass" 
+        size="sm"
+        footer={
+          <>
+            <button onClick={() => setApproveTarget(null)} className="btn-secondary">Cancel</button>
+            <button 
+              onClick={handleApprove} 
+              className="btn-success flex items-center gap-2" 
+              disabled={approving || (studentQuota && studentQuota.remaining <= 0)}
+            >
+              {approving && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+              {approving ? 'Approving…' : 'Approve & Generate OTP'}
+            </button>
+          </>
+        }
+      >
         <div className="space-y-4">
           <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 space-y-2">
             <div>
@@ -554,17 +572,6 @@ export default function ExitPasses() {
             />
           </div>
           <p className="text-xs text-gray-500">Approving will generate a secure QR token & OTP for the student.</p>
-          <div className="flex gap-3 justify-end">
-            <button onClick={() => setApproveTarget(null)} className="btn-secondary">Cancel</button>
-            <button 
-              onClick={handleApprove} 
-              className="btn-success flex items-center gap-2" 
-              disabled={approving || (studentQuota && studentQuota.remaining <= 0)}
-            >
-              {approving && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-              {approving ? 'Approving…' : 'Approve & Generate OTP'}
-            </button>
-          </div>
         </div>
       </Modal>
 
@@ -587,7 +594,21 @@ export default function ExitPasses() {
       </Modal>
 
       {/* Individual Reject Modal */}
-      <Modal isOpen={!!rejectTarget} onClose={() => setRejectTarget(null)} title="Reject Exit Pass" size="sm">
+      <Modal 
+        isOpen={!!rejectTarget} 
+        onClose={() => setRejectTarget(null)} 
+        title="Reject Exit Pass" 
+        size="sm"
+        footer={
+          <>
+            <button onClick={() => setRejectTarget(null)} className="btn-secondary">Cancel</button>
+            <button onClick={handleReject} className="btn-danger flex items-center gap-2" disabled={rejecting || !rejectReason.trim()}>
+              {rejecting && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+              {rejecting ? 'Rejecting…' : 'Reject Pass'}
+            </button>
+          </>
+        }
+      >
         <div className="space-y-4">
           <div className="bg-red-50 border border-red-100 rounded-xl p-4">
             <p className="text-sm font-bold text-red-900">{rejectTarget?.student?.name}</p>
@@ -598,18 +619,25 @@ export default function ExitPasses() {
             <label className="block text-xs font-semibold text-gray-600 mb-1.5">Reason for Rejection *</label>
             <textarea className="input-field h-24 resize-none" placeholder="Provide a reason for rejection…" value={rejectReason} onChange={e => setRejectReason(e.target.value)} autoFocus />
           </div>
-          <div className="flex gap-3 justify-end">
-            <button onClick={() => setRejectTarget(null)} className="btn-secondary">Cancel</button>
-            <button onClick={handleReject} className="btn-danger flex items-center gap-2" disabled={rejecting || !rejectReason.trim()}>
-              {rejecting && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-              {rejecting ? 'Rejecting…' : 'Reject Pass'}
-            </button>
-          </div>
         </div>
       </Modal>
 
       {/* Group Approve Confirmation Modal */}
-      <Modal isOpen={!!approveGroupTarget} onClose={() => setApproveGroupTarget(null)} title="Approve Group Exit Pass Request" size="sm">
+      <Modal 
+        isOpen={!!approveGroupTarget} 
+        onClose={() => setApproveGroupTarget(null)} 
+        title="Approve Group Exit Pass Request" 
+        size="sm"
+        footer={
+          <>
+            <button onClick={() => setApproveGroupTarget(null)} className="btn-secondary">Cancel</button>
+            <button onClick={handleApproveGroup} className="btn-success flex items-center gap-2" disabled={approvingGroup}>
+              {approvingGroup && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+              {approvingGroup ? 'Approving Group…' : 'Approve Group (Atomic)'}
+            </button>
+          </>
+        }
+      >
         <div className="space-y-4">
           <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
             <p className="text-sm font-bold text-blue-900">{approveGroupTarget?.groupName}</p>
@@ -628,18 +656,25 @@ export default function ExitPasses() {
           <p className="text-xs text-red-600 font-semibold">
             Warning: The system will atomically verify the remaining quota of all group members. If any member has exceeded their 10 approved passes, the group approval will be rejected.
           </p>
-          <div className="flex gap-3 justify-end">
-            <button onClick={() => setApproveGroupTarget(null)} className="btn-secondary">Cancel</button>
-            <button onClick={handleApproveGroup} className="btn-success flex items-center gap-2" disabled={approvingGroup}>
-              {approvingGroup && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-              {approvingGroup ? 'Approving Group…' : 'Approve Group (Atomic)'}
-            </button>
-          </div>
         </div>
       </Modal>
 
       {/* Group Reject Modal */}
-      <Modal isOpen={!!rejectGroupTarget} onClose={() => setRejectGroupTarget(null)} title="Reject Group Exit Request" size="sm">
+      <Modal 
+        isOpen={!!rejectGroupTarget} 
+        onClose={() => setRejectGroupTarget(null)} 
+        title="Reject Group Exit Request" 
+        size="sm"
+        footer={
+          <>
+            <button onClick={() => setRejectGroupTarget(null)} className="btn-secondary">Cancel</button>
+            <button onClick={handleRejectGroup} className="btn-danger flex items-center gap-2" disabled={rejectingGroup || !groupRejectReason.trim()}>
+              {rejectingGroup && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+              {rejectingGroup ? 'Reject Entire Group' : 'Reject Entire Group'}
+            </button>
+          </>
+        }
+      >
         <div className="space-y-4">
           <div className="bg-red-50 border border-red-100 rounded-xl p-4">
             <p className="text-sm font-bold text-red-900">{rejectGroupTarget?.groupName}</p>
@@ -648,13 +683,6 @@ export default function ExitPasses() {
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1.5">Reason for Group Rejection *</label>
             <textarea className="input-field h-24 resize-none" placeholder="Provide a reason for group rejection…" value={groupRejectReason} onChange={e => setGroupRejectReason(e.target.value)} autoFocus />
-          </div>
-          <div className="flex gap-3 justify-end">
-            <button onClick={() => setRejectGroupTarget(null)} className="btn-secondary">Cancel</button>
-            <button onClick={handleRejectGroup} className="btn-danger flex items-center gap-2" disabled={rejectingGroup || !groupRejectReason.trim()}>
-              {rejectingGroup && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-              {rejectingGroup ? 'Rejecting Group…' : 'Reject Entire Group'}
-            </button>
           </div>
         </div>
       </Modal>
