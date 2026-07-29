@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../lib/api';
+import { authStore } from '../store/authStore';
 
 /* ── Helpers ──────────────────────────────────────────────────────────────── */
 function avatar(name) {
@@ -13,6 +14,7 @@ function avatar(name) {
 }
 
 function attColor(pct) {
+  if (pct == null) return 'text-gray-600 bg-gray-50 border-gray-200';
   if (pct >= 80) return 'text-emerald-600 bg-emerald-50 border-emerald-200';
   if (pct >= 75) return 'text-blue-600 bg-blue-50 border-blue-200';
   if (pct >= 65) return 'text-amber-600 bg-amber-50 border-amber-200';
@@ -24,7 +26,7 @@ function Badge({ label, cls }) {
 }
 
 /* ── Drawer detail panel ──────────────────────────────────────────────────── */
-function StudentDrawer({ student, onClose }) {
+function StudentDrawer({ student, onClose, isWarden }) {
   const [detail, setDetail]   = useState(null);
   const [tab, setTab]         = useState('profile');
   const [loading, setLoading] = useState(true);
@@ -41,7 +43,7 @@ function StudentDrawer({ student, onClose }) {
 
   if (!student) return null;
   const { initials, colorClass } = avatar(student.name);
-  const TABS = ['profile', 'academics', 'attendance', 'fees', 'marks', 'activity'];
+  const TABS = isWarden ? ['profile'] : ['profile', 'academics', 'attendance', 'fees', 'marks', 'activity'];
 
   return (
     <>
@@ -61,8 +63,8 @@ function StudentDrawer({ student, onClose }) {
                 <p className="text-xs opacity-80">{student.roll}</p>
                 <div className="flex gap-2 mt-1.5">
                   <span className="px-2 py-0.5 bg-white/20 rounded text-[10px] font-semibold">{student.branch}</span>
-                  <span className="px-2 py-0.5 bg-white/20 rounded text-[10px] font-semibold">Year {student.year}</span>
-                  <span className="px-2 py-0.5 bg-white/20 rounded text-[10px] font-semibold">Sec {student.section}</span>
+                  <span className="px-2 py-0.5 bg-white/20 rounded text-[10px] font-semibold">Year {student.year || '—'}</span>
+                  <span className="px-2 py-0.5 bg-white/20 rounded text-[10px] font-semibold">Sec {student.section || '—'}</span>
                 </div>
               </div>
             </div>
@@ -71,18 +73,34 @@ function StudentDrawer({ student, onClose }) {
             </button>
           </div>
           {/* Quick KPIs */}
-          <div className="grid grid-cols-3 gap-2 mt-4">
-            {[
-              { label: 'CGPA',      value: parseFloat(student.cgpa || 0).toFixed(2) },
-              { label: 'Attendance',value: `${(student.avgPct || 0).toFixed(1)}%`  },
-              { label: 'Fee Due',   value: `₹${(student.feesDue || 0).toLocaleString('en-IN')}` },
-            ].map(k => (
-              <div key={k.label} className="bg-white/15 rounded-lg p-2 text-center">
-                <p className="text-[9px] font-bold uppercase opacity-70">{k.label}</p>
-                <p className="text-sm font-black">{k.value}</p>
-              </div>
-            ))}
-          </div>
+          {!isWarden && (
+            <div className="grid grid-cols-3 gap-2 mt-4">
+              {[
+                { label: 'CGPA',      value: student.cgpa != null ? parseFloat(student.cgpa).toFixed(2) : '—' },
+                { label: 'Attendance',value: student.avgPct != null ? `${student.avgPct.toFixed(1)}%` : '—' },
+                { label: 'Fee Due',   value: student.feesDue != null ? `₹${student.feesDue.toLocaleString('en-IN')}` : '—' },
+              ].map(k => (
+                <div key={k.label} className="bg-white/15 rounded-lg p-2 text-center">
+                  <p className="text-[9px] font-bold uppercase opacity-70">{k.label}</p>
+                  <p className="text-sm font-black">{k.value}</p>
+                </div>
+              ))}
+            </div>
+          )}
+          {isWarden && (
+            <div className="grid grid-cols-3 gap-2 mt-4">
+              {[
+                { label: 'Hostel',   value: student.hostel || 'Campus Housing' },
+                { label: 'Room No',  value: student.roomNo || '—' },
+                { label: 'Gender',   value: student.gender || '—' },
+              ].map(k => (
+                <div key={k.label} className="bg-white/15 rounded-lg p-2 text-center">
+                  <p className="text-[9px] font-bold uppercase opacity-70">{k.label}</p>
+                  <p className="text-sm font-black truncate">{k.value}</p>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Tabs */}
@@ -100,7 +118,17 @@ function StudentDrawer({ student, onClose }) {
           {loading && <div className="space-y-2">{Array.from({length:6}).map((_,i)=><div key={i} className="skeleton h-10 rounded-xl"/>)}</div>}
           {!loading && tab === 'profile' && (
             <dl className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
-              {[
+              {(isWarden ? [
+                ['Name',        student.name],
+                ['Roll Number', student.roll],
+                ['Branch',      student.branch],
+                ['Year',        student.year],
+                ['Semester',    student.semester],
+                ['Section',     student.section],
+                ['Hostel',      student.hostel || 'Campus Housing'],
+                ['Room No',     student.roomNo || '—'],
+                ['Gender',      student.gender || '—'],
+              ] : [
                 ['Email',       student.email],
                 ['Phone',       student.phone],
                 ['DOB',         student.dob],
@@ -118,7 +146,7 @@ function StudentDrawer({ student, onClose }) {
                 ['Scholarship', student.scholarship || 'None'],
                 ['Seat Type',   student.seatType || '—'],
                 ['Entrance',    student.entranceType || '—'],
-              ].map(([k, v]) => (
+              ]).map(([k, v]) => (
                 <div key={k}>
                   <dt className="text-[10px] font-bold text-gray-400 uppercase">{k}</dt>
                   <dd className="font-semibold text-gray-800 mt-0.5 truncate">{v || '—'}</dd>
@@ -131,7 +159,7 @@ function StudentDrawer({ student, onClose }) {
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-blue-50 rounded-xl p-3 text-center border border-blue-100">
                   <p className="text-[10px] font-bold text-blue-400 uppercase">CGPA</p>
-                  <p className="text-2xl font-black text-blue-700">{parseFloat(student.cgpa||0).toFixed(2)}</p>
+                  <p className="text-2xl font-black text-blue-700">{student.cgpa != null ? parseFloat(student.cgpa).toFixed(2) : '—'}</p>
                 </div>
                 <div className="bg-amber-50 rounded-xl p-3 text-center border border-amber-100">
                   <p className="text-[10px] font-bold text-amber-400 uppercase">Backlogs</p>
@@ -231,14 +259,20 @@ function StudentDrawer({ student, onClose }) {
         </div>
 
         {/* Footer actions */}
-        <div className="p-4 border-t flex gap-2 flex-shrink-0 bg-gray-50">
-          <a href={`mailto:${student.email}`} className="btn-secondary flex-1 text-xs text-center flex items-center justify-center gap-1.5">
-            <span className="material-symbols-outlined text-[15px]">mail</span> Email
-          </a>
-          <a href={`tel:${student.phone}`} className="btn-secondary flex-1 text-xs text-center flex items-center justify-center gap-1.5">
-            <span className="material-symbols-outlined text-[15px]">call</span> Call
-          </a>
-        </div>
+        {!isWarden && (
+          <div className="p-4 border-t flex gap-2 flex-shrink-0 bg-gray-50">
+            {student.email && (
+              <a href={`mailto:${student.email}`} className="btn-secondary flex-1 text-xs text-center flex items-center justify-center gap-1.5">
+                <span className="material-symbols-outlined text-[15px]">mail</span> Email
+              </a>
+            )}
+            {student.phone && (
+              <a href={`tel:${student.phone}`} className="btn-secondary flex-1 text-xs text-center flex items-center justify-center gap-1.5">
+                <span className="material-symbols-outlined text-[15px]">call</span> Call
+              </a>
+            )}
+          </div>
+        )}
       </div>
     </>
   );
@@ -248,11 +282,15 @@ function StudentDrawer({ student, onClose }) {
 const ITEMS_PER_PAGE = 25;
 
 export default function Students() {
+  const userRole  = authStore.getUser()?.role || 'SUPER_ADMIN';
+  const isWarden  = userRole === 'HOSTEL_WARDEN';
+
   const [students, setStudents] = useState([]);
   const [summary, setSummary]   = useState({});
   const [pagination, setPagination] = useState({ page: 1, total: 0, totalPages: 1 });
   const [loading, setLoading]   = useState(true);
   const [selected, setSelected] = useState(null);
+  const [fetchError, setFetchError] = useState(null);
 
   const [filters, setFilters] = useState({
     search: '', branch: '', year: '', semester: '',
@@ -265,14 +303,17 @@ export default function Students() {
 
   const load = useCallback(async (f = filters, p = page) => {
     setLoading(true);
+    setFetchError(null);
     try {
       const params = new URLSearchParams({ page: p, limit: ITEMS_PER_PAGE, ...f });
       const res = await api.get(`/admin/students?${params}`);
       setStudents(res.data.students || []);
-      setPagination(res.data.pagination || {});
+      setPagination(res.data.pagination || { page: p, total: (res.data.students || []).length, totalPages: 1 });
       setSummary(res.data.summary || {});
     } catch (e) {
-      console.error(e);
+      console.error('[Students Page] Fetch error:', e);
+      setFetchError(e.response?.data?.error || 'Unable to load hostel students.');
+      setStudents([]);
     } finally {
       setLoading(false);
     }
@@ -294,11 +335,21 @@ export default function Students() {
   });
 
   const exportCSV = () => {
-    const rows = [['Name','Roll','Branch','Year','Semester','CGPA','Attendance%','Fees Due','Placement','Hostel','Email','Phone']];
-    students.forEach(s => rows.push([s.name,s.roll,s.branch,s.year,s.semester,s.cgpa,s.avgPct,s.feesDue,s.placementStatus,s.hostel||'Day Scholar',s.email,s.phone]));
+    const rows = isWarden
+      ? [['Name','Roll','Branch','Year','Semester','Section','Hostel','Room No','Gender']]
+      : [['Name','Roll','Branch','Year','Semester','CGPA','Attendance%','Fees Due','Placement','Hostel','Email','Phone']];
+    
+    students.forEach(s => {
+      if (isWarden) {
+        rows.push([s.name, s.roll, s.branch, s.year, s.semester, s.section, s.hostel || 'Hostel Resident', s.roomNo || '—', s.gender || '—']);
+      } else {
+        rows.push([s.name, s.roll, s.branch, s.year, s.semester, s.cgpa, s.avgPct, s.feesDue, s.placementStatus, s.hostel||'Day Scholar', s.email, s.phone]);
+      }
+    });
+
     const csv = rows.map(r => r.join(',')).join('\n');
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
-    a.download = `SITAM_Students_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+    a.download = `SITAM_${isWarden ? 'Hostel_Students' : 'Students'}_${new Date().toISOString().slice(0,10)}.csv`; a.click();
   };
 
   const BRANCHES = ['CSE','ECE','IT','MECH','CIVIL','EEE','AIML'];
@@ -311,9 +362,16 @@ export default function Students() {
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center">
         <div>
-          <h2 className="text-xl font-black text-gray-900">Student Registry</h2>
+          <h2 className="text-xl font-black text-gray-900">
+            {isWarden ? 'Hostel Students Registry' : 'Student Registry'}
+          </h2>
           <p className="text-xs text-gray-400 mt-0.5">
-            {loading ? 'Loading…' : `${pagination.total.toLocaleString('en-IN')} students across ${summary.avgCgpa ? `Avg CGPA ${summary.avgCgpa}` : 'all departments'}`}
+            {loading
+              ? 'Loading…'
+              : isWarden
+                ? `${(pagination.total || students.length).toLocaleString('en-IN')} hostel resident students assigned to campus housing`
+                : `${(pagination.total || students.length).toLocaleString('en-IN')} students across ${summary.avgCgpa ? `Avg CGPA ${summary.avgCgpa}` : 'all departments'}`
+            }
           </p>
         </div>
         <div className="flex gap-2">
@@ -327,20 +385,37 @@ export default function Students() {
       </div>
 
       {/* ── Summary KPI row ──────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-        {[
-          { label: 'Total Students',  value: (summary.total || 0).toLocaleString(),         cls: 'from-blue-50 to-blue-100 text-blue-700' },
-          { label: 'Avg CGPA',        value: summary.avgCgpa || '—',                         cls: 'from-amber-50 to-yellow-100 text-amber-700' },
-          { label: 'Avg Attendance',  value: `${summary.avgAttendance || 0}%`,               cls: 'from-emerald-50 to-green-100 text-emerald-700' },
-          { label: 'Hostellers',      value: (summary.hostellers || 0).toLocaleString(),     cls: 'from-violet-50 to-purple-100 text-violet-700' },
-          { label: 'Day Scholars',    value: (summary.dayScholars || 0).toLocaleString(),    cls: 'from-indigo-50 to-blue-100 text-indigo-700' },
-        ].map(k => (
-          <div key={k.label} className={`rounded-xl p-3 bg-gradient-to-br ${k.cls} border border-white/60`}>
-            <p className="text-[10px] font-bold uppercase tracking-wide opacity-70">{k.label}</p>
-            <p className="text-lg font-black">{k.value}</p>
-          </div>
-        ))}
-      </div>
+      {!isWarden && (
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          {[
+            { label: 'Total Students',  value: (summary.total || 0).toLocaleString(),         cls: 'from-blue-50 to-blue-100 text-blue-700' },
+            { label: 'Avg CGPA',        value: summary.avgCgpa || '—',                         cls: 'from-amber-50 to-yellow-100 text-amber-700' },
+            { label: 'Avg Attendance',  value: `${summary.avgAttendance || 0}%`,               cls: 'from-emerald-50 to-green-100 text-emerald-700' },
+            { label: 'Hostellers',      value: (summary.hostellers || 0).toLocaleString(),     cls: 'from-violet-50 to-purple-100 text-violet-700' },
+            { label: 'Day Scholars',    value: (summary.dayScholars || 0).toLocaleString(),    cls: 'from-indigo-50 to-blue-100 text-indigo-700' },
+          ].map(k => (
+            <div key={k.label} className={`rounded-xl p-3 bg-gradient-to-br ${k.cls} border border-white/60`}>
+              <p className="text-[10px] font-bold uppercase tracking-wide opacity-70">{k.label}</p>
+              <p className="text-lg font-black">{k.value}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {isWarden && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {[
+            { label: 'Total Hostel Residents', value: (summary.hostellers || summary.total || students.length || 0).toLocaleString(), cls: 'from-violet-50 to-purple-100 text-violet-700' },
+            { label: 'Hostel Housing',         value: 'Campus Resident',                                                               cls: 'from-blue-50 to-blue-100 text-blue-700' },
+            { label: 'Day Scholars',           value: '0 (Read Only)',                                                                 cls: 'from-gray-50 to-gray-100 text-gray-600' },
+          ].map(k => (
+            <div key={k.label} className={`rounded-xl p-3 bg-gradient-to-br ${k.cls} border border-white/60`}>
+              <p className="text-[10px] font-bold uppercase tracking-wide opacity-70">{k.label}</p>
+              <p className="text-lg font-black">{k.value}</p>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* ── Filters ───────────────────────────────────────────────────────── */}
       <div className="card p-4 space-y-3">
@@ -348,7 +423,7 @@ export default function Students() {
         <div className="relative">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-[18px] text-gray-400">search</span>
           <input
-            type="text" placeholder="Search by name, roll number, email, or admission no…"
+            type="text" placeholder="Search by student name, roll number, or room number…"
             value={filters.search}
             onChange={e => {
               const v = e.target.value;
@@ -366,10 +441,12 @@ export default function Students() {
             { key: 'year',      label: 'Year',      opts: ['', ...YEARS],                            labels: ['All Years', ...YEARS.map(y=>`Year ${y}`)] },
             { key: 'semester',  label: 'Semester',  opts: ['', ...SEMS],                             labels: ['All Sem', ...SEMS.map(s=>`Sem ${s}`)] },
             { key: 'section',   label: 'Section',   opts: ['', ...SECS],                             labels: ['All Sec', ...SECS.map(s=>`Sec ${s}`)] },
-            { key: 'hostel',    label: 'Hostel',    opts: ['', 'yes', 'no'],                         labels: ['All', 'Hostellers', 'Day Scholars'] },
-            { key: 'feeStatus', label: 'Fee',       opts: ['', 'PAID', 'UNPAID', 'PARTIAL'],         labels: ['All Fee', 'Paid', 'Unpaid', 'Partial'] },
-            { key: 'attRisk',   label: 'Attendance',opts: ['', 'SAFE', 'RISK', 'CRITICAL'],          labels: ['All', 'Safe (≥75%)', 'At Risk (<75%)', 'Critical (<65%)'] },
-            { key: 'placement', label: 'Placement', opts: ['', 'Placed', 'Not Placed'],              labels: ['All', 'Placed', 'Not Placed'] },
+            ...(!isWarden ? [
+              { key: 'hostel',    label: 'Hostel',    opts: ['', 'yes', 'no'],                         labels: ['All', 'Hostellers', 'Day Scholars'] },
+              { key: 'feeStatus', label: 'Fee',       opts: ['', 'PAID', 'UNPAID', 'PARTIAL'],         labels: ['All Fee', 'Paid', 'Unpaid', 'Partial'] },
+              { key: 'attRisk',   label: 'Attendance',opts: ['', 'SAFE', 'RISK', 'CRITICAL'],          labels: ['All', 'Safe (≥75%)', 'At Risk (<75%)', 'Critical (<65%)'] },
+              { key: 'placement', label: 'Placement', opts: ['', 'Placed', 'Not Placed'],              labels: ['All', 'Placed', 'Not Placed'] },
+            ] : [])
           ].map(f => (
             <select key={f.key} value={filters[f.key]}
               onChange={e => setFilter(f.key, e.target.value)}
@@ -389,7 +466,14 @@ export default function Students() {
           <table className="min-w-full divide-y divide-gray-200 text-sm">
             <thead className="bg-gray-50">
               <tr>
-                {[
+                {(isWarden ? [
+                  { key: 'name',     label: 'Student' },
+                  { key: 'branch',   label: 'Branch'  },
+                  { key: 'year',     label: 'Year/Sem' },
+                  { key: 'hostel',   label: 'Hostel Building' },
+                  { key: 'roomNo',   label: 'Room No' },
+                  { key: 'gender',   label: 'Gender'  },
+                ] : [
                   { key: 'name',     label: 'Student' },
                   { key: 'branch',   label: 'Branch'  },
                   { key: 'year',     label: 'Year/Sem' },
@@ -399,7 +483,7 @@ export default function Students() {
                   { key: 'backlogCount', label: 'Backlogs' },
                   { key: 'placementStatus', label: 'Placement' },
                   { key: 'hostel',   label: 'Hostel'  },
-                ].map(col => (
+                ]).map(col => (
                   <th key={col.key}
                     onClick={() => { setSortField(col.key); setSortDir(d => d === 'asc' ? 'desc' : 'asc'); }}
                     className="px-4 py-2.5 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wide cursor-pointer hover:bg-gray-100 whitespace-nowrap">
@@ -414,7 +498,7 @@ export default function Students() {
               {loading && Array.from({length:8}).map((_,i)=>(
                 <tr key={i}><td colSpan={10}><div className="skeleton h-10 mx-4 my-2 rounded" /></td></tr>
               ))}
-              {!loading && sorted.map(s => {
+              {!loading && !fetchError && sorted.map(s => {
                 const { initials, colorClass } = avatar(s.name);
                 return (
                   <tr key={s.id}
@@ -434,34 +518,51 @@ export default function Students() {
                       </div>
                     </td>
                     <td className="px-4 py-2"><span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-[10px] font-bold">{s.branch}</span></td>
-                    <td className="px-4 py-2 text-xs text-gray-600">Y{s.year} / S{s.semester}</td>
-                    <td className="px-4 py-2">
-                      <span className={`font-bold text-sm ${parseFloat(s.cgpa) >= 8 ? 'text-emerald-600' : parseFloat(s.cgpa) >= 6 ? 'text-blue-600' : 'text-red-600'}`}>
-                        {parseFloat(s.cgpa || 0).toFixed(2)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2">
-                      <Badge label={`${s.avgPct.toFixed(1)}%`} cls={attColor(s.avgPct)} />
-                    </td>
-                    <td className="px-4 py-2 text-xs">
-                      {s.feesDue > 0
-                        ? <span className="text-red-600 font-bold">₹{s.feesDue.toLocaleString('en-IN')}</span>
-                        : <span className="text-emerald-600 font-bold">Paid</span>}
-                    </td>
-                    <td className="px-4 py-2">
-                      {s.backlogCount > 0
-                        ? <span className="px-2 py-0.5 bg-red-50 text-red-600 border border-red-200 rounded-full text-[10px] font-bold">{s.backlogCount}</span>
-                        : <span className="text-gray-400 text-xs">—</span>}
-                    </td>
-                    <td className="px-4 py-2">
-                      <Badge label={s.placementStatus}
-                        cls={s.placementStatus === 'Placed'
-                          ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
-                          : 'text-gray-600 bg-gray-100 border-gray-200'} />
-                    </td>
-                    <td className="px-4 py-2 text-xs text-gray-500">
-                      {(s.hostel||'').toLowerCase() === 'yes' ? 'Hostel' : 'Day Scholar'}
-                    </td>
+                    <td className="px-4 py-2 text-xs text-gray-600">Y{s.year || '—'} / S{s.semester || '—'}</td>
+                    
+                    {/* Role-Specific Cells */}
+                    {!isWarden && (
+                      <>
+                        <td className="px-4 py-2">
+                          <span className={`font-bold text-sm ${parseFloat(s.cgpa) >= 8 ? 'text-emerald-600' : parseFloat(s.cgpa) >= 6 ? 'text-blue-600' : 'text-red-600'}`}>
+                            {s.cgpa != null ? parseFloat(s.cgpa || 0).toFixed(2) : '—'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2">
+                          <Badge label={s.avgPct != null ? `${s.avgPct.toFixed(1)}%` : '—'} cls={attColor(s.avgPct)} />
+                        </td>
+                        <td className="px-4 py-2 text-xs">
+                          {s.feesDue != null ? (
+                            s.feesDue > 0
+                              ? <span className="text-red-600 font-bold">₹{s.feesDue.toLocaleString('en-IN')}</span>
+                              : <span className="text-emerald-600 font-bold">Paid</span>
+                          ) : '—'}
+                        </td>
+                        <td className="px-4 py-2">
+                          {s.backlogCount != null && s.backlogCount > 0
+                            ? <span className="px-2 py-0.5 bg-red-50 text-red-600 border border-red-200 rounded-full text-[10px] font-bold">{s.backlogCount}</span>
+                            : <span className="text-gray-400 text-xs">—</span>}
+                        </td>
+                        <td className="px-4 py-2">
+                          <Badge label={s.placementStatus || '—'}
+                            cls={s.placementStatus === 'Placed'
+                              ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                              : 'text-gray-600 bg-gray-100 border-gray-200'} />
+                        </td>
+                        <td className="px-4 py-2 text-xs text-gray-500">
+                          {(s.hostel||'').toLowerCase() === 'yes' ? 'Hostel' : 'Day Scholar'}
+                        </td>
+                      </>
+                    )}
+
+                    {isWarden && (
+                      <>
+                        <td className="px-4 py-2 text-xs text-purple-700 font-semibold">{s.hostel || 'Hostel Resident'}</td>
+                        <td className="px-4 py-2 text-xs font-bold text-gray-800">{s.roomNo || '—'}</td>
+                        <td className="px-4 py-2 text-xs text-gray-600">{s.gender || '—'}</td>
+                      </>
+                    )}
+
                     <td className="px-4 py-2">
                       <button className="btn-icon text-[14px]" onClick={e => { e.stopPropagation(); setSelected(s); }}>
                         <span className="material-symbols-outlined">chevron_right</span>
@@ -470,10 +571,18 @@ export default function Students() {
                   </tr>
                 );
               })}
-              {!loading && sorted.length === 0 && (
+
+              {fetchError && (
+                <tr><td colSpan={10} className="py-12 text-center text-sm text-red-500">
+                  <span className="material-symbols-outlined text-3xl block mb-2">error</span>
+                  {fetchError}
+                </td></tr>
+              )}
+
+              {!loading && !fetchError && sorted.length === 0 && (
                 <tr><td colSpan={10} className="py-12 text-center text-sm text-gray-400">
                   <span className="material-symbols-outlined text-3xl block mb-2">search_off</span>
-                  No students match the current filters
+                  {isWarden ? 'No hostel students found.' : 'No students match the current filters'}
                 </td></tr>
               )}
             </tbody>
