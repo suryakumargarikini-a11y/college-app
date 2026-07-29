@@ -323,6 +323,30 @@ export default function SecurityVerifyOtp() {
     }
   };
 
+  const handleConfirmReturn = async () => {
+    if (!passData) return;
+    setVerifying(true);
+    setError('');
+    setSuccessMsg('');
+
+    try {
+      const res = await api.post(`/admin/exit-passes/${passData.id}/confirm-return`, {
+        gate: 'MAIN_GATE'
+      });
+
+      if (res.data.success && res.data.state === 'RETURNED') {
+        setSuccessMsg('Campus re-entry confirmed successfully!');
+        setTimeout(() => handleReset(), 2500);
+      } else {
+        setError(res.data.error || 'Failed to confirm campus return.');
+      }
+    } catch (err) {
+      setError(err.response?.data?.error || 'Server error confirming student return.');
+    } finally {
+      setVerifying(false);
+    }
+  };
+
   const handleRejectIdentity = async () => {
     if (!passData || !mismatchReason.trim()) return;
     setReportingMismatch(true);
@@ -644,23 +668,43 @@ export default function SecurityVerifyOtp() {
                     <span className="material-symbols-outlined text-[16px]">person_off</span>
                     Report Identity Mismatch
                   </button>
-                  <button
-                    onClick={handleConfirmExit}
-                    disabled={verifying}
-                    className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-sm transition-all text-center flex items-center justify-center gap-1.5"
-                  >
-                    {verifying ? (
-                      <>
-                        <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                        Recording Exit...
-                      </>
-                    ) : (
-                      <>
-                        <span className="material-symbols-outlined text-[16px]">door_open</span>
-                        Confirm Campus Exit
-                      </>
-                    )}
-                  </button>
+                  {passData.status === 'EXITED' ? (
+                    <button
+                      onClick={handleConfirmReturn}
+                      disabled={verifying}
+                      className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black shadow-sm transition-all text-center flex items-center justify-center gap-1.5"
+                    >
+                      {verifying ? (
+                        <>
+                          <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                          Recording Return...
+                        </>
+                      ) : (
+                        <>
+                          <span className="material-symbols-outlined text-[16px]">how_to_reg</span>
+                          ✓ Confirm Campus Re-entry (Return)
+                        </>
+                      )}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleConfirmExit}
+                      disabled={verifying}
+                      className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-sm transition-all text-center flex items-center justify-center gap-1.5"
+                    >
+                      {verifying ? (
+                        <>
+                          <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                          Recording Exit...
+                        </>
+                      ) : (
+                        <>
+                          <span className="material-symbols-outlined text-[16px]">logout</span>
+                          ✓ Confirm Gate Departure
+                        </>
+                      )}
+                    </button>
+                  )}
                 </>
               )}
             </div>

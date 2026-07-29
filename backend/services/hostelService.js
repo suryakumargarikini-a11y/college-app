@@ -130,7 +130,35 @@ async function getHostelStudentProfileForWarden(admin, studentIdOrRoll) {
 }
 
 /**
- * Retrieves exit pass records for hostel students accessible to Hostel Warden.
+ * Asserts that a Hostel Warden is authorized to manage (approve/reject) a specific exit pass.
+ * Verification Rules:
+ * 1. Target admin must be Hostel Warden.
+ * 2. Target pass and student must exist.
+ * 3. Student MUST qualify as a hostel resident according to isHostelResident(student).
+ * Throws 403 error if student is a day scholar or non-hostel resident.
+ */
+function assertWardenCanManageExitPass(admin, pass) {
+    if (!admin || admin.role !== 'HOSTEL_WARDEN') {
+        const error = new Error('Forbidden: Access restricted to Hostel Warden');
+        error.status = 403;
+        throw error;
+    }
+    if (!pass) {
+        const error = new Error('Exit pass not found');
+        error.status = 404;
+        throw error;
+    }
+    const student = pass.student;
+    if (!isHostelResident(student)) {
+        const error = new Error(`Forbidden: Hostel Warden may only manage exit passes for hostel residents. Student '${student?.roll || pass.studentId}' is a day scholar.`);
+        error.status = 403;
+        throw error;
+    }
+    return true;
+}
+
+/**
+ * Retrieves exit pass records for hostel students accessible to Hostel Warden with server-side pagination & status filtering.
  */
 async function getHostelExitPassesForWarden(admin, queryParams = {}) {
     if (!admin || admin.role !== 'HOSTEL_WARDEN') {
@@ -139,27 +167,64 @@ async function getHostelExitPassesForWarden(admin, queryParams = {}) {
         throw error;
     }
 
-    const passes = await prisma.exitPass.findMany({
-        where: {
-            student: {
-                hostel: {
-                    notIn: ['', 'no', 'NO', 'No', 'none', 'NONE', 'day scholar', 'Day Scholar']
-                }
+    const { page = 1, limit = 25, status, search } = queryParams;
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.max(1, Math.min(100, parseInt(limit) || 25));
+    const skip = (pageNum - 1) * limitNum;
+
+    const where = {
+        student: {
+            hostel: {
+                notIn: ['', 'no', 'NO', 'No', 'none', 'NONE', 'day scholar', 'Day Scholar']
             }
-        },
+        }
+    };
+
+    if (status && status !== 'ALL') {
+        where.status = status;
+    }
+
+    if (search) {
+        const cleanSearch = search.trim();
+        where.OR = [
+            { student: { name: { contains: cleanSearch, mode: 'insensitive' } } },
+            { student: { roll: { contains: cleanSearch, mode: 'insensitive' } } },
+            { destination: { contains: cleanSearch, mode: 'insensitive' } }
+        ];
+    }
+
+    const total = await prisma.exitPass.count({ where });
+    const passes = await prisma.exitPass.findMany({
+        where,
         include: {
             student: {
                 select: {
                     id: true, name: true, roll: true, branch: true,
-                    year: true, section: true, hostel: true, roomNo: true
+                    year: true, section: true, hostel: true, roomNo: true, photoUrl: true
                 }
-            }
+            },
+            groupRequest: true
         },
         orderBy: { createdAt: 'desc' },
-        take: queryParams.limit ? parseInt(queryParams.limit) : 100
+        skip,
+        take: limitNum
     });
 
-    return passes;
+    // Sanitise sensitive token hashes from output
+    const sanitized = passes.map(p => {
+        const { qrCode, qrTokenHash, otpHash, ...rest } = p;
+        return rest;
+    });
+
+    return {
+        passes: sanitized,
+        pagination: {
+            page: pageNum,
+            limit: limitNum,
+            total,
+            totalPages: Math.ceil(total / limitNum) || 1
+        }
+    };
 }
 
 module.exports = {
@@ -167,6 +232,7 @@ module.exports = {
     isHostelResident,
     sanitizeStudentForWarden,
     assertWardenReadOnly,
+    assertWardenCanManageExitPass,
     getHostelStudentsForWarden,
     getHostelStudentProfileForWarden,
     getHostelExitPassesForWarden

@@ -131,7 +131,9 @@ const approve = async (req, res) => {
             if (!pass) return { status: 404, error: 'Exit pass not found' };
 
             if (req.admin && req.admin.role === 'HOSTEL_WARDEN') {
-                return { status: 403, error: 'Forbidden: Hostel Warden has read-only access and cannot modify exit pass state' };
+                if (!hostelService.isHostelResident(pass.student)) {
+                    return { status: 403, error: `Forbidden: Hostel Warden may only approve exit passes for hostel residents. Student '${pass.student?.roll}' is a day scholar.` };
+                }
             }
 
             if (req.admin && req.admin.role === 'HOD') {
@@ -244,7 +246,9 @@ const reject = async (req, res) => {
             if (!pass) return { status: 404, error: 'Exit pass not found' };
 
             if (req.admin && req.admin.role === 'HOSTEL_WARDEN') {
-                return { status: 403, error: 'Forbidden: Hostel Warden has read-only access and cannot modify exit pass state' };
+                if (!hostelService.isHostelResident(pass.student)) {
+                    return { status: 403, error: `Forbidden: Hostel Warden may only reject exit passes for hostel residents. Student '${pass.student?.roll}' is a day scholar.` };
+                }
             }
 
             if (req.admin && req.admin.role === 'HOD') {
@@ -1417,6 +1421,102 @@ const getStudentQuotaForAdmin = async (req, res) => {
     }
 };
 
+// Security Guard: confirm student campus re-entry (EXITED -> RETURNED)
+const confirmReturn = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { gate } = req.body || {};
+        const guardEmail = req.admin.email;
+
+        const result = await runSerializableTransaction(async (tx) => {
+            const pass = await tx.exitPass.findUnique({
+                where: { id },
+                include: { student: true }
+            });
+
+            if (!pass) return { status: 404, error: 'Exit pass not found' };
+
+            // Idempotency: already returned
+            if (pass.status === 'RETURNED') {
+                return { status: 200, success: false, state: 'ALREADY_RETURNED', error: 'This exit pass has already been marked as RETURNED. Re-entry was already recorded.' };
+            }
+
+            if (pass.status !== 'EXITED') {
+                return { status: 400, success: false, state: pass.status, error: `Cannot confirm return. Exit pass must be in EXITED state (currently '${pass.status}').` };
+            }
+
+            const VALID_GATES = ['MAIN_GATE', 'GATE_1', 'GATE_2', 'HOSTEL_GATE'];
+            const validatedGate = (gate && typeof gate === 'string' && VALID_GATES.includes(gate.trim().toUpperCase()))
+                ? gate.trim().toUpperCase()
+                : 'MAIN_GATE';
+
+            // Conditional updateMany: EXITED -> RETURNED
+            const transitioned = await tx.exitPass.updateMany({
+                where: { id, status: 'EXITED' },
+                data: {
+                    status: 'RETURNED',
+                    returnedAt: new Date(),
+                    returnedBy: guardEmail,
+                    returnGate: validatedGate
+                }
+            });
+
+            if (transitioned.count === 0) {
+                return { status: 200, success: false, state: 'ALREADY_RETURNED', error: 'ALREADY_RETURNED — Return confirmation was already processed.' };
+            }
+
+            const updated = await tx.exitPass.findUnique({
+                where: { id },
+                include: { student: true }
+            });
+
+            await tx.auditLog.create({
+                data: {
+                    studentId: pass.studentId,
+                    adminId: req.admin.id,
+                    action: 'EXIT_PASS_RETURNED',
+                    details: `Campus re-entry confirmed for student ${pass.student.name} (${pass.student.roll}) via gate ${gate || 'MAIN_GATE'} by guard ${guardEmail}`,
+                    severity: 'INFO',
+                    timestamp: new Date()
+                }
+            });
+
+            return { status: 200, success: true, state: 'RETURNED', transitioned: true, pass: updated };
+        });
+
+        if (result.error && !result.success) {
+            return res.status(result.status).json({ success: false, state: result.state, error: result.error });
+        }
+
+        // Side effects: Notification & FCM
+        if (result.success && result.transitioned && result.state === 'RETURNED') {
+            const student = result.pass.student;
+            const timeStr = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+
+            try {
+                await prisma.notification.create({
+                    data: {
+                        studentId: student.id,
+                        title: 'Campus Re-entry Confirmed / క్యాంపస్ పునఃప్రవేశం ధృవీకరించబడింది',
+                        message: `Your campus re-entry was confirmed at ${timeStr}. / మీ క్యాంపస్ పునఃప్రవేశం ${timeStr} గంటలకు ధృవీకరించబడింది.`,
+                        type: 'exit-pass',
+                        category: 'success',
+                        createdAt: new Date(),
+                        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                    }
+                });
+            } catch (notifDbErr) {
+                logger.warn('[ExitPass] Return DB notification create failed:', notifDbErr.message);
+            }
+        }
+
+        res.json({ success: result.success, state: result.state, pass: result.pass, error: result.error });
+    } catch (err) {
+        logger.error('[ExitPass] confirmReturn error:', err);
+        res.status(500).json({ error: 'Failed to confirm campus return' });
+    }
+};
+
 module.exports = {
     getAll,
     approve,
@@ -1427,6 +1527,7 @@ module.exports = {
     verifyQrToken,
     markUsed,
     confirmExit,
+    confirmReturn,
     rejectIdentity,
     apply,
     applyGroup,

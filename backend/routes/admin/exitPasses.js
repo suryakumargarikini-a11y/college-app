@@ -11,6 +11,7 @@ const {
     verifyQrToken, 
     markUsed, 
     confirmExit, 
+    confirmReturn,
     rejectIdentity,
     getGroups,
     getStudentQuotaForAdmin
@@ -23,7 +24,7 @@ router.get('/',           adminAuth, requirePermission(PERMISSIONS.EXIT_PASS_REA
 router.get('/groups',     adminAuth, requirePermission(PERMISSIONS.EXIT_PASS_READ), getGroups);
 router.get('/quota/:studentId', adminAuth, requirePermission(PERMISSIONS.EXIT_PASS_READ), getStudentQuotaForAdmin);
 
-// Approvals & Rejections (SUPER_ADMIN, FACULTY, HOD, DEAN)
+// Approvals & Rejections (SUPER_ADMIN, FACULTY, HOD, DEAN, HOSTEL_WARDEN)
 router.post('/:id/approve',        adminAuth, requirePermission(PERMISSIONS.EXIT_PASS_APPROVE), approve);
 router.post('/:id/reject',         adminAuth, requirePermission(PERMISSIONS.EXIT_PASS_APPROVE), reject);
 router.post('/group/:id/approve',  adminAuth, requirePermission(PERMISSIONS.EXIT_PASS_APPROVE), approveGroup);
@@ -33,6 +34,7 @@ router.post('/group/:id/reject',   adminAuth, requirePermission(PERMISSIONS.EXIT
 router.post('/verify-otp',         adminAuth, requirePermission(PERMISSIONS.EXIT_PASS_GATE_VERIFY), verifyOTP);
 router.post('/verify-qr',          adminAuth, requirePermission(PERMISSIONS.EXIT_PASS_GATE_VERIFY), verifyQrToken);
 router.post('/:id/confirm-exit',    adminAuth, requirePermission(PERMISSIONS.EXIT_PASS_GATE_VERIFY), confirmExit);
+router.post('/:id/confirm-return',  adminAuth, requirePermission(PERMISSIONS.EXIT_PASS_GATE_VERIFY), confirmReturn);
 router.post('/:id/reject-identity', adminAuth, requirePermission(PERMISSIONS.EXIT_PASS_GATE_VERIFY), rejectIdentity);
 router.post('/:id/mark-used',       adminAuth, requirePermission(PERMISSIONS.EXIT_PASS_GATE_VERIFY), markUsed);
 

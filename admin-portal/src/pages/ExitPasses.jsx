@@ -9,7 +9,7 @@ import Badge from '../components/Badge';
 import ToastContainer from '../components/Toast';
 import { useToast } from '../hooks/useToast';
 
-const STATUS_TABS = ['ALL', 'PENDING', 'APPROVED', 'REJECTED', 'CANCELLED', 'USED', 'EXPIRED'];
+const STATUS_TABS = ['ALL', 'PENDING', 'APPROVED', 'REJECTED', 'EXITED', 'RETURNED', 'CANCELLED', 'EXPIRED'];
 
 function SkeletonRows({ n = 5, cols = 6 }) {
   return [...Array(n)].map((_, i) => (
@@ -26,7 +26,7 @@ function SkeletonRows({ n = 5, cols = 6 }) {
 export default function ExitPasses() {
   const { toasts, showToast, removeToast } = useToast();
   const user = authStore.getUser();
-  const canApprove = ['SUPER_ADMIN', 'FACULTY', 'HOD', 'DEAN'].includes(user?.role);
+  const canApprove = ['SUPER_ADMIN', 'FACULTY', 'HOD', 'DEAN', 'HOSTEL_WARDEN'].includes(user?.role);
   
   // Main view toggles
   const [activeMainTab, setActiveMainTab] = useState('INDIVIDUAL'); // INDIVIDUAL or GROUP
@@ -76,7 +76,7 @@ export default function ExitPasses() {
     const url = `/admin/exit-passes${query ? '?' + query : ''}`;
 
     api.get(url)
-      .then(r => setItems(r.data))
+      .then(r => setItems(Array.isArray(r.data) ? r.data : (r.data.passes || [])))
       .catch(() => showToast('Failed to load exit passes', 'error'))
       .finally(() => setLoading(false));
   }, [activeTab, search]);
@@ -396,6 +396,12 @@ export default function ExitPasses() {
                           <div className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1 mt-1">
                             <span className="material-symbols-outlined text-[12px]">logout</span>
                             Exited: {formatDateTime(item.exitConfirmedAt)}
+                          </div>
+                        )}
+                        {item.returnedAt && (
+                          <div className="text-[10px] text-blue-600 font-semibold flex items-center gap-1 mt-1">
+                            <span className="material-symbols-outlined text-[12px]">how_to_reg</span>
+                            Returned: {formatDateTime(item.returnedAt)} ({item.returnGate || 'Gate'})
                           </div>
                         )}
                       </td>

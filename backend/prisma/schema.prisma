@@ -457,6 +457,9 @@ model ExitPass {
   parentSmsStatus        String?
   parentSmsId            String?
   exitGate               String?
+  returnedAt             DateTime?
+  returnedBy             String?
+  returnGate             String?
   identityMismatchReason String?
   otpAttempts            Int                   @default(0)
 

@@ -12,6 +12,14 @@ if (process.env.NODE_ENV === 'production' || process.env.RENDER) {
     } catch (err) {
         console.error('[Startup] Failed to switch database provider to PostgreSQL:', err.message);
     }
+    try {
+        const { execSync } = require('child_process');
+        console.log('[Startup] Executing Prisma migrations on production database...');
+        execSync('npx prisma migrate deploy', { stdio: 'inherit' });
+        console.log('[Startup] Production database migrations applied successfully.');
+    } catch (migErr) {
+        console.warn('[Startup] Note on production migration execution:', migErr.message);
+    }
 }
 
 require('./telemetry/tracing');
