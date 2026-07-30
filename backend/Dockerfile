@@ -73,21 +73,13 @@ COPY --chown=node:node . .
 COPY --from=builder --chown=node:node /build/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder --chown=node:node /build/node_modules/@prisma  ./node_modules/@prisma
 
-# Create the logs directory and give the node user full ownership of /usr/src/app
-# before dropping privileges. winston-daily-rotate-file needs to mkdir logs/ at startup.
+# Create the logs directory and give the node user full ownership of /usr/src/app.
+# winston-daily-rotate-file needs to mkdir logs/ at startup.
 RUN mkdir -p /usr/src/app/logs && chown -R node:node /usr/src/app
-
-USER node
 
 EXPOSE 8080
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-    CMD wget -qO- http://localhost:${PORT:-8080}/api/health/liveness || exit 1
-
-# ── Entrypoint: run migrations then start server ────────────────────────────
-# prisma migrate deploy must run at container startup (not build time)
-# because DATABASE_URL is only available as a runtime env var, not during
-# the Docker image build layer.
+# ── Entrypoint ──────────────────────────────────────────────────────────────
 COPY --chown=node:node scripts/start.sh ./scripts/start.sh
 RUN chmod +x ./scripts/start.sh
 
