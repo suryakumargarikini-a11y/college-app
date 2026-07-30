@@ -37,15 +37,33 @@ function data(b) {
 }
 
 function allowed(m, s) {
-    if (!m) return false;
+    if (!m || !s) return false;
     if (m.expiresAt && new Date(m.expiresAt) < new Date()) return false;
 
-    const branchMatch = !m.branch || (s.branch && staffScopeService.canonicalizeBranch(m.branch) === staffScopeService.canonicalizeBranch(s.branch));
-    const semMatch = !m.semester || m.semester === s.semester;
-    const secMatch = !m.section || m.section === s.section;
-    const yearMatch = !m.academicYear || m.academicYear === s.academicYear || m.academicYear === s.year;
+    // 1. Branch match
+    if (!m.branch) return false;
+    const branchMatch = s.branch && staffScopeService.canonicalizeBranch(m.branch) === staffScopeService.canonicalizeBranch(s.branch);
+    if (!branchMatch) return false;
 
-    return branchMatch && semMatch && secMatch && yearMatch;
+    // 2. Year match
+    const targetYr = m.academicYear || m.year;
+    if (!targetYr) return false;
+    const normStudentYr = String(s.year || s.academicYear || '').replace(/[^0-9]/g, '');
+    const normTargetYr = String(targetYr || '').replace(/[^0-9]/g, '');
+    const yearMatch = (normStudentYr && normTargetYr && normStudentYr === normTargetYr) || targetYr === s.academicYear || targetYr === s.year;
+    if (!yearMatch) return false;
+
+    // 3. Semester match
+    if (!m.semester) return false;
+    const semMatch = String(m.semester).trim() === String(s.semester).trim();
+    if (!semMatch) return false;
+
+    // 4. Section match
+    if (!m.section) return false;
+    const secMatch = String(m.section).trim().toUpperCase() === String(s.section).trim().toUpperCase();
+    if (!secMatch) return false;
+
+    return true;
 }
 
 async function notify(m) {
@@ -95,6 +113,10 @@ async function upload(req, res, next) {
 
         const d = data(req.query);
         if (!d.title) return res.status(400).json({ error: 'title is required.' });
+        if (!d.branch) return res.status(400).json({ error: 'Target Branch is required' });
+        if (!d.academicYear) return res.status(400).json({ error: 'Target Year is required' });
+        if (!d.semester) return res.status(400).json({ error: 'Target Semester is required' });
+        if (!d.section) return res.status(400).json({ error: 'Target Section is required' });
 
         // ── ATOMIC STAFF SCOPE VALIDATION ──────────────────────────────────────────
         const admin = req.admin;

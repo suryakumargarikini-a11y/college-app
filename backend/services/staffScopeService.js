@@ -173,6 +173,120 @@ async function verifyStudentAccessOrThrow(admin, student) {
     }
 }
 
+/**
+ * Aggregates real Student DB records into a 4-level cascading audience tree:
+ * Branch -> Year -> Semester -> Section
+ */
+async function getAudienceHierarchy(admin) {
+    const totalStudents = await prisma.student.count();
+
+    const groups = await prisma.student.groupBy({
+        by: ['branch', 'year', 'semester', 'section'],
+        _count: { id: true }
+    });
+
+    let authorizedCanonicals = null;
+    if (admin && (admin.role === 'HOD' || admin.role === 'FACULTY')) {
+        const scope = await getAuthorizedDepartments(admin);
+        authorizedCanonicals = scope.canonicals;
+    }
+
+    const yearLabelMap = {
+        '1': '1st Year', '2': '2nd Year', '3': '3rd Year', '4': '4th Year',
+        'Year 1': '1st Year', 'Year 2': '2nd Year', 'Year 3': '3rd Year', 'Year 4': '4th Year',
+        '1st Year': '1st Year', '2nd Year': '2nd Year', '3rd Year': '3rd Year', '4th Year': '4th Year'
+    };
+
+    const yearValueMap = {
+        '1': '1', '2': '2', '3': '3', '4': '4',
+        'Year 1': '1', 'Year 2': '2', 'Year 3': '3', 'Year 4': '4',
+        '1st Year': '1', '2nd Year': '2', '3rd Year': '3', '4th Year': '4'
+    };
+
+    const branchTree = {};
+
+    for (const g of groups) {
+        const rawBranch = (g.branch || 'GENERAL').trim();
+        const canonBranch = canonicalizeBranch(rawBranch);
+
+        if (authorizedCanonicals && authorizedCanonicals.length > 0 && !authorizedCanonicals.includes(canonBranch)) {
+            continue;
+        }
+
+        // Standardize branch display key (e.g. "COMPUTER SCIENCE ENGINEERING" -> "CSE")
+        const branchKey = (rawBranch === 'COMPUTER SCIENCE ENGINEERING' || rawBranch === 'COMPUTER SCIENCE AND ENGINEERING') ? 'CSE' :
+                          (rawBranch === 'ELECTRONICS & COMMUNICATION ENGINEERING') ? 'ECE' :
+                          (rawBranch === 'ARTIFICIAL INTELLIGENCE AND DATA SCIENCE') ? 'AIDS' : rawBranch;
+
+        const rawYear = (g.year || '1').trim();
+        const yearVal = yearValueMap[rawYear] || rawYear.replace(/[^0-9]/g, '') || '1';
+        const yearLbl = yearLabelMap[rawYear] || `${yearVal}${yearVal === '1' ? 'st' : yearVal === '2' ? 'nd' : yearVal === '3' ? 'rd' : 'th'} Year`;
+
+        const semVal = (g.semester || '1').trim().replace(/[^0-9]/g, '') || '1';
+        const semLbl = `Semester ${semVal}`;
+
+        const secVal = (g.section || 'A').trim().toUpperCase();
+        const secLbl = `Section ${secVal}`;
+
+        if (!branchTree[branchKey]) {
+            branchTree[branchKey] = {
+                value: branchKey,
+                label: branchKey,
+                canonical: canonBranch,
+                yearsMap: {}
+            };
+        }
+
+        const bNode = branchTree[branchKey];
+        if (!bNode.yearsMap[yearVal]) {
+            bNode.yearsMap[yearVal] = {
+                value: yearVal,
+                label: yearLbl,
+                semestersMap: {}
+            };
+        }
+
+        const yNode = bNode.yearsMap[yearVal];
+        if (!yNode.semestersMap[semVal]) {
+            yNode.semestersMap[semVal] = {
+                value: semVal,
+                label: semLbl,
+                sectionsMap: {}
+            };
+        }
+
+        const sNode = yNode.semestersMap[semVal];
+        if (!sNode.sectionsMap[secVal]) {
+            sNode.sectionsMap[secVal] = {
+                value: secVal,
+                label: secLbl,
+                studentCount: 0
+            };
+        }
+        sNode.sectionsMap[secVal].studentCount += g._count.id;
+    }
+
+    const branches = Object.values(branchTree).map(b => ({
+        value: b.value,
+        label: b.label,
+        years: Object.values(b.yearsMap).map(y => ({
+            value: y.value,
+            label: y.label,
+            semesters: Object.values(y.semestersMap).map(s => ({
+                value: s.value,
+                label: s.label,
+                sections: Object.values(s.sectionsMap).sort((a, b) => a.value.localeCompare(b.value))
+            })).sort((a, b) => Number(a.value) - Number(b.value))
+        })).sort((a, b) => Number(a.value) - Number(b.value))
+    })).sort((a, b) => a.value.localeCompare(b.value));
+
+    return {
+        success: true,
+        totalStudents,
+        branches
+    };
+}
+
 module.exports = {
     CANONICAL_DEPARTMENT_MAP,
     ALL_CANONICAL_DEPARTMENTS,
@@ -182,5 +296,6 @@ module.exports = {
     canAccessBranchWithScopes,
     canAccessStudent,
     getStudentScopeWhereClause,
-    verifyStudentAccessOrThrow
+    verifyStudentAccessOrThrow,
+    getAudienceHierarchy
 };

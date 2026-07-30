@@ -8,6 +8,7 @@ import Modal from '../components/Modal';
 import ToastContainer from '../components/Toast';
 import { useToast } from '../hooks/useToast';
 import Badge from '../components/Badge';
+import TargetingSelector from '../components/TargetingSelector';
 
 ChartJS.register(ArcElement, CategoryScale, LinearScale, BarElement, PointElement, Legend, Filler);
 
@@ -59,7 +60,7 @@ export default function LmsDashboard() {
   const [isMatModalOpen, setIsMatModalOpen] = useState(false);
   const [matForm, setMatForm] = useState({
     title: '', description: '', category: 'LECTURE_NOTE', subjectId: '',
-    branch: 'ALL', year: 'ALL', semester: 'ALL', section: 'ALL', fileUrl: ''
+    branch: '', year: '', semester: '', section: '', fileUrl: ''
   });
   const [matSaving, setMatSaving] = useState(false);
 
@@ -186,7 +187,7 @@ export default function LmsDashboard() {
       setIsMatModalOpen(false);
       setMatForm({
         title: '', description: '', category: 'LECTURE_NOTE', subjectId: '',
-        branch: 'ALL', year: 'ALL', semester: 'ALL', section: 'ALL', fileUrl: ''
+        branch: '', year: '', semester: '', section: '', fileUrl: ''
       });
       loadLmsData();
     } catch (err) {
@@ -806,46 +807,10 @@ export default function LmsDashboard() {
               </select>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Department</label>
-              <select className="input-field" value={matForm.branch} onChange={e => setMatForm({ ...matForm, branch: e.target.value })}>
-                <option value="ALL">ALL Depts</option>
-                <option value="AIDS">AIDS</option>
-                <option value="AIML">AIML</option>
-                <option value="CSE">CSE</option>
-                <option value="ECE">ECE</option>
-                <option value="IT">IT</option>
-                <option value="MECH">MECH</option>
-                <option value="CIVIL">CIVIL</option>
-                <option value="EEE">EEE</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Year</label>
-              <select className="input-field" value={matForm.year} onChange={e => setMatForm({ ...matForm, year: e.target.value })}>
-                <option value="ALL">ALL Years</option>
-                <option value="1">Year 1</option>
-                <option value="2">Year 2</option>
-                <option value="3">Year 3</option>
-                <option value="4">Year 4</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Semester</label>
-              <select className="input-field" value={matForm.semester} onChange={e => setMatForm({ ...matForm, semester: e.target.value })}>
-                <option value="ALL">ALL Semesters</option>
-                <option value="1">Sem 1</option>
-                <option value="2">Sem 2</option>
-                <option value="3">Sem 3</option>
-                <option value="4">Sem 4</option>
-                <option value="5">Sem 5</option>
-                <option value="6">Sem 6</option>
-                <option value="7">Sem 7</option>
-                <option value="8">Sem 8</option>
-              </select>
-            </div>
-          </div>
+          <TargetingSelector 
+            value={matForm} 
+            onChange={newT => setMatForm(p => ({ ...p, ...newT }))} 
+          />
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">Description / Summary</label>
             <textarea className="input-field h-20 resize-none" value={matForm.description} onChange={e => setMatForm({ ...matForm, description: e.target.value })} placeholder="Short description of this material…" />

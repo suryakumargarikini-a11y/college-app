@@ -7,6 +7,9 @@ const { adminAuth, authorizeRoles } = require('../../middleware/adminAuth');
 const LMS_READ_ROLES = ['SUPER_ADMIN', 'DEAN', 'CI', 'HOD', 'FACULTY'];
 const LMS_WRITE_ROLES = ['SUPER_ADMIN', 'HOD', 'FACULTY'];
 
+// Audience Options for Cascading Targeting Dropdowns
+router.get('/audience-options', adminAuth, authorizeRoles(...LMS_READ_ROLES), lmsController.getAudienceOptions);
+
 // Courses & Subjects
 router.get('/courses', adminAuth, authorizeRoles(...LMS_READ_ROLES), lmsController.getAdminCourses);
 

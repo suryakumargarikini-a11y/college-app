@@ -24,26 +24,40 @@ function deriveAssignmentStatus(assignment, submission) {
 function isStudentEligible(student, targetBranch, targetYear, targetSemester, targetSection) {
     if (!student) return false;
     
-    if (targetBranch && targetBranch !== 'ALL' && targetBranch.trim() !== '') {
-        const studentCanon = staffScopeService.canonicalizeBranch(student.branch);
-        const targetCanon = staffScopeService.canonicalizeBranch(targetBranch);
-        if (studentCanon !== targetCanon) return false;
+    // 1. Branch match
+    if (!targetBranch || targetBranch === 'ALL' || !targetBranch.trim()) return false;
+    const studentCanon = staffScopeService.canonicalizeBranch(student.branch);
+    const targetCanon = staffScopeService.canonicalizeBranch(targetBranch);
+    if (studentCanon !== targetCanon) return false;
+
+    // 2. Year match
+    if (!targetYear || targetYear === 'ALL' || !targetYear.trim()) return false;
+    const normStudentYear = String(student.year || '').replace(/[^0-9]/g, '');
+    const normTargetYear = String(targetYear || '').replace(/[^0-9]/g, '');
+    if (normStudentYear && normTargetYear) {
+        if (normStudentYear !== normTargetYear) return false;
+    } else if (String(student.year).trim() !== String(targetYear).trim()) {
+        return false;
     }
-    
-    if (targetYear && targetYear !== 'ALL' && targetYear.trim() !== '') {
-        if (String(student.year).trim() !== String(targetYear).trim()) return false;
+
+    // 3. Semester match
+    if (!targetSemester || targetSemester === 'ALL' || !targetSemester.trim()) return false;
+    const normStudentSem = String(student.semester || '').replace(/[^0-9]/g, '');
+    const normTargetSem = String(targetSemester || '').replace(/[^0-9]/g, '');
+    if (normStudentSem && normTargetSem) {
+        if (normStudentSem !== normTargetSem) return false;
+    } else if (String(student.semester).trim() !== String(targetSemester).trim()) {
+        return false;
     }
-    
-    if (targetSemester && targetSemester !== 'ALL' && targetSemester.trim() !== '') {
-        if (String(student.semester).trim() !== String(targetSemester).trim()) return false;
+
+    // 4. Section match
+    if (!targetSection || targetSection === 'ALL' || !targetSection.trim()) return false;
+    const normStudentSec = String(student.section || '').trim().toUpperCase();
+    const normTargetSec = String(targetSection || '').trim().toUpperCase();
+    if (normStudentSec !== normTargetSec) {
+        return false;
     }
-    
-    if (targetSection && targetSection !== 'ALL' && targetSection.trim() !== '') {
-        if (student.section && String(student.section).trim().toUpperCase() !== String(targetSection).trim().toUpperCase()) {
-            return false;
-        }
-    }
-    
+
     return true;
 }
 
@@ -158,14 +172,24 @@ const createStudyMaterial = async (req, res, next) => {
         if (!title || !title.trim()) {
             return res.status(400).json({ error: 'Title is required' });
         }
+        if (!branch || !branch.trim() || branch === 'ALL') {
+            return res.status(400).json({ error: 'Target Branch is required' });
+        }
+        if (!year || !year.trim() || year === 'ALL') {
+            return res.status(400).json({ error: 'Target Year is required' });
+        }
+        if (!semester || !semester.trim() || semester === 'ALL') {
+            return res.status(400).json({ error: 'Target Semester is required' });
+        }
+        if (!section || !section.trim() || section === 'ALL') {
+            return res.status(400).json({ error: 'Target Section is required' });
+        }
         
         // Scope Validation for HOD/Faculty
         if (role === 'HOD' || role === 'FACULTY') {
             const { canonicals } = await staffScopeService.getAuthorizedDepartments(admin);
-            if (branch && branch !== 'ALL' && branch.trim() !== '') {
-                if (!staffScopeService.canAccessBranchWithScopes(canonicals, branch)) {
-                    return res.status(403).json({ error: 'Cannot create study material for unauthorized department' });
-                }
+            if (!staffScopeService.canAccessBranchWithScopes(canonicals, branch)) {
+                return res.status(403).json({ error: 'Cannot create study material for unauthorized department' });
             }
         }
         
@@ -948,6 +972,16 @@ const getMySubmission = async (req, res, next) => {
     }
 };
 
+const getAudienceOptions = async (req, res, next) => {
+    try {
+        const hierarchy = await staffScopeService.getAudienceHierarchy(req.admin);
+        res.json(hierarchy);
+    } catch (err) {
+        logger.error('[LMS] getAudienceOptions error:', err);
+        next(err);
+    }
+};
+
 module.exports = {
     getAdminCourses,
     getAdminMaterials,
@@ -961,5 +995,6 @@ module.exports = {
     getStudentMaterials,
     getStudentAssignments,
     submitAssignment,
-    getMySubmission
+    getMySubmission,
+    getAudienceOptions
 };

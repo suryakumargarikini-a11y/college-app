@@ -7,6 +7,7 @@ import SearchInput from '../components/SearchInput';
 import ToastContainer from '../components/Toast';
 import { useToast } from '../hooks/useToast';
 import ConfirmDialog from '../components/ConfirmDialog';
+import TargetingSelector from '../components/TargetingSelector';
 
 const INITIAL_FORM = {
   title: '',
@@ -14,6 +15,7 @@ const INITIAL_FORM = {
   subject: '',
   category: 'GENERAL',
   branch: '',
+  year: '',
   semester: '',
   section: '',
   academicYear: ''
@@ -388,27 +390,10 @@ export default function ELibrary() {
             </div>
           </div>
 
-          <div className="border-t border-slate-100 my-2 pt-2">
-            <p className="text-xs uppercase tracking-wider font-extrabold text-blue-600 mb-3">Student Access Targeting</p>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Branch (optional)</label>
-                <input className="input-field" placeholder="E.g. COMPUTER SCIENCE ENGINEERING" value={form.branch} onChange={handleFieldChange('branch')} />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Semester (optional)</label>
-                <input className="input-field" placeholder="E.g. 3" value={form.semester} onChange={handleFieldChange('semester')} />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Section (optional)</label>
-                <input className="input-field" placeholder="E.g. A" value={form.section} onChange={handleFieldChange('section')} />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Academic Year (optional)</label>
-                <input className="input-field" placeholder="E.g. 2025-26" value={form.academicYear} onChange={handleFieldChange('academicYear')} />
-              </div>
-            </div>
-          </div>
+          <TargetingSelector 
+            value={form} 
+            onChange={newT => setForm(p => ({ ...p, ...newT, academicYear: newT.year }))} 
+          />
 
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">Choose File *</label>
@@ -461,27 +446,10 @@ export default function ELibrary() {
             </div>
           </div>
 
-          <div className="border-t border-slate-100 my-2 pt-2">
-            <p className="text-xs uppercase tracking-wider font-extrabold text-blue-600 mb-3">Targeting Constraints</p>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Branch</label>
-                <input className="input-field" value={form.branch} onChange={handleFieldChange('branch')} />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Semester</label>
-                <input className="input-field" value={form.semester} onChange={handleFieldChange('semester')} />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Section</label>
-                <input className="input-field" value={form.section} onChange={handleFieldChange('section')} />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Academic Year</label>
-                <input className="input-field" value={form.academicYear} onChange={handleFieldChange('academicYear')} />
-              </div>
-            </div>
-          </div>
+          <TargetingSelector 
+            value={form} 
+            onChange={newT => setForm(p => ({ ...p, ...newT, academicYear: newT.year }))} 
+          />
 
           <div className="flex justify-end gap-3 pt-2">
             <button className="btn-secondary" type="button" onClick={() => setEditOpen(false)}>Cancel</button>
