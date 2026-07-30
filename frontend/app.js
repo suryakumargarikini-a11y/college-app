@@ -3418,7 +3418,12 @@ const pages = {
                 const subFilter = $('lib-subject-filter');
                 if (!list) return;
 
-                const materials = res.data || [];
+                console.log("Library response:", res);
+
+                const materials = Array.isArray(res) ? res : (res.data || []);
+
+                console.log("Materials:", materials);
+                console.log("Count:", materials.length);
 
                 // Populate unique subjects
                 const uniqueSubs = Array.from(new Set(materials.map(m => m.subject).filter(Boolean))).sort();
@@ -3792,8 +3797,7 @@ const pages = {
                                 <p class="text-[11px] text-on-surface-variant mt-0.5 truncate">${a.subject} · Due ${a.date || '--'}${deadlineWarning}</p>
                             </div>
                         </div>
-                        <span class="text-[10px] px-2.5 py-1 rounded-full font-extrabold uppercase flex-shrink-0 ${
-                            isGraded ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' :
+                        <span class="text-[10px] px-2.5 py-1 rounded-full font-extrabold uppercase flex-shrink-0 ${isGraded ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' :
                             (isSubmitted ? 'bg-blue-100 text-blue-800 border border-blue-200' : 'bg-amber-100 text-amber-800 border border-amber-200')
                         }">${a.status}</span>
                     </div>`;
@@ -3803,18 +3807,18 @@ const pages = {
                 window.openAsnDetail = (index) => {
                     const a = asns[index];
                     if (!a) return;
-                    
+
                     const subjEl = $('asn-modal-subject');
                     const titleEl = $('asn-modal-title');
                     const bodyEl = $('asn-modal-body');
                     if (!subjEl || !titleEl || !bodyEl) return;
-                    
+
                     subjEl.textContent = `${a.subject || 'General'} · Max Marks: ${a.maxMarks || 100}`;
                     titleEl.textContent = a.title;
-                    
+
                     const sub = a.submission;
                     const isGraded = a.status === 'GRADED';
-                    
+
                     let bodyHtml = `
                         <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-100 space-y-1 text-slate-600">
                             <p class="font-medium">${a.description || a.instructions || 'No detailed instructions specified.'}</p>
@@ -4320,7 +4324,7 @@ const pages = {
                     const rawDate = n.createdAt || Date.now();
                     const nDate = new Date(rawDate);
                     const isValidDate = !isNaN(nDate.getTime());
-                    
+
                     if (isValidDate) {
                         const nd = new Date(nDate.getFullYear(), nDate.getMonth(), nDate.getDate());
                         if (nd.getTime() === today.getTime()) {
