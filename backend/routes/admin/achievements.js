@@ -3,8 +3,7 @@
 const express = require('express');
 const router = express.Router();
 const c = require('../../controllers/achievementController');
-const { adminAuth } = require('../../middleware/adminAuth');
-const { authorizeRoles } = require('../../middleware/authorizeRoles');
+const { adminAuth, authorizeRoles } = require('../../middleware/adminAuth');
 
 // Requires adminAuth for all admin achievement endpoints
 router.use(adminAuth);
