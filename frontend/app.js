@@ -676,8 +676,17 @@ window.viewDocument = async function ({ id, title, originalFileName, mimeType, f
         const endpoint = contentUrl || `/library/materials/${id}/content`;
         showToast('Loading file...', 'info', 2000);
 
-        const res = await api.get(endpoint, { responseType: 'blob' });
-        currentBlob = new Blob([res.data], { type: cleanMime });
+        const response = await fetch(API_BASE + endpoint, {
+            headers: {
+                Authorization: `Bearer ${state.token}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error("Failed to download file");
+        }
+
+        currentBlob = await response.blob();
         currentObjectUrl = URL.createObjectURL(currentBlob);
 
         if (loadingEl) loadingEl.classList.add('hidden');
