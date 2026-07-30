@@ -12,14 +12,6 @@ if (process.env.NODE_ENV === 'production' || process.env.RENDER) {
     } catch (err) {
         console.error('[Startup] Failed to switch database provider to PostgreSQL:', err.message);
     }
-    try {
-        const { execSync } = require('child_process');
-        console.log('[Startup] Executing Prisma migrations on production database...');
-        execSync('npx prisma migrate deploy', { stdio: 'inherit' });
-        console.log('[Startup] Production database migrations applied successfully.');
-    } catch (migErr) {
-        console.warn('[Startup] Note on production migration execution:', migErr.message);
-    }
 }
 
 require('./telemetry/tracing');
@@ -622,9 +614,13 @@ async function validateChromiumStartup() {
 }
 
 // ─── Server Startup ───────────────────────────────────────────────────────────
+const { initUploadDirectories } = require('./services/storageInit');
+initUploadDirectories();
+
+console.log('[Startup] Starting HTTP server...');
 const server = app.listen(PORT, '0.0.0.0', async () => {
-    logger.info(`[Server] SITAM Smart ERP Backend running on port ${PORT}`);
-    console.log(`[Server] SITAM Smart ERP Backend running on port ${PORT}`);
+    logger.info(`[Startup] Server listening on 0.0.0.0:${PORT}`);
+    console.log(`[Startup] Server listening on 0.0.0.0:${PORT}`);
 
     // Reset stuck sync locks on boot
     try {

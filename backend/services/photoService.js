@@ -24,10 +24,14 @@ const logger  = require('./logger');
 
 const PHOTO_DIR = path.join(__dirname, '..', 'uploads', 'photos');
 
-// Ensure the uploads directory exists on startup
-if (!fs.existsSync(PHOTO_DIR)) {
-    fs.mkdirSync(PHOTO_DIR, { recursive: true });
-    logger.info('[PhotoService] Created photo cache directory:', PHOTO_DIR);
+// Ensure the photo uploads directory exists safely on startup
+try {
+    if (!fs.existsSync(PHOTO_DIR)) {
+        fs.mkdirSync(PHOTO_DIR, { recursive: true });
+        logger.info('[PhotoService] Created photo cache directory:', PHOTO_DIR);
+    }
+} catch (err) {
+    logger.warn(`[PhotoService] Photo directory initialization warning: ${err.message}`);
 }
 
 /**

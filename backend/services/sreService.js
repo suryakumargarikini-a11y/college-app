@@ -54,15 +54,17 @@ class SreService {
         this.isDbOffline = false;
         this.lastDbCheck = 0;
 
-        // Initialize local logs folder
+        // Initialize local logs folder safely
         const logsDir = path.dirname(LEDGER_FILE_PATH);
-        if (!fs.existsSync(logsDir)) {
-            fs.mkdirSync(logsDir, { recursive: true });
-        }
-
-        // Initialize empty ledger file if missing
-        if (!fs.existsSync(LEDGER_FILE_PATH)) {
-            fs.writeFileSync(LEDGER_FILE_PATH, JSON.stringify([]), 'utf8');
+        try {
+            if (!fs.existsSync(logsDir)) {
+                fs.mkdirSync(logsDir, { recursive: true });
+            }
+            if (!fs.existsSync(LEDGER_FILE_PATH)) {
+                fs.writeFileSync(LEDGER_FILE_PATH, JSON.stringify([]), 'utf8');
+            }
+        } catch (err) {
+            logger.warn(`[SREService] File initialization warning for ${LEDGER_FILE_PATH}: ${err.message}`);
         }
 
         // Performance tracking for autonomous feedback loop

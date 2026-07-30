@@ -7,7 +7,11 @@ const crypto = require('crypto');
 const ROOT = path.resolve(process.env.ACHIEVEMENTS_STORAGE_PATH || path.join(__dirname, '..', 'uploads', 'achievements'));
 
 async function ensureRoot() {
-    await fs.mkdir(ROOT, { recursive: true });
+    try {
+        await fs.mkdir(ROOT, { recursive: true });
+    } catch (err) {
+        console.warn(`[ImageStorage] Directory creation warning for ${ROOT}: ${err.message}`);
+    }
 }
 
 function safeName(name) {

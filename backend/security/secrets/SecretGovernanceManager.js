@@ -117,8 +117,12 @@ class SecretGovernanceManager {
   }
 
   _saveRegistry() {
-    fs.mkdirSync(path.dirname(this.registryPath), { recursive: true });
-    fs.writeFileSync(this.registryPath, JSON.stringify(this.registry, null, 2), 'utf8');
+    try {
+      fs.mkdirSync(path.dirname(this.registryPath), { recursive: true });
+      fs.writeFileSync(this.registryPath, JSON.stringify(this.registry, null, 2), 'utf8');
+    } catch (e) {
+      logger.warn(`[SecretGovernanceManager] Save registry warning: ${e.message}`);
+    }
   }
 
   assessSecrets() {

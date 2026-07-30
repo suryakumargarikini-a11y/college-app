@@ -85,8 +85,12 @@ class IncidentManager {
 
   _loadOrCreateIncidents() {
     const dir = path.dirname(this.filePath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
+    try {
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+    } catch (err) {
+      logger.warn(`[IncidentManager] Directory initialization warning for ${dir}: ${err.message}`);
     }
 
     if (fs.existsSync(this.filePath)) {

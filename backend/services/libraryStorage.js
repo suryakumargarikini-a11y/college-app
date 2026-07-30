@@ -3,7 +3,7 @@ const fs = require('fs/promises');
 const path = require('path');
 const crypto = require('crypto');
 const ROOT = path.resolve(process.env.LIBRARY_STORAGE_PATH || path.join(__dirname, '..', 'uploads', 'library'));
-async function ensureRoot() { await fs.mkdir(ROOT, { recursive: true }); }
+async function ensureRoot() { try { await fs.mkdir(ROOT, { recursive: true }); } catch (err) { console.warn(`[LibraryStorage] Directory creation warning for ${ROOT}: ${err.message}`); } }
 function safeName(name) { return path.basename(String(name || '')).replace(/[^a-zA-Z0-9._ -]/g, '_').slice(0, 180); }
 function extension(name) { return path.extname(name).toLowerCase(); }
 function detectType(buffer, ext) {
