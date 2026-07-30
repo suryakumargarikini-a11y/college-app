@@ -36,6 +36,71 @@ function data(b) {
     };
 }
 
+function getYearAliases(rawYear, rawAcadYear) {
+    const set = new Set();
+    if (rawYear) set.add(String(rawYear).trim());
+    if (rawAcadYear) set.add(String(rawAcadYear).trim());
+
+    const str = `${rawYear || ''} ${rawAcadYear || ''}`;
+    const match = str.match(/\b([1-4])\b/) || str.match(/([1-4])/);
+    if (match) {
+        const d = match[1];
+        set.add(d);
+        set.add(`Year ${d}`);
+        set.add(`${d}nd Year`);
+        set.add(`${d}st Year`);
+        set.add(`${d}rd Year`);
+        set.add(`${d}th Year`);
+        if (d === '1') { set.add('1st Year'); set.add('1st'); set.add('I'); }
+        if (d === '2') { set.add('2nd Year'); set.add('2nd'); set.add('II'); }
+        if (d === '3') { set.add('3rd Year'); set.add('3rd'); set.add('III'); }
+        if (d === '4') { set.add('4th Year'); set.add('4th'); set.add('IV'); }
+    }
+    return Array.from(set);
+}
+
+function getSemesterAliases(rawSem) {
+    const set = new Set();
+    if (rawSem) set.add(String(rawSem).trim());
+
+    const str = String(rawSem || '');
+    let num = null;
+    const matchDigit = str.match(/\b([1-8])\b/);
+    if (matchDigit) {
+        num = parseInt(matchDigit[1], 10);
+    } else {
+        if (str.includes('I Semester') || str.includes('Semester I') || str.includes('I Sem')) num = 1;
+        else if (str.includes('II Semester') || str.includes('Semester II') || str.includes('II Sem')) num = 2;
+        else if (str.includes('III Semester') || str.includes('Semester III') || str.includes('III Sem')) num = 3;
+        else if (str.includes('IV Semester') || str.includes('Semester IV') || str.includes('IV Sem')) num = 4;
+        else if (str.includes('V Semester') || str.includes('Semester V') || str.includes('V Sem')) num = 5;
+        else if (str.includes('VI Semester') || str.includes('Semester VI') || str.includes('VI Sem')) num = 6;
+        else if (str.includes('VII Semester') || str.includes('Semester VII') || str.includes('VII Sem')) num = 7;
+        else if (str.includes('VIII Semester') || str.includes('Semester VIII') || str.includes('VIII Sem')) num = 8;
+    }
+
+    if (num) {
+        const s = String(num);
+        set.add(s);
+        set.add(`Sem ${s}`);
+        set.add(`Semester ${s}`);
+        set.add(`${s}st`);
+        set.add(`${s}nd`);
+        set.add(`${s}rd`);
+        set.add(`${s}th`);
+        set.add(`${s}st Semester`);
+        set.add(`${s}nd Semester`);
+        set.add(`${s}rd Semester`);
+        set.add(`${s}th Semester`);
+        const romans = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
+        if (romans[num]) {
+            set.add(`${romans[num]} Semester`);
+            set.add(`${romans[num]} Sem`);
+        }
+    }
+    return Array.from(set);
+}
+
 function allowed(m, s) {
     if (!m || !s) return false;
     if (m.expiresAt && new Date(m.expiresAt) < new Date()) return false;
@@ -48,14 +113,14 @@ function allowed(m, s) {
     // 2. Year match
     const targetYr = m.academicYear || m.year;
     if (!targetYr) return false;
-    const normStudentYr = String(s.year || s.academicYear || '').replace(/[^0-9]/g, '');
-    const normTargetYr = String(targetYr || '').replace(/[^0-9]/g, '');
-    const yearMatch = (normStudentYr && normTargetYr && normStudentYr === normTargetYr) || targetYr === s.academicYear || targetYr === s.year;
+    const yearAliases = getYearAliases(s.year, s.academicYear);
+    const yearMatch = yearAliases.includes(String(targetYr).trim());
     if (!yearMatch) return false;
 
     // 3. Semester match
     if (!m.semester) return false;
-    const semMatch = String(m.semester).trim() === String(s.semester).trim();
+    const semAliases = getSemesterAliases(s.semester);
+    const semMatch = semAliases.includes(String(m.semester).trim());
     if (!semMatch) return false;
 
     // 4. Section match
@@ -165,13 +230,15 @@ async function studentList(req, res, next) {
 
         const canonicalStudentBranch = staffScopeService.canonicalizeBranch(s.branch);
         const branchAliases = staffScopeService.getRawAliasesForCanonicals([canonicalStudentBranch]);
+        const yearAliases = getYearAliases(s.year, s.academicYear);
+        const semAliases = getSemesterAliases(s.semester);
 
         const q = String(req.query.q || '').trim();
         const and = [
             { OR: [{ branch: null }, { branch: { in: branchAliases } }] },
-            { OR: [{ semester: null }, { semester: s.semester }] },
+            { OR: [{ semester: null }, { semester: { in: semAliases } }] },
             { OR: [{ section: null }, { section: s.section }] },
-            { OR: [{ academicYear: null }, { academicYear: s.academicYear }, { academicYear: s.year }] }
+            { OR: [{ academicYear: null }, { academicYear: { in: yearAliases } }] }
         ];
 
         if (q) {

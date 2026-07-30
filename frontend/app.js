@@ -623,6 +623,170 @@ function showToast(message, icon = 'info', duration = 4000) {
     setTimeout(dismiss, duration);
 }
 
+// --- Production-Safe Document Viewer & Downloader (Web + Capacitor Android) ---
+window.viewDocument = async function ({ id, title, originalFileName, mimeType, fileType, contentUrl, isDownload = false }) {
+    haptic();
+
+    const modal = document.getElementById('file-viewer-modal');
+    const titleEl = document.getElementById('fv-title');
+    const subTitleEl = document.getElementById('fv-subtitle');
+    const iconEl = document.getElementById('fv-icon');
+    const bodyContainer = document.getElementById('fv-content-container');
+    const loadingEl = document.getElementById('fv-loading');
+    const downloadBtn = document.getElementById('fv-download-btn');
+    const closeBtn = document.getElementById('fv-close-btn');
+
+    if (!modal) {
+        showToast('File viewer modal element missing', 'error', 3000);
+        return;
+    }
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    if (loadingEl) loadingEl.classList.remove('hidden');
+    if (bodyContainer) {
+        bodyContainer.classList.add('hidden');
+        bodyContainer.innerHTML = '';
+    }
+
+    const cleanTitle = title || originalFileName || 'Document';
+    const cleanFileName = originalFileName || `${cleanTitle.toLowerCase().replace(/[^a-z0-9]/g, '_')}.${(fileType || 'pdf').toLowerCase()}`;
+    const cleanMime = mimeType || (cleanFileName.endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream');
+
+    if (titleEl) titleEl.textContent = cleanTitle;
+    if (subTitleEl) subTitleEl.textContent = `${cleanFileName} · ${(fileType || 'FILE').toUpperCase()}`;
+    if (iconEl) iconEl.textContent = (cleanMime.includes('pdf') || fileType === 'PDF') ? 'picture_as_pdf' : 'description';
+
+    let currentBlob = null;
+    let currentObjectUrl = null;
+
+    const cleanup = () => {
+        if (currentObjectUrl) {
+            URL.revokeObjectURL(currentObjectUrl);
+            currentObjectUrl = null;
+        }
+        if (bodyContainer) bodyContainer.innerHTML = '';
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    };
+
+    if (closeBtn) closeBtn.onclick = cleanup;
+
+    try {
+        const endpoint = contentUrl || `/library/materials/${id}/content`;
+        showToast('Loading file...', 'info', 2000);
+
+        const res = await api.get(endpoint, { responseType: 'blob' });
+        currentBlob = new Blob([res.data], { type: cleanMime });
+        currentObjectUrl = URL.createObjectURL(currentBlob);
+
+        if (loadingEl) loadingEl.classList.add('hidden');
+        if (bodyContainer) bodyContainer.classList.remove('hidden');
+
+        const isNative = window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform();
+
+        const triggerDownload = async () => {
+            haptic();
+            showToast('Saving file...', 'info', 2000);
+            if (isNative && window.Capacitor?.Plugins?.Browser) {
+                const reader = new FileReader();
+                reader.onloadend = async () => {
+                    try {
+                        await window.Capacitor.Plugins.Browser.open({ url: reader.result });
+                    } catch (e) {
+                        showToast('Browser open error', 'error', 3000);
+                    }
+                };
+                reader.readAsDataURL(currentBlob);
+            } else {
+                const link = document.createElement('a');
+                link.href = currentObjectUrl;
+                link.setAttribute('download', cleanFileName);
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+            }
+        };
+
+        if (downloadBtn) downloadBtn.onclick = triggerDownload;
+
+        if (isDownload) {
+            triggerDownload();
+            cleanup();
+            return;
+        }
+
+        if (cleanMime.includes('pdf') || cleanFileName.endsWith('.pdf')) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const dataUrl = reader.result;
+                if (bodyContainer) {
+                    bodyContainer.innerHTML = `
+                        <object data="${dataUrl}" type="application/pdf" class="w-full h-full">
+                            <div class="flex flex-col items-center justify-center h-full p-6 text-center text-slate-300 space-y-4">
+                                <span class="material-symbols-outlined text-5xl text-blue-400">picture_as_pdf</span>
+                                <div>
+                                    <p class="font-bold text-sm text-white">${cleanTitle}</p>
+                                    <p class="text-xs text-slate-400 mt-1">Tap below to view or save this PDF document.</p>
+                                </div>
+                                <button id="fv-fallback-open-btn" class="px-5 py-2.5 bg-blue-600 text-white font-extrabold text-xs rounded-xl shadow-md active-scale flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-sm">open_in_new</span> Open / Download PDF
+                                </button>
+                            </div>
+                        </object>
+                    `;
+                    const fallbackBtn = document.getElementById('fv-fallback-open-btn');
+                    if (fallbackBtn) fallbackBtn.onclick = triggerDownload;
+                }
+            };
+            reader.readAsDataURL(currentBlob);
+        } else if (cleanMime.startsWith('image/')) {
+            if (bodyContainer) {
+                bodyContainer.innerHTML = `
+                    <div class="w-full h-full flex items-center justify-center p-4">
+                        <img src="${currentObjectUrl}" alt="${cleanTitle}" class="max-w-full max-h-full object-contain rounded-xl shadow-lg" />
+                    </div>
+                `;
+            }
+        } else {
+            if (bodyContainer) {
+                bodyContainer.innerHTML = `
+                    <div class="flex flex-col items-center justify-center h-full p-6 text-center text-slate-300 space-y-4">
+                        <span class="material-symbols-outlined text-5xl text-amber-400">description</span>
+                        <div>
+                            <p class="font-bold text-sm text-white">${cleanTitle}</p>
+                            <p class="text-xs text-slate-400 mt-1">${cleanFileName} (${(currentBlob.size / 1024 / 1024).toFixed(2)} MB)</p>
+                        </div>
+                        <button id="fv-generic-open-btn" class="px-6 py-3 bg-blue-600 text-white font-extrabold text-xs rounded-2xl shadow-md active-scale flex items-center gap-2">
+                            <span class="material-symbols-outlined text-sm">download</span> Save & Open File
+                        </button>
+                    </div>
+                `;
+                const genericBtn = document.getElementById('fv-generic-open-btn');
+                if (genericBtn) genericBtn.onclick = triggerDownload;
+            }
+        }
+
+    } catch (err) {
+        console.error('[FileViewer] Error loading document:', err);
+        showToast('Failed to load file content', 'error', 3000);
+        if (loadingEl) loadingEl.classList.add('hidden');
+        if (bodyContainer) {
+            bodyContainer.classList.remove('hidden');
+            bodyContainer.innerHTML = `
+                <div class="flex flex-col items-center justify-center h-full p-6 text-center text-rose-300 space-y-3">
+                    <span class="material-symbols-outlined text-4xl text-rose-500">error</span>
+                    <p class="font-bold text-sm text-white">Error Loading Document</p>
+                    <p class="text-xs text-slate-400">Unable to retrieve file from server. Please check your connection.</p>
+                    <button onclick="document.getElementById('file-viewer-modal').classList.add('hidden')" class="px-4 py-2 bg-slate-800 text-white text-xs rounded-xl font-bold">
+                        Close
+                    </button>
+                </div>
+            `;
+        }
+    }
+};
+
 // --- Unread Badge Updater ---
 async function updateUnreadBadge() {
     if (!state.token) return;
@@ -1991,6 +2155,18 @@ const pages = {
                             <p class="text-[9px] text-emerald-500/80">Campus pass</p>
                         </div>
                     </div>
+
+                    <!-- Achievements Shortcut -->
+                    <div class="bg-amber-50/70 p-5 rounded-3xl flex flex-col justify-between h-36 border border-amber-100 cursor-pointer hover:scale-[1.02] active-scale transition-all" onclick="haptic(); router.navigate('/achievements')">
+                        <div class="flex justify-between items-start">
+                            <span class="material-symbols-outlined text-amber-500 text-2xl" style="font-variation-settings:'FILL' 1">workspace_premium</span>
+                            <span class="px-2 py-0.5 bg-white text-amber-600 text-[9px] font-extrabold rounded-full border border-amber-200">HONORS</span>
+                        </div>
+                        <div>
+                            <h4 class="text-sm font-bold text-amber-900">Achievements</h4>
+                            <p class="text-[9px] text-amber-600/80">College &amp; Student Awards</p>
+                        </div>
+                    </div>
                 </section>
 
                 <!-- 4. RECENT NOTIFICATIONS -->
@@ -3308,42 +3484,38 @@ const pages = {
                         </div>`;
                     }).join('');
 
-                    // Add event listeners for preview/download
+                    // Add event listeners for preview/download using window.viewDocument
                     list.querySelectorAll('.lib-preview-btn').forEach(btn => {
-                        btn.addEventListener('click', async (e) => {
-                            haptic();
+                        btn.addEventListener('click', (e) => {
                             const id = e.currentTarget.dataset.id;
                             const type = e.currentTarget.dataset.type;
-                            try {
-                                showToast('Opening preview...', 'info', 2000);
-                                const res = await api.get(`/library/materials/${id}/content`, { responseType: 'blob' });
-                                const blob = new Blob([res.data], { type });
-                                const url = window.URL.createObjectURL(blob);
-                                window.open(url, '_blank');
-                            } catch (err) {
-                                showToast('Failed to load file preview', 'error', 3000);
-                            }
+                            const mat = materials.find(m => String(m.id) === String(id));
+                            window.viewDocument({
+                                id: id,
+                                title: mat?.title,
+                                originalFileName: mat?.originalFileName,
+                                mimeType: type || mat?.mimeType,
+                                fileType: mat?.fileType,
+                                contentUrl: `/library/materials/${id}/content`,
+                                isDownload: false
+                            });
                         });
                     });
 
                     list.querySelectorAll('.lib-download-btn').forEach(btn => {
-                        btn.addEventListener('click', async (e) => {
-                            haptic();
+                        btn.addEventListener('click', (e) => {
                             const id = e.currentTarget.dataset.id;
                             const name = e.currentTarget.dataset.name;
-                            try {
-                                showToast('Downloading file...', 'info', 2000);
-                                const res = await api.get(`/library/materials/${id}/content?download=true`, { responseType: 'blob' });
-                                const url = window.URL.createObjectURL(new Blob([res.data]));
-                                const link = document.createElement('a');
-                                link.href = url;
-                                link.setAttribute('download', name);
-                                document.body.appendChild(link);
-                                link.click();
-                                link.remove();
-                            } catch (err) {
-                                showToast('Download failed', 'error', 3000);
-                            }
+                            const mat = materials.find(m => String(m.id) === String(id));
+                            window.viewDocument({
+                                id: id,
+                                title: mat?.title,
+                                originalFileName: name || mat?.originalFileName,
+                                mimeType: mat?.mimeType,
+                                fileType: mat?.fileType,
+                                contentUrl: `/library/materials/${id}/content?download=true`,
+                                isDownload: true
+                            });
                         });
                     });
                 };
@@ -6813,6 +6985,193 @@ const pages = {
             } finally {
                 loading.hide();
             }
+        }
+    },
+
+    // ---- ACHIEVEMENTS ----
+    achievements: {
+        render: () => `
+            <div class="min-h-screen pb-32 bg-[#F8FAFC]">
+                <main class="pt-20 px-4 max-w-lg mx-auto space-y-5">
+                    <!-- Top Title Section -->
+                    <section class="flex justify-between items-end">
+                        <div>
+                            <p class="text-[9px] font-bold uppercase tracking-[0.2em] text-amber-600 mb-1 font-headline">HONORS &amp; RECOGNITION</p>
+                            <h2 class="text-3xl font-extrabold tracking-tight text-slate-800" style="font-family:'Plus Jakarta Sans',sans-serif">Achievements</h2>
+                        </div>
+                        <div class="w-10 h-10 bg-amber-50 border border-amber-200 text-amber-600 rounded-2xl flex items-center justify-center shadow-sm">
+                            <span class="material-symbols-outlined text-2xl" style="font-variation-settings:'FILL' 1">workspace_premium</span>
+                        </div>
+                    </section>
+
+                    <!-- Scope Toggle (My Branch vs All College) -->
+                    <div class="flex bg-slate-200/70 p-1 rounded-2xl select-none" id="ach-scope-tabs">
+                        <button class="ach-scope-btn flex-1 py-2 rounded-xl text-xs font-bold transition-all bg-white text-slate-800 shadow-sm" data-scope="BRANCH">
+                            🏛️ My Branch
+                        </button>
+                        <button class="ach-scope-btn flex-1 py-2 rounded-xl text-xs font-bold transition-all text-slate-500 hover:text-slate-700" data-scope="ALL">
+                            🌐 All College
+                        </button>
+                    </div>
+
+                    <!-- Category Pills Horizontal Scroll -->
+                    <div class="flex gap-2 overflow-x-auto pb-2 hide-scrollbar momentum-scroll select-none" id="ach-category-tabs">
+                        <button class="ach-cat-btn flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-bold bg-primary text-white transition-all" data-cat="ALL">All</button>
+                        <button class="ach-cat-btn flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all" data-cat="Student">Student</button>
+                        <button class="ach-cat-btn flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all" data-cat="Faculty">Faculty</button>
+                        <button class="ach-cat-btn flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all" data-cat="Research">Research</button>
+                        <button class="ach-cat-btn flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all" data-cat="Sports">Sports</button>
+                        <button class="ach-cat-btn flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all" data-cat="Competition">Competition</button>
+                        <button class="ach-cat-btn flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all" data-cat="Placement">Placement</button>
+                        <button class="ach-cat-btn flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all" data-cat="Cultural">Cultural</button>
+                        <button class="ach-cat-btn flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all" data-cat="Other">Other</button>
+                    </div>
+
+                    <!-- Achievements Cards List Container -->
+                    <div id="ach-list" class="space-y-4">
+                        <div class="h-36 bg-slate-100 rounded-3xl animate-pulse"></div>
+                        <div class="h-36 bg-slate-100 rounded-3xl animate-pulse"></div>
+                    </div>
+                </main>
+            </div>
+        `,
+        afterRender: async () => {
+            toggleShell(true);
+            setActiveNav('achievements');
+
+            let activeScope = 'BRANCH';
+            let activeCat = 'ALL';
+
+            const listEl = $('ach-list');
+            const scopeBtns = document.querySelectorAll('.ach-scope-btn');
+            const catBtns = document.querySelectorAll('.ach-cat-btn');
+
+            const fetchAndRender = async () => {
+                if (!listEl) return;
+                listEl.innerHTML = `
+                    <div class="h-36 bg-slate-100 rounded-3xl animate-pulse"></div>
+                    <div class="h-36 bg-slate-100 rounded-3xl animate-pulse"></div>
+                `;
+
+                try {
+                    let query = `?scope=${activeScope}`;
+                    if (activeCat !== 'ALL') query += `&category=${encodeURIComponent(activeCat)}`;
+
+                    const res = await api.get(`/achievements${query}`);
+                    const achievements = res.data?.achievements || res.achievements || [];
+
+                    if (!Array.isArray(achievements) || achievements.length === 0) {
+                        listEl.innerHTML = `
+                            <div class="glass-card p-8 rounded-3xl border border-amber-100 text-center space-y-3 bg-gradient-to-b from-amber-50/50 to-white shadow-sm">
+                                <div class="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto shadow-sm">
+                                    <span class="material-symbols-outlined text-3xl" style="font-variation-settings:'FILL' 1">workspace_premium</span>
+                                </div>
+                                <div>
+                                    <h3 class="font-extrabold text-slate-800 text-base">No achievements published yet.</h3>
+                                    <p class="text-xs text-slate-400 mt-1 font-medium">Check back soon for new student and department honors.</p>
+                                </div>
+                            </div>
+                        `;
+                        return;
+                    }
+
+                    listEl.innerHTML = achievements.map(ach => {
+                        const dateStr = ach.achievementDate
+                            ? new Date(ach.achievementDate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
+                            : 'N/A';
+
+                        const catColors = {
+                            'Student': 'bg-blue-50 text-blue-700 border-blue-200',
+                            'Faculty': 'bg-purple-50 text-purple-700 border-purple-200',
+                            'Research': 'bg-indigo-50 text-indigo-700 border-indigo-200',
+                            'Sports': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                            'Competition': 'bg-amber-50 text-amber-700 border-amber-200',
+                            'Placement': 'bg-rose-50 text-rose-700 border-rose-200',
+                            'Cultural': 'bg-pink-50 text-pink-700 border-pink-200',
+                            'Other': 'bg-slate-100 text-slate-700 border-slate-200'
+                        };
+                        const catBadge = catColors[ach.category] || catColors['Other'];
+
+                        const imageHtml = ach.imageUrl ? `
+                            <div class="w-full h-48 bg-slate-100 rounded-2xl overflow-hidden mb-3 relative group">
+                                <img src="${ach.imageUrl}" alt="${ach.title}" 
+                                     class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                     onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\\'w-full h-32 bg-gradient-to-br from-amber-500/10 to-indigo-500/10 rounded-2xl flex flex-col items-center justify-center text-amber-600 gap-2 border border-amber-200/50\\'><span class=\\'material-symbols-outlined text-4xl\\'>workspace_premium</span><span class=\\'text-xs font-bold text-slate-500\\'>SITAM Honor</span></div>';" />
+                            </div>
+                        ` : '';
+
+                        return `
+                            <div class="glass-card p-5 rounded-3xl border border-white/60 bg-white shadow-sm hover:shadow-md transition-all duration-300 space-y-3">
+                                ${imageHtml}
+                                <div class="flex items-center justify-between gap-2">
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${catBadge}">
+                                            ${ach.category || 'Achievement'}
+                                        </span>
+                                        ${ach.branch ? `
+                                            <span class="px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wide bg-slate-100 text-slate-600 border border-slate-200">
+                                                ${ach.branch}
+                                            </span>
+                                        ` : ''}
+                                    </div>
+                                    <span class="text-[10px] font-bold text-slate-400 flex items-center gap-1 font-mono">
+                                        <span class="material-symbols-outlined text-xs">calendar_today</span> ${dateStr}
+                                    </span>
+                                </div>
+                                <div>
+                                    <h3 class="text-base font-extrabold text-slate-800 leading-snug">${ach.title}</h3>
+                                    ${ach.participantName ? `
+                                        <p class="text-xs font-bold text-amber-700 mt-1 flex items-center gap-1">
+                                            <span class="material-symbols-outlined text-sm" style="font-variation-settings:'FILL' 1">person</span> ${ach.participantName}
+                                        </p>
+                                    ` : ''}
+                                    <p class="text-xs text-slate-600 mt-2 leading-relaxed whitespace-pre-line">${ach.description || ''}</p>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                } catch (err) {
+                    console.error('[Achievements] Fetch error:', err);
+                    listEl.innerHTML = `
+                        <div class="glass-card p-6 rounded-3xl border border-rose-100 bg-rose-50/50 text-center text-rose-600 space-y-2">
+                            <span class="material-symbols-outlined text-3xl">error</span>
+                            <p class="text-xs font-bold">Failed to load achievements. Please try again.</p>
+                        </div>
+                    `;
+                }
+            };
+
+            scopeBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    haptic();
+                    activeScope = btn.dataset.scope;
+                    scopeBtns.forEach(b => {
+                        if (b.dataset.scope === activeScope) {
+                            b.className = "ach-scope-btn flex-1 py-2 rounded-xl text-xs font-bold transition-all bg-white text-slate-800 shadow-sm";
+                        } else {
+                            b.className = "ach-scope-btn flex-1 py-2 rounded-xl text-xs font-bold transition-all text-slate-500 hover:text-slate-700";
+                        }
+                    });
+                    fetchAndRender();
+                });
+            });
+
+            catBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    haptic();
+                    activeCat = btn.dataset.cat;
+                    catBtns.forEach(b => {
+                        if (b.dataset.cat === activeCat) {
+                            b.className = "ach-cat-btn flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-bold bg-primary text-white transition-all";
+                        } else {
+                            b.className = "ach-cat-btn flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all";
+                        }
+                    });
+                    fetchAndRender();
+                });
+            });
+
+            await fetchAndRender();
         }
     }
 };

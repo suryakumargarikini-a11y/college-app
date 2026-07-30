@@ -658,6 +658,34 @@ input, textarea {
   <div class="flex-1 overflow-y-auto px-6 py-4 space-y-6" id="search-results-container">
     <div class="text-center py-16 text-slate-400 text-xs font-bold uppercase tracking-wider">Type to start searching...</div>
   </div>
+<!-- ===== GLOBAL FILE VIEWER MODAL ===== -->
+<div id="file-viewer-modal" class="fixed inset-0 z-[140] bg-slate-900/80 backdrop-blur-md flex flex-col hidden transition-opacity duration-300">
+  <div class="bg-slate-900 text-white p-4 flex items-center justify-between border-b border-slate-700/60 shadow-md">
+    <div class="flex items-center gap-3 min-w-0 flex-1">
+      <div class="w-9 h-9 rounded-xl bg-blue-600/30 text-blue-400 flex items-center justify-center flex-shrink-0">
+        <span class="material-symbols-outlined text-lg" id="fv-icon">picture_as_pdf</span>
+      </div>
+      <div class="min-w-0 flex-1">
+        <h3 class="text-sm font-extrabold truncate" id="fv-title">Document Preview</h3>
+        <p class="text-[10px] text-slate-400 truncate" id="fv-subtitle">Loading file...</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <button id="fv-download-btn" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1">
+        <span class="material-symbols-outlined text-sm">download</span> Save
+      </button>
+      <button id="fv-close-btn" class="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white">
+        <span class="material-symbols-outlined text-sm font-bold">close</span>
+      </button>
+    </div>
+  </div>
+  <div class="flex-1 bg-slate-950 relative flex items-center justify-center overflow-hidden" id="fv-body">
+    <div id="fv-loading" class="flex flex-col items-center gap-3 text-slate-400">
+      <div class="w-10 h-10 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
+      <p class="text-xs font-semibold">Preparing document viewer...</p>
+    </div>
+    <div id="fv-content-container" class="w-full h-full hidden"></div>
+  </div>
 </div>
 
 <script src="./config.js"></script>

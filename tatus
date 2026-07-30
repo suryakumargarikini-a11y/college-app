@@ -1,0 +1,13 @@
+warning: in the working copy of 'admin-portal/src/pages/ELibrary.jsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'admin-portal/src/pages/LmsDashboard.jsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/controllers/libraryController.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/controllers/lmsController.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/routes/admin/lms.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/services/staffScopeService.js', LF will be replaced by CRLF the next time Git touches it
+ admin-portal/src/pages/ELibrary.jsx      |  52 [32m+++[m[31m-----------[m
+ admin-portal/src/pages/LmsDashboard.jsx  |  49 [32m++[m[31m-----------[m
+ backend/controllers/libraryController.js |  36 [32m++++++++[m[31m--[m
+ backend/controllers/lmsController.js     |  79 [32m+++++++++++++++[m[31m------[m
+ backend/routes/admin/lms.js              |   3 [32m+[m
+ backend/services/staffScopeService.js    | 117 [32m++++++++++++++++++++++++++++++[m[31m-[m
+ 6 files changed, 222 insertions(+), 114 deletions(-)
