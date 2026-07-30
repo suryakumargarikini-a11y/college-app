@@ -1,3 +1,11 @@
+process.on('uncaughtException', (err) => {
+    console.error('[FATAL-UNCAUGHT-EXCEPTION]', err);
+});
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('[FATAL-UNHANDLED-REJECTION]', reason);
+});
+console.log(`[NODE-BOOT] pid=${process.pid} ppid=${process.ppid}`);
+
 try {
     const path = require('path');
     const envPath = process.env.DOTENV_CONFIG_PATH || path.join(__dirname, '.env');
@@ -15,11 +23,13 @@ if (process.env.NODE_ENV === 'production' || process.env.RENDER) {
 }
 
 require('./telemetry/tracing');
+console.log('[BOOT-01] Tracing & env ready');
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+console.log('[BOOT-02] Express & middleware modules loaded');
 
 const { responseStandardizer, errorHandler } = require('./middleware/errorHandler');
 const correlationMiddleware = require('./middleware/correlationMiddleware');
@@ -34,6 +44,7 @@ const sreScheduler = require('./services/SREScheduler');
 const devSecOpsScheduler = require('./services/DevSecOpsScheduler');
 const feeReminderScheduler = require('./services/feeReminderScheduler');
 const firebaseService = require('./services/firebaseService');
+console.log('[BOOT-03] Core services loaded');
 
 
 const app = express();
@@ -42,6 +53,7 @@ const PORT = process.env.PORT || 8080;
 // ─── Initialize Infrastructure ────────────────────────────────────────────────
 redisService.connect();
 workerService.init();
+console.log('[BOOT-04] Infrastructure connected');
 
 // ─── Security Headers ─────────────────────────────────────────────────────────
 app.use(helmet({
@@ -505,6 +517,7 @@ app.use(responseStandardizer);
 // (Health probes, metrics, and circuit breaker routes are registered above the rate limiter)
 
 // ─── Application Routes ───────────────────────────────────────────────────────
+console.log('[BOOT-05] Loading application routes...');
 const authRoutes        = require('./routes/auth');
 const profileRoutes     = require('./routes/profile');
 const marksRoutes       = require('./routes/marks');
@@ -524,6 +537,7 @@ const achievementsRoutes = require('./routes/achievements');
 const socketService = require('./services/socketService');
 const syncQueue     = require('./services/syncQueue');
 const maintenanceMiddleware = require('./middleware/maintenance');
+console.log('[BOOT-06] Main application routes loaded');
 
 // Auth routes are exempt from maintenance mode — students must always be able to log in
 // even if the admin places the system in maintenance mode.
@@ -556,6 +570,7 @@ const demoRoutes  = require('./routes/demo');
 
 app.use('/api/admin', adminRoutes);
 app.use('/api/demo',  demoRoutes);
+console.log('[BOOT-07] Admin portal routes loaded');
 
 // ─── New Student-Facing Routes (V1.0 Features) ───────────────────────────────
 const announcementsRoutes = require('./routes/announcements');
@@ -573,6 +588,7 @@ app.use('/api/exit-passes',   exitPassesRoutes);
 app.use('/api/surveys',       surveysRoutes);
 app.use('/api/help-desk',     helpDeskRoutes);
 app.use('/api/lost-found',    lostFoundRoutes);
+console.log('[BOOT-08] Student-facing routes loaded');
 
 // ─── Error Handling ───────────────────────────────────────────────────────────
 app.use(errorHandler);
@@ -616,9 +632,12 @@ async function validateChromiumStartup() {
 // ─── Server Startup ───────────────────────────────────────────────────────────
 const { initUploadDirectories } = require('./services/storageInit');
 initUploadDirectories();
+console.log('[BOOT-09] Storage init completed');
 
+console.log(`[PRE-LISTEN] pid=${process.pid}`);
 console.log('[Startup] Starting HTTP server...');
 const server = app.listen(PORT, '0.0.0.0', async () => {
+    console.log(`[LISTENING] pid=${process.pid} port=${PORT}`);
     logger.info(`[Startup] Server listening on 0.0.0.0:${PORT}`);
     console.log(`[Startup] Server listening on 0.0.0.0:${PORT}`);
 
