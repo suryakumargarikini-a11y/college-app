@@ -90,7 +90,17 @@ export default function ELibrary() {
     setSaving(true);
     
     try {
-      await api.post(`/library/admin/materials?${new URLSearchParams(form)}`, file, {
+      const payload = {
+        title: form.title,
+        description: form.description || '',
+        subject: form.subject || '',
+        category: form.category || 'GENERAL',
+        branch: form.branch || '',
+        academicYear: form.year || form.academicYear || '',
+        semester: form.semester || '',
+        section: form.section || ''
+      };
+      await api.post(`/library/admin/materials?${new URLSearchParams(payload)}`, file, {
         headers: {
           'Content-Type': file.type || 'application/octet-stream',
           'X-File-Name': file.name
@@ -114,9 +124,10 @@ export default function ELibrary() {
       subject: item.subject || '',
       category: item.category || 'GENERAL',
       branch: item.branch || '',
+      year: item.academicYear || item.year || '',
       semester: item.semester || '',
       section: item.section || '',
-      academicYear: item.academicYear || ''
+      academicYear: item.academicYear || item.year || ''
     });
     setEditOpen(true);
   };
@@ -125,7 +136,17 @@ export default function ELibrary() {
     e.preventDefault();
     setSaving(true);
     try {
-      await api.put(`/library/admin/materials/${editingItem.id}`, form);
+      const payload = {
+        title: form.title,
+        description: form.description || '',
+        subject: form.subject || '',
+        category: form.category || 'GENERAL',
+        branch: form.branch || '',
+        academicYear: form.year || form.academicYear || '',
+        semester: form.semester || '',
+        section: form.section || ''
+      };
+      await api.put(`/library/admin/materials/${editingItem.id}`, payload);
       setEditOpen(false);
       load();
       showToast('Material details updated successfully', 'success');
