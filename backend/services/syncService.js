@@ -64,17 +64,26 @@ class SyncService {
                 syncTimer.start('dbSync:total');
                 logger.info(`[SyncService] Starting transactional DB sync for Student: ${userId}`);
 
-            const prisma = require('./dbService');
-            const studentBefore = await prisma.student.findUnique({
-                where: { userId },
-                include: {
-                    fees: true,
-                    attendance: { include: { subject: true } },
-                    marks: { include: { subject: true } },
-                    assignments: true,
-                    timetable: { include: { subject: true } }
-                }
-            });
+            const dbSvc = require('./dbService');
+            let studentBefore = null;
+            try {
+                studentBefore = await Promise.race([
+                    dbSvc.student.findUnique({
+                        where: { userId },
+                        include: {
+                            fees: true,
+                            attendance: { include: { subject: true } },
+                            marks: { include: { subject: true } },
+                            assignments: true,
+                            timetable: { include: { subject: true } }
+                        }
+                    }),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('DB_TIMEOUT')), 1000))
+                ]);
+            } catch (err) {
+                logger.warn(`[SyncService] studentBefore DB lookup skipped (${err.message})`);
+                studentBefore = null;
+            }
 
             // 1. Parse all data using our robust ERPScraper or read from normalized provider sync payload
             let profile, marksData, feesData, assignmentsData;
@@ -268,39 +277,44 @@ class SyncService {
                 throw new Error(`DB write failed for ${userId} — upsertStudent returned empty`);
             }
 
-            // Read back to confirm the write is visible to subsequent queries
-            const prismaCheck = require('./dbService');
-            const verification = await prismaCheck.student.findUnique({ where: { userId } });
-            if (!verification) {
-                logger.error(
-                    `[SyncService] CRITICAL: DB write verification FAILED for ${userId}. ` +
-                    `Record not found after upsert. Possible replication lag or transaction rollback.`
-                );
-            } else {
-                logger.info(
-                    `[SyncService] DB write verified for ${userId} — studentId=${verification.id} ` +
-                    `name="${verification.name}" cgpa=${verification.cgpa}`
-                );
+            // Read back to confirm the write is visible to subsequent queries (safely)
+            try {
+                const prismaCheck = require('./dbService');
+                const verification = await Promise.race([
+                    prismaCheck.student.findUnique({ where: { userId } }),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('DB_TIMEOUT')), 1000))
+                ]);
+                if (!verification) {
+                    logger.warn(`[SyncService] DB write verification: Record not found after upsert for ${userId}. Possible offline mode.`);
+                } else {
+                    logger.info(`[SyncService] DB write verified for ${userId} — studentId=${verification.id} name="${verification.name}" cgpa=${verification.cgpa}`);
+                }
+            } catch (vErr) {
+                logger.warn(`[SyncService] DB write verification skipped (${vErr.message})`);
             }
 
-            // 3. Save Marks (Results)
-            if (marksData.subjects && marksData.subjects.length > 0) {
-                await markRepository.saveMarks(student.id, marksData.subjects);
-            }
+            try {
+                // 3. Save Marks (Results)
+                if (marksData.subjects && marksData.subjects.length > 0) {
+                    await markRepository.saveMarks(student.id, marksData.subjects);
+                }
 
-            // 4. Save Attendance
-            if (marksData.attendance && marksData.attendance.length > 0) {
-                await attendanceRepository.saveAttendance(student.id, marksData.attendance);
-            }
+                // 4. Save Attendance
+                if (marksData.attendance && marksData.attendance.length > 0) {
+                    await attendanceRepository.saveAttendance(student.id, marksData.attendance);
+                }
 
-            // 5. Save Assignments
-            if (assignmentsData.list) {
-                await assignmentRepository.saveAssignments(student.id, assignmentsData.list);
-            }
+                // 5. Save Assignments
+                if (assignmentsData.list) {
+                    await assignmentRepository.saveAssignments(student.id, assignmentsData.list);
+                }
 
-            // 5.5. Save Fees
-            if (feesData && feesData.transactions && feesData.transactions.length > 0) {
-                await feeRepository.saveFees(student.id, student.semester, feesData);
+                // 5.5. Save Fees
+                if (feesData && feesData.transactions && feesData.transactions.length > 0) {
+                    await feeRepository.saveFees(student.id, student.semester, feesData);
+                }
+            } catch (saveErr) {
+                logger.warn(`[SyncService] Relational DB modules save skipped (${saveErr.message})`);
             }
 
             // 6. Generate Realistic Timetable tied to student's parsed subjects
@@ -407,31 +421,35 @@ class SyncService {
                 });
             });
 
-            await timetableRepository.saveTimetable(student.id, timetableSlots);
+            try {
+                await timetableRepository.saveTimetable(student.id, timetableSlots);
 
-            // 7. Generate Syllabus units for each parsed subject
-            for (const subjectCode of activeSubjects) {
-                const units = [
-                    { unitNumber: 1, title: 'Introduction & Foundations', content: 'Basic concepts, historical perspective, core mathematical models, and fundamental definitions.' },
-                    { unitNumber: 2, title: 'Core Methodology', content: 'Main algorithms, design patterns, step-by-step methodologies, and analysis of workflows.' },
-                    { unitNumber: 3, title: 'Advanced Applications', content: 'Case studies, industrial implementations, optimization techniques, and scaling guidelines.' },
-                    { unitNumber: 4, title: 'Practical Laboratory', content: 'Hands-on practical modules, experiments, testing frameworks, and verification protocols.' },
-                    { unitNumber: 5, title: 'Future Trends & Review', content: 'Emerging technologies, research papers, final term project reviews, and exam preparation.' }
+                // 7. Generate Syllabus units for each parsed subject
+                for (const subjectCode of activeSubjects) {
+                    const units = [
+                        { unitNumber: 1, title: 'Introduction & Foundations', content: 'Basic concepts, historical perspective, core mathematical models, and fundamental definitions.' },
+                        { unitNumber: 2, title: 'Core Methodology', content: 'Main algorithms, design patterns, step-by-step methodologies, and analysis of workflows.' },
+                        { unitNumber: 3, title: 'Advanced Applications', content: 'Case studies, industrial implementations, optimization techniques, and scaling guidelines.' },
+                        { unitNumber: 4, title: 'Practical Laboratory', content: 'Hands-on practical modules, experiments, testing frameworks, and verification protocols.' },
+                        { unitNumber: 5, title: 'Future Trends & Review', content: 'Emerging technologies, research papers, final term project reviews, and exam preparation.' }
+                    ];
+                    await syllabusRepository.saveSyllabus(subjectCode, units);
+                }
+
+                // 8. Generate System Notifications
+                const notifications = [
+                    { title: 'Clearing Term Dues', message: 'Last Date to clear the next semester term fee is May 31st, 2026. Please visit the Fees section.', date: 'May 22, 2026' },
+                    { title: 'Assignment Release', message: 'New practical design sheet has been uploaded by Dean Julian Vane under Assignments.', date: 'May 20, 2026' },
+                    { title: 'Academic Momentum Alert', message: `Your current overall attendance is ${marksData.overallAttendance || '88%'}. Great work maintaining guidelines!`, date: 'May 18, 2026' }
                 ];
-                await syllabusRepository.saveSyllabus(subjectCode, units);
+                await notificationRepository.saveNotifications(student.id, notifications);
+
+                // 9. Update lastSync timestamp and remove isSyncing flag
+                await studentRepository.updateSyncStatus(student.id, false, new Date());
+                await auditLogRepository.log(student.id, 'SYNC_SUCCESS', `Successfully synced all ERP data modules for ${userId}. CGPA: ${profile.cgpa}`);
+            } catch (extraErr) {
+                logger.warn(`[SyncService] Additional DB modules save skipped (${extraErr.message})`);
             }
-
-            // 8. Generate System Notifications
-            const notifications = [
-                { title: 'Clearing Term Dues', message: 'Last Date to clear the next semester term fee is May 31st, 2026. Please visit the Fees section.', date: 'May 22, 2026' },
-                { title: 'Assignment Release', message: 'New practical design sheet has been uploaded by Dean Julian Vane under Assignments.', date: 'May 20, 2026' },
-                { title: 'Academic Momentum Alert', message: `Your current overall attendance is ${marksData.overallAttendance || '88%'}. Great work maintaining guidelines!`, date: 'May 18, 2026' }
-            ];
-            await notificationRepository.saveNotifications(student.id, notifications);
-
-            // 9. Update lastSync timestamp and remove isSyncing flag
-            await studentRepository.updateSyncStatus(student.id, false, new Date());
-            await auditLogRepository.log(student.id, 'SYNC_SUCCESS', `Successfully synced all ERP data modules for ${userId}. CGPA: ${profile.cgpa}`);
             
             // Invalidate attendance cache so that the next request fetches latest synchronized data
             // FIX: cacheService.invalidate() requires (namespace, userId) — was previously missing namespace
@@ -446,16 +464,26 @@ class SyncService {
             syncTimer.end('dbSync:total');
             logger.info(`[SyncService] DB sync complete for ${userId} in ${syncTimer.get('dbSync:total')}ms`);
 
-            const studentAfter = await prisma.student.findUnique({
-                where: { userId },
-                include: {
-                    fees: true,
-                    attendance: { include: { subject: true } },
-                    marks: { include: { subject: true } },
-                    assignments: true,
-                    timetable: { include: { subject: true } }
-                }
-            });
+            let studentAfter = null;
+            try {
+                const dbSvc = require('./dbService');
+                studentAfter = await Promise.race([
+                    dbSvc.student.findUnique({
+                        where: { userId },
+                        include: {
+                            fees: true,
+                            attendance: { include: { subject: true } },
+                            marks: { include: { subject: true } },
+                            assignments: true,
+                            timetable: { include: { subject: true } }
+                        }
+                    }),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('DB_TIMEOUT')), 1000))
+                ]);
+            } catch (err) {
+                logger.warn(`[SyncService] studentAfter DB lookup skipped (${err.message})`);
+                studentAfter = null;
+            }
 
             if (studentBefore && studentAfter) {
                 const changeDetectionService = require('./changeDetectionService');

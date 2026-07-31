@@ -45,10 +45,11 @@ class ProviderFactory {
     getProvider(requestedName) {
         if (!requestedName && this._cached) return this._cached;
 
-        const name = requestedName || this._override || process.env.ERP_PROVIDER || 'scraper';
+        const isDemo = (process.env.DEMO_MODE || '').toLowerCase() === 'true';
+        const name = requestedName || this._override || process.env.ERP_PROVIDER || (isDemo ? 'mock' : 'scraper');
 
-        // Safety guard — mock provider only allowed outside production, unless explicitly requested (e.g. for synthetic tests)
-        if (name === 'mock' && process.env.NODE_ENV === 'production' && !requestedName) {
+        // Safety guard — mock provider only blocked in production if DEMO_MODE is not explicitly true
+        if (name === 'mock' && process.env.NODE_ENV === 'production' && !requestedName && !isDemo) {
             logger.error('[ProviderFactory] CRITICAL: Mock provider cannot be used in production! Falling back to scraper.');
             const fallback = this._loadProvider('scraper');
             this._cached = fallback;

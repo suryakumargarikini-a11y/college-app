@@ -31,18 +31,19 @@ function sanitizeErrorForClient(error) {
         msg.includes('enotfound') || msg.includes('etimedout') || msg.includes('socket hang up')) {
         return 'Cannot reach the SITAM ERP server. Please check your internet connection and try again.';
     }
-    if (msg.includes('timeout') || msg.includes('timed out') || msg.includes('navigation timeout')) {
+    // Timeout errors
+    if (msg.includes('sync_timeout') || msg.includes('took too long') || msg.includes('navigation timeout')) {
         return 'The SITAM ERP server is taking too long to respond. Please try again in a moment.';
     }
 
-    // Circuit breaker open
-    if (msg.includes('circuit breaker') || msg.includes('service unavailable')) {
-        return 'The SITAM ERP server is currently unavailable. Your cached data is being shown. Please try again in a few minutes.';
+    // Database / Prisma connection errors
+    if (msg.includes('prisma') || msg.includes('database server') || msg.includes('can\'t reach database')) {
+        return 'Database unavailable. Operating in offline/sync mode.';
     }
 
     // Authentication errors — pass these through (user needs to know)
-    if (msg.includes('invalid') || msg.includes('incorrect password') || msg.includes('wrong') ||
-        msg.includes('check your credentials') || msg.includes('login failed')) {
+    if (msg.includes('invalid credentials') || msg.includes('incorrect password') || msg.includes('wrong password') ||
+        msg.includes('check your credentials') || msg.includes('invalid user')) {
         return error.message; // intentionally pass through — user action required
     }
 
@@ -98,9 +99,10 @@ const login = async (req, res) => {
             logger.info(`[LOGIN-2] DB lookup for student: ${userId} (isParent: ${isParent})`);
             console.log(`[LOGIN-2] DB lookup for student: ${userId} (isParent: ${isParent})`);
 
-            cachedStudent = await prisma.student.findUnique({
-                where: { userId }
-            });
+            cachedStudent = await Promise.race([
+                prisma.student.findUnique({ where: { userId } }),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('DB_TIMEOUT')), 1500))
+            ]);
 
             const dbLookupMs = Date.now() - dbLookupStart;
             logger.info(`[LOGIN-2] DB lookup complete in ${dbLookupMs}ms — found: ${!!cachedStudent}`);
@@ -224,7 +226,10 @@ const login = async (req, res) => {
         logger.info(`[LOGIN-4] Starting provider sync (ERP login + scraping) for: ${userId}`);
         console.log(`[LOGIN-4] Starting provider sync (ERP login + scraping) for: ${userId}`);
 
-        const student = await syncService.runProviderSync(userId, password, true);
+        const student = await Promise.race([
+            syncService.runProviderSync(userId, password, true),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('SYNC_TIMEOUT: ERP server took too long to respond')), 10000))
+        ]);
 
         const providerSyncMs = Date.now() - providerSyncStart;
         logger.info(`[LOGIN-4] ✓ Provider sync complete in ${providerSyncMs}ms — student: ${student?.name}`);
