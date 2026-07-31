@@ -23,11 +23,11 @@ if (!apiBaseUrl) {
         console.error('[Config] ERROR: API_BASE_URL environment variable is required in production. Set it in the Railway/Vercel dashboard.');
         process.exit(1);
     }
-    // In development, allow a localhost fallback
-    console.warn('[Config] WARNING: API_BASE_URL not set. Using http://localhost:8080/api for development.');
+    // In development, allow workstation IP fallback for mobile physical device connectivity
+    console.warn('[Config] WARNING: API_BASE_URL not set. Using http://10.207.200.169:8080/api for development.');
 }
 
-const resolvedApiUrl = apiBaseUrl || 'http://localhost:8080/api';
+const resolvedApiUrl = apiBaseUrl || 'http://10.207.200.169:8080/api';
 
 
 const appVersion = process.env.APP_VERSION || '1.0.0';
