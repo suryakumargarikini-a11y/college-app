@@ -342,11 +342,20 @@ class ERPScraper {
         return profile;
     }
 
-    // Parse marks and attendance from marksHtml safely
+    // Parse marks and attendance from marksHtml safely (Supports multi-semester academic history)
     parseMarks(scrapedData) {
         const results = {
             cgpa: '--', sgpa: '--', percentage: '--',
-            subjects: [], attendance: [], overallAttendance: '--'
+            overall: {
+                cgpa: '--',
+                totalCredits: '--',
+                registeredCredits: '--',
+                percentage: '--',
+                status: 'PASS'
+            },
+            semesters: [],
+            subjects: [],
+            attendance: [], overallAttendance: '--'
         };
 
         if (!scrapedData.marksHtml) {
@@ -358,14 +367,34 @@ class ERPScraper {
             const $ = cheerio.load(scrapedData.marksHtml);
             const html = scrapedData.marksHtml;
 
-            // CGPA / GPA string matches
-            const cgpaMatch = html.match(/CGPA:[\s\S]*?([\d.]+)/i);
-            if (cgpaMatch) results.cgpa = parseFloat(cgpaMatch[1]).toFixed(2);
+            // Extract Overall CGPA, Credits & Percentage summary line
+            // Format: CGPA: 7.37   Credits:20.5/20.5    66.16 %
+            const cleanText = html.replace(/&nbsp;/gi, ' ');
+            const overallMatch = cleanText.match(/CGPA:\s*([\d.]+)\s*Credits:\s*([\d.\/]+)\s*([\d.]+)\s*%/i);
+            if (overallMatch) {
+                results.cgpa = parseFloat(overallMatch[1]).toFixed(2);
+                results.overall.cgpa = results.cgpa;
 
-            const cgpaSummaryMatch = html.match(/CGPA:[\s\S]*?([\d.]+)\s*(?:&nbsp;|\s)*%/i);
-            if (cgpaSummaryMatch) {
-                results.percentage = parseFloat(cgpaSummaryMatch[1]).toFixed(2) + '%';
+                const creditParts = overallMatch[2].split('/');
+                results.overall.totalCredits = creditParts[0] || '--';
+                results.overall.registeredCredits = creditParts[1] || creditParts[0] || '--';
+
+                results.percentage = parseFloat(overallMatch[3]).toFixed(2) + '%';
+                results.overall.percentage = results.percentage;
+            } else {
+                const cgpaMatch = html.match(/CGPA:[\s\S]*?([\d.]+)/i);
+                if (cgpaMatch) {
+                    results.cgpa = parseFloat(cgpaMatch[1]).toFixed(2);
+                    results.overall.cgpa = results.cgpa;
+                }
+                const pctMatch = html.match(/([\d.]+)\s*%/i);
+                if (pctMatch) {
+                    results.percentage = parseFloat(pctMatch[1]).toFixed(2) + '%';
+                    results.overall.percentage = results.percentage;
+                }
             }
+
+            let semCounter = 0;
 
             $('table').each((ti, table) => {
                 const rows = $(table).find('tr');
@@ -381,40 +410,102 @@ class ERPScraper {
 
                 // Grade / Results Table Parsing
                 if (firstCell === 'Grade' || firstBold === 'Grade') {
-                    logger.info('[Scraper] Found Grade Table with %d headers', headers.length);
+                    semCounter++;
+                    logger.info('[Scraper] Found Grade Table #%d with %d headers', semCounter, headers.length);
+
+                    // Try to find nearest preceding semester heading (e.g., "I/IV B.Tech I Semester")
+                    let semName = `Semester ${semCounter}`;
+                    const prevHeadings = $(table).prevAll('span.reportHeading2, div.reportHeading2, span, font').toArray();
+                    for (const elem of prevHeadings) {
+                        const txt = $(elem).text().trim();
+                        if (txt && (txt.includes('Semester') || txt.includes('B.Tech') || txt.includes('I/IV') || txt.includes('II/IV') || txt.includes('III/IV') || txt.includes('IV/IV'))) {
+                            if (!txt.includes('EXTERNAL MARKS') && !txt.includes('PREVIOUS SEMESTERS')) {
+                                semName = txt;
+                                break;
+                            }
+                        }
+                    }
+
+                    const semSubjects = [];
+                    let semSgpa = '--';
+                    let semEarnedCredits = '--';
+                    let semTotalCredits = '--';
+
                     for (let j = 1; j < headers.length; j++) {
                         const subjectCode = this.normalizeSubjectCode(headers[j]);
                         const grade = $(row1Tds[j]).text().trim().toUpperCase();
 
                         if (subjectCode === 'SGPA') {
-                            results.sgpa = grade;
+                            semSgpa = grade;
+                            if (semCounter === 1 || results.sgpa === '--') {
+                                results.sgpa = semSgpa;
+                            }
                             continue;
                         }
-                        
+
                         if (!subjectCode || subjectCode === '\u00a0' || subjectCode === 'TOTAL') continue;
 
                         let credits = '3.0';
                         if (rows.length >= 3) {
                             const creditTds = $(rows[2]).find('td');
                             if (j < creditTds.length) {
-                                credits = $(creditTds[j]).text().trim() || '3.0';
+                                const credTxt = $(creditTds[j]).text().trim();
+                                if (credTxt.includes('/')) {
+                                    const parts = credTxt.split('/');
+                                    credits = parts[0] || '3.0';
+                                    semEarnedCredits = parts[0];
+                                    semTotalCredits = parts[1];
+                                } else {
+                                    credits = credTxt || '3.0';
+                                }
                             }
                         }
 
-                        results.subjects.push({
+                        const isLab = subjectCode.includes('LAB') || subjectCode.includes('PRACTICAL') || subjectCode.includes('WORKSHOP');
+                        const subjObj = {
+                            code: subjectCode,
                             name: subjectCode,
                             grade,
                             credits,
-                            type: subjectCode.includes('LAB') || subjectCode.includes('PRACTICAL') ? 'Lab' : 'Core'
-                        });
+                            type: isLab ? 'Lab' : 'Core',
+                            internal: '--',
+                            external: '--',
+                            total: '--',
+                            result: (grade === 'F' || grade === 'ABSENT' || grade === 'FAIL') ? 'FAIL' : 'PASS'
+                        };
+
+                        semSubjects.push(subjObj);
                     }
+
+                    // Check if last cell in row 2 (Credits row) contains total credits for semester
+                    if (rows.length >= 3) {
+                        const creditTds = $(rows[2]).find('td');
+                        const lastCreditTxt = creditTds.last().text().trim();
+                        if (lastCreditTxt.includes('/')) {
+                            const parts = lastCreditTxt.split('/');
+                            semEarnedCredits = parts[0];
+                            semTotalCredits = parts[1];
+                        }
+                    }
+
+                    const semObj = {
+                        semester: semCounter,
+                        semesterName: semName,
+                        sgpa: semSgpa,
+                        credits: semEarnedCredits !== '--' ? semEarnedCredits : semSubjects.reduce((acc, cur) => acc + (parseFloat(cur.credits) || 0), 0).toFixed(1),
+                        totalCredits: semTotalCredits !== '--' ? semTotalCredits : semSubjects.reduce((acc, cur) => acc + (parseFloat(cur.credits) || 0), 0).toFixed(1),
+                        subjects: semSubjects
+                    };
+
+                    results.semesters.push(semObj);
+                    results.subjects = semSubjects;
                 }
 
                 // Attendance Table Parsing
                 if (firstCell === 'Subject' || headers[0] === 'Subject') {
                     logger.info('[Scraper] Found Attendance Table with %d headers', headers.length);
                     let heldRow = null, attendRow = null, pctRow = null;
-                    
+
                     rows.each((ri, row) => {
                         const fc = $(row).find('td').first().text().trim().toLowerCase();
                         if (fc === 'held') heldRow = row;
@@ -462,8 +553,12 @@ class ERPScraper {
                 }
             });
 
-            logger.info('[Scraper] Parsed Marks: CGPA=%s, SGPA=%s, Subjects=%d, AttendanceRecords=%d', 
-                results.cgpa, results.sgpa, results.subjects.length, results.attendance.length);
+            // Set overall status based on grades across semesters
+            const hasFailures = results.semesters.some(sem => sem.subjects.some(s => s.result === 'FAIL'));
+            results.overall.status = hasFailures ? 'FAIL / BACKLOG' : 'PASS';
+
+            logger.info('[Scraper] Parsed Marks: CGPA=%s, Semesters=%d, TotalSubjects=%d, AttendanceRecords=%d',
+                results.cgpa, results.semesters.length, results.semesters.reduce((acc, s) => acc + s.subjects.length, 0), results.attendance.length);
 
         } catch (e) {
             logger.error('[Scraper] Marks parsing error: %s', e.message, { stack: e.stack });

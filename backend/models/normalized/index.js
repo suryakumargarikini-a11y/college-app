@@ -524,8 +524,10 @@ class AttendanceResult {
  * Result from getMarks() / sync marks module.
  */
 class MarksResult {
-    constructor({ subjects = [], cgpa = '--', sgpa = '--', percentage = '--' } = {}) {
+    constructor({ subjects = [], semesters = [], overall = {}, cgpa = '--', sgpa = '--', percentage = '--' } = {}) {
         this.subjects   = subjects.map(s => s instanceof MarkRecord ? s : MarkRecord.create(s));
+        this.semesters  = semesters;
+        this.overall    = overall;
         this.cgpa       = safeStr(cgpa, '--');
         this.sgpa       = safeStr(sgpa, '--');
         this.percentage = safeStr(percentage, '--');
@@ -533,6 +535,8 @@ class MarksResult {
     toJSON() {
         return {
             subjects:   this.subjects.map(s => s.toJSON()),
+            semesters:  this.semesters,
+            overall:    this.overall,
             cgpa:       this.cgpa,
             sgpa:       this.sgpa,
             percentage: this.percentage

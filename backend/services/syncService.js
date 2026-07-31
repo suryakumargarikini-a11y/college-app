@@ -136,14 +136,16 @@ class SyncService {
                 profile.password = password; // Ensure we cache credentials safely for re-login
 
                 marksData = {
-                    subjects: norm.marks?.subjects.map(s => ({
-                        name: s.subjectCode,
+                    subjects: norm.marks?.subjects?.map(s => ({
+                        name: s.subjectCode || s.name || s.code,
                         grade: s.grade,
                         credits: s.credits,
                         type: s.type
                     })) || [],
-                    attendance: norm.attendance?.records.map(a => ({
-                        name: a.subjectCode,
+                    semesters: norm.marks?.semesters || [],
+                    overall: norm.marks?.overall || {},
+                    attendance: norm.attendance?.records?.map(a => ({
+                        name: a.subjectCode || a.name || a.subject,
                         held: a.held,
                         attended: a.attended,
                         total: a.held,
@@ -216,7 +218,13 @@ class SyncService {
             // console.log was creating noisy duplicate output and masking real errors.
 
             // 2. Transactionally update student profile
-            const student = await studentRepository.upsertStudent(userId, profile);
+            let student = null;
+            try {
+                student = await studentRepository.upsertStudent(userId, profile);
+            } catch (dbErr) {
+                logger.warn(`[SyncService] DB upsert skipped (${dbErr.message}). Using fallback student record.`);
+                student = { id: userId, userId, name: profile.name || userId };
+            }
 
             // 2.5 — Photo: download from ERP and cache locally (non-blocking, never fails sync)
             // We store the raw ERP photoUrl in DB for now; if download succeeds we update to local API path.
@@ -432,6 +440,9 @@ class SyncService {
             cacheService.invalidate('marks', userId);
             cacheService.invalidate('fees', userId);
             cacheService.invalidate('assignments', userId);
+            if (marksData.semesters && marksData.semesters.length > 0) {
+                cacheService.set('academic_results', userId, { semesters: marksData.semesters, overall: marksData.overall }, 24 * 60 * 60 * 1000);
+            }
             syncTimer.end('dbSync:total');
             logger.info(`[SyncService] DB sync complete for ${userId} in ${syncTimer.get('dbSync:total')}ms`);
 

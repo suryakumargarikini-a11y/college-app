@@ -171,11 +171,46 @@ const getMarks = async (req, res, next) => {
 
         res.ok({
             cgpa: student.cgpa,
-            sgpa: student.marks.find(m => (m.subject && m.subject.code === 'SGPA') || m.subjectCode === 'SGPA')?.grade || 'N/A',
+            sgpa: student.marks?.find(m => (m.subject && m.subject.code === 'SGPA') || m.subjectCode === 'SGPA')?.grade || 'N/A',
             percentage: student.percentage,
+            semesters: student.semesters || [],
+            overall: student.overall || {
+                cgpa: student.cgpa || '--',
+                totalCredits: '--',
+                registeredCredits: '--',
+                percentage: student.percentage || '--',
+                status: 'PASS'
+            },
             subjects,
             overallAttendance
         }, 'Marks fetched successfully');
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Academic History Results Controller
+const getStudentResults = async (req, res, next) => {
+    try {
+        const userId = req.session?.userId || req.user?.userId || req.user?.id;
+        const student = await dataProvider.getMarks(userId);
+        if (!student) {
+            return res.fail('Student results not found', null, 404);
+        }
+
+        const semesters = student.semesters || [];
+        const overall = student.overall || {
+            cgpa: student.cgpa || '--',
+            totalCredits: '--',
+            registeredCredits: '--',
+            percentage: student.percentage || '--',
+            status: 'PASS'
+        };
+
+        res.ok({
+            semesters,
+            overall
+        }, 'Academic history results fetched successfully');
     } catch (error) {
         next(error);
     }
@@ -1131,6 +1166,7 @@ const getLmsCourses = async (req, res, next) => {
 module.exports = {
     getProfile,
     getMarks,
+    getStudentResults,
     getAttendance,
     getFees,
     getAssignments,

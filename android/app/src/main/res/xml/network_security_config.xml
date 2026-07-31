@@ -2,12 +2,15 @@
 <network-security-config>
     <!-- Production: HTTPS only — all traffic routes through the Render backend -->
     <!-- No cleartext (HTTP) traffic permitted on any domain -->
-    <base-config cleartextTrafficPermitted="false">
+    <base-config cleartextTrafficPermitted="true">
         <trust-anchors>
             <certificates src="system" />
         </trust-anchors>
     </base-config>
-    <domain-config cleartextTrafficPermitted="false">
+    <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="true">web-production-259f33.up.railway.app</domain>
+        <domain includeSubdomains="true">10.207.200.169</domain>
+        <domain includeSubdomains="true">10.0.2.2</domain>
+        <domain includeSubdomains="true">localhost</domain>
     </domain-config>
 </network-security-config>

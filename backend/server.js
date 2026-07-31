@@ -65,6 +65,9 @@ const corsWhitelist = [
     // Capacitor hybrid app (Android APK / iOS) — must stay
     'capacitor://localhost',
     'https://localhost',
+    'http://localhost',
+    'http://10.207.200.169:8080',
+    'http://10.0.2.2:8080',
     // Production Vercel portals
     'https://sitam-erp.vercel.app',
     'https://sitam-erp-admin.vercel.app',

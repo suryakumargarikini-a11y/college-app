@@ -92,17 +92,24 @@ const login = async (req, res) => {
 
     try {
         // ── STAGE 2: Database Lookup ───────────────────────────────────────
-        const dbLookupStart = Date.now();
-        logger.info(`[LOGIN-2] DB lookup for student: ${userId} (isParent: ${isParent})`);
-        console.log(`[LOGIN-2] DB lookup for student: ${userId} (isParent: ${isParent})`);
+        let cachedStudent = null;
+        try {
+            const dbLookupStart = Date.now();
+            logger.info(`[LOGIN-2] DB lookup for student: ${userId} (isParent: ${isParent})`);
+            console.log(`[LOGIN-2] DB lookup for student: ${userId} (isParent: ${isParent})`);
 
-        const cachedStudent = await prisma.student.findUnique({
-            where: { userId }
-        });
+            cachedStudent = await prisma.student.findUnique({
+                where: { userId }
+            });
 
-        const dbLookupMs = Date.now() - dbLookupStart;
-        logger.info(`[LOGIN-2] DB lookup complete in ${dbLookupMs}ms — found: ${!!cachedStudent}`);
-        console.log(`[LOGIN-2] DB lookup complete in ${dbLookupMs}ms — found: ${!!cachedStudent}`);
+            const dbLookupMs = Date.now() - dbLookupStart;
+            logger.info(`[LOGIN-2] DB lookup complete in ${dbLookupMs}ms — found: ${!!cachedStudent}`);
+            console.log(`[LOGIN-2] DB lookup complete in ${dbLookupMs}ms — found: ${!!cachedStudent}`);
+        } catch (dbErr) {
+            logger.warn(`[LOGIN-2] DB lookup skipped (${dbErr.message}) — proceeding to provider sync`);
+            console.warn(`[LOGIN-2] DB lookup skipped (${dbErr.message}) — proceeding to provider sync`);
+            cachedStudent = null;
+        }
 
         // ── STAGE 3: Cached Credential Verification ───────────────────────
         if (cachedStudent) {

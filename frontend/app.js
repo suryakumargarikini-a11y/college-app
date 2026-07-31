@@ -5,7 +5,7 @@
 
 const PRODUCTION_API = 'https://web-production-259f33.up.railway.app/api';
 const isMobileNative = window.Capacitor && window.Capacitor.platform !== 'web';
-const API_BASE = isMobileNative ? PRODUCTION_API : (window.API_BASE_URL || '/api');
+const API_BASE = window.API_BASE_URL || (isMobileNative ? PRODUCTION_API : '/api');
 
 let _decryptedToken = null;
 
@@ -623,6 +623,66 @@ function showToast(message, icon = 'info', duration = 4000) {
     setTimeout(dismiss, duration);
 }
 
+function getMimeType(headerContentType, fileName, defaultMime) {
+    if (headerContentType && !headerContentType.includes('octet-stream') && !headerContentType.includes('text/html')) {
+        return headerContentType.split(';')[0].trim();
+    }
+    const ext = (fileName || '').split('.').pop().toLowerCase();
+    const mimeMap = {
+        pdf: 'application/pdf',
+        doc: 'application/msword',
+        docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        xls: 'application/vnd.ms-excel',
+        xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ppt: 'application/vnd.ms-powerpoint',
+        pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        jpg: 'image/jpeg',
+        jpeg: 'image/jpeg',
+        png: 'image/png'
+    };
+    return mimeMap[ext] || defaultMime || 'application/octet-stream';
+}
+
+async function cleanupPreviewCache() {
+    const filesystem = window.Capacitor?.Plugins?.Filesystem;
+    if (!filesystem) return;
+    for (const dir of ['EXTERNAL', 'CACHE']) {
+        try {
+            const result = await filesystem.readdir({
+                path: '',
+                directory: dir
+            });
+            if (result && result.files) {
+                for (const file of result.files) {
+                    const name = typeof file === 'string' ? file : file.name;
+                    if (name && name.startsWith('preview_')) {
+                        try {
+                            await filesystem.deleteFile({
+                                path: name,
+                                directory: dir
+                            });
+                            console.log('[Preview Cache] Cleaned temp file:', name, 'from', dir);
+                        } catch (e) { }
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('[Preview Cache] Cleanup skipped for', dir, ':', e?.message || e);
+        }
+    }
+}
+
+async function computeBufferSha256(arrayBuffer) {
+    try {
+        if (window.crypto && window.crypto.subtle) {
+            const hashBuffer = await window.crypto.subtle.digest('SHA-256', arrayBuffer);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+    } catch (e) { }
+    return 'N/A';
+}
+
 // --- Production-Safe Document Viewer & Downloader (Web + Capacitor Android) ---
 window.viewDocument = async function ({ id, title, originalFileName, mimeType, fileType, contentUrl, isDownload = false }) {
     haptic();
@@ -651,11 +711,9 @@ window.viewDocument = async function ({ id, title, originalFileName, mimeType, f
 
     const cleanTitle = title || originalFileName || 'Document';
     const cleanFileName = originalFileName || `${cleanTitle.toLowerCase().replace(/[^a-z0-9]/g, '_')}.${(fileType || 'pdf').toLowerCase()}`;
-    const cleanMime = mimeType || (cleanFileName.endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream');
 
     if (titleEl) titleEl.textContent = cleanTitle;
     if (subTitleEl) subTitleEl.textContent = `${cleanFileName} · ${(fileType || 'FILE').toUpperCase()}`;
-    if (iconEl) iconEl.textContent = (cleanMime.includes('pdf') || fileType === 'PDF') ? 'picture_as_pdf' : 'description';
 
     let currentBlob = null;
     let currentObjectUrl = null;
@@ -686,6 +744,11 @@ window.viewDocument = async function ({ id, title, originalFileName, mimeType, f
             throw new Error("Failed to download file");
         }
 
+        const serverContentType = response.headers.get("content-type") || response.headers.get("Content-Type");
+        const cleanMime = getMimeType(serverContentType, cleanFileName, mimeType);
+
+        if (iconEl) iconEl.textContent = (cleanMime.includes('pdf') || fileType === 'PDF') ? 'picture_as_pdf' : 'description';
+
         currentBlob = await response.blob();
         currentObjectUrl = URL.createObjectURL(currentBlob);
 
@@ -697,16 +760,31 @@ window.viewDocument = async function ({ id, title, originalFileName, mimeType, f
         const triggerDownload = async () => {
             haptic();
             showToast('Saving file...', 'info', 2000);
-            if (isNative && window.Capacitor?.Plugins?.Browser) {
-                const reader = new FileReader();
-                reader.onloadend = async () => {
-                    try {
-                        await window.Capacitor.Plugins.Browser.open({ url: reader.result });
-                    } catch (e) {
-                        showToast('Browser open error', 'error', 3000);
-                    }
-                };
-                reader.readAsDataURL(currentBlob);
+            const filesystem = window.Capacitor?.Plugins?.Filesystem;
+            if (isNative && filesystem) {
+                try {
+                    const base64Data = await new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                            const res = reader.result;
+                            const base64 = typeof res === 'string' && res.includes(',') ? res.split(',')[1] : res;
+                            resolve(base64);
+                        };
+                        reader.onerror = reject;
+                        reader.readAsDataURL(currentBlob);
+                    });
+
+                    await filesystem.writeFile({
+                        path: cleanFileName,
+                        data: base64Data,
+                        directory: 'DOCUMENTS',
+                        recursive: true
+                    });
+                    showToast('File saved to Documents folder', 'success', 3000);
+                } catch (e) {
+                    console.error('[File Save Error]', e);
+                    showToast('Failed to save file: ' + (e.message || 'Error'), 'error', 3000);
+                }
             } else {
                 const link = document.createElement('a');
                 link.href = currentObjectUrl;
@@ -725,6 +803,133 @@ window.viewDocument = async function ({ id, title, originalFileName, mimeType, f
             return;
         }
 
+        // --- NATIVE PREVIEW FLOW (Android / Capacitor) ---
+        const fileOpener = window.Capacitor?.Plugins?.FileOpener;
+        const filesystem = window.Capacitor?.Plugins?.Filesystem;
+
+        if (isNative && fileOpener && filesystem) {
+            try {
+                const base64Data = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        const res = reader.result;
+                        const base64 = typeof res === 'string' && res.includes(',') ? res.split(',')[1] : res;
+                        resolve(base64);
+                    };
+                    reader.onerror = reject;
+                    reader.readAsDataURL(currentBlob);
+                });
+
+                // --- BINARY INTEGRITY & HASH AUDIT ---
+                const arrayBuffer = await currentBlob.arrayBuffer();
+                const originalHash = await computeBufferSha256(arrayBuffer);
+
+                const headerBytes = new Uint8Array(arrayBuffer.slice(0, 8));
+                const headerStr = String.fromCharCode.apply(null, headerBytes);
+                const headerHex = Array.from(headerBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+
+                const safeName = cleanFileName.replace(/[^a-zA-Z0-9_.-]/g, '_');
+                const tempFileName = `preview_${Date.now()}_${safeName}`;
+
+                const writeResult = await filesystem.writeFile({
+                    path: tempFileName,
+                    data: base64Data,
+                    directory: 'EXTERNAL',
+                    recursive: true
+                });
+
+                const fileUriResult = await filesystem.getUri({
+                    path: tempFileName,
+                    directory: 'EXTERNAL'
+                });
+
+                let statResult = null;
+                try {
+                    statResult = await filesystem.stat({
+                        path: tempFileName,
+                        directory: 'EXTERNAL'
+                    });
+                } catch (statErr) {
+                    console.warn('[Preview Debug] Filesystem.stat error:', statErr);
+                }
+
+                // Read back written file to verify storage integrity
+                let readBackData = null;
+                let readBackHash = 'N/A';
+                let readBackMatch = false;
+                try {
+                    const readBackResult = await filesystem.readFile({
+                        path: tempFileName,
+                        directory: 'EXTERNAL'
+                    });
+                    readBackData = readBackResult.data;
+                    readBackMatch = (readBackData === base64Data);
+
+                    const binaryStr = atob(readBackData.replace(/\s/g, ''));
+                    const len = binaryStr.length;
+                    const readBackBuf = new Uint8Array(len);
+                    for (let i = 0; i < len; i++) {
+                        readBackBuf[i] = binaryStr.charCodeAt(i);
+                    }
+                    readBackHash = await computeBufferSha256(readBackBuf.buffer);
+                } catch (readBackErr) {
+                    console.warn('[Preview Debug] Readback verification warning:', readBackErr);
+                }
+
+                const rawUri = fileUriResult?.uri || writeResult?.uri || tempFileName;
+                const targetPath = (typeof rawUri === 'string' && rawUri.includes('%')) ? decodeURIComponent(rawUri) : rawUri;
+
+                // --- ADVANCED FORENSIC LOGGING ---
+                console.log("[Preview Audit] === FORENSIC BINARY INTEGRITY AUDIT ===");
+                console.log("[Preview Audit] 1. HTTP Status Code:", response.status);
+                console.log("[Preview Audit] 2. Response Content-Type Header:", serverContentType);
+                console.log("[Preview Audit] 3. Response Content-Length Header:", response.headers.get("content-length") || response.headers.get("Content-Length") || "N/A");
+                console.log("[Preview Audit] 4. Downloaded Blob Size:", currentBlob ? currentBlob.size : 'N/A', "bytes");
+                console.log("[Preview Audit] 5. Magic Bytes ASCII Header:", headerStr);
+                console.log("[Preview Audit] 6. Magic Bytes HEX Header:", headerHex);
+                console.log("[Preview Audit] 7. Original Blob SHA-256 Hash:", originalHash);
+                console.log("[Preview Audit] 8. Base64 Conversion Length:", base64Data ? base64Data.length : 0);
+                console.log("[Preview Audit] 9. Filesystem Written Size:", statResult ? statResult.size : 'N/A', "bytes");
+                console.log("[Preview Audit] 10. Read-Back Base64 Matches Original Base64:", readBackMatch);
+                console.log("[Preview Audit] 11. Read-Back SHA-256 Hash:", readBackHash);
+                console.log("[Preview Audit] 12. SHA-256 Match (Server Blob == Disk File):", Boolean(originalHash !== 'N/A' && originalHash === readBackHash));
+                console.log("[Preview Audit] 13. Exact MIME Type Passed to FileOpener:", cleanMime);
+                console.log("[Preview Audit] 14. Target File Path Passed to FileOpener:", targetPath);
+
+                console.log("[Preview] Invoking FileOpener.open()...");
+                const openResult = await fileOpener.open({
+                    filePath: targetPath,
+                    contentType: cleanMime
+                });
+
+                console.log("[Preview] Success:", JSON.stringify(openResult));
+                cleanup();
+
+                // Trigger cleanup of old temp preview files in cache
+                cleanupPreviewCache();
+                return;
+            } catch (e) {
+                console.error("[Preview Exception Object]:", e);
+                console.error("[Preview Exception Message]:", e?.message);
+                console.error("[Preview Exception Code]:", e?.code);
+                console.error("[Preview Exception Stack]:", e?.stack);
+                try {
+                    console.error("[Preview Exception JSON]:", JSON.stringify(e, Object.getOwnPropertyNames(e)));
+                } catch (jsonErr) { }
+
+                cleanup();
+
+                const errMsg = String(e?.message || e?.code || e || '').toLowerCase();
+                const isUserCancel = errMsg.includes('cancel') || errMsg.includes('dismiss') || errMsg.includes('user_canceled') || errMsg.includes('user canceled');
+
+                if (!isUserCancel) {
+                    showToast("Preview Error: " + (e?.message || e?.code || "Unable to open file"), "error", 4000);
+                }
+                return;
+            }
+        }
+
+        // --- WEB FALLBACK PREVIEW ---
         if (cleanMime.includes('pdf') || cleanFileName.endsWith('.pdf')) {
             const reader = new FileReader();
             reader.onloadend = () => {
@@ -2571,14 +2776,43 @@ const pages = {
             toggleShell(true);
             setActiveNav('marks');
             loading.show('Fetching Results...');
+            console.log('[API-FORENSIC][Step 9] API_BASE is:', API_BASE);
             try {
+                console.log('[API-FORENSIC][Step 2] Requesting GET /marks from backend:', API_BASE + '/marks');
                 const res = await api.get('/marks');
-                const data = res.data || {};
-                const cgpa = parseFloat(data.cgpa) || 0;
-                const sgpa = parseFloat(data.sgpa) || 0;
+                const data = res.data || res || {};
 
-                setEl('marks-cgpa-ring', 'innerText', data.cgpa || '--');
-                setEl('marks-sgpa-ring', 'innerText', data.sgpa || '--');
+                let semesters = data.semesters || [];
+                let overall = data.overall || null;
+
+                try {
+                    console.log('[API-FORENSIC][Step 2] Requesting GET /student/results from backend:', API_BASE + '/student/results');
+                    const resultsRes = await api.get('/student/results');
+                    console.log('[API-FORENSIC][Step 3] GET /student/results raw response:', resultsRes);
+                    const rData = resultsRes?.data || resultsRes || {};
+                    const fetchedSemesters = rData.semesters || rData.data?.semesters || [];
+                    const fetchedOverall = rData.overall || rData.data?.overall || null;
+
+                    console.log('[API-FORENSIC][Step 4] fetchedSemesters.length:', fetchedSemesters.length);
+
+                    if (fetchedSemesters && fetchedSemesters.length > 0) {
+                        semesters = fetchedSemesters;
+                        overall = fetchedOverall;
+                    }
+                } catch (e) {
+                    console.warn('[API-FORENSIC] /student/results fetch note:', e?.message || e);
+                }
+
+                console.log('[API-FORENSIC][Step 5 & 6] Rendering academic history cards. Total semesters to render:', semesters.length);
+                semesters.forEach((s, idx) => {
+                    console.log(`[API-FORENSIC][Sem #${idx + 1}] Title: "${s.semesterName || 'Semester ' + s.semester}" | SGPA: ${s.sgpa} | Subjects: ${s.subjects ? s.subjects.length : 0}`);
+                });
+
+                const cgpa = parseFloat(overall?.cgpa || data.cgpa) || 0;
+                const sgpa = parseFloat(data.sgpa || (semesters[0]?.sgpa)) || 0;
+
+                setEl('marks-cgpa-ring', 'innerText', overall?.cgpa || data.cgpa || '--');
+                setEl('marks-sgpa-ring', 'innerText', data.sgpa || (semesters[0]?.sgpa) || '--');
                 setEl('marks-cgpa-status', 'innerText', cgpa >= 8.5 ? "Dean's List" : cgpa >= 7 ? 'Good Standing' : cgpa >= 5 ? 'Satisfactory' : 'Needs Improve');
 
                 // Update SVG rings
@@ -2597,35 +2831,116 @@ const pages = {
 
                 const grid = $('marks-grid');
                 if (!grid) return;
-                const subjects = data.subjects || [];
-                if (subjects.length === 0) {
-                    grid.innerHTML = `<div class="col-span-2 text-center py-12 text-on-surface-variant">No marks data available.</div>`;
-                } else {
-                    const gradeColors = { 'S': 'text-secondary', 'A+': 'text-secondary', 'A': 'text-secondary', 'A-': 'text-secondary', 'B+': 'text-primary', 'B': 'text-primary', 'C': 'text-on-surface-variant', 'D': 'text-tertiary', 'E': 'text-error', 'F': 'text-error', 'BACKLOG': 'text-error' };
-                    const typeBg = { 'Core': 'bg-secondary-container text-on-secondary-fixed-variant', 'Lab': 'bg-tertiary-container text-on-tertiary-fixed-variant' };
-                    grid.innerHTML = subjects.map(s => {
-                        const gc = gradeColors[s.grade] || 'text-on-surface';
-                        const tb = typeBg[s.type] || 'bg-surface-container text-on-surface-variant';
-                        const pct = s.percentage || 0;
-                        return `<div class="glass-card border border-white/40 p-5 rounded-2xl space-y-3 active-scale transition-all duration-300 shadow-sm">
-                            <div class="flex justify-between items-start gap-3">
-                                <div class="flex-1 min-w-0">
-                                    <span class="text-[10px] font-bold uppercase tracking-widest ${tb} px-2.5 py-0.5 rounded-full inline-block">${s.type || 'Core'}</span>
-                                    <h3 class="text-base font-bold text-on-surface mt-2 truncate" style="font-family:'Plus Jakarta Sans',sans-serif" title="${s.name}">${s.name}</h3>
-                                </div>
-                                <div class="text-right flex-shrink-0">
-                                    <p class="text-2xl font-black ${gc}">${s.grade}</p>
-                                    <p class="text-[10px] text-on-surface-variant font-bold">${s.marks || '--'}</p>
+
+                if (semesters.length > 0) {
+                    grid.className = "space-y-4 col-span-1 md:col-span-2";
+                    grid.innerHTML = semesters.map((sem) => {
+                        return `
+                            <div class="bg-surface-container-low border border-slate-200/80 rounded-2xl overflow-hidden shadow-sm transition-all duration-300">
+                                <button type="button" class="w-full p-4 flex items-center justify-between text-left cursor-pointer hover:bg-slate-100/50 transition-colors sem-accordion-btn" data-sem="${sem.semester}">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-xl bg-secondary-container text-on-secondary-container flex items-center justify-center font-extrabold text-sm">
+                                            S${sem.semester}
+                                        </div>
+                                        <div>
+                                            <h3 class="font-bold text-slate-800 text-sm">${sem.semesterName || `Semester ${sem.semester}`}</h3>
+                                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">${sem.subjects ? sem.subjects.length : 0} Subjects · ${sem.credits || '--'} Credits</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-3">
+                                        <div class="text-right">
+                                            <span class="text-xs font-black text-secondary bg-secondary-container/50 px-2.5 py-1 rounded-full border border-secondary/20">SGPA ${sem.sgpa || '--'}</span>
+                                        </div>
+                                        <span class="material-symbols-outlined text-slate-400 transform transition-transform duration-300 sem-chevron" id="chevron-sem-${sem.semester}">expand_more</span>
+                                    </div>
+                                </button>
+
+                                <div class="px-4 pb-4 hidden sem-content-panel" id="content-sem-${sem.semester}">
+                                    <div class="pt-3 border-t border-slate-200/60 grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        ${(Array.isArray(sem.subjects) && sem.subjects.length > 0) ? sem.subjects.map(s => {
+                                            const gradeColors = { 'S': 'text-secondary', 'A+': 'text-secondary', 'A': 'text-secondary', 'A-': 'text-secondary', 'B+': 'text-primary', 'B': 'text-primary', 'C': 'text-on-surface-variant', 'D': 'text-amber-600', 'E': 'text-rose-600', 'F': 'text-rose-600', 'BACKLOG': 'text-rose-600' };
+                                            const gc = gradeColors[s.grade] || 'text-slate-800';
+                                            return `
+                                                <div class="bg-white p-3.5 rounded-xl border border-slate-100 shadow-2xs flex justify-between items-center">
+                                                    <div class="min-w-0 flex-1 pr-2">
+                                                        <div class="flex items-center gap-1.5 mb-1">
+                                                            <span class="text-[9px] font-black uppercase tracking-wider bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">${s.type || 'Core'}</span>
+                                                            <span class="text-[9px] font-bold text-slate-400">${s.credits || '--'} Credits</span>
+                                                        </div>
+                                                        <h4 class="text-xs font-bold text-slate-800 truncate" title="${s.name || ''}">${s.name || 'Subject'}</h4>
+                                                    </div>
+                                                    <div class="text-right flex-shrink-0">
+                                                        <span class="text-xl font-black ${gc}">${s.grade || 'P'}</span>
+                                                        <p class="text-[9px] font-bold ${s.result === 'FAIL' ? 'text-rose-600' : 'text-emerald-600'} uppercase">${s.result || 'PASS'}</p>
+                                                    </div>
+                                                </div>
+                                            `;
+                                        }).join('') : `
+                                            <div class="col-span-1 md:col-span-2 p-3 bg-slate-50 rounded-xl text-center">
+                                                <p class="text-xs font-bold text-slate-600">Semester Completed · Earned ${sem.creditsEarned || sem.totalCredits || '--'} Credits</p>
+                                                <p class="text-[10px] text-slate-400 font-semibold mt-0.5">SGPA: ${sem.sgpa || '--'}</p>
+                                            </div>
+                                        `}
+                                    </div>
                                 </div>
                             </div>
-                            <div class="space-y-1.5">
-                                <div class="flex justify-between text-[10px] font-bold text-on-surface-variant uppercase tracking-tighter"><span>Mastery</span><span>${pct}%</span></div>
-                                <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                    <div class="h-full rounded-full transition-all duration-1000" style="width:${pct}%;background:#2563EB"></div>
-                                </div>
-                            </div>
-                        </div>`;
+                        `;
                     }).join('');
+
+                    document.querySelectorAll('.sem-accordion-btn').forEach(btn => {
+                        btn.addEventListener('click', () => {
+                            haptic();
+                            const sem = btn.getAttribute('data-sem');
+                            const panel = $(`content-sem-${sem}`);
+                            const chevron = $(`chevron-sem-${sem}`);
+                            if (panel) {
+                                const isHidden = panel.classList.contains('hidden');
+                                panel.classList.toggle('hidden', !isHidden);
+                                if (chevron) {
+                                    chevron.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+                                }
+                            }
+                        });
+                    });
+
+                    if (semesters.length > 0) {
+                        const firstSem = semesters[0].semester;
+                        const firstPanel = $(`content-sem-${firstSem}`);
+                        const firstChevron = $(`chevron-sem-${firstSem}`);
+                        if (firstPanel) firstPanel.classList.remove('hidden');
+                        if (firstChevron) firstChevron.style.transform = 'rotate(180deg)';
+                    }
+                } else {
+                    const subjects = data.subjects || [];
+                    if (subjects.length === 0) {
+                        grid.innerHTML = `<div class="col-span-2 text-center py-12 text-on-surface-variant">No marks data available.</div>`;
+                    } else {
+                        const gradeColors = { 'S': 'text-secondary', 'A+': 'text-secondary', 'A': 'text-secondary', 'A-': 'text-secondary', 'B+': 'text-primary', 'B': 'text-primary', 'C': 'text-on-surface-variant', 'D': 'text-tertiary', 'E': 'text-error', 'F': 'text-error', 'BACKLOG': 'text-error' };
+                        const typeBg = { 'Core': 'bg-secondary-container text-on-secondary-fixed-variant', 'Lab': 'bg-tertiary-container text-on-tertiary-fixed-variant' };
+                        grid.innerHTML = subjects.map(s => {
+                            const gc = gradeColors[s.grade] || 'text-on-surface';
+                            const tb = typeBg[s.type] || 'bg-surface-container text-on-surface-variant';
+                            const pct = s.percentage || 0;
+                            return `<div class="glass-card border border-white/40 p-5 rounded-2xl space-y-3 active-scale transition-all duration-300 shadow-sm">
+                                <div class="flex justify-between items-start gap-3">
+                                    <div class="flex-1 min-w-0">
+                                        <span class="text-[10px] font-bold uppercase tracking-widest ${tb} px-2.5 py-0.5 rounded-full inline-block">${s.type || 'Core'}</span>
+                                        <h3 class="text-base font-bold text-on-surface mt-2 truncate" style="font-family:'Plus Jakarta Sans',sans-serif" title="${s.name}">${s.name}</h3>
+                                    </div>
+                                    <div class="text-right flex-shrink-0">
+                                        <p class="text-2xl font-black ${gc}">${s.grade}</p>
+                                        <p class="text-[10px] text-on-surface-variant font-bold">${s.marks || '--'}</p>
+                                    </div>
+                                </div>
+                                <div class="space-y-1.5">
+                                    <div class="flex justify-between text-[10px] font-bold text-on-surface-variant uppercase tracking-tighter"><span>Mastery</span><span>${pct}%</span></div>
+                                    <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                        <div class="h-full rounded-full transition-all duration-1000" style="width:${pct}%;background:#2563EB"></div>
+                                    </div>
+                                </div>
+                            </div>`;
+                        }).join('');
+                    }
                 }
 
                 // Performance bars
@@ -2638,7 +2953,7 @@ const pages = {
                             <div class="w-full bg-secondary-container/30 rounded-t-lg" style="height:${Math.round(h * 0.9 / 10)}rem">
                                 <div class="absolute bottom-0 w-full bg-secondary rounded-t-lg transition-all duration-500 group-hover:opacity-80" style="height:${Math.round(h * 0.85 / 10)}rem"></div>
                             </div>
-                            <span class="mt-2 text-[8px] font-bold text-on-surface-variant tracking-widest uppercase">${s.name.slice(0, 4)}</span>
+                            <span class="mt-2 text-[8px] font-bold text-on-surface-variant tracking-widest uppercase">${(s.name || 'SEM').slice(0, 4)}</span>
                         </div>`;
                     }).join('');
                 }

@@ -17,6 +17,12 @@ class ProductionProvider {
         if (!student) {
             throw new Error('Student marks not found in local cache');
         }
+        const cacheService = require('../services/cacheService');
+        const cachedResults = await cacheService.get('academic_results', userId);
+        if (cachedResults) {
+            student.semesters = cachedResults.semesters;
+            student.overall = cachedResults.overall;
+        }
         return student;
     }
 

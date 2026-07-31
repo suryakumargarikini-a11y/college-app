@@ -27,29 +27,54 @@ class DemoProvider {
     }
 
     async getMarks(userId) {
+        let student = null;
         try {
-            const student = await prisma.student.findUnique({
+            student = await prisma.student.findUnique({
                 where: { userId },
                 include: {
                     marks: { include: { subject: true } }
                 }
             });
-            if (student && student.marks.length > 0) return student;
         } catch (e) {
             logger.error(`[DemoProvider] Marks lookup failed: ${e.message}`);
         }
 
-        // Mock marks fallback
-        return {
-            cgpa: '8.85',
-            percentage: '88.50%',
-            marks: [
-                { subject: { code: 'CS-401', name: 'Data Structures & Algorithms' }, grade: 'A+', credits: '4', type: 'Core' },
-                { subject: { code: 'CS-402', name: 'Operating Systems' }, grade: 'A', credits: '4', type: 'Core' },
-                { subject: { code: 'CS-403', name: 'Computer Networks' }, grade: 'B+', credits: '3', type: 'Core' },
-                { subject: { code: 'CS-404', name: 'Database Management Systems' }, grade: 'A', credits: '4', type: 'Core' }
-            ]
-        };
+        if (!student || !student.marks || student.marks.length === 0) {
+            student = {
+                cgpa: '7.90',
+                percentage: '71.48%',
+                marks: [
+                    { subject: { code: 'CS-401', name: 'Data Structures & Algorithms' }, grade: 'A+', credits: '4', type: 'Core' },
+                    { subject: { code: 'CS-402', name: 'Operating Systems' }, grade: 'A', credits: '4', type: 'Core' },
+                    { subject: { code: 'CS-403', name: 'Computer Networks' }, grade: 'B+', credits: '3', type: 'Core' },
+                    { subject: { code: 'CS-404', name: 'Database Management Systems' }, grade: 'A', credits: '4', type: 'Core' }
+                ],
+                overall: {
+                    cgpa: '7.90',
+                    percentage: '71.48%',
+                    totalCredits: '127.5',
+                    registeredCredits: '127.5',
+                    status: 'PASS'
+                },
+                semesters: [
+                    { semester: '1', semesterName: 'I/IV B.Tech I Semester', sgpa: '7.45', creditsEarned: '19.5', totalCredits: '19.5', subjects: [] },
+                    { semester: '2', semesterName: 'I/IV B.Tech II Semester', sgpa: '7.86', creditsEarned: '21.5', totalCredits: '21.5', subjects: [] },
+                    { semester: '3', semesterName: 'II/IV B.Tech I Semester', sgpa: '7.75', creditsEarned: '21.5', totalCredits: '21.5', subjects: [] },
+                    { semester: '4', semesterName: 'II/IV B.Tech II Semester', sgpa: '7.95', creditsEarned: '21.5', totalCredits: '21.5', subjects: [] },
+                    { semester: '5', semesterName: 'III/IV B.Tech I Semester', sgpa: '8.18', creditsEarned: '21.5', totalCredits: '21.5', subjects: [] },
+                    { semester: '6', semesterName: 'III/IV B.Tech II Semester', sgpa: '8.13', creditsEarned: '22.0', totalCredits: '22.0', subjects: [] }
+                ]
+            };
+        }
+
+        const cacheService = require('../services/cacheService');
+        const cachedResults = await cacheService.get('academic_results', userId);
+        if (cachedResults && cachedResults.semesters && cachedResults.semesters.length > 0) {
+            student.semesters = cachedResults.semesters;
+            student.overall = cachedResults.overall;
+        }
+
+        return student;
     }
 
     async getAttendance(userId) {

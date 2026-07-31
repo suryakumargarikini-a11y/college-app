@@ -3,6 +3,10 @@ const router = express.Router();
 const prisma = require('../services/dbService');
 const { requireAuth } = require('../middleware/auth');
 const logger = require('../services/logger');
+const dataControllers = require('../controllers/dataControllers');
+
+// GET /api/student/results
+router.get('/results', requireAuth, dataControllers.getStudentResults);
 
 // GET /api/student/:id/attendance
 router.get('/:id/attendance', requireAuth, async (req, res, next) => {

@@ -573,6 +573,8 @@ class SITAMScraperProvider extends ERPProvider {
 
         const marks = new MarksResult({
             subjects:   rawMarks.subjects,
+            semesters:  rawMarks.semesters || [],
+            overall:    rawMarks.overall || {},
             cgpa:       rawMarks.cgpa,
             sgpa:       rawMarks.sgpa,
             percentage: rawMarks.percentage

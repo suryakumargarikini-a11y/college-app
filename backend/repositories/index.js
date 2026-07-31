@@ -3,22 +3,27 @@ const logger = require('../services/logger');
 
 const studentRepository = {
     async findByUserId(userId) {
-        const student = await prisma.student.findUnique({
-            where: { userId },
-            include: {
-                marks: { include: { subject: true } },
-                attendance: { include: { subject: true } },
-                timetable: { include: { subject: true } },
-                assignments: true,
-                notifications: true,
-                fees: true
+        try {
+            const student = await prisma.student.findUnique({
+                where: { userId },
+                include: {
+                    marks: { include: { subject: true } },
+                    attendance: { include: { subject: true } },
+                    timetable: { include: { subject: true } },
+                    assignments: true,
+                    notifications: true,
+                    fees: true
+                }
+            });
+            if (student && student.password) {
+                const cryptoHelper = require('../services/cryptoHelper');
+                student.password = cryptoHelper.decrypt(student.password);
             }
-        });
-        if (student && student.password) {
-            const cryptoHelper = require('../services/cryptoHelper');
-            student.password = cryptoHelper.decrypt(student.password);
+            return student;
+        } catch (err) {
+            logger.warn(`[studentRepository] DB lookup failed (${err.message}). Returning null.`);
+            return null;
         }
-        return student;
     },
 
     async upsertStudent(userId, data) {
