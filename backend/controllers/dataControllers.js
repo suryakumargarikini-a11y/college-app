@@ -47,7 +47,7 @@ const getProfile = async (req, res, next) => {
         //   - Masked: show only last 4 digits so the UI can confirm the value exists
         //     without transmitting the full number over the network on every request.
         const maskSensitive = (val) => {
-            if (!val || val.trim() === '') return null;
+            if (!val || typeof val !== 'string' || val.trim() === '') return null;
             return val.length > 4 ? `${'*'.repeat(val.length - 4)}${val.slice(-4)}` : '****';
         };
 
