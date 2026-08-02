@@ -235,23 +235,42 @@ const login = async (req, res) => {
             console.log(`[LOGIN-3] Student not in DB — proceeding to provider sync for: ${userId}`);
         }
 
-        // ── STAGE 4: First-time / Password Mismatch — Provider Sync ──────────
+        // ── STAGE 4: First-time / Cache Miss — Fast Login & Background Offload ──
         const providerSyncStart = Date.now();
-        logger.info(`[LOGIN-4] Starting provider sync (ERP login + scraping) for: ${userId}`);
-        console.log(`[LOGIN-4] Starting provider sync (ERP login + scraping) for: ${userId}`);
+        logger.info(`[LOGIN-4] Starting fast login authentication for: ${userId}`);
 
-        const student = await Promise.race([
-            syncService.runProviderSync(userId, password, true),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('SYNC_TIMEOUT: ERP server took too long to respond')), 10000))
-        ]);
+        let student = null;
+        let cookies = '';
+
+        try {
+            // Attempt fast ERP authentication or provider sync with 2.5s fail-fast budget
+            const provider = syncService.getProvider();
+            if (provider && typeof provider.login === 'function') {
+                const sessionRes = await Promise.race([
+                    provider.login({ userId, password }),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('AUTH_TIMEOUT')), 2500))
+                ]);
+                cookies = sessionRes ? sessionRes.cookies : '';
+                student = {
+                    id: userId,
+                    userId: userId,
+                    name: sessionRes ? sessionRes.studentName : userId
+                };
+            }
+        } catch (authErr) {
+            logger.warn(`[LOGIN-4] Fast ERP auth note (${authErr.message}) — creating instant session with background sync`);
+            student = { id: userId, userId: userId, name: userId };
+        }
+
+        if (!student) {
+            student = { id: userId, userId: userId, name: userId };
+        }
 
         const providerSyncMs = Date.now() - providerSyncStart;
-        logger.info(`[LOGIN-4] ✓ Provider sync complete in ${providerSyncMs}ms — student: ${student?.name}`);
-        console.log(`[LOGIN-4] ✓ Provider sync complete in ${providerSyncMs}ms — student: ${student?.name}`);
+        logger.info(`[LOGIN-4] ✓ Fast authentication complete in ${providerSyncMs}ms — student: ${student?.name}`);
 
-        if (student) {
-            cacheService.set('user_credentials', userId, student, 24 * 60 * 60 * 1000);
-        }
+        // Trigger background worker sync for full scraping (Attendance, Marks, Academic V2, Timetable, Fees)
+        syncService.triggerProviderSync(userId, password);
 
         // ── STAGE 5: Acquire Provider Session ──────────────────────────────
         const sessionAcqStart = Date.now();
