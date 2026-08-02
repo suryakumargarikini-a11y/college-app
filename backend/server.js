@@ -555,6 +555,7 @@ app.use('/api', (req, res, next) => {
 app.use('/api/auth',          authRoutes);
 app.use('/api/profile',       profileRoutes);
 app.use('/api/marks',         marksRoutes);
+app.use('/api/v2/academic',   require('./modules/academic/academic.routes'));
 app.use('/api/attendance',    attendanceRoutes);
 app.use('/api/fees',          feesRoutes);
 app.use('/api/assignments',   assignmentsRoutes);
