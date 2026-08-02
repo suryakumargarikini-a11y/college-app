@@ -1671,20 +1671,29 @@ const api = {
                 timeoutTimer = null;
             }
 
+            // 1. Device Offline Check (navigator.onLine === false)
+            if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+                console.warn(`[API Request] Device navigator.onLine is false — throwing OFFLINE`);
+                throw new Error('OFFLINE');
+            }
+
+            // 2. Request Timeout / Abort Error
             if (requestController.signal.aborted) {
                 const reason = requestController.signal.reason || err.message;
-                if (reason === 'TIMEOUT' || (err.name === 'AbortError' && duration >= (TIMEOUT_MS - 2000))) {
-                    console.warn(`[API] Request to ${endpoint} timed out after ${duration}ms — throwing TIMEOUT`);
-                    throw new Error('TIMEOUT');
+                if (reason === 'TIMEOUT' || err.name === 'AbortError' || duration >= (TIMEOUT_MS - 2000)) {
+                    console.warn(`[API] Request to ${endpoint} timed out after ${duration}ms — throwing SERVER_TIMEOUT`);
+                    throw new Error('SERVER_TIMEOUT');
                 }
                 console.warn(`[API] Request to ${endpoint} was aborted (${reason}).`);
                 throw err;
             }
 
-            if ((err.message === 'Failed to fetch' || err.name === 'TypeError') && (typeof navigator !== 'undefined' && navigator.onLine === false)) {
-                console.warn(`[API Request] Device navigator.onLine is false — throwing OFFLINE error`);
-                throw new Error('OFFLINE');
+            // 3. Server Unreachable / Network Level Failure
+            if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
+                console.warn(`[API Request] TypeError/Failed to fetch on ${fullUrl} — throwing SERVER_UNREACHABLE`);
+                throw new Error('SERVER_UNREACHABLE');
             }
+
             throw err;
         } finally {
             if (timeoutTimer) {
@@ -2226,14 +2235,16 @@ const pages = {
                     }
 
                     if (errEl) {
-                        if (err.message === 'TIMEOUT') {
-                            errEl.textContent = 'Server is taking too long to respond. Please try again.';
-                        } else if (err.message === 'OFFLINE') {
-                            errEl.textContent = 'You are currently offline. Check your internet connection.';
-                        } else if (err.message && !err.message.includes('HTTP') && !err.message.includes('fetch') && !err.message.includes('OFFLINE') && !err.message.includes('TIMEOUT')) {
+                        if (err.message === 'OFFLINE') {
+                            errEl.textContent = '📶 You are currently offline. Check your internet connection.';
+                        } else if (err.message === 'SERVER_TIMEOUT' || err.message === 'TIMEOUT') {
+                            errEl.textContent = '⏱️ Server is taking too long to respond. Please try again.';
+                        } else if (err.message === 'SERVER_UNREACHABLE') {
+                            errEl.textContent = '🔌 Unable to reach server. Please check server status or your network.';
+                        } else if (err.message && !err.message.includes('HTTP') && !err.message.includes('fetch') && !err.message.includes('OFFLINE') && !err.message.includes('TIMEOUT') && !err.message.includes('SERVER_')) {
                             errEl.textContent = err.message;
                         } else {
-                            errEl.textContent = 'Network error. Please try again.';
+                            errEl.textContent = '❌ Network error. Please try again.';
                         }
                         errEl.classList.remove('hidden');
                     }
