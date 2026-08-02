@@ -39,7 +39,7 @@ const resolveUserId = (req) => {
 const getProfile = async (req, res, next) => {
     try {
         const bc = getBusinessCollector();
-        if (bc) bc.trackFeatureAccess('profile').catch(() => {});
+        if (bc) bc.trackFeatureAccess('profile').catch(() => { });
         const userId = resolveUserId(req);
         const student = await dataProvider.getProfile(userId);
         if (!student) {
@@ -67,68 +67,68 @@ const getProfile = async (req, res, next) => {
         // ── Build response ────────────────────────────────────────────────────
         const profile = {
             // Identification
-            userId:          student.userId,
-            admissionNo:     student.admissionNo     || '',
-            roll:            student.roll            || student.roll_number || '',
-            name:            student.name,
+            userId: student.userId,
+            admissionNo: student.admissionNo || '',
+            roll: student.roll || student.roll_number || '',
+            name: student.name,
             // Academic
-            program:         student.program         || '',
-            branch:          student.branch          || '',
-            department:      student.branch          || '', // No separate column — mapped from branch
-            semester:        student.semester        || '',
-            section:         student.section         || 'A',
-            year:            student.year            || '',
-            academicYear:    student.academicYear    || '',
-            joiningDate:     student.joiningDate     || '',
-            sscMarks:        student.sscMarks        || '',
-            interMarks:      student.interMarks      || '',
-            lastStudied:     student.lastStudied     || '',
-            entranceType:    student.entranceType    || '',
-            entranceRank:    student.entranceRank    || '',
-            scholarship:     student.scholarship     || '',
-            seatType:        student.seatType        || '',
+            program: student.program || '',
+            branch: student.branch || '',
+            department: student.branch || '', // No separate column — mapped from branch
+            semester: student.semester || '',
+            section: student.section || 'A',
+            year: student.year || '',
+            academicYear: student.academicYear || '',
+            joiningDate: student.joiningDate || '',
+            sscMarks: student.sscMarks || '',
+            interMarks: student.interMarks || '',
+            lastStudied: student.lastStudied || '',
+            entranceType: student.entranceType || '',
+            entranceRank: student.entranceRank || '',
+            scholarship: student.scholarship || '',
+            seatType: student.seatType || '',
             // Performance
-            cgpa:            student.cgpa            || '--',
-            sgpa:            student.sgpa            || '--',
-            percentage:      student.percentage      || '--',
+            cgpa: student.cgpa || '--',
+            sgpa: student.sgpa || '--',
+            percentage: student.percentage || '--',
             // Personal
-            gender:          student.gender          || '',
-            dob:             student.dob             || '',
-            bloodGroup:      student.bloodGroup      || '',
-            nationality:     student.nationality     || '',
-            religion:        student.religion        || '',
-            caste:           student.caste           || '',
+            gender: student.gender || '',
+            dob: student.dob || '',
+            bloodGroup: student.bloodGroup || '',
+            nationality: student.nationality || '',
+            religion: student.religion || '',
+            caste: student.caste || '',
             // Sensitive (masked, owner-only)
-            aadhar:          maskSensitive(student.aadhar),
-            apaarId:         maskSensitive(student.apaarId),
+            aadhar: maskSensitive(student.aadhar),
+            apaarId: maskSensitive(student.apaarId),
             // Contact
-            email:           student.email           || '',
-            phone:           student.phone           || '',
-            address:         student.address         || '',
+            email: student.email || '',
+            phone: student.phone || '',
+            address: student.address || '',
             correspondenceAddress: student.correspondenceAddress || '',
             emergencyContact: student.emergencyContact || '',
             // Parents
-            fatherName:      student.fatherName      || '',
-            fatherMobile:    student.fatherMobile    || '',
-            fatherEmail:     student.fatherEmail     || '',
+            fatherName: student.fatherName || '',
+            fatherMobile: student.fatherMobile || '',
+            fatherEmail: student.fatherEmail || '',
             fatherOccupation: student.fatherOccupation || '',
-            motherName:      student.motherName      || '',
-            motherMobile:    student.motherMobile    || '',
-            motherEmail:     student.motherEmail     || '',
+            motherName: student.motherName || '',
+            motherMobile: student.motherMobile || '',
+            motherEmail: student.motherEmail || '',
             motherOccupation: student.motherOccupation || '',
-            annualIncome:    student.annualIncome    || '',
+            annualIncome: student.annualIncome || '',
             // Guardian
-            guardianName:    student.guardianName    || '',
-            guardianPhone:   student.guardianPhone   || '',
+            guardianName: student.guardianName || '',
+            guardianPhone: student.guardianPhone || '',
             guardianAddress: student.guardianAddress || '',
             // Accommodation
-            hostel:          student.hostel          || '',
-            roomNo:          student.roomNo          || '',
+            hostel: student.hostel || '',
+            roomNo: student.roomNo || '',
             // Photo
             profilePhotoUrl,
             // Sync metadata
-            lastSync:        student.lastSync        || null,
-            syncStatus:      student.isSyncing ? 'syncing' : (student.lastSync ? 'synced' : 'pending'),
+            lastSync: student.lastSync || null,
+            syncStatus: student.isSyncing ? 'syncing' : (student.lastSync ? 'synced' : 'pending'),
         };
 
         res.ok(profile, 'Profile fetched successfully');
@@ -141,7 +141,7 @@ const getProfile = async (req, res, next) => {
 const getMarks = async (req, res, next) => {
     try {
         const bc = getBusinessCollector();
-        if (bc) bc.trackFeatureAccess('marks').catch(() => {});
+        if (bc) bc.trackFeatureAccess('marks').catch(() => { });
         const userId = resolveUserId(req);
         const student = await dataProvider.getMarks(userId);
         if (!student) {
@@ -236,7 +236,7 @@ const getStudentResults = async (req, res, next) => {
 
 // Attendance controller
 const getAttendance = async (req, res, next) => {
-    const userId = resolveUserId(req);
+    const userId = req.session.userId;
     const timer = new PerformanceTimer(`att-${Date.now()}`, userId);
     timer.start('getAttendance:total');
     console.time(`[Controller] getAttendance:${userId}`);
@@ -287,10 +287,10 @@ const getAttendance = async (req, res, next) => {
 const getFees = async (req, res, next) => {
     try {
         const bc = getBusinessCollector();
-        if (bc) bc.trackFeatureAccess('fees').catch(() => {});
-        const userId = resolveUserId(req);
+        if (bc) bc.trackFeatureAccess('fees').catch(() => { });
+        const userId = req.session?.userId;
         const feesList = await dataProvider.getFees(userId);
-        
+
         if (feesList && feesList.length > 0) {
             let totalAmountVal = 0;
             let paidAmountVal = 0;
@@ -310,8 +310,8 @@ const getFees = async (req, res, next) => {
                     ref: fee.id.substring(0, 8).toUpperCase(),
                     date: fee.dueDate,
                     icon: feeName.toLowerCase().includes('hostel') ? 'hotel' :
-                          feeName.toLowerCase().includes('tuition') ? 'school' :
-                          feeName.toLowerCase().includes('crt') ? 'terminal' : 'receipt_long',
+                        feeName.toLowerCase().includes('tuition') ? 'school' :
+                            feeName.toLowerCase().includes('crt') ? 'terminal' : 'receipt_long',
                     status: fee.paymentStatus,
                     isRefund: false
                 };
@@ -391,9 +391,8 @@ const getFees = async (req, res, next) => {
 const getAssignments = async (req, res, next) => {
     try {
         const bc = getBusinessCollector();
-        if (bc) bc.trackFeatureAccess('assignments').catch(() => {});
-        const userId = resolveUserId(req);
-        const listRaw = await dataProvider.getAssignments(userId);
+        if (bc) bc.trackFeatureAccess('assignments').catch(() => { });
+        const listRaw = await dataProvider.getAssignments(req.session.userId);
         if (!listRaw) {
             return res.fail('Student assignments not found', null, 404);
         }
@@ -423,13 +422,12 @@ const getAssignments = async (req, res, next) => {
 // Timetable controller
 const getTimetable = async (req, res, next) => {
     try {
-        const userId = resolveUserId(req);
-        const student = await dataProvider.getProfile(userId);
+        const student = await dataProvider.getProfile(req.session.userId);
         if (!student) {
             return res.fail('Student timetable not found', null, 404);
         }
 
-        const slotsRaw = await dataProvider.getTimetable(userId);
+        const slotsRaw = await dataProvider.getTimetable(req.session.userId);
         const slots = slotsRaw.map(t => ({
             day: t.day,
             period: parseInt(t.period),
@@ -450,18 +448,12 @@ const getTimetable = async (req, res, next) => {
 // Syllabus controller
 const getSyllabus = async (req, res, next) => {
     try {
-        const userId = resolveUserId(req);
-        const student = await dataProvider.getProfile(userId);
+        const student = await dataProvider.getProfile(req.session.userId);
         if (!student) {
             return res.fail('Student data not found', null, 404);
         }
 
-        const subjectsWithSyllabus = await dataProvider.getSyllabus(userId);
-        res.ok(subjectsWithSyllabus, 'Syllabus fetched successfully');
-    } catch (error) {
-        next(error);
-    }
-};
+        const subjectsWithSyllabus = await dataProvider.getSyllabus(req.session.userId);
         res.ok(subjectsWithSyllabus, 'Syllabus fetched successfully');
     } catch (error) {
         next(error);
@@ -477,7 +469,7 @@ const toggleSyllabusUnit = async (req, res, next) => {
         }
 
         const updated = await syllabusRepository.updateUnitCompletion(unitId, completed === true);
-        
+
         const student = await dataProvider.getProfile(req.session.userId);
         if (student) {
             await auditLogRepository.log(student.id, 'SYLLABUS_UPDATE', `Updated syllabus unit ${unitId} completion status to: ${completed}`);
@@ -498,7 +490,7 @@ const getNotifications = async (req, res, next) => {
         if (!student) {
             return res.ok({ notifications: [], total: 0, page: 1, totalPages: 0 }, 'No student profile');
         }
-        
+
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
 
@@ -535,7 +527,7 @@ const getNotifications = async (req, res, next) => {
                 const branches = an.targetBranches ? JSON.parse(an.targetBranches) : [];
                 const years = an.targetYears ? JSON.parse(an.targetYears) : [];
                 const sections = an.targetSections ? JSON.parse(an.targetSections) : [];
-                
+
                 const branchMatch = branches.length === 0 || branches.includes(student.branch);
                 const yearMatch = years.length === 0 || years.some(y => {
                     const cleanY = y.replace(/[^0-9]/g, '');
@@ -590,9 +582,8 @@ const getNotifications = async (req, res, next) => {
 
 const getUnreadCount = async (req, res, next) => {
     try {
-        const userId = resolveUserId(req);
         const student = await prisma.student.findUnique({
-            where: { userId }
+            where: { userId: req.session.userId }
         });
         if (!student) {
             return res.ok({ count: 0 });
@@ -635,7 +626,7 @@ const getUnreadCount = async (req, res, next) => {
                 const branches = an.targetBranches ? JSON.parse(an.targetBranches) : [];
                 const years = an.targetYears ? JSON.parse(an.targetYears) : [];
                 const sections = an.targetSections ? JSON.parse(an.targetSections) : [];
-                
+
                 const branchMatch = branches.length === 0 || branches.includes(student.branch);
                 const yearMatch = years.length === 0 || years.some(y => {
                     const cleanY = y.replace(/[^0-9]/g, '');
@@ -704,7 +695,7 @@ const markRead = async (req, res, next) => {
                     const branches = adminNotif.targetBranches ? JSON.parse(adminNotif.targetBranches) : [];
                     const years = adminNotif.targetYears ? JSON.parse(adminNotif.targetYears) : [];
                     const sections = adminNotif.targetSections ? JSON.parse(adminNotif.targetSections) : [];
-                    
+
                     const branchMatch = branches.length === 0 || branches.includes(student.branch);
                     const yearMatch = years.length === 0 || years.some(y => {
                         const cleanY = y.replace(/[^0-9]/g, '');
@@ -781,7 +772,7 @@ const markAllRead = async (req, res, next) => {
                 const branches = an.targetBranches ? JSON.parse(an.targetBranches) : [];
                 const years = an.targetYears ? JSON.parse(an.targetYears) : [];
                 const sections = an.targetSections ? JSON.parse(an.targetSections) : [];
-                
+
                 const branchMatch = branches.length === 0 || branches.includes(student.branch);
                 const yearMatch = years.length === 0 || years.some(y => {
                     const cleanY = y.replace(/[^0-9]/g, '');
@@ -860,7 +851,7 @@ const getNotificationDebug = async (req, res, next) => {
         if (!student) {
             return res.fail('Student not found', null, 404);
         }
-        
+
         const prisma = require('../services/dbService');
         const [eventCount, fcmReady, fcmTokenCount] = await Promise.all([
             prisma.notificationEvent.count({ where: { studentId: student.id } }),
@@ -884,8 +875,7 @@ const getNotificationDebug = async (req, res, next) => {
 // GET /exams controller
 const getExams = async (req, res, next) => {
     try {
-        const userId = resolveUserId(req);
-        const student = await studentRepository.findByUserId(userId);
+        const student = await studentRepository.findByUserId(req.session.userId);
         if (!student) {
             return res.fail('Student not found in local cache', null, 404);
         }
@@ -896,7 +886,7 @@ const getExams = async (req, res, next) => {
             const date = new Date('2026-06-15');
             date.setDate(date.getDate() + index * 2); // Spread exams by 2 days
             const dateStr = date.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
-            
+
             return {
                 subjectCode: m.subject.code,
                 subjectName: m.subject.name || m.subject.code,
@@ -925,7 +915,7 @@ const triggerSync = async (req, res, next) => {
     try {
         const { userId, password } = req.session;
         logger.info(`[DataController] Manual sync requested for user: ${userId}`);
-        
+
         // Trigger sync via decoupled worker queue (enforcing full Puppeteer crawler sync)
         workerService.enqueueSync(userId, password, true);
 
@@ -940,7 +930,7 @@ const openPaymentWindow = async (req, res, next) => {
     try {
         const userId = req.session.userId;
         const password = req.session.password;
-        
+
         logger.info(`[DataController] Initiating headed payment browser auto-login for user: ${userId}`);
 
         const ProviderFactory = require('../providers/ProviderFactory');
@@ -970,21 +960,21 @@ const paymentRedirect = async (req, res, next) => {
         if (!session) return res.status(401).send('Session expired or invalid. Please re-login inside the app.');
 
         const { userId, password } = session;
-        const axios   = require('axios');
+        const axios = require('axios');
         const cheerio = require('cheerio');
-        const crypto  = require('crypto');
+        const crypto = require('crypto');
 
         // AES-128-CBC — matches the ECAP client-side encryption
         const encryptAES = (text) => {
-            const key    = Buffer.from('8701661282118308', 'utf8');
-            const iv     = Buffer.from('8701661282118308', 'utf8');
+            const key = Buffer.from('8701661282118308', 'utf8');
+            const iv = Buffer.from('8701661282118308', 'utf8');
             const cipher = crypto.createCipheriv('aes-128-cbc', key, iv);
             return cipher.update(text, 'utf8', 'base64') + cipher.final('base64');
         };
 
-        const baseUrl           = (process.env.ERP_BASE_URL || 'https://sitamecap.co.in/SATYA').replace(/\/$/, '');
+        const baseUrl = (process.env.ERP_BASE_URL || 'https://sitamecap.co.in/SATYA').replace(/\/$/, '');
         const encryptedPassword = encryptAES(password);
-        const paymentPageUrl    = baseUrl + '/FeePayments/onlinepayment.aspx';
+        const paymentPageUrl = baseUrl + '/FeePayments/onlinepayment.aspx';
 
         logger.info('[PaymentRedirect] Fetching fresh ERP tokens for student: ' + userId);
 
@@ -1000,10 +990,10 @@ const paymentRedirect = async (req, res, next) => {
                 }
             });
             const $ = cheerio.load(erpResp.data);
-            viewState          = ($('#__VIEWSTATE').val()          || '').replace(/"/g, '&quot;');
-            eventValidation    = ($('#__EVENTVALIDATION').val()    || '').replace(/"/g, '&quot;');
+            viewState = ($('#__VIEWSTATE').val() || '').replace(/"/g, '&quot;');
+            eventValidation = ($('#__EVENTVALIDATION').val() || '').replace(/"/g, '&quot;');
             viewStateGenerator = ($('#__VIEWSTATEGENERATOR').val() || '').replace(/"/g, '&quot;');
-            erpReachable       = viewState.length > 0;
+            erpReachable = viewState.length > 0;
             logger.info('[PaymentRedirect] ERP reachable. ViewState len=' + viewState.length);
         } catch (fetchErr) {
             logger.warn('[PaymentRedirect] ERP unreachable: ' + fetchErr.message);
@@ -1079,12 +1069,12 @@ const paymentRedirect = async (req, res, next) => {
             '' +
             '  <!-- Login form targets the hidden iframe -->' +
             '  <form id="loginForm" method="post" action="' + baseUrl + '/Default.aspx" target="loginIframe" style="display:none;">' +
-            '    <input type="hidden" name="__VIEWSTATE"          value="' + viewState          + '">' +
-            '    <input type="hidden" name="__EVENTVALIDATION"    value="' + eventValidation    + '">' +
+            '    <input type="hidden" name="__VIEWSTATE"          value="' + viewState + '">' +
+            '    <input type="hidden" name="__EVENTVALIDATION"    value="' + eventValidation + '">' +
             '    <input type="hidden" name="__VIEWSTATEGENERATOR" value="' + viewStateGenerator + '">' +
-            '    <input type="hidden" name="txtId2"               value="' + userId             + '">' +
-            '    <input type="hidden" name="txtPwd2"              value="' + encryptedPassword  + '">' +
-            '    <input type="hidden" name="hdnpwd2"              value="' + encryptedPassword  + '">' +
+            '    <input type="hidden" name="txtId2"               value="' + userId + '">' +
+            '    <input type="hidden" name="txtPwd2"              value="' + encryptedPassword + '">' +
+            '    <input type="hidden" name="hdnpwd2"              value="' + encryptedPassword + '">' +
             '    <input type="hidden" name="imgBtn2.x"            value="1">' +
             '    <input type="hidden" name="imgBtn2.y"            value="1">' +
             '  </form>' +
