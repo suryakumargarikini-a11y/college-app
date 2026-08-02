@@ -166,21 +166,8 @@ const markRepository = {
         } catch (dbErr) {
             logger.warn(`[Repository] PostgreSQL DB save of academicHistory note for ${userId}: ${dbErr.message}`);
         }
-
-        // 2. Dev Local Filesystem Fallback
-        try {
-            const fs = require('fs');
-            const path = require('path');
-            const dataDir = path.join(__dirname, '..', 'data', 'academic_results');
-            if (!fs.existsSync(dataDir)) {
-                fs.mkdirSync(dataDir, { recursive: true });
-            }
-            fs.writeFileSync(path.join(dataDir, `${userId}.json`), JSON.stringify(payload, null, 2), 'utf8');
-        } catch (fsErr) {
-            logger.warn(`[Repository] File persistence note: ${fsErr.message}`);
-        }
-
-        // 3. High-Performance Cache Layer
+        
+        // 2. High-Performance Cache Layer
         try {
             const cacheService = require('../services/cacheService');
             cacheService.set('academic_results', userId, payload, 24 * 60 * 60 * 1000);
@@ -222,24 +209,6 @@ const markRepository = {
             }
         } catch (dbErr) {
             logger.warn(`[Repository] PostgreSQL DB lookup for academicHistory note for ${userId}: ${dbErr.message}`);
-        }
-
-        // 3. Dev Local Filesystem Fallback
-        try {
-            const fs = require('fs');
-            const path = require('path');
-            const filePath = path.join(__dirname, '..', 'data', 'academic_results', `${userId}.json`);
-            if (fs.existsSync(filePath)) {
-                const raw = fs.readFileSync(filePath, 'utf8');
-                const data = JSON.parse(raw);
-                if (data && data.semesters) {
-                    const cacheService = require('../services/cacheService');
-                    cacheService.set('academic_results', userId, data, 24 * 60 * 60 * 1000);
-                    return data;
-                }
-            }
-        } catch (fsErr) {
-            logger.warn(`[Repository] Disk lookup note for ${userId}: ${fsErr.message}`);
         }
 
         return null;
