@@ -57,12 +57,101 @@ class DemoProvider {
                     status: 'PASS'
                 },
                 semesters: [
-                    { semester: '1', semesterName: 'I/IV B.Tech I Semester', sgpa: '7.45', creditsEarned: '19.5', totalCredits: '19.5', subjects: [] },
-                    { semester: '2', semesterName: 'I/IV B.Tech II Semester', sgpa: '7.86', creditsEarned: '21.5', totalCredits: '21.5', subjects: [] },
-                    { semester: '3', semesterName: 'II/IV B.Tech I Semester', sgpa: '7.75', creditsEarned: '21.5', totalCredits: '21.5', subjects: [] },
-                    { semester: '4', semesterName: 'II/IV B.Tech II Semester', sgpa: '7.95', creditsEarned: '21.5', totalCredits: '21.5', subjects: [] },
-                    { semester: '5', semesterName: 'III/IV B.Tech I Semester', sgpa: '8.18', creditsEarned: '21.5', totalCredits: '21.5', subjects: [] },
-                    { semester: '6', semesterName: 'III/IV B.Tech II Semester', sgpa: '8.13', creditsEarned: '22.0', totalCredits: '22.0', subjects: [] }
+                    {
+                        semester: '1',
+                        semesterName: 'I/IV B.Tech I Semester',
+                        sgpa: '7.45',
+                        creditsEarned: '19.5',
+                        totalCredits: '19.5',
+                        subjects: [
+                            { code: 'BS-101', name: 'Mathematics - I', grade: 'A', credits: '4.0', type: 'Core', result: 'PASS' },
+                            { code: 'BS-102', name: 'Applied Physics', grade: 'A', credits: '4.0', type: 'Core', result: 'PASS' },
+                            { code: 'ES-103', name: 'Programming for Problem Solving', grade: 'S', credits: '4.0', type: 'Core', result: 'PASS' },
+                            { code: 'ES-104', name: 'Engineering Graphics', grade: 'B+', credits: '3.0', type: 'Core', result: 'PASS' },
+                            { code: 'BS-105', name: 'Applied Physics Lab', grade: 'A+', credits: '1.5', type: 'Lab', result: 'PASS' },
+                            { code: 'ES-106', name: 'Programming Lab', grade: 'A+', credits: '1.5', type: 'Lab', result: 'PASS' }
+                        ]
+                    },
+                    {
+                        semester: '2',
+                        semesterName: 'I/IV B.Tech II Semester',
+                        sgpa: '7.86',
+                        creditsEarned: '21.5',
+                        totalCredits: '21.5',
+                        subjects: [
+                            { code: 'BS-201', name: 'Mathematics - II', grade: 'A', credits: '4.0', type: 'Core', result: 'PASS' },
+                            { code: 'BS-202', name: 'Applied Chemistry', grade: 'A+', credits: '4.0', type: 'Core', result: 'PASS' },
+                            { code: 'ES-203', name: 'Basic Electrical Engineering', grade: 'B+', credits: '4.0', type: 'Core', result: 'PASS' },
+                            { code: 'HS-204', name: 'English & Communication Skills', grade: 'A', credits: '3.0', type: 'Core', result: 'PASS' },
+                            { code: 'BS-205', name: 'Chemistry Lab', grade: 'A+', credits: '1.5', type: 'Lab', result: 'PASS' },
+                            { code: 'ES-206', name: 'BEE Lab', grade: 'A', credits: '1.5', type: 'Lab', result: 'PASS' },
+                            { code: 'HS-207', name: 'English Communication Lab', grade: 'S', credits: '1.5', type: 'Lab', result: 'PASS' }
+                        ]
+                    },
+                    {
+                        semester: '3',
+                        semesterName: 'II/IV B.Tech I Semester',
+                        sgpa: '7.75',
+                        creditsEarned: '21.5',
+                        totalCredits: '21.5',
+                        subjects: [
+                            { code: 'CS-301', name: 'Discrete Mathematics', grade: 'A', credits: '4.0', type: 'Core', result: 'PASS' },
+                            { code: 'CS-302', name: 'Data Structures & Algorithms', grade: 'A+', credits: '4.0', type: 'Core', result: 'PASS' },
+                            { code: 'CS-303', name: 'Digital Logic Design', grade: 'B+', credits: '4.0', type: 'Core', result: 'PASS' },
+                            { code: 'CS-304', name: 'Object Oriented Programming', grade: 'A', credits: '3.0', type: 'Core', result: 'PASS' },
+                            { code: 'CS-305', name: 'Data Structures Lab', grade: 'S', credits: '1.5', type: 'Lab', result: 'PASS' },
+                            { code: 'CS-306', name: 'OOP Lab', grade: 'A+', credits: '1.5', type: 'Lab', result: 'PASS' },
+                            { code: 'MC-307', name: 'Environmental Science', grade: 'A', credits: '1.5', type: 'Core', result: 'PASS' }
+                        ]
+                    },
+                    {
+                        semester: '4',
+                        semesterName: 'II/IV B.Tech II Semester',
+                        sgpa: '7.95',
+                        creditsEarned: '21.5',
+                        totalCredits: '21.5',
+                        subjects: [
+                            { code: 'CS-401', name: 'Probability & Statistics', grade: 'A+', credits: '4.0', type: 'Core', result: 'PASS' },
+                            { code: 'CS-402', name: 'Computer Architecture & Org', grade: 'A', credits: '4.0', type: 'Core', result: 'PASS' },
+                            { code: 'CS-403', name: 'Operating Systems', grade: 'A+', credits: '4.0', type: 'Core', result: 'PASS' },
+                            { code: 'CS-404', name: 'Database Management Systems', grade: 'A', credits: '3.0', type: 'Core', result: 'PASS' },
+                            { code: 'CS-405', name: 'Operating Systems Lab', grade: 'A+', credits: '1.5', type: 'Lab', result: 'PASS' },
+                            { code: 'CS-406', name: 'DBMS Lab', grade: 'S', credits: '1.5', type: 'Lab', result: 'PASS' },
+                            { code: 'MC-407', name: 'Constitution of India', grade: 'A', credits: '1.5', type: 'Core', result: 'PASS' }
+                        ]
+                    },
+                    {
+                        semester: '5',
+                        semesterName: 'III/IV B.Tech I Semester',
+                        sgpa: '8.18',
+                        creditsEarned: '21.5',
+                        totalCredits: '21.5',
+                        subjects: [
+                            { code: 'CS-501', name: 'Formal Languages & Automata', grade: 'A+', credits: '4.0', type: 'Core', result: 'PASS' },
+                            { code: 'CS-502', name: 'Computer Networks', grade: 'A+', credits: '4.0', type: 'Core', result: 'PASS' },
+                            { code: 'CS-503', name: 'Software Engineering', grade: 'A', credits: '4.0', type: 'Core', result: 'PASS' },
+                            { code: 'CS-504', name: 'Web Technologies', grade: 'S', credits: '3.0', type: 'Core', result: 'PASS' },
+                            { code: 'CS-505', name: 'Computer Networks Lab', grade: 'A+', credits: '1.5', type: 'Lab', result: 'PASS' },
+                            { code: 'CS-506', name: 'Web Technologies Lab', grade: 'S', credits: '1.5', type: 'Lab', result: 'PASS' },
+                            { code: 'CS-507', name: 'Summer Internship', grade: 'S', credits: '1.5', type: 'Core', result: 'PASS' }
+                        ]
+                    },
+                    {
+                        semester: '6',
+                        semesterName: 'III/IV B.Tech II Semester',
+                        sgpa: '8.13',
+                        creditsEarned: '22.0',
+                        totalCredits: '22.0',
+                        subjects: [
+                            { code: 'CS-601', name: 'Compiler Design', grade: 'A+', credits: '4.0', type: 'Core', result: 'PASS' },
+                            { code: 'CS-602', name: 'Machine Learning', grade: 'A+', credits: '4.0', type: 'Core', result: 'PASS' },
+                            { code: 'CS-603', name: 'Cloud Computing', grade: 'A', credits: '4.0', type: 'Core', result: 'PASS' },
+                            { code: 'CS-604', name: 'Information Security', grade: 'S', credits: '3.0', type: 'Core', result: 'PASS' },
+                            { code: 'CS-605', name: 'Machine Learning Lab', grade: 'S', credits: '1.5', type: 'Lab', result: 'PASS' },
+                            { code: 'CS-606', name: 'Cloud Computing Lab', grade: 'A+', credits: '1.5', type: 'Lab', result: 'PASS' },
+                            { code: 'CS-607', name: 'Mini Project / Phase-I', grade: 'S', credits: '2.0', type: 'Core', result: 'PASS' }
+                        ]
+                    }
                 ]
             };
         }
