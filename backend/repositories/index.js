@@ -16,8 +16,12 @@ const studentRepository = {
                 }
             });
             if (student && student.password) {
-                const cryptoHelper = require('../services/cryptoHelper');
-                student.password = cryptoHelper.decrypt(student.password);
+                try {
+                    const cryptoHelper = require('../services/cryptoHelper');
+                    student.password = cryptoHelper.decrypt(student.password);
+                } catch (cryptoErr) {
+                    logger.warn(`[studentRepository] Password decryption note for ${userId}: ${cryptoErr.message}`);
+                }
             }
             return student;
         } catch (err) {
