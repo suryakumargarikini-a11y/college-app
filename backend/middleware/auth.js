@@ -71,7 +71,7 @@ const requireAuth = async (req, res, next) => {
     }
 
     // Attach compatibility objects for controllers expecting req.user or req.session.studentId
-    req.user = { id: session.studentId };
+    req.user = { id: session.studentId || session.userId, userId: session.userId };
     req.session = session;
     req.token = token;
 
