@@ -145,13 +145,12 @@ const markRepository = {
     async saveAcademicHistory(userId, semesters = [], overall = null) {
         if (!userId) return;
         const payload = { semesters: semesters || [], overall: overall || null, updatedAt: new Date().toISOString() };
-        const jsonString = JSON.stringify(payload);
 
-        // 1. Primary Source of Truth: Store in PostgreSQL database via Prisma
+        // 1. Primary Source of Truth: Store natively in PostgreSQL database via Prisma Json
         try {
             const student = await prisma.student.findUnique({ where: { userId } });
             if (student) {
-                const updateData = { academicHistory: jsonString };
+                const updateData = { academicHistory: payload };
                 if (overall && overall.cgpa) {
                     updateData.cgpa = overall.cgpa;
                 }
@@ -162,7 +161,7 @@ const markRepository = {
                     where: { userId },
                     data: updateData
                 });
-                logger.info(`[Repository] Persisted ${semesters.length} semesters into PostgreSQL DB for student ${userId}`);
+                logger.info(`[Repository] Persisted ${semesters.length} semesters into PostgreSQL DB (Json) for student ${userId}`);
             }
         } catch (dbErr) {
             logger.warn(`[Repository] PostgreSQL DB save of academicHistory note for ${userId}: ${dbErr.message}`);
@@ -210,8 +209,10 @@ const markRepository = {
                 where: { userId },
                 select: { academicHistory: true, cgpa: true, sgpa: true }
             });
-            if (student && student.academicHistory && student.academicHistory.trim().length > 0) {
-                const parsed = JSON.parse(student.academicHistory);
+            if (student && student.academicHistory) {
+                const parsed = typeof student.academicHistory === 'string'
+                    ? JSON.parse(student.academicHistory)
+                    : student.academicHistory;
                 if (parsed && parsed.semesters && parsed.semesters.length > 0) {
                     const cacheService = require('../services/cacheService');
                     cacheService.set('academic_results', userId, parsed, 24 * 60 * 60 * 1000);
