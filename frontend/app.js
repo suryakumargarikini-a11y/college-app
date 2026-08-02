@@ -2294,7 +2294,7 @@ const pages = {
                     </div>
 
                     <!-- CGPA Card -->
-                    <div class="glass-card p-5 rounded-3xl flex flex-col justify-between h-40 border-l-4 border-l-amber-500 cursor-pointer hover:scale-[1.02] active-scale transition-all" onclick="router.navigate('/marks')">
+                    <div id="dashboard-academic-v2-container" class="glass-card p-5 rounded-3xl flex flex-col justify-between h-40 border-l-4 border-l-amber-500 cursor-pointer hover:scale-[1.02] active-scale transition-all" onclick="haptic(); router.navigate('/marks')">
                         <div class="flex justify-between items-start">
                             <div>
                                 <h4 class="text-sm font-bold text-on-surface">Academic GPA</h4>
@@ -2793,10 +2793,12 @@ const pages = {
         revalidate: async () => {
             console.log('[NAV] Silent background revalidation for Results screen...');
             try {
-                const resultsRes = await api.get('/student/results');
-                const rData = resultsRes?.data || resultsRes || {};
-                const fetchedSemesters = rData.semesters || rData.data?.semesters || [];
-                const fetchedOverall = rData.overall || rData.data?.overall || null;
+                const resultsRes = await api.get('/v2/academic/results');
+                console.log(resultsRes);
+                const rData = resultsRes.data;
+                const fetchedSemesters = rData.data?.semesters || [];
+                const fetchedOverall = rData.data?.overall || null;
+                console.log(fetchedSemesters);
                 if (fetchedSemesters && fetchedSemesters.length > 0 && pages.marks.renderHistory) {
                     pages.marks.renderHistory(fetchedSemesters, fetchedOverall, rData);
                 }
@@ -2856,9 +2858,9 @@ const pages = {
                             <div class="px-4 pb-4 hidden sem-content-panel" id="content-sem-${sem.semester}">
                                 <div class="pt-3 border-t border-slate-200/60 grid grid-cols-1 md:grid-cols-2 gap-3">
                                     ${(Array.isArray(sem.subjects) && sem.subjects.length > 0) ? sem.subjects.map(s => {
-                                        const gradeColors = { 'S': 'text-secondary', 'A+': 'text-secondary', 'A': 'text-secondary', 'A-': 'text-secondary', 'B+': 'text-primary', 'B': 'text-primary', 'C': 'text-on-surface-variant', 'D': 'text-amber-600', 'E': 'text-rose-600', 'F': 'text-rose-600', 'BACKLOG': 'text-rose-600' };
-                                        const gc = gradeColors[s.grade] || 'text-slate-800';
-                                        return `
+                        const gradeColors = { 'S': 'text-secondary', 'A+': 'text-secondary', 'A': 'text-secondary', 'A-': 'text-secondary', 'B+': 'text-primary', 'B': 'text-primary', 'C': 'text-on-surface-variant', 'D': 'text-amber-600', 'E': 'text-rose-600', 'F': 'text-rose-600', 'BACKLOG': 'text-rose-600' };
+                        const gc = gradeColors[s.grade] || 'text-slate-800';
+                        return `
                                             <div class="bg-white p-3.5 rounded-xl border border-slate-100 shadow-2xs flex justify-between items-center">
                                                 <div class="min-w-0 flex-1 pr-2">
                                                     <div class="flex items-center gap-1.5 mb-1">
@@ -2873,7 +2875,7 @@ const pages = {
                                                 </div>
                                             </div>
                                         `;
-                                    }).join('') : `
+                    }).join('') : `
                                         <div class="col-span-1 md:col-span-2 p-3 bg-slate-50 rounded-xl text-center">
                                             <p class="text-xs font-bold text-slate-600">Semester Completed · Earned ${sem.creditsEarned || sem.totalCredits || '--'} Credits</p>
                                             <p class="text-[10px] text-slate-400 font-semibold mt-0.5">SGPA: ${sem.sgpa || '--'}</p>
@@ -2962,7 +2964,7 @@ const pages = {
         afterRender: async () => {
             toggleShell(true);
             setActiveNav('marks');
-            
+
             const cachedData = getCachedData('/student/results') || getCachedData('/marks');
             let hasShownCached = false;
             if (cachedData) {
@@ -7612,7 +7614,14 @@ const router = {
     currentRoute: null,
     _isBackNavigation: false,
 
-    navigate(hash) { window.location.hash = hash; },
+    navigate(hash) {
+        if (hash && !hash.startsWith('/')) hash = '/' + hash;
+        if (window.location.hash === '#' + hash || window.location.hash === hash) {
+            this.handle();
+        } else {
+            window.location.hash = hash;
+        }
+    },
 
     // ── Unified goBack: single authority for all back actions ──────────────
     goBack() {
@@ -7716,7 +7725,7 @@ const router = {
 
         this.currentRoute = hash;
         const route = hash.slice(1) || 'dashboard';
-        const page = pages[route] || pages.dashboard;
+        const page = this.routes[hash] || pages[route] || pages.dashboard;
         console.log(`[NAV] Resolved route: "${route}", page exists: ${!!page}`);
         closeDrawer();
         setActiveNav(route);

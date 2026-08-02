@@ -20,7 +20,7 @@ window.AcademicV2 = (() => {
         const percentage = overall.percentage || data.percentage || '--';
 
         target.innerHTML = `
-            <div onclick="haptic(); router.navigate('/marks')" class="bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-2xl p-5 shadow-lg relative overflow-hidden transition-all duration-300 hover:shadow-xl cursor-pointer active:scale-[0.98]">
+            <div onclick="event.stopPropagation(); haptic(); router.navigate('/marks')" class="bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-2xl p-5 shadow-lg relative overflow-hidden transition-all duration-300 hover:shadow-xl cursor-pointer active:scale-[0.98]">
                 <div class="absolute -right-6 -bottom-6 opacity-10 text-white pointer-events-none">
                     <svg class="w-36 h-36" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3zM5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82z"/>
