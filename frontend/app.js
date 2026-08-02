@@ -2783,13 +2783,159 @@ const pages = {
                 </section>
             </main>
         </body>`,
+        revalidate: async () => {
+            console.log('[NAV] Silent background revalidation for Results screen...');
+            try {
+                const resultsRes = await api.get('/student/results');
+                const rData = resultsRes?.data || resultsRes || {};
+                const fetchedSemesters = rData.semesters || rData.data?.semesters || [];
+                const fetchedOverall = rData.overall || rData.data?.overall || null;
+                if (fetchedSemesters && fetchedSemesters.length > 0 && pages.marks.renderHistory) {
+                    pages.marks.renderHistory(fetchedSemesters, fetchedOverall, rData);
+                }
+            } catch (e) {
+                console.warn('[NAV] Background revalidation note:', e?.message || e);
+            }
+        },
+        renderHistory: (semesters, overall, data) => {
+            console.log('[API-FORENSIC][Step 5 & 6] Rendering academic history cards. Total semesters to render:', semesters.length);
+            const cgpa = parseFloat(overall?.cgpa || data?.cgpa) || 0;
+            const sgpa = parseFloat(data?.sgpa || (semesters[0]?.sgpa)) || 0;
+
+            setEl('marks-cgpa-ring', 'innerText', overall?.cgpa || data?.cgpa || '--');
+            setEl('marks-sgpa-ring', 'innerText', data?.sgpa || (semesters[0]?.sgpa) || '--');
+            setEl('marks-cgpa-status', 'innerText', cgpa >= 8.5 ? "Dean's List" : cgpa >= 7 ? 'Good Standing' : cgpa >= 5 ? 'Satisfactory' : 'Needs Improve');
+
+            const cgpaRing = $('cgpa-ring-circle');
+            if (cgpaRing) {
+                const pct = Math.min(cgpa / 10, 1);
+                const circumference = 125.66;
+                cgpaRing.style.strokeDashoffset = circumference - pct * circumference;
+            }
+            const sgpaRing = $('sgpa-ring-circle');
+            if (sgpaRing) {
+                const pct = Math.min(sgpa / 10, 1);
+                const circumference = 125.66;
+                sgpaRing.style.strokeDashoffset = circumference - pct * circumference;
+            }
+
+            const grid = $('marks-grid');
+            if (!grid) return;
+
+            if (semesters.length > 0) {
+                grid.className = "space-y-4 col-span-1 md:col-span-2";
+                grid.innerHTML = semesters.map((sem) => {
+                    return `
+                        <div class="bg-surface-container-low border border-slate-200/80 rounded-2xl overflow-hidden shadow-sm transition-all duration-300">
+                            <button type="button" class="w-full p-4 flex items-center justify-between text-left cursor-pointer hover:bg-slate-100/50 transition-colors sem-accordion-btn" data-sem="${sem.semester}">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-xl bg-secondary-container text-on-secondary-container flex items-center justify-center font-extrabold text-sm">
+                                        S${sem.semester}
+                                    </div>
+                                    <div>
+                                        <h3 class="font-bold text-slate-800 text-sm">${sem.semesterName || `Semester ${sem.semester}`}</h3>
+                                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">${sem.subjects ? sem.subjects.length : 0} Subjects · ${sem.credits || '--'} Credits</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <div class="text-right">
+                                        <span class="text-xs font-black text-secondary bg-secondary-container/50 px-2.5 py-1 rounded-full border border-secondary/20">SGPA ${sem.sgpa || '--'}</span>
+                                    </div>
+                                    <span class="material-symbols-outlined text-slate-400 transform transition-transform duration-300 sem-chevron" id="chevron-sem-${sem.semester}">expand_more</span>
+                                </div>
+                            </button>
+
+                            <div class="px-4 pb-4 hidden sem-content-panel" id="content-sem-${sem.semester}">
+                                <div class="pt-3 border-t border-slate-200/60 grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    ${(Array.isArray(sem.subjects) && sem.subjects.length > 0) ? sem.subjects.map(s => {
+                                        const gradeColors = { 'S': 'text-secondary', 'A+': 'text-secondary', 'A': 'text-secondary', 'A-': 'text-secondary', 'B+': 'text-primary', 'B': 'text-primary', 'C': 'text-on-surface-variant', 'D': 'text-amber-600', 'E': 'text-rose-600', 'F': 'text-rose-600', 'BACKLOG': 'text-rose-600' };
+                                        const gc = gradeColors[s.grade] || 'text-slate-800';
+                                        return `
+                                            <div class="bg-white p-3.5 rounded-xl border border-slate-100 shadow-2xs flex justify-between items-center">
+                                                <div class="min-w-0 flex-1 pr-2">
+                                                    <div class="flex items-center gap-1.5 mb-1">
+                                                        <span class="text-[9px] font-black uppercase tracking-wider bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">${s.type || 'Core'}</span>
+                                                        <span class="text-[9px] font-bold text-slate-400">${s.credits || '--'} Credits</span>
+                                                    </div>
+                                                    <h4 class="text-xs font-bold text-slate-800 truncate" title="${s.name || ''}">${s.name || 'Subject'}</h4>
+                                                </div>
+                                                <div class="text-right flex-shrink-0">
+                                                    <span class="text-xl font-black ${gc}">${s.grade || 'P'}</span>
+                                                    <p class="text-[9px] font-bold ${s.result === 'FAIL' ? 'text-rose-600' : 'text-emerald-600'} uppercase">${s.result || 'PASS'}</p>
+                                                </div>
+                                            </div>
+                                        `;
+                                    }).join('') : `
+                                        <div class="col-span-1 md:col-span-2 p-3 bg-slate-50 rounded-xl text-center">
+                                            <p class="text-xs font-bold text-slate-600">Semester Completed · Earned ${sem.creditsEarned || sem.totalCredits || '--'} Credits</p>
+                                            <p class="text-[10px] text-slate-400 font-semibold mt-0.5">SGPA: ${sem.sgpa || '--'}</p>
+                                        </div>
+                                    `}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                document.querySelectorAll('.sem-accordion-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        haptic();
+                        const sem = btn.getAttribute('data-sem');
+                        const panel = $(`content-sem-${sem}`);
+                        const chevron = $(`chevron-sem-${sem}`);
+                        if (panel) {
+                            const isHidden = panel.classList.contains('hidden');
+                            panel.classList.toggle('hidden', !isHidden);
+                            if (chevron) {
+                                chevron.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+                            }
+                        }
+                    });
+                });
+
+                if (semesters.length > 0) {
+                    const firstSem = semesters[0].semester;
+                    const firstPanel = $(`content-sem-${firstSem}`);
+                    const firstChevron = $(`chevron-sem-${firstSem}`);
+                    if (firstPanel) firstPanel.classList.remove('hidden');
+                    if (firstChevron) firstChevron.style.transform = 'rotate(180deg)';
+                }
+            }
+
+            const barsEl = $('marks-perf-bars');
+            const barItems = semesters.length > 0 ? semesters : (data?.subjects || []);
+            if (barsEl && barItems.length > 0) {
+                const gradeToNum = { 'S': 95, 'A+': 90, 'A': 85, 'A-': 80, 'B+': 75, 'B': 70, 'B-': 65, 'C+': 60, 'C': 55, 'D': 45, 'E': 35, 'F': 20, 'BACKLOG': 15 };
+                barsEl.innerHTML = barItems.slice(0, 6).map(s => {
+                    const score = s.sgpa ? (parseFloat(s.sgpa) * 10) : (gradeToNum[s.grade] || 50);
+                    const nameLabel = s.semesterName || (s.semester ? `SEM ${s.semester}` : (s.name || 'SEM'));
+                    return `<div class="w-full relative group flex flex-col items-center">
+                        <div class="w-full bg-secondary-container/30 rounded-t-lg" style="height:${Math.round(score * 0.9 / 10)}rem">
+                            <div class="absolute bottom-0 w-full bg-secondary rounded-t-lg transition-all duration-500 group-hover:opacity-80" style="height:${Math.round(score * 0.85 / 10)}rem"></div>
+                        </div>
+                        <span class="mt-2 text-[8px] font-bold text-on-surface-variant tracking-widest uppercase">${nameLabel.slice(0, 5)}</span>
+                    </div>`;
+                }).join('');
+            }
+        },
         afterRender: async () => {
             toggleShell(true);
             setActiveNav('marks');
-            loading.show('Fetching Results...');
-            console.log('[API-FORENSIC][Step 9] API_BASE is:', API_BASE);
+            
+            const cachedData = getCachedData('/student/results') || getCachedData('/marks');
+            let hasShownCached = false;
+            if (cachedData && (cachedData.semesters?.length > 0 || cachedData.data?.semesters?.length > 0)) {
+                const semList = cachedData.semesters || cachedData.data?.semesters || [];
+                const ovData = cachedData.overall || cachedData.data?.overall || null;
+                pages.marks.renderHistory(semList, ovData, cachedData);
+                hasShownCached = true;
+            }
+
+            if (!hasShownCached) {
+                loading.show('Fetching Results...');
+            }
+
             try {
-                console.log('[API-FORENSIC][Step 2] Requesting GET /marks from backend:', API_BASE + '/marks');
                 const res = await api.get('/marks');
                 const data = res.data || res || {};
 
@@ -2797,14 +2943,10 @@ const pages = {
                 let overall = data.overall || null;
 
                 try {
-                    console.log('[API-FORENSIC][Step 2] Requesting GET /student/results from backend:', API_BASE + '/student/results');
                     const resultsRes = await api.get('/student/results');
-                    console.log('[API-FORENSIC][Step 3] GET /student/results raw response:', resultsRes);
                     const rData = resultsRes?.data || resultsRes || {};
                     const fetchedSemesters = rData.semesters || rData.data?.semesters || [];
                     const fetchedOverall = rData.overall || rData.data?.overall || null;
-
-                    console.log('[API-FORENSIC][Step 4] fetchedSemesters.length:', fetchedSemesters.length);
 
                     if (fetchedSemesters && fetchedSemesters.length > 0) {
                         semesters = fetchedSemesters;
@@ -2814,183 +2956,32 @@ const pages = {
                     console.warn('[API-FORENSIC] /student/results fetch note:', e?.message || e);
                 }
 
-                console.log('[API-FORENSIC][Step 5 & 6] Rendering academic history cards. Total semesters to render:', semesters.length);
-                semesters.forEach((s, idx) => {
-                    console.log(`[API-FORENSIC][Sem #${idx + 1}] Title: "${s.semesterName || 'Semester ' + s.semester}" | SGPA: ${s.sgpa} | Subjects: ${s.subjects ? s.subjects.length : 0}`);
-                });
-
-                const cgpa = parseFloat(overall?.cgpa || data.cgpa) || 0;
-                const sgpa = parseFloat(data.sgpa || (semesters[0]?.sgpa)) || 0;
-
-                setEl('marks-cgpa-ring', 'innerText', overall?.cgpa || data.cgpa || '--');
-                setEl('marks-sgpa-ring', 'innerText', data.sgpa || (semesters[0]?.sgpa) || '--');
-                setEl('marks-cgpa-status', 'innerText', cgpa >= 8.5 ? "Dean's List" : cgpa >= 7 ? 'Good Standing' : cgpa >= 5 ? 'Satisfactory' : 'Needs Improve');
-
-                // Update SVG rings
-                const cgpaRing = $('cgpa-ring-circle');
-                if (cgpaRing) {
-                    const pct = Math.min(cgpa / 10, 1);
-                    const circumference = 125.66;
-                    cgpaRing.style.strokeDashoffset = circumference - pct * circumference;
-                }
-                const sgpaRing = $('sgpa-ring-circle');
-                if (sgpaRing) {
-                    const pct = Math.min(sgpa / 10, 1);
-                    const circumference = 125.66;
-                    sgpaRing.style.strokeDashoffset = circumference - pct * circumference;
-                }
-
-                const grid = $('marks-grid');
-                if (!grid) return;
-
-                if (semesters.length > 0) {
-                    grid.className = "space-y-4 col-span-1 md:col-span-2";
-                    grid.innerHTML = semesters.map((sem) => {
-                        return `
-                            <div class="bg-surface-container-low border border-slate-200/80 rounded-2xl overflow-hidden shadow-sm transition-all duration-300">
-                                <button type="button" class="w-full p-4 flex items-center justify-between text-left cursor-pointer hover:bg-slate-100/50 transition-colors sem-accordion-btn" data-sem="${sem.semester}">
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-10 h-10 rounded-xl bg-secondary-container text-on-secondary-container flex items-center justify-center font-extrabold text-sm">
-                                            S${sem.semester}
-                                        </div>
-                                        <div>
-                                            <h3 class="font-bold text-slate-800 text-sm">${sem.semesterName || `Semester ${sem.semester}`}</h3>
-                                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">${sem.subjects ? sem.subjects.length : 0} Subjects · ${sem.credits || '--'} Credits</p>
-                                        </div>
-                                    </div>
-                                    <div class="flex items-center gap-3">
-                                        <div class="text-right">
-                                            <span class="text-xs font-black text-secondary bg-secondary-container/50 px-2.5 py-1 rounded-full border border-secondary/20">SGPA ${sem.sgpa || '--'}</span>
-                                        </div>
-                                        <span class="material-symbols-outlined text-slate-400 transform transition-transform duration-300 sem-chevron" id="chevron-sem-${sem.semester}">expand_more</span>
-                                    </div>
-                                </button>
-
-                                <div class="px-4 pb-4 hidden sem-content-panel" id="content-sem-${sem.semester}">
-                                    <div class="pt-3 border-t border-slate-200/60 grid grid-cols-1 md:grid-cols-2 gap-3">
-                                        ${(Array.isArray(sem.subjects) && sem.subjects.length > 0) ? sem.subjects.map(s => {
-                                            const gradeColors = { 'S': 'text-secondary', 'A+': 'text-secondary', 'A': 'text-secondary', 'A-': 'text-secondary', 'B+': 'text-primary', 'B': 'text-primary', 'C': 'text-on-surface-variant', 'D': 'text-amber-600', 'E': 'text-rose-600', 'F': 'text-rose-600', 'BACKLOG': 'text-rose-600' };
-                                            const gc = gradeColors[s.grade] || 'text-slate-800';
-                                            return `
-                                                <div class="bg-white p-3.5 rounded-xl border border-slate-100 shadow-2xs flex justify-between items-center">
-                                                    <div class="min-w-0 flex-1 pr-2">
-                                                        <div class="flex items-center gap-1.5 mb-1">
-                                                            <span class="text-[9px] font-black uppercase tracking-wider bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">${s.type || 'Core'}</span>
-                                                            <span class="text-[9px] font-bold text-slate-400">${s.credits || '--'} Credits</span>
-                                                        </div>
-                                                        <h4 class="text-xs font-bold text-slate-800 truncate" title="${s.name || ''}">${s.name || 'Subject'}</h4>
-                                                    </div>
-                                                    <div class="text-right flex-shrink-0">
-                                                        <span class="text-xl font-black ${gc}">${s.grade || 'P'}</span>
-                                                        <p class="text-[9px] font-bold ${s.result === 'FAIL' ? 'text-rose-600' : 'text-emerald-600'} uppercase">${s.result || 'PASS'}</p>
-                                                    </div>
-                                                </div>
-                                            `;
-                                        }).join('') : `
-                                            <div class="col-span-1 md:col-span-2 p-3 bg-slate-50 rounded-xl text-center">
-                                                <p class="text-xs font-bold text-slate-600">Semester Completed · Earned ${sem.creditsEarned || sem.totalCredits || '--'} Credits</p>
-                                                <p class="text-[10px] text-slate-400 font-semibold mt-0.5">SGPA: ${sem.sgpa || '--'}</p>
-                                            </div>
-                                        `}
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-                    }).join('');
-
-                    document.querySelectorAll('.sem-accordion-btn').forEach(btn => {
-                        btn.addEventListener('click', () => {
-                            haptic();
-                            const sem = btn.getAttribute('data-sem');
-                            const panel = $(`content-sem-${sem}`);
-                            const chevron = $(`chevron-sem-${sem}`);
-                            if (panel) {
-                                const isHidden = panel.classList.contains('hidden');
-                                panel.classList.toggle('hidden', !isHidden);
-                                if (chevron) {
-                                    chevron.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
-                                }
-                            }
-                        });
-                    });
-
-                    if (semesters.length > 0) {
-                        const firstSem = semesters[0].semester;
-                        const firstPanel = $(`content-sem-${firstSem}`);
-                        const firstChevron = $(`chevron-sem-${firstSem}`);
-                        if (firstPanel) firstPanel.classList.remove('hidden');
-                        if (firstChevron) firstChevron.style.transform = 'rotate(180deg)';
-                    }
-                } else {
-                    const subjects = data.subjects || [];
-                    if (subjects.length === 0) {
-                        grid.innerHTML = `<div class="col-span-2 text-center py-12 text-on-surface-variant">No marks data available.</div>`;
-                    } else {
-                        const gradeColors = { 'S': 'text-secondary', 'A+': 'text-secondary', 'A': 'text-secondary', 'A-': 'text-secondary', 'B+': 'text-primary', 'B': 'text-primary', 'C': 'text-on-surface-variant', 'D': 'text-tertiary', 'E': 'text-error', 'F': 'text-error', 'BACKLOG': 'text-error' };
-                        const typeBg = { 'Core': 'bg-secondary-container text-on-secondary-fixed-variant', 'Lab': 'bg-tertiary-container text-on-tertiary-fixed-variant' };
-                        grid.innerHTML = subjects.map(s => {
-                            const gc = gradeColors[s.grade] || 'text-on-surface';
-                            const tb = typeBg[s.type] || 'bg-surface-container text-on-surface-variant';
-                            const pct = s.percentage || 0;
-                            return `<div class="glass-card border border-white/40 p-5 rounded-2xl space-y-3 active-scale transition-all duration-300 shadow-sm">
-                                <div class="flex justify-between items-start gap-3">
-                                    <div class="flex-1 min-w-0">
-                                        <span class="text-[10px] font-bold uppercase tracking-widest ${tb} px-2.5 py-0.5 rounded-full inline-block">${s.type || 'Core'}</span>
-                                        <h3 class="text-base font-bold text-on-surface mt-2 truncate" style="font-family:'Plus Jakarta Sans',sans-serif" title="${s.name}">${s.name}</h3>
-                                    </div>
-                                    <div class="text-right flex-shrink-0">
-                                        <p class="text-2xl font-black ${gc}">${s.grade}</p>
-                                        <p class="text-[10px] text-on-surface-variant font-bold">${s.marks || '--'}</p>
-                                    </div>
-                                </div>
-                                <div class="space-y-1.5">
-                                    <div class="flex justify-between text-[10px] font-bold text-on-surface-variant uppercase tracking-tighter"><span>Mastery</span><span>${pct}%</span></div>
-                                    <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                        <div class="h-full rounded-full transition-all duration-1000" style="width:${pct}%;background:#2563EB"></div>
-                                    </div>
-                                </div>
-                            </div>`;
-                        }).join('');
-                    }
-                }
-
-                // Performance bars (safely handles both semester history list & subject grid)
-                const barsEl = $('marks-perf-bars');
-                const barItems = semesters.length > 0 ? semesters : (data.subjects || []);
-                if (barsEl && barItems.length > 0) {
-                    const gradeToNum = { 'S': 95, 'A+': 90, 'A': 85, 'A-': 80, 'B+': 75, 'B': 70, 'B-': 65, 'C+': 60, 'C': 55, 'D': 45, 'E': 35, 'F': 20, 'BACKLOG': 15 };
-                    barsEl.innerHTML = barItems.slice(0, 6).map(s => {
-                        const score = s.sgpa ? (parseFloat(s.sgpa) * 10) : (gradeToNum[s.grade] || 50);
-                        const nameLabel = s.semesterName || (s.semester ? `SEM ${s.semester}` : (s.name || 'SEM'));
-                        return `<div class="w-full relative group flex flex-col items-center">
-                            <div class="w-full bg-secondary-container/30 rounded-t-lg" style="height:${Math.round(score * 0.9 / 10)}rem">
-                                <div class="absolute bottom-0 w-full bg-secondary rounded-t-lg transition-all duration-500 group-hover:opacity-80" style="height:${Math.round(score * 0.85 / 10)}rem"></div>
-                            </div>
-                            <span class="mt-2 text-[8px] font-bold text-on-surface-variant tracking-widest uppercase">${nameLabel.slice(0, 5)}</span>
-                        </div>`;
-                    }).join('');
-                }
+                pages.marks.renderHistory(semesters, overall, data);
             } catch (e) {
                 console.error('[Marks] Error:', e);
-                const grid = $('marks-grid');
-                if (grid) {
-                    grid.innerHTML = `
-                        <div class="col-span-1 md:col-span-2 p-6 bg-white border border-slate-200/50 rounded-2xl shadow-sm text-center space-y-4">
-                            <div class="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto">
-                                <span class="material-symbols-outlined text-xl">cloud_off</span>
+                if (!hasShownCached) {
+                    const grid = $('marks-grid');
+                    if (grid) {
+                        grid.innerHTML = `
+                            <div class="col-span-1 md:col-span-2 p-6 bg-white border border-slate-200/50 rounded-2xl shadow-sm text-center space-y-4">
+                                <div class="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto">
+                                    <span class="material-symbols-outlined text-xl">cloud_off</span>
+                                </div>
+                                <div>
+                                    <h4 class="text-sm font-bold text-slate-800">Connection Error</h4>
+                                    <p class="text-xs text-slate-400 mt-1">Unable to retrieve academic records. Please try again.</p>
+                                </div>
+                                <button onclick="router.routes['/marks']?.afterRender?.()" class="px-5 py-2 bg-primary text-[#2563EB] font-extrabold text-xs rounded-full active-scale transition-transform">
+                                    Retry
+                                </button>
                             </div>
-                            <div>
-                                <h4 class="text-sm font-bold text-slate-800">Connection Error</h4>
-                                <p class="text-xs text-slate-400 mt-1">Unable to retrieve academic records. Please try again.</p>
-                            </div>
-                            <button onclick="router.routes['/marks']?.afterRender?.()" class="px-5 py-2 bg-primary text-white font-extrabold text-xs rounded-full active-scale transition-transform">
-                                Retry
-                            </button>
-                        </div>
-                    `;
+                        `;
+                    }
                 }
             }
-            finally { loading.hide(); }
+            finally {
+                loading.hide();
+            }
         }
     },
     fees: {
@@ -7566,7 +7557,7 @@ async function toggleUnit(unitId, subIdx, unitIdx, btn) {
 // ============================================================
 
 // Pages that are kept alive in the DOM (never destroyed on navigation)
-const KEEP_ALIVE_PAGES = new Set(['dashboard', 'attendance', 'marks', 'fees', 'timetable']);
+const KEEP_ALIVE_PAGES = new Set(['dashboard', 'attendance', 'marks', 'academics', 'fees', 'timetable']);
 const KEEP_ALIVE_MAX = 5;  // LRU limit — evict oldest if exceeded
 
 // LRU Map: preserves insertion order, oldest first
@@ -7645,7 +7636,7 @@ const router = {
             '/notifications': pages.notifications,
             '/exams': pages.exams,
             '/maintenance': pages.maintenance,
-            '/academics': pages.academics,
+            '/academics': pages.marks,
             '/career': pages.career,
             '/services': pages.services,
             '/exit-pass': pages['exit-pass'],
