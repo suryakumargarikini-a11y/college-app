@@ -2954,17 +2954,19 @@ const pages = {
                     }
                 }
 
-                // Performance bars
+                // Performance bars (safely handles both semester history list & subject grid)
                 const barsEl = $('marks-perf-bars');
-                if (barsEl && subjects.length > 0) {
+                const barItems = semesters.length > 0 ? semesters : (data.subjects || []);
+                if (barsEl && barItems.length > 0) {
                     const gradeToNum = { 'S': 95, 'A+': 90, 'A': 85, 'A-': 80, 'B+': 75, 'B': 70, 'B-': 65, 'C+': 60, 'C': 55, 'D': 45, 'E': 35, 'F': 20, 'BACKLOG': 15 };
-                    barsEl.innerHTML = subjects.slice(0, 6).map(s => {
-                        const h = gradeToNum[s.grade] || 50;
+                    barsEl.innerHTML = barItems.slice(0, 6).map(s => {
+                        const score = s.sgpa ? (parseFloat(s.sgpa) * 10) : (gradeToNum[s.grade] || 50);
+                        const nameLabel = s.semesterName || (s.semester ? `SEM ${s.semester}` : (s.name || 'SEM'));
                         return `<div class="w-full relative group flex flex-col items-center">
-                            <div class="w-full bg-secondary-container/30 rounded-t-lg" style="height:${Math.round(h * 0.9 / 10)}rem">
-                                <div class="absolute bottom-0 w-full bg-secondary rounded-t-lg transition-all duration-500 group-hover:opacity-80" style="height:${Math.round(h * 0.85 / 10)}rem"></div>
+                            <div class="w-full bg-secondary-container/30 rounded-t-lg" style="height:${Math.round(score * 0.9 / 10)}rem">
+                                <div class="absolute bottom-0 w-full bg-secondary rounded-t-lg transition-all duration-500 group-hover:opacity-80" style="height:${Math.round(score * 0.85 / 10)}rem"></div>
                             </div>
-                            <span class="mt-2 text-[8px] font-bold text-on-surface-variant tracking-widest uppercase">${(s.name || 'SEM').slice(0, 4)}</span>
+                            <span class="mt-2 text-[8px] font-bold text-on-surface-variant tracking-widest uppercase">${nameLabel.slice(0, 5)}</span>
                         </div>`;
                     }).join('');
                 }
@@ -3616,7 +3618,7 @@ const pages = {
                     renderRow('diversity_3', 'Religion', d.religion),
                     renderRow('groups', 'Category / Caste', d.caste),
                     renderRow('fingerprint', 'Aadhaar Number', d.aadhar, true),
-                    renderRow('badge_2', 'APAAR / ABC ID', d.apaarId, true),
+                    renderRow('badge', 'APAAR / ABC ID', d.apaarId, true),
                 ].join('');
 
                 const sect2 = [
