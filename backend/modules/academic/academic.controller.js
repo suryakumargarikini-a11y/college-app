@@ -14,7 +14,7 @@ class AcademicController {
      */
     async getAcademicResults(req, res) {
         const startTime = Date.now();
-        const userId = req.user ? req.user.userId : (req.query.userId || req.body.userId);
+        const userId = (req.session && req.session.userId) || (req.user && (req.user.userId || req.user.id)) || req.query.userId || req.body.userId;
 
         if (!userId) {
             return res.status(400).json({
