@@ -2460,16 +2460,19 @@ const pages = {
                 }
             }).catch(() => { });
 
-            api.get('/marks').then(marksRes => {
+            api.get('/v2/academic/results').then(marksRes => {
                 const resData = marksRes?.data || marksRes || {};
                 const sList = resData.semesters || [];
                 const cgpa = resData.cgpa || resData.overall?.cgpa || '--';
                 const sgpa = (resData.sgpa && resData.sgpa !== 'N/A' && resData.sgpa !== '--')
                     ? resData.sgpa
-                    : (sList.length > 0 ? (sList[0]?.sgpa || sList[sList.length - 1]?.sgpa || '--') : '--');
+                    : (sList.length > 0 ? (sList[sList.length - 1]?.sgpa || sList[0]?.sgpa || '--') : '--');
                 setEl('dash-gpa-val', 'innerText', cgpa);
                 setEl('dash-sgpa-val', 'innerText', sgpa);
-            }).catch(e => { console.warn('[Dashboard] Marks fetch note:', e); });
+                if (window.AcademicV2 && document.getElementById('dashboard-academic-v2-container')) {
+                    AcademicV2.renderDashboardCard('dashboard-academic-v2-container', resData);
+                }
+            }).catch(e => { console.warn('[Dashboard] Academic V2 fetch note:', e); });
 
             api.get('/fees').then(feesRes => {
                 const due = feesRes.data?.dueAmount || feesRes.data?.totalDue;
@@ -2977,26 +2980,14 @@ const pages = {
             }
 
             try {
-                const res = await api.get('/marks');
-                const data = res.data || res || {};
+                const res = await api.get('/v2/academic/results');
+                const data = res?.data || res || {};
+                const semesters = data.semesters || [];
+                const overall = data.overall || null;
 
-                let semesters = data.semesters || [];
-                let overall = data.overall || null;
-
-                try {
-                    const resultsRes = await api.get('/student/results');
-                    const rData = resultsRes?.data || resultsRes || {};
-                    const fetchedSemesters = rData.semesters || rData.data?.semesters || [];
-                    const fetchedOverall = rData.overall || rData.data?.overall || null;
-
-                    if (fetchedSemesters && fetchedSemesters.length > 0) {
-                        semesters = fetchedSemesters;
-                        overall = fetchedOverall;
-                    }
-                } catch (e) {
-                    console.warn('[API-FORENSIC] /student/results fetch note:', e?.message || e);
+                if (window.AcademicV2 && document.getElementById('academic-v2-results-container')) {
+                    AcademicV2.renderResultsScreen('academic-v2-results-container', data);
                 }
-
                 pages.marks.renderHistory(semesters, overall, data);
             } catch (e) {
                 console.error('[Marks] Error:', e);
