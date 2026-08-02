@@ -255,28 +255,13 @@ const login = async (req, res) => {
         const providerSyncMs = Date.now() - providerSyncStart;
         logger.info(`[LOGIN-4] ✓ Instant login session created in ${providerSyncMs}ms for: ${userId}`);
 
-        // ── STAGE 5: Acquire Provider Session ──────────────────────────────
-        const sessionAcqStart = Date.now();
-        logger.info(`[LOGIN-5] Acquiring provider session for: ${userId}`);
-        console.log(`[LOGIN-5] Acquiring provider session for: ${userId}`);
-
-        const providerSession = await ProviderSessionManager.acquire(userId);
-        const cookies = providerSession ? providerSession.cookies : '';
-        const sessionAcqMs = Date.now() - sessionAcqStart;
-        logger.info(`[LOGIN-5] Provider session acquired in ${sessionAcqMs}ms — cookies present: ${!!cookies}`);
-        console.log(`[LOGIN-5] Provider session acquired in ${sessionAcqMs}ms — cookies present: ${!!cookies}`);
-
-        // ── STAGE 6: Create JWT Session ────────────────────────────────────
+        // ── STAGE 5: Create JWT Session (< 1ms) ───────────────────────────
         const jwtStart = Date.now();
-        logger.info(`[LOGIN-6] Creating JWT session for: ${userId}`);
-        console.log(`[LOGIN-6] Creating JWT session for: ${userId}`);
-
-        const token = sessionManager.createSession(userId, password, cookies, {
+        const token = sessionManager.createSession(userId, password, '', {
             studentName: student.name
         }, userRole, isParent);
         const jwtMs = Date.now() - jwtStart;
-        logger.info(`[LOGIN-6] JWT created in ${jwtMs}ms — token present: ${!!token}`);
-        console.log(`[LOGIN-6] JWT created in ${jwtMs}ms — token present: ${!!token}`);
+        logger.info(`[LOGIN-5] JWT session created in ${jwtMs}ms — token present: ${!!token}`);
 
         // ── STAGE 7: Audit Log (non-blocking) ─────────────────────────────
         auditLogRepository.log(student.id, isParent ? 'LOGIN_PARENT_EXTERNAL' : 'LOGIN_EXTERNAL', `Successfully verified credentials and synced via Provider (role: ${userRole})`)
