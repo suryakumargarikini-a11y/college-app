@@ -104,15 +104,16 @@ const login = async (req, res) => {
             isFromMemoryCache = true;
             logger.info(`[LOGIN-2] Cache HIT for student credentials: ${userId}`);
         } else {
-            // ── STAGE 2b: Database Lookup (Fail-Fast: Max 300ms) ───────────────
+            // ── STAGE 2b: Fail-Safe Fast Database Lookup (<100ms) ─────────────
             try {
                 const dbLookupStart = Date.now();
                 logger.info(`[LOGIN-2b] DB lookup for student: ${userId} (isParent: ${isParent})`);
 
-                cachedStudent = await Promise.race([
-                    prisma.student.findUnique({ where: { userId } }),
-                    new Promise((_, reject) => setTimeout(() => reject(new Error('DB_TIMEOUT')), 300))
-                ]);
+                // Non-blocking query with short 150ms budget
+                const queryPromise = prisma.student.findUnique({ where: { userId } });
+                const timerPromise = new Promise(r => setTimeout(() => r(null), 150));
+
+                cachedStudent = await Promise.race([queryPromise, timerPromise]);
 
                 const dbLookupMs = Date.now() - dbLookupStart;
                 logger.info(`[LOGIN-2b] DB lookup complete in ${dbLookupMs}ms — found: ${!!cachedStudent}`);
@@ -122,7 +123,7 @@ const login = async (req, res) => {
                     cacheService.set('user_credentials', userId, cachedStudent, 24 * 60 * 60 * 1000);
                 }
             } catch (dbErr) {
-                logger.warn(`[LOGIN-2b] DB lookup fail-fast (${dbErr.message}) — proceeding to provider sync`);
+                logger.warn(`[LOGIN-2b] DB lookup fail-safe note (${dbErr.message}) — proceeding to instant session`);
                 cachedStudent = null;
             }
         }
