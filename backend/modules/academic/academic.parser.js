@@ -121,8 +121,8 @@ class AcademicParser {
                             }
                         }
 
-                        const isLab = subjectCode.includes('LAB') || subjectCode.includes('PRACTICAL') || subjectCode.includes('WORKSHOP');
-                        const isPass = !(grade === 'F' || grade === 'ABSENT' || grade === 'FAIL' || grade === 'AB');
+                        const isLab = this.inferSubjectType(subjectCode);
+                        const isPass = this.inferResult(grade);
 
                         semSubjects.push({
                             code: subjectCode,
