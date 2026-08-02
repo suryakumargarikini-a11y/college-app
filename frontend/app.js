@@ -2898,11 +2898,13 @@ const pages = {
                     });
                 });
 
-                const firstSem = semList[0].semester;
-                const firstPanel = $(`content-sem-${firstSem}`);
-                const firstChevron = $(`chevron-sem-${firstSem}`);
-                if (firstPanel) firstPanel.classList.remove('hidden');
-                if (firstChevron) firstChevron.style.transform = 'rotate(180deg)';
+                if (semList[0]) {
+                    const firstSem = semList[0].semester;
+                    const firstPanel = $(`content-sem-${firstSem}`);
+                    const firstChevron = $(`chevron-sem-${firstSem}`);
+                    if (firstPanel) firstPanel.classList.remove('hidden');
+                    if (firstChevron) firstChevron.style.transform = 'rotate(180deg)';
+                }
             } else {
                 const subList = rawData.subjects || rawData.marks || [];
                 if (subList.length === 0) {
