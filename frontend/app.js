@@ -2984,10 +2984,6 @@ const pages = {
                 const data = res?.data || res || {};
                 const semesters = data.semesters || [];
                 const overall = data.overall || null;
-
-                if (window.AcademicV2 && document.getElementById('academic-v2-results-container')) {
-                    AcademicV2.renderResultsScreen('academic-v2-results-container', data);
-                }
                 pages.marks.renderHistory(semesters, overall, data);
             } catch (e) {
                 console.error('[Marks] Error:', e);
@@ -5031,7 +5027,6 @@ const pages = {
                     <!-- Tab Selector -->
                     <div class="flex gap-2 overflow-x-auto pb-3 mb-5 hide-scrollbar momentum-scroll select-none" id="academic-tabs">
                         <button class="academic-tab-btn flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider bg-primary text-white" data-tab="attendance">Attendance</button>
-                        <button class="academic-tab-btn flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-500" data-tab="marks">Results</button>
                         <button class="academic-tab-btn flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-500" data-tab="timetable">Timetable</button>
                         <button class="academic-tab-btn flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-500" data-tab="assignments">Assignments</button>
                         <button class="academic-tab-btn flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-500" data-tab="fees">Fees</button>
