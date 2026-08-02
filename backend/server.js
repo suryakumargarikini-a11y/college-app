@@ -22,13 +22,16 @@ if (process.env.NODE_ENV === 'production' || process.env.RENDER || process.env.R
         console.error('[Startup] Failed to switch database provider to PostgreSQL:', err.message);
     }
 
-    try {
-        const { execSync } = require('child_process');
-        execSync('npx prisma db push --skip-generate --accept-data-loss', { stdio: 'inherit' });
-        console.log('[Startup] Verified and pushed PostgreSQL schema successfully');
-    } catch (dbErr) {
-        console.warn('[Startup] PostgreSQL db push note:', dbErr.message);
-    }
+    // Non-blocking schema verification to prevent container boot timeout
+    setTimeout(() => {
+        try {
+            const { execSync } = require('child_process');
+            execSync('npx prisma db push --skip-generate --accept-data-loss', { stdio: 'ignore', timeout: 15000 });
+            console.log('[Startup] Verified and pushed PostgreSQL schema successfully');
+        } catch (dbErr) {
+            console.warn('[Startup] PostgreSQL db push note:', dbErr.message);
+        }
+    }, 1000);
 }
 
 require('./telemetry/tracing');
