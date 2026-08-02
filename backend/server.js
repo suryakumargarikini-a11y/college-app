@@ -14,11 +14,20 @@ try {
     console.warn('[Server] Note: dotenv module not found. Relying on system environment variables.');
 }
 
-if (process.env.NODE_ENV === 'production' || process.env.RENDER) {
+if (process.env.NODE_ENV === 'production' || process.env.RENDER || process.env.RAILWAY_ENVIRONMENT) {
     try {
         require('./scripts/use-pg');
+        console.log('[Startup] Switched schema provider to PostgreSQL');
     } catch (err) {
         console.error('[Startup] Failed to switch database provider to PostgreSQL:', err.message);
+    }
+
+    try {
+        const { execSync } = require('child_process');
+        execSync('npx prisma db push --skip-generate --accept-data-loss', { stdio: 'inherit' });
+        console.log('[Startup] Verified and pushed PostgreSQL schema successfully');
+    } catch (dbErr) {
+        console.warn('[Startup] PostgreSQL db push note:', dbErr.message);
     }
 }
 

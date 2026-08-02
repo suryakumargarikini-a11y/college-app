@@ -300,12 +300,31 @@ class ErpBrowserService {
                         // ── networkidle2 for post-submit navigation ────────────
                         await Promise.all([
                             authPage.click(loginBtnSelector),
-                            authPage.waitForNavigation({ waitUntil: 'networkidle2', timeout: 40000 })
+                            authPage.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 })
                         ]).catch(e => logger.info(`[Puppeteer] [${requestId}] Nav note: ${e.message}`));
 
-                        await this._recordNavigationTimings(authPage, loginSpan, 'login');
+                        let pageUrl = authPage.url();
+                        if (pageUrl.includes('Default.aspx')) {
+                            logger.info(`[Puppeteer] [${requestId}] Still on Default.aspx — attempting ASP.NET Enter keypress fallback...`);
+                            await Promise.all([
+                                authPage.keyboard.press('Enter'),
+                                authPage.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 })
+                            ]).catch(e => logger.info(`[Puppeteer] [${requestId}] Enter fallback note: ${e.message}`));
+                            pageUrl = authPage.url();
+                        }
 
-                        const pageUrl = authPage.url();
+                        if (pageUrl.includes('Default.aspx')) {
+                            logger.info(`[Puppeteer] [${requestId}] Still on Default.aspx — attempting document.forms[0].submit() fallback...`);
+                            await Promise.all([
+                                authPage.evaluate(() => {
+                                    if (document.forms && document.forms[0]) document.forms[0].submit();
+                                }),
+                                authPage.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 })
+                            ]).catch(e => logger.info(`[Puppeteer] [${requestId}] Form submit fallback note: ${e.message}`));
+                            pageUrl = authPage.url();
+                        }
+
+                        await this._recordNavigationTimings(authPage, loginSpan, 'login');
                         logger.info(`[Puppeteer] [${requestId}] Post-login URL: ${pageUrl}`);
 
                         await antiBotDetector.assertNoBotChallenge(authPage, { pageName: 'login_post', requestId });
