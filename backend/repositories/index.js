@@ -144,6 +144,31 @@ const subjectRepository = {
 const markRepository = {
     async saveAcademicHistory(userId, semesters = [], overall = null) {
         if (!userId) return;
+        const payload = { semesters: semesters || [], overall: overall || null, updatedAt: new Date().toISOString() };
+        const jsonString = JSON.stringify(payload);
+
+        // 1. Primary Source of Truth: Store in PostgreSQL database via Prisma
+        try {
+            const student = await prisma.student.findUnique({ where: { userId } });
+            if (student) {
+                const updateData = { academicHistory: jsonString };
+                if (overall && overall.cgpa) {
+                    updateData.cgpa = overall.cgpa;
+                }
+                if (semesters && semesters.length > 0 && semesters[semesters.length - 1].sgpa) {
+                    updateData.sgpa = semesters[semesters.length - 1].sgpa;
+                }
+                await prisma.student.update({
+                    where: { userId },
+                    data: updateData
+                });
+                logger.info(`[Repository] Persisted ${semesters.length} semesters into PostgreSQL DB for student ${userId}`);
+            }
+        } catch (dbErr) {
+            logger.warn(`[Repository] PostgreSQL DB save of academicHistory note for ${userId}: ${dbErr.message}`);
+        }
+
+        // 2. Dev Local Filesystem Fallback
         try {
             const fs = require('fs');
             const path = require('path');
@@ -151,26 +176,55 @@ const markRepository = {
             if (!fs.existsSync(dataDir)) {
                 fs.mkdirSync(dataDir, { recursive: true });
             }
-            const filePath = path.join(dataDir, `${userId}.json`);
-            const payload = { semesters: semesters || [], overall: overall || null, updatedAt: new Date().toISOString() };
-            fs.writeFileSync(filePath, JSON.stringify(payload, null, 2), 'utf8');
+            fs.writeFileSync(path.join(dataDir, `${userId}.json`), JSON.stringify(payload, null, 2), 'utf8');
+        } catch (fsErr) {
+            logger.warn(`[Repository] File persistence note: ${fsErr.message}`);
+        }
 
+        // 3. High-Performance Cache Layer
+        try {
             const cacheService = require('../services/cacheService');
             cacheService.set('academic_results', userId, payload, 24 * 60 * 60 * 1000);
-            logger.info(`[Repository] Persisted ${semesters.length} semesters to disk/cache for user ${userId}`);
-        } catch (e) {
-            logger.error(`[Repository] Failed to persist academic history for ${userId}: ${e.message}`);
+        } catch (cErr) {
+            logger.warn(`[Repository] Cache save note: ${cErr.message}`);
         }
     },
 
     async getAcademicResults(userId) {
         if (!userId) return null;
+
+        // 1. Check Fast Cache Layer
         try {
             const cacheService = require('../services/cacheService');
             let cached = await cacheService.get('academic_results', userId);
             if (cached && cached.semesters && cached.semesters.length > 0) {
                 return cached;
             }
+        } catch (cErr) {
+            logger.warn(`[Repository] Cache read note: ${cErr.message}`);
+        }
+
+        // 2. Primary Source of Truth: Query PostgreSQL Database via Prisma
+        try {
+            const student = await prisma.student.findUnique({
+                where: { userId },
+                select: { academicHistory: true, cgpa: true, sgpa: true }
+            });
+            if (student && student.academicHistory && student.academicHistory.trim().length > 0) {
+                const parsed = JSON.parse(student.academicHistory);
+                if (parsed && parsed.semesters && parsed.semesters.length > 0) {
+                    const cacheService = require('../services/cacheService');
+                    cacheService.set('academic_results', userId, parsed, 24 * 60 * 60 * 1000);
+                    logger.info(`[Repository] Hydrated ${parsed.semesters.length} semesters from PostgreSQL DB for ${userId}`);
+                    return parsed;
+                }
+            }
+        } catch (dbErr) {
+            logger.warn(`[Repository] PostgreSQL DB lookup for academicHistory note for ${userId}: ${dbErr.message}`);
+        }
+
+        // 3. Dev Local Filesystem Fallback
+        try {
             const fs = require('fs');
             const path = require('path');
             const filePath = path.join(__dirname, '..', 'data', 'academic_results', `${userId}.json`);
@@ -178,13 +232,15 @@ const markRepository = {
                 const raw = fs.readFileSync(filePath, 'utf8');
                 const data = JSON.parse(raw);
                 if (data && data.semesters) {
+                    const cacheService = require('../services/cacheService');
                     cacheService.set('academic_results', userId, data, 24 * 60 * 60 * 1000);
                     return data;
                 }
             }
-        } catch (e) {
-            logger.warn(`[Repository] Reading persisted academic history failed for ${userId}: ${e.message}`);
+        } catch (fsErr) {
+            logger.warn(`[Repository] Disk lookup note for ${userId}: ${fsErr.message}`);
         }
+
         return null;
     },
 

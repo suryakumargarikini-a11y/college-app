@@ -59,6 +59,7 @@ model Student {
   lastStudied        String?             @default("") // Previous institution name
   sgpa               String?             @default("") // Latest semester GPA
   academicYear       String?             @default("") // E.g. 2025-26
+  academicHistory    String?             @default("") // JSON text of complete semester history and overall results
   lastSync           DateTime? // Track when this student was last sync-scraped
   isSyncing          Boolean             @default(false)
   marks              MarkRecord[]
