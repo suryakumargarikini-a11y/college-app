@@ -142,18 +142,66 @@ const subjectRepository = {
 };
 
 const markRepository = {
-    async saveMarks(studentId, marksArray) {
-        logger.info(`Repository: Saving ${marksArray.length} mark records for student ${studentId}`);
+    async saveAcademicHistory(userId, semesters = [], overall = null) {
+        if (!userId) return;
+        try {
+            const fs = require('fs');
+            const path = require('path');
+            const dataDir = path.join(__dirname, '..', 'data', 'academic_results');
+            if (!fs.existsSync(dataDir)) {
+                fs.mkdirSync(dataDir, { recursive: true });
+            }
+            const filePath = path.join(dataDir, `${userId}.json`);
+            const payload = { semesters: semesters || [], overall: overall || null, updatedAt: new Date().toISOString() };
+            fs.writeFileSync(filePath, JSON.stringify(payload, null, 2), 'utf8');
 
-        // Resolve student once outside the transaction (avoids N+1 inside TX)
+            const cacheService = require('../services/cacheService');
+            cacheService.set('academic_results', userId, payload, 24 * 60 * 60 * 1000);
+            logger.info(`[Repository] Persisted ${semesters.length} semesters to disk/cache for user ${userId}`);
+        } catch (e) {
+            logger.error(`[Repository] Failed to persist academic history for ${userId}: ${e.message}`);
+        }
+    },
+
+    async getAcademicResults(userId) {
+        if (!userId) return null;
+        try {
+            const cacheService = require('../services/cacheService');
+            let cached = await cacheService.get('academic_results', userId);
+            if (cached && cached.semesters && cached.semesters.length > 0) {
+                return cached;
+            }
+            const fs = require('fs');
+            const path = require('path');
+            const filePath = path.join(__dirname, '..', 'data', 'academic_results', `${userId}.json`);
+            if (fs.existsSync(filePath)) {
+                const raw = fs.readFileSync(filePath, 'utf8');
+                const data = JSON.parse(raw);
+                if (data && data.semesters) {
+                    cacheService.set('academic_results', userId, data, 24 * 60 * 60 * 1000);
+                    return data;
+                }
+            }
+        } catch (e) {
+            logger.warn(`[Repository] Reading persisted academic history failed for ${userId}: ${e.message}`);
+        }
+        return null;
+    },
+
+    async saveMarks(studentId, marksArray, semesters = [], overall = null) {
+        const markList = Array.isArray(marksArray) ? marksArray : [];
+        logger.info(`Repository: Saving ${markList.length} mark records for student ${studentId}`);
+
         const student = await prisma.student.findUnique({ where: { id: studentId } });
+        if (student && student.userId && semesters && semesters.length > 0) {
+            await this.saveAcademicHistory(student.userId, semesters, overall);
+        }
         const studentSemester = student ? student.semester : '';
         const studentBranch = student ? student.branch : '';
 
-        // Upsert subjects OUTSIDE the transaction — subjects are global reference
-        // data; unique constraint handles concurrent upserts safely.
         const subjectIds = {};
-        for (const record of marksArray) {
+        for (const record of markList) {
+            if (!record || !record.name) continue;
             const code = record.name.toUpperCase();
             const subject = await prisma.subject.upsert({
                 where: { code },
@@ -163,11 +211,11 @@ const markRepository = {
             subjectIds[code] = subject.id;
         }
 
-        // Now run a tight transaction that only does delete + inserts (no round trips per row)
         return prisma.$transaction(async (tx) => {
             await tx.markRecord.deleteMany({ where: { studentId } });
             const createdRecords = [];
-            for (const record of marksArray) {
+            for (const record of markList) {
+                if (!record || !record.name) continue;
                 const subjectId = subjectIds[record.name.toUpperCase()];
                 if (!subjectId) continue;
                 const newMark = await tx.markRecord.create({

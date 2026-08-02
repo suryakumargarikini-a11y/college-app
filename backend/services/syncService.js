@@ -295,8 +295,8 @@ class SyncService {
 
             try {
                 // 3. Save Marks (Results)
-                if (marksData.subjects && marksData.subjects.length > 0) {
-                    await markRepository.saveMarks(student.id, marksData.subjects);
+                if (marksData.subjects || marksData.semesters) {
+                    await markRepository.saveMarks(student.id, marksData.subjects || [], marksData.semesters || [], marksData.overall || null);
                 }
 
                 // 4. Save Attendance
