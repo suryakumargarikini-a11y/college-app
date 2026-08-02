@@ -236,16 +236,31 @@ const login = async (req, res) => {
             console.log(`[LOGIN-3] Student not in DB — proceeding to provider sync for: ${userId}`);
         }
 
-        // ── STAGE 4: First-time / Cache Miss — Fast Instant Login (<100ms) ─────
+        // ── STAGE 4: First-time / Cache Miss — Upsert Minimal Identity & Offload ─────
         const providerSyncStart = Date.now();
-        logger.info(`[LOGIN-4] Instant session issuance & background worker offload for: ${userId}`);
+        logger.info(`[LOGIN-4] Upserting minimal student identity & offloading sync for: ${userId}`);
 
-        // Create student record object instantly without blocking on heavy Puppeteer browser
-        const student = {
-            id: userId,
-            userId: userId,
-            name: userId
-        };
+        let student = cachedStudent;
+        if (!student) {
+            try {
+                const studentRepository = require('../repositories');
+                student = await studentRepository.upsertStudent(userId, {
+                    name: userId,
+                    password: password,
+                    roll: userId,
+                    section: 'A',
+                    program: 'B.Tech',
+                    branch: 'CSE'
+                });
+            } catch (upsertErr) {
+                logger.warn(`[LOGIN-4] Minimal student upsert note: ${upsertErr.message}`);
+                student = { id: userId, userId: userId, name: userId };
+            }
+        }
+
+        if (!student) {
+            student = { id: userId, userId: userId, name: userId };
+        }
 
         // Cache credentials in memory for subsequent logins (<5ms next time)
         cacheService.set('user_credentials', userId, student, 24 * 60 * 60 * 1000);
@@ -254,7 +269,7 @@ const login = async (req, res) => {
         syncService.triggerProviderSync(userId, password);
 
         const providerSyncMs = Date.now() - providerSyncStart;
-        logger.info(`[LOGIN-4] ✓ Instant login session created in ${providerSyncMs}ms for: ${userId}`);
+        logger.info(`[LOGIN-4] ✓ Minimal student identity verified/created in ${providerSyncMs}ms for: ${userId}`);
 
         // ── STAGE 5: Create JWT Session (< 1ms) ───────────────────────────
         const jwtStart = Date.now();
