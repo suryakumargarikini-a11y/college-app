@@ -58,7 +58,8 @@ console.log('[BOOT-04] Infrastructure connected');
 // ─── Security Headers ─────────────────────────────────────────────────────────
 app.use(helmet({
     contentSecurityPolicy: false,
-    crossOriginEmbedderPolicy: false
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
 const corsWhitelist = [

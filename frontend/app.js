@@ -1681,8 +1681,8 @@ const api = {
                 throw err;
             }
 
-            if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
-                console.warn(`[API Request] TypeError/Failed to fetch on ${fullUrl} - forcing OFFLINE error`);
+            if ((err.message === 'Failed to fetch' || err.name === 'TypeError') && (typeof navigator !== 'undefined' && navigator.onLine === false)) {
+                console.warn(`[API Request] Device navigator.onLine is false — throwing OFFLINE error`);
                 throw new Error('OFFLINE');
             }
             throw err;
