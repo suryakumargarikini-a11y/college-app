@@ -3,9 +3,9 @@
 // Matches Stitch UI design exactly, all modules functional
 // ============================================================
 
-const LOCAL_WORKSTATION_API = 'http://10.207.200.169:8080/api';
+const PRODUCTION_API = 'https://web-production-259f33.up.railway.app/api';
 const isMobileNative = window.Capacitor && window.Capacitor.platform !== 'web';
-const API_BASE = window.API_BASE_URL || (isMobileNative ? LOCAL_WORKSTATION_API : '/api');
+const API_BASE = window.API_BASE_URL || (isMobileNative ? PRODUCTION_API : '/api');
 
 let _decryptedToken = null;
 

@@ -23,11 +23,11 @@ if (!apiBaseUrl) {
         console.error('[Config] ERROR: API_BASE_URL environment variable is required in production. Set it in the Railway/Vercel dashboard.');
         process.exit(1);
     }
-    // In development, allow workstation IP fallback for mobile physical device connectivity
-    console.warn('[Config] WARNING: API_BASE_URL not set. Using http://10.207.200.169:8080/api for development.');
+    // Default fallback to production Railway cloud API
+    console.warn('[Config] WARNING: API_BASE_URL not set. Using https://web-production-259f33.up.railway.app/api as fallback.');
 }
 
-const resolvedApiUrl = apiBaseUrl || 'http://10.207.200.169:8080/api';
+const resolvedApiUrl = apiBaseUrl || 'https://web-production-259f33.up.railway.app/api';
 
 
 const appVersion = process.env.APP_VERSION || '1.0.0';
