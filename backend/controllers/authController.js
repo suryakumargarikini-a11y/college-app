@@ -92,25 +92,39 @@ const login = async (req, res) => {
     const userId = cleanUserId; // Use clean student ID for database and session operations
 
     try {
-        // ── STAGE 2: Database Lookup ───────────────────────────────────────
-        let cachedStudent = null;
-        try {
-            const dbLookupStart = Date.now();
-            logger.info(`[LOGIN-2] DB lookup for student: ${userId} (isParent: ${isParent})`);
-            console.log(`[LOGIN-2] DB lookup for student: ${userId} (isParent: ${isParent})`);
+        // ── STAGE 2: Cache-First Credential & Student Lookup (< 5ms) ──────
+        const cacheService = require('../services/cacheService');
+        const cryptoHelper = require('../services/cryptoHelper');
+        const crypto = require('crypto');
 
-            cachedStudent = await Promise.race([
-                prisma.student.findUnique({ where: { userId } }),
-                new Promise((_, reject) => setTimeout(() => reject(new Error('DB_TIMEOUT')), 1500))
-            ]);
+        let cachedStudent = await cacheService.get('user_credentials', userId);
+        let isFromMemoryCache = false;
 
-            const dbLookupMs = Date.now() - dbLookupStart;
-            logger.info(`[LOGIN-2] DB lookup complete in ${dbLookupMs}ms — found: ${!!cachedStudent}`);
-            console.log(`[LOGIN-2] DB lookup complete in ${dbLookupMs}ms — found: ${!!cachedStudent}`);
-        } catch (dbErr) {
-            logger.warn(`[LOGIN-2] DB lookup skipped (${dbErr.message}) — proceeding to provider sync`);
-            console.warn(`[LOGIN-2] DB lookup skipped (${dbErr.message}) — proceeding to provider sync`);
-            cachedStudent = null;
+        if (cachedStudent) {
+            isFromMemoryCache = true;
+            logger.info(`[LOGIN-2] Cache HIT for student credentials: ${userId}`);
+        } else {
+            // ── STAGE 2b: Database Lookup (Fail-Fast: Max 300ms) ───────────────
+            try {
+                const dbLookupStart = Date.now();
+                logger.info(`[LOGIN-2b] DB lookup for student: ${userId} (isParent: ${isParent})`);
+
+                cachedStudent = await Promise.race([
+                    prisma.student.findUnique({ where: { userId } }),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('DB_TIMEOUT')), 300))
+                ]);
+
+                const dbLookupMs = Date.now() - dbLookupStart;
+                logger.info(`[LOGIN-2b] DB lookup complete in ${dbLookupMs}ms — found: ${!!cachedStudent}`);
+
+                if (cachedStudent) {
+                    // Populate memory cache for future logins (<5ms next time)
+                    cacheService.set('user_credentials', userId, cachedStudent, 24 * 60 * 60 * 1000);
+                }
+            } catch (dbErr) {
+                logger.warn(`[LOGIN-2b] DB lookup fail-fast (${dbErr.message}) — proceeding to provider sync`);
+                cachedStudent = null;
+            }
         }
 
         // ── STAGE 3: Cached Credential Verification ───────────────────────
@@ -234,6 +248,10 @@ const login = async (req, res) => {
         const providerSyncMs = Date.now() - providerSyncStart;
         logger.info(`[LOGIN-4] ✓ Provider sync complete in ${providerSyncMs}ms — student: ${student?.name}`);
         console.log(`[LOGIN-4] ✓ Provider sync complete in ${providerSyncMs}ms — student: ${student?.name}`);
+
+        if (student) {
+            cacheService.set('user_credentials', userId, student, 24 * 60 * 60 * 1000);
+        }
 
         // ── STAGE 5: Acquire Provider Session ──────────────────────────────
         const sessionAcqStart = Date.now();

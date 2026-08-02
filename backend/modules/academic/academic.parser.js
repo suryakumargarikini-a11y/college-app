@@ -121,8 +121,9 @@ class AcademicParser {
                             }
                         }
 
-                        const isLab = this.inferSubjectType(subjectCode);
-                        const isPass = this.inferResult(grade);
+                        const self = this;
+                        const isLab = self.inferSubjectType ? self.inferSubjectType(subjectCode) : (subjectCode.includes('LAB') ? 'Lab' : 'Core');
+                        const isPass = self.inferResult ? self.inferResult(grade) : (grade !== 'F' && grade !== 'ABSENT' ? 'PASS' : 'FAIL');
 
                         semSubjects.push({
                             code: subjectCode,
