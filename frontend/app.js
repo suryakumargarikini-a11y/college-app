@@ -2461,11 +2461,15 @@ const pages = {
             }).catch(() => { });
 
             api.get('/marks').then(marksRes => {
-                const cgpa = marksRes.data?.cgpa || '--';
-                const sgpa = marksRes.data?.sgpa || '--';
+                const resData = marksRes?.data || marksRes || {};
+                const sList = resData.semesters || [];
+                const cgpa = resData.cgpa || resData.overall?.cgpa || '--';
+                const sgpa = (resData.sgpa && resData.sgpa !== 'N/A' && resData.sgpa !== '--')
+                    ? resData.sgpa
+                    : (sList.length > 0 ? (sList[0]?.sgpa || sList[sList.length - 1]?.sgpa || '--') : '--');
                 setEl('dash-gpa-val', 'innerText', cgpa);
                 setEl('dash-sgpa-val', 'innerText', sgpa);
-            }).catch(() => { });
+            }).catch(e => { console.warn('[Dashboard] Marks fetch note:', e); });
 
             api.get('/fees').then(feesRes => {
                 const due = feesRes.data?.dueAmount || feesRes.data?.totalDue;
@@ -2798,12 +2802,13 @@ const pages = {
             }
         },
         renderHistory: (semesters, overall, data) => {
-            console.log('[API-FORENSIC][Step 5 & 6] Rendering academic history cards. Total semesters to render:', semesters.length);
-            const cgpa = parseFloat(overall?.cgpa || data?.cgpa) || 0;
-            const sgpa = parseFloat(data?.sgpa || (semesters[0]?.sgpa)) || 0;
+            const semList = Array.isArray(semesters) ? semesters : [];
+            const rawData = data || {};
+            const cgpa = parseFloat(overall?.cgpa || rawData.cgpa) || 0;
+            const sgpa = parseFloat(rawData.sgpa || (semList[0]?.sgpa) || (semList[semList.length - 1]?.sgpa)) || 0;
 
-            setEl('marks-cgpa-ring', 'innerText', overall?.cgpa || data?.cgpa || '--');
-            setEl('marks-sgpa-ring', 'innerText', data?.sgpa || (semesters[0]?.sgpa) || '--');
+            setEl('marks-cgpa-ring', 'innerText', overall?.cgpa || rawData.cgpa || '--');
+            setEl('marks-sgpa-ring', 'innerText', rawData.sgpa || (semList[0]?.sgpa) || '--');
             setEl('marks-cgpa-status', 'innerText', cgpa >= 8.5 ? "Dean's List" : cgpa >= 7 ? 'Good Standing' : cgpa >= 5 ? 'Satisfactory' : 'Needs Improve');
 
             const cgpaRing = $('cgpa-ring-circle');
@@ -2822,9 +2827,9 @@ const pages = {
             const grid = $('marks-grid');
             if (!grid) return;
 
-            if (semesters.length > 0) {
+            if (semList.length > 0) {
                 grid.className = "space-y-4 col-span-1 md:col-span-2";
-                grid.innerHTML = semesters.map((sem) => {
+                grid.innerHTML = semList.map((sem) => {
                     return `
                         <div class="bg-surface-container-low border border-slate-200/80 rounded-2xl overflow-hidden shadow-sm transition-all duration-300">
                             <button type="button" class="w-full p-4 flex items-center justify-between text-left cursor-pointer hover:bg-slate-100/50 transition-colors sem-accordion-btn" data-sem="${sem.semester}">
@@ -2893,22 +2898,53 @@ const pages = {
                     });
                 });
 
-                if (semesters.length > 0) {
-                    const firstSem = semesters[0].semester;
-                    const firstPanel = $(`content-sem-${firstSem}`);
-                    const firstChevron = $(`chevron-sem-${firstSem}`);
-                    if (firstPanel) firstPanel.classList.remove('hidden');
-                    if (firstChevron) firstChevron.style.transform = 'rotate(180deg)';
+                const firstSem = semList[0].semester;
+                const firstPanel = $(`content-sem-${firstSem}`);
+                const firstChevron = $(`chevron-sem-${firstSem}`);
+                if (firstPanel) firstPanel.classList.remove('hidden');
+                if (firstChevron) firstChevron.style.transform = 'rotate(180deg)';
+            } else {
+                const subList = rawData.subjects || rawData.marks || [];
+                if (subList.length === 0) {
+                    grid.className = "grid grid-cols-1 md:grid-cols-2 gap-4 col-span-1 md:col-span-2";
+                    grid.innerHTML = `<div class="col-span-2 text-center py-12 text-on-surface-variant font-bold text-xs">No marks data available.</div>`;
+                } else {
+                    grid.className = "grid grid-cols-1 md:grid-cols-2 gap-4 col-span-1 md:col-span-2";
+                    const gradeColors = { 'S': 'text-secondary', 'A+': 'text-secondary', 'A': 'text-secondary', 'A-': 'text-secondary', 'B+': 'text-primary', 'B': 'text-primary', 'C': 'text-on-surface-variant', 'D': 'text-tertiary', 'E': 'text-error', 'F': 'text-error', 'BACKLOG': 'text-error' };
+                    const typeBg = { 'Core': 'bg-secondary-container text-on-secondary-fixed-variant', 'Lab': 'bg-tertiary-container text-on-tertiary-fixed-variant' };
+                    grid.innerHTML = subList.map(s => {
+                        const gc = gradeColors[s.grade] || 'text-on-surface';
+                        const tb = typeBg[s.type] || 'bg-surface-container text-on-surface-variant';
+                        const pct = s.percentage || 0;
+                        return `<div class="glass-card border border-white/40 p-5 rounded-2xl space-y-3 active-scale transition-all duration-300 shadow-sm">
+                            <div class="flex justify-between items-start gap-3">
+                                <div class="flex-1 min-w-0">
+                                    <span class="text-[10px] font-bold uppercase tracking-widest ${tb} px-2.5 py-0.5 rounded-full inline-block">${s.type || 'Core'}</span>
+                                    <h3 class="text-base font-bold text-on-surface mt-2 truncate" style="font-family:'Plus Jakarta Sans',sans-serif" title="${s.name || s.code}">${s.name || s.code}</h3>
+                                </div>
+                                <div class="text-right flex-shrink-0">
+                                    <p class="text-2xl font-black ${gc}">${s.grade || 'P'}</p>
+                                    <p class="text-[10px] text-on-surface-variant font-bold">${s.marks || '--'}</p>
+                                </div>
+                            </div>
+                            <div class="space-y-1.5">
+                                <div class="flex justify-between text-[10px] font-bold text-on-surface-variant uppercase tracking-tighter"><span>Mastery</span><span>${pct}%</span></div>
+                                <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                    <div class="h-full rounded-full transition-all duration-1000" style="width:${pct}%;background:#2563EB"></div>
+                                </div>
+                            </div>
+                        </div>`;
+                    }).join('');
                 }
             }
 
             const barsEl = $('marks-perf-bars');
-            const barItems = semesters.length > 0 ? semesters : (data?.subjects || []);
+            const barItems = semList.length > 0 ? semList : (rawData.subjects || rawData.marks || []);
             if (barsEl && barItems.length > 0) {
                 const gradeToNum = { 'S': 95, 'A+': 90, 'A': 85, 'A-': 80, 'B+': 75, 'B': 70, 'B-': 65, 'C+': 60, 'C': 55, 'D': 45, 'E': 35, 'F': 20, 'BACKLOG': 15 };
                 barsEl.innerHTML = barItems.slice(0, 6).map(s => {
                     const score = s.sgpa ? (parseFloat(s.sgpa) * 10) : (gradeToNum[s.grade] || 50);
-                    const nameLabel = s.semesterName || (s.semester ? `SEM ${s.semester}` : (s.name || 'SEM'));
+                    const nameLabel = s.semesterName || (s.semester ? `SEM ${s.semester}` : (s.name || s.code || 'SEM'));
                     return `<div class="w-full relative group flex flex-col items-center">
                         <div class="w-full bg-secondary-container/30 rounded-t-lg" style="height:${Math.round(score * 0.9 / 10)}rem">
                             <div class="absolute bottom-0 w-full bg-secondary rounded-t-lg transition-all duration-500 group-hover:opacity-80" style="height:${Math.round(score * 0.85 / 10)}rem"></div>
@@ -2924,11 +2960,14 @@ const pages = {
             
             const cachedData = getCachedData('/student/results') || getCachedData('/marks');
             let hasShownCached = false;
-            if (cachedData && (cachedData.semesters?.length > 0 || cachedData.data?.semesters?.length > 0)) {
-                const semList = cachedData.semesters || cachedData.data?.semesters || [];
-                const ovData = cachedData.overall || cachedData.data?.overall || null;
-                pages.marks.renderHistory(semList, ovData, cachedData);
-                hasShownCached = true;
+            if (cachedData) {
+                const raw = cachedData.data || cachedData;
+                const semList = raw.semesters || [];
+                const ovData = raw.overall || null;
+                if (semList.length > 0 || (raw.subjects && raw.subjects.length > 0) || (raw.marks && raw.marks.length > 0)) {
+                    pages.marks.renderHistory(semList, ovData, raw);
+                    hasShownCached = true;
+                }
             }
 
             if (!hasShownCached) {
@@ -2971,7 +3010,7 @@ const pages = {
                                     <h4 class="text-sm font-bold text-slate-800">Connection Error</h4>
                                     <p class="text-xs text-slate-400 mt-1">Unable to retrieve academic records. Please try again.</p>
                                 </div>
-                                <button onclick="router.routes['/marks']?.afterRender?.()" class="px-5 py-2 bg-primary text-[#2563EB] font-extrabold text-xs rounded-full active-scale transition-transform">
+                                <button onclick="router.routes['/marks']?.afterRender?.()" class="px-5 py-2 bg-primary text-white font-extrabold text-xs rounded-full active-scale transition-transform">
                                     Retry
                                 </button>
                             </div>
