@@ -30,12 +30,18 @@ const mapGradeToPercentage = (grade) => {
     return { percentage: 75, marks: '75/100' };
 };
 
+// Robust universal userId resolver — supports Bearer JWT tokens and session cookies
+const resolveUserId = (req) => {
+    return req.session?.userId || req.user?.userId || req.user?.id || req.query?.userId || req.body?.userId || null;
+};
+
 // Profile controller
 const getProfile = async (req, res, next) => {
     try {
         const bc = getBusinessCollector();
         if (bc) bc.trackFeatureAccess('profile').catch(() => {});
-        const student = await dataProvider.getProfile(req.session.userId);
+        const userId = resolveUserId(req);
+        const student = await dataProvider.getProfile(userId);
         if (!student) {
             return res.fail('Student profile not found', null, 404);
         }
@@ -136,7 +142,8 @@ const getMarks = async (req, res, next) => {
     try {
         const bc = getBusinessCollector();
         if (bc) bc.trackFeatureAccess('marks').catch(() => {});
-        const student = await dataProvider.getMarks(req.session.userId);
+        const userId = resolveUserId(req);
+        const student = await dataProvider.getMarks(userId);
         if (!student) {
             return res.fail('Student marks not found', null, 404);
         }
@@ -229,7 +236,7 @@ const getStudentResults = async (req, res, next) => {
 
 // Attendance controller
 const getAttendance = async (req, res, next) => {
-    const userId = req.session.userId;
+    const userId = resolveUserId(req);
     const timer = new PerformanceTimer(`att-${Date.now()}`, userId);
     timer.start('getAttendance:total');
     console.time(`[Controller] getAttendance:${userId}`);
@@ -281,7 +288,7 @@ const getFees = async (req, res, next) => {
     try {
         const bc = getBusinessCollector();
         if (bc) bc.trackFeatureAccess('fees').catch(() => {});
-        const userId = req.session?.userId;
+        const userId = resolveUserId(req);
         const feesList = await dataProvider.getFees(userId);
         
         if (feesList && feesList.length > 0) {
@@ -385,7 +392,8 @@ const getAssignments = async (req, res, next) => {
     try {
         const bc = getBusinessCollector();
         if (bc) bc.trackFeatureAccess('assignments').catch(() => {});
-        const listRaw = await dataProvider.getAssignments(req.session.userId);
+        const userId = resolveUserId(req);
+        const listRaw = await dataProvider.getAssignments(userId);
         if (!listRaw) {
             return res.fail('Student assignments not found', null, 404);
         }
@@ -415,12 +423,13 @@ const getAssignments = async (req, res, next) => {
 // Timetable controller
 const getTimetable = async (req, res, next) => {
     try {
-        const student = await dataProvider.getProfile(req.session.userId);
+        const userId = resolveUserId(req);
+        const student = await dataProvider.getProfile(userId);
         if (!student) {
             return res.fail('Student timetable not found', null, 404);
         }
 
-        const slotsRaw = await dataProvider.getTimetable(req.session.userId);
+        const slotsRaw = await dataProvider.getTimetable(userId);
         const slots = slotsRaw.map(t => ({
             day: t.day,
             period: parseInt(t.period),
@@ -441,12 +450,18 @@ const getTimetable = async (req, res, next) => {
 // Syllabus controller
 const getSyllabus = async (req, res, next) => {
     try {
-        const student = await dataProvider.getProfile(req.session.userId);
+        const userId = resolveUserId(req);
+        const student = await dataProvider.getProfile(userId);
         if (!student) {
             return res.fail('Student data not found', null, 404);
         }
 
-        const subjectsWithSyllabus = await dataProvider.getSyllabus(req.session.userId);
+        const subjectsWithSyllabus = await dataProvider.getSyllabus(userId);
+        res.ok(subjectsWithSyllabus, 'Syllabus fetched successfully');
+    } catch (error) {
+        next(error);
+    }
+};
         res.ok(subjectsWithSyllabus, 'Syllabus fetched successfully');
     } catch (error) {
         next(error);
@@ -575,8 +590,9 @@ const getNotifications = async (req, res, next) => {
 
 const getUnreadCount = async (req, res, next) => {
     try {
+        const userId = resolveUserId(req);
         const student = await prisma.student.findUnique({
-            where: { userId: req.session.userId }
+            where: { userId }
         });
         if (!student) {
             return res.ok({ count: 0 });
@@ -868,7 +884,8 @@ const getNotificationDebug = async (req, res, next) => {
 // GET /exams controller
 const getExams = async (req, res, next) => {
     try {
-        const student = await studentRepository.findByUserId(req.session.userId);
+        const userId = resolveUserId(req);
+        const student = await studentRepository.findByUserId(userId);
         if (!student) {
             return res.fail('Student not found in local cache', null, 404);
         }
