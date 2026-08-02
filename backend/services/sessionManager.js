@@ -49,6 +49,8 @@ class SessionManager {
         // Reuse existing in-memory session for same user if role matches
         for (const [token, session] of this.sessions.entries()) {
             if (session.userId === userId && session.role === role) {
+                session.userId = userId;
+                session.studentId = userId;
                 session.password = password;
                 session.cookies = cookies;
                 session.scrapedData = scrapedData;
@@ -66,6 +68,7 @@ class SessionManager {
         const token = crypto.randomUUID();
         const session = {
             userId,
+            studentId: userId,
             password,
             cookies,
             scrapedData,
