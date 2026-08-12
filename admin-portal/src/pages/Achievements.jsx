@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import api from '../lib/api';
+import { authStore } from '../store/authStore';
 import Modal from '../components/Modal';
 import PageHeader from '../components/PageHeader';
 import EmptyState from '../components/EmptyState';
@@ -13,8 +14,7 @@ const CATEGORIES = [
 ];
 
 const DEPARTMENTS = [
-  'CSE', 'ECE', 'EEE', 'MECH', 'CIVIL',
-  'AIML', 'AIDS', 'IT', 'CSD'
+  'ALL', 'CSE', 'ECE', 'EEE', 'MECH', 'CIVIL', 'MBA', 'BSH'
 ];
 
 const INITIAL_FORM = {
@@ -55,9 +55,9 @@ export default function Achievements() {
   // Read admin identity from session
   useEffect(() => {
     try {
-      const stored = localStorage.getItem('sitam_admin_user');
-      if (stored) {
-        setAdminUser(JSON.parse(stored));
+      const u = authStore.getUser();
+      if (u) {
+        setAdminUser(u);
       }
     } catch (e) {
       console.error('Failed to parse admin user', e);

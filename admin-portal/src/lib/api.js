@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { authStore } from '../store/authStore';
 
 const DEV_FALLBACK_API = 'http://localhost:3001/api';
 
@@ -8,20 +9,21 @@ const api = axios.create({
   timeout: 30000,
 });
 
-// Attach JWT token from localStorage
+// Attach tab-isolated JWT token
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('admin_token');
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  const token = authStore.getToken();
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
   return config;
 });
 
-// Handle 401 — redirect to login
+// Handle 401 — clear current tab session and redirect to login
 api.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err.response?.status === 401) {
-      localStorage.removeItem('admin_token');
-      localStorage.removeItem('admin_user');
+      authStore.clearAuth();
       window.location.href = '/login';
     }
     return Promise.reject(err);
