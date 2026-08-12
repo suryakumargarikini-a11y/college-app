@@ -54,8 +54,13 @@ const requireAuth = async (req, res, next) => {
         return res.status(401).json({ error: 'Unauthorized: Session expired or invalid' });
     }
 
-    // Resolve studentId (database UUID) from userId (roll number) dynamically and cache it in-memory
-    if (!session.studentId && session.userId) {
+    // Resolve studentId (database UUID) from userId (roll number) dynamically and cache it in-memory.
+    // BUG FIX: sessionManager.createSession() sets session.studentId = userId (roll number), not the DB UUID.
+    // The original condition `!session.studentId` was always false (roll number is truthy), so UUID was never resolved.
+    // Now we also trigger resolution when studentId is not a valid UUID (e.g., it's a roll number like 23B61A0449).
+    const _uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const _studentIdIsUuid = session.studentId && _uuidPattern.test(session.studentId);
+    if ((!session.studentId || !_studentIdIsUuid) && session.userId) {
         try {
             const db = require('../services/dbService');
             const student = await db.student.findUnique({
