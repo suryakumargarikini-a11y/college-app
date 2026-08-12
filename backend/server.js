@@ -47,7 +47,6 @@ const sreScheduler = require('./services/SREScheduler');
 const devSecOpsScheduler = require('./services/DevSecOpsScheduler');
 const feeReminderScheduler = require('./services/feeReminderScheduler');
 const firebaseService = require('./services/firebaseService');
-const { autoSyncAdminCredentials } = require('./services/adminAutoSync');
 console.log('[BOOT-03] Core services loaded');
 
 
@@ -57,7 +56,6 @@ const PORT = process.env.PORT || 8080;
 // ─── Initialize Infrastructure ────────────────────────────────────────────────
 redisService.connect();
 workerService.init();
-autoSyncAdminCredentials().catch(() => {});
 console.log('[BOOT-04] Infrastructure connected');
 
 // ─── Security Headers ─────────────────────────────────────────────────────────
