@@ -22,16 +22,7 @@ if (process.env.NODE_ENV === 'production' || process.env.RENDER || process.env.R
         console.error('[Startup] Failed to switch database provider to PostgreSQL:', err.message);
     }
 
-    // Non-blocking schema verification to prevent container boot timeout
-    setTimeout(() => {
-        try {
-            const { execSync } = require('child_process');
-            execSync('npx prisma db push --skip-generate --accept-data-loss', { stdio: 'ignore', timeout: 15000 });
-            console.log('[Startup] Verified and pushed PostgreSQL schema successfully');
-        } catch (dbErr) {
-            console.warn('[Startup] PostgreSQL db push note:', dbErr.message);
-        }
-    }, 1000);
+    console.log('[Startup] Database provider set to PostgreSQL');
 }
 
 require('./telemetry/tracing');
@@ -56,6 +47,7 @@ const sreScheduler = require('./services/SREScheduler');
 const devSecOpsScheduler = require('./services/DevSecOpsScheduler');
 const feeReminderScheduler = require('./services/feeReminderScheduler');
 const firebaseService = require('./services/firebaseService');
+const { autoSyncAdminCredentials } = require('./services/adminAutoSync');
 console.log('[BOOT-03] Core services loaded');
 
 
@@ -65,6 +57,7 @@ const PORT = process.env.PORT || 8080;
 // ─── Initialize Infrastructure ────────────────────────────────────────────────
 redisService.connect();
 workerService.init();
+autoSyncAdminCredentials().catch(() => {});
 console.log('[BOOT-04] Infrastructure connected');
 
 // ─── Security Headers ─────────────────────────────────────────────────────────
@@ -238,18 +231,33 @@ app.get('/api/health/liveness', (req, res) => {
     });
 });
 
+let lastDbPingTime = 0;
+let lastDbPingSuccess = false;
+let lastDbProvider = 'postgresql';
+
 app.get('/api/health/readiness', async (req, res) => {
     const checks = {};
     let allReady = true;
 
-    try {
-        await prisma.$queryRaw`SELECT 1`;
-        const rawUrl = process.env.DATABASE_URL || '';
-        const provider = rawUrl.startsWith('postgresql') || rawUrl.startsWith('postgres') ? 'postgresql' : 'unknown';
-        checks.database = { status: 'ready', provider };
-    } catch (err) {
-        logger.error(`[Health] DB check failed: ${err.message}`, { requestId: req.requestId });
-        checks.database = { status: 'unavailable', error: err.message };
+    const now = Date.now();
+    if (now - lastDbPingTime > 5000) {
+        try {
+            await prisma.$queryRaw`SELECT 1`;
+            const rawUrl = process.env.DATABASE_URL || '';
+            lastDbProvider = rawUrl.startsWith('postgresql') || rawUrl.startsWith('postgres') ? 'postgresql' : 'unknown';
+            lastDbPingSuccess = true;
+            lastDbPingTime = now;
+        } catch (err) {
+            logger.error(`[Health] DB check failed: ${err.message}`, { requestId: req.requestId });
+            lastDbPingSuccess = false;
+            lastDbPingTime = now;
+        }
+    }
+
+    if (lastDbPingSuccess) {
+        checks.database = { status: 'ready', provider: lastDbProvider };
+    } else {
+        checks.database = { status: 'unavailable' };
         allReady = false;
     }
 
