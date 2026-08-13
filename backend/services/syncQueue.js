@@ -31,8 +31,8 @@ class SyncQueue {
         // Main queue tick: runs every 60 seconds to scan active sessions and schedule individual syncs
         this.queueTimer = setInterval(() => this.tick(), 60000);
         
-        // Run first tick immediately in background
-        this.tick();
+        // Run first tick after 15s grace period to allow server startup
+        setTimeout(() => this.tick(), 15000);
     }
 
     /**
@@ -53,6 +53,14 @@ class SyncQueue {
                 const student = await studentRepository.findByUserId(userId);
                 if (!student || !student.password) {
                     logger.warn(`[SyncQueue] No credentials found in DB for active session user ${userId}. Skipping.`);
+                    continue;
+                }
+
+                // Check if the student's data is already fresh (synced in last 15 minutes) or currently syncing
+                const lastSync = student.lastSync;
+                const isStale = !lastSync || new Date(lastSync) < new Date(Date.now() - 15 * 60 * 1000);
+                if (!isStale || student.isSyncing) {
+                    logger.debug(`[SyncQueue] Skipping background sync for ${userId} (isStale: ${isStale}, isSyncing: ${!!student.isSyncing})`);
                     continue;
                 }
 

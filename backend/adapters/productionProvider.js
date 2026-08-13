@@ -66,7 +66,7 @@ class ProductionProvider {
             select: { id: true }
         });
         if (!student) {
-            throw new Error('Student attendance not found in local cache');
+            return [];
         }
         const records = await prisma.attendanceRecord.findMany({
             where: { studentId: student.id },
@@ -78,7 +78,7 @@ class ProductionProvider {
                 }
             }
         });
-        return records;
+        return records || [];
     }
 
     async getFees(userId) {

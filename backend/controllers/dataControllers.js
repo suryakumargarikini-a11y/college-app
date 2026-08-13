@@ -50,6 +50,7 @@ const getProfile = async (req, res, next) => {
         if (bc) bc.trackFeatureAccess('profile').catch(() => { });
         const userId = resolveUserId(req);
         const student = await dataProvider.getProfile(userId);
+        logger.info(`[API_DATA_READ] userId=${userId} resolvedStudentId=${student?.id || 'none'} endpoint=profile DB_found=${!!student} cgpa=${student?.cgpa || '--'} branch=${student?.branch || ''}`);
         if (!student) {
             return res.fail('Student profile not found', null, 404);
         }
@@ -257,6 +258,7 @@ const getAttendance = async (req, res, next) => {
         }
 
         const records = await dataProvider.getAttendance(userId);
+        logger.info(`[API_DATA_READ] userId=${userId} endpoint=attendance DB_found=${!!records} count=${records?.length || 0}`);
         const getStatus = (pct) => {
             if (pct >= 75) return 'Safe';
             if (pct >= 65) return 'Warning';

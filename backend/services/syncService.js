@@ -586,6 +586,9 @@ class SyncService {
             }
 
             try {
+                const hasActiveSession = await ProviderSessionManager.hasValidSession(userId);
+                logger.info(`[SYNC_TRIGGER] userId=${userId} caller=${forceFullSync ? 'full-sync' : 'incremental-sync'} forceFullSync=${forceFullSync} lastSync=${student?.lastSync ? new Date(student.lastSync).toISOString() : 'none'} hasActiveSession=${hasActiveSession} timestamp=${new Date().toISOString()}`);
+
                 logger.info(`[SyncService] Running provider sync for ${userId} via ${ProviderFactory.getProviderName()} (forceFullSync: ${forceFullSync})`);
 
                 // Ask the provider to do the login + scrape/fetch
