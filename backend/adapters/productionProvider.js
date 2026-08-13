@@ -18,10 +18,10 @@ class ProductionProvider {
             return {
                 userId,
                 name: userId,
-                branch: 'CSE',
-                section: 'A',
-                semester: '1',
-                year: '1'
+                branch: '',
+                section: '',
+                semester: '',
+                year: ''
             };
         }
         return student;
@@ -38,15 +38,10 @@ class ProductionProvider {
         if (!student) {
             student = {
                 userId,
-                name: 'SITAM Student',
-                cgpa: '7.90',
-                percentage: '71.48%',
-                marks: [
-                    { subject: { code: 'CS-401', name: 'Data Structures & Algorithms' }, grade: 'A+', credits: '4', type: 'Core' },
-                    { subject: { code: 'CS-402', name: 'Operating Systems' }, grade: 'A', credits: '4', type: 'Core' },
-                    { subject: { code: 'CS-403', name: 'Computer Networks' }, grade: 'B+', credits: '3', type: 'Core' },
-                    { subject: { code: 'CS-404', name: 'Database Management Systems' }, grade: 'A', credits: '4', type: 'Core' }
-                ]
+                name: userId,
+                cgpa: '--',
+                percentage: '--',
+                marks: []
             };
         }
         const markRepository = require('../repositories').markRepository || require('../repositories');

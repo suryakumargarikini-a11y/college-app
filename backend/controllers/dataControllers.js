@@ -30,9 +30,17 @@ const mapGradeToPercentage = (grade) => {
     return { percentage: 75, marks: '75/100' };
 };
 
-// Robust universal userId resolver — supports Bearer JWT tokens and session cookies
+// Robust universal userId resolver — strictly prioritizes authenticated token/session identity.
+// Query or body parameter override is ONLY allowed for admin roles.
 const resolveUserId = (req) => {
-    return req.session?.userId || req.user?.userId || req.user?.id || req.query?.userId || req.body?.userId || null;
+    const authUser = req.session?.userId || req.user?.userId;
+    if (authUser) {
+        if (req.session?.isAdmin && (req.query?.userId || req.body?.userId)) {
+            return (req.query?.userId || req.body?.userId).trim();
+        }
+        return authUser;
+    }
+    return req.user?.id || null;
 };
 
 // Profile controller

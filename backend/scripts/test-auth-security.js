@@ -76,7 +76,7 @@ const mockCryptoHelper = {
 require.cache[require.resolve('../services/cryptoHelper')] = { exports: mockCryptoHelper };
 
 require.cache[require.resolve('../providers/session/ProviderSessionManager')] = {
-    exports: { invalidate: async () => {} }
+    exports: { invalidate: async () => {}, hasValidSession: async () => true }
 };
 
 // Load controller AFTER mocks

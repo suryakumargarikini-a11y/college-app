@@ -5,6 +5,15 @@ const { requireAuth } = require('../middleware/auth');
 const logger = require('../services/logger');
 const dataControllers = require('../controllers/dataControllers');
 
+// Helper to enforce student authorization for parameterized routes
+function assertAuthorizedStudent(req, requestedId) {
+    if (req.session?.isAdmin) return true;
+    const authUserId = req.session?.userId || req.user?.userId;
+    const authStudentId = req.session?.studentId || req.user?.id;
+    if (requestedId === authUserId || requestedId === authStudentId) return true;
+    return false;
+}
+
 // GET /api/student/results
 router.get('/results', requireAuth, dataControllers.getStudentResults);
 
@@ -12,6 +21,9 @@ router.get('/results', requireAuth, dataControllers.getStudentResults);
 router.get('/:id/attendance', requireAuth, async (req, res, next) => {
     try {
         const studentId = req.params.id;
+        if (!assertAuthorizedStudent(req, studentId)) {
+            return res.status(403).json({ success: false, message: 'Forbidden: Access denied to another student data' });
+        }
         const student = await prisma.student.findFirst({
             where: { OR: [{ id: studentId }, { userId: studentId }] }
         });
@@ -47,6 +59,9 @@ router.get('/:id/attendance', requireAuth, async (req, res, next) => {
 router.get('/:id/subjects', requireAuth, async (req, res, next) => {
     try {
         const studentId = req.params.id;
+        if (!assertAuthorizedStudent(req, studentId)) {
+            return res.status(403).json({ success: false, message: 'Forbidden: Access denied to another student data' });
+        }
         const student = await prisma.student.findFirst({
             where: { OR: [{ id: studentId }, { userId: studentId }] }
         });
@@ -76,6 +91,9 @@ router.get('/:id/subjects', requireAuth, async (req, res, next) => {
 router.get('/:id/attendance/overall', requireAuth, async (req, res, next) => {
     try {
         const studentId = req.params.id;
+        if (!assertAuthorizedStudent(req, studentId)) {
+            return res.status(403).json({ success: false, message: 'Forbidden: Access denied to another student data' });
+        }
         const student = await prisma.student.findFirst({
             where: { OR: [{ id: studentId }, { userId: studentId }] }
         });
@@ -113,6 +131,9 @@ router.get('/:id/attendance/overall', requireAuth, async (req, res, next) => {
 router.get('/:id/fees', requireAuth, async (req, res, next) => {
     try {
         const studentId = req.params.id;
+        if (!assertAuthorizedStudent(req, studentId)) {
+            return res.status(403).json({ success: false, message: 'Forbidden: Access denied to another student data' });
+        }
         const student = await prisma.student.findFirst({
             where: { OR: [{ id: studentId }, { userId: studentId }] }
         });
@@ -175,6 +196,9 @@ router.get('/:id/fees', requireAuth, async (req, res, next) => {
 router.get('/:id/fees/history', requireAuth, async (req, res, next) => {
     try {
         const studentId = req.params.id;
+        if (!assertAuthorizedStudent(req, studentId)) {
+            return res.status(403).json({ success: false, message: 'Forbidden: Access denied to another student data' });
+        }
         const student = await prisma.student.findFirst({
             where: { OR: [{ id: studentId }, { userId: studentId }] }
         });

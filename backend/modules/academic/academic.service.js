@@ -37,28 +37,29 @@ class AcademicService {
             return dbData;
         }
 
-        // 3. Fallback: Demo Provider (for test/demo accounts when scraper hasn't run yet)
-        try {
-            const demoRes = await demoProvider.getMarks(userId);
-            if (demoRes && Array.isArray(demoRes.semesters) && demoRes.semesters.length > 0) {
-                const demoPayload = {
-                    overall: demoRes.overall || {
-                        cgpa: demoRes.cgpa || '7.90',
-                        sgpa: demoRes.sgpa || '8.13',
-                        percentage: demoRes.percentage || '71.48%',
-                        totalCredits: '127.5',
-                        registeredCredits: '127.5',
-                        status: 'PASS'
-                    },
-                    semesters: demoRes.semesters
-                };
-                // Persist demo results to PostgreSQL for future DB queries
-                await academicRepository.saveAcademicHistory(userId, demoPayload);
-                await academicCache.set(userId, demoPayload);
-                return demoPayload;
+        // 3. Fallback: Demo Provider ONLY when DEMO_MODE=true
+        if ((process.env.DEMO_MODE || '').toLowerCase() === 'true') {
+            try {
+                const demoRes = await demoProvider.getMarks(userId);
+                if (demoRes && Array.isArray(demoRes.semesters) && demoRes.semesters.length > 0) {
+                    const demoPayload = {
+                        overall: demoRes.overall || {
+                            cgpa: demoRes.cgpa || '7.90',
+                            sgpa: demoRes.sgpa || '8.13',
+                            percentage: demoRes.percentage || '71.48%',
+                            totalCredits: '127.5',
+                            registeredCredits: '127.5',
+                            status: 'PASS'
+                        },
+                        semesters: demoRes.semesters
+                    };
+                    await academicRepository.saveAcademicHistory(userId, demoPayload);
+                    await academicCache.set(userId, demoPayload);
+                    return demoPayload;
+                }
+            } catch (err) {
+                logger.warn(`[AcademicService] Demo fallback note for ${userId}: ${err.message}`);
             }
-        } catch (err) {
-            logger.warn(`[AcademicService] Demo fallback note for ${userId}: ${err.message}`);
         }
 
         // Default Empty Structure

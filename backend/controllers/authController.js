@@ -195,18 +195,20 @@ const login = async (req, res) => {
                     }
                 } catch (_) {}
 
-                // Trigger background sync only when data is stale (production only)
+                // Trigger background sync when data is stale, session is missing, or profile fields are incomplete
                 const DEMO_MODE = (process.env.DEMO_MODE || '').toLowerCase() === 'true';
                 const lastSync  = cachedStudent.lastSync;
                 const isStale   = !lastSync || new Date(lastSync) < new Date(Date.now() - 30 * 60 * 1000);
+                const hasSession = await ProviderSessionManager.hasValidSession(userId);
+                const isIncomplete = !cachedStudent.branch || !cachedStudent.academicHistory;
 
                 if (DEMO_MODE) {
                     logger.info(`[LOGIN-7] DEMO MODE — skipping background sync for: ${userId}`);
-                } else if (isStale) {
-                    logger.info(`[LOGIN-7] Data stale — triggering background sync for: ${userId}`);
+                } else if (isStale || !hasSession || isIncomplete) {
+                    logger.info(`[LOGIN-7] Sync required (isStale:${isStale}, hasSession:${hasSession}, isIncomplete:${isIncomplete}) — triggering background sync for: ${userId}`);
                     syncService.triggerProviderSync(userId, password);
                 } else {
-                    logger.info(`[LOGIN-7] Data fresh — skipping background sync for: ${userId}`);
+                    logger.info(`[LOGIN-7] Data fresh & active session exists — skipping background sync for: ${userId}`);
                 }
 
                 const totalMs = Date.now() - loginStart;
@@ -495,6 +497,24 @@ const logout = async (req, res) => {
             logger.info(`[LOGOUT] Provider session invalidated for: ${userId}`);
         } catch (provErr) {
             logger.warn(`[LOGOUT] Provider session invalidation failed (non-blocking): ${provErr.message}`);
+        }
+
+        // 3. Invalidate data caches for userId
+        if (userId) {
+            try {
+                const cacheService = require('../services/cacheService');
+                cacheService.invalidate('user_credentials', userId);
+                cacheService.invalidate('attendance', userId);
+                cacheService.invalidate('profile', userId);
+                cacheService.invalidate('marks', userId);
+                cacheService.invalidate('fees', userId);
+                cacheService.invalidate('assignments', userId);
+                cacheService.invalidate('timetable', userId);
+                cacheService.invalidate('academic_results', userId);
+                logger.info(`[LOGOUT] Data caches invalidated for: ${userId}`);
+            } catch (cErr) {
+                logger.warn(`[LOGOUT] Cache invalidation note: ${cErr.message}`);
+            }
         }
 
         // 3. Audit log (non-blocking)
