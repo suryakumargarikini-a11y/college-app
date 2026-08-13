@@ -248,7 +248,16 @@ class ErpBrowserService {
                         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
                     );
 
-                    // ── LOGIN (networkidle2 — required for reliable auth) ──────
+                    // ── LOGIN ─────────────────────────────────────────────────
+                    // FIX: Use 'load' (not 'networkidle2') for the initial login page
+                    // navigation. SITAM's ASP.NET portal fires persistent keep-alive
+                    // and analytics requests that never satisfy networkidle2's
+                    // "≤2 connections for 500ms" condition, causing the full 60-second
+                    // timeout to expire before Puppeteer even attempts to fill the form.
+                    // 'load' fires when the window.onload event fires — the login form
+                    // is fully rendered and interactive at that point.
+                    // Authentication integrity is preserved: we still verify the post-
+                    // submit URL and check for Default.aspx (wrong-password detection).
                     timer.start('erpAuth');
                     await traceSpan('puppeteer.erp.login', {
                         'dependency.type': 'external',
@@ -258,14 +267,22 @@ class ErpBrowserService {
                     }, async (loginSpan) => {
                         loginSpan.addEvent('erp_login_started');
                         const loginUrl = `${this.siteBase}/SATYA/Default.aspx`;
-                        logger.info(`[Puppeteer] [${requestId}] Navigating to login: ${loginUrl}`);
+                        logger.info(`[Puppeteer] [${requestId}] Navigating to login: ${loginUrl} (waitUntil: load)`);
 
-                        // ── networkidle2 ONLY for login page ──────────────────
+                        // ── 'load' for initial login page navigation ───────────
+                        // Primary: 'load' (window.onload) — form is ready at this point.
+                        // Fallback: 'domcontentloaded' if 'load' times out (e.g. slow
+                        //   image/font assets blocking window.onload).
+                        const loginNavStart = Date.now();
                         try {
-                            await authPage.goto(loginUrl, { waitUntil: 'networkidle2', timeout: 60000 });
+                            await authPage.goto(loginUrl, { waitUntil: 'load', timeout: 25000 });
+                            logger.info(`[Puppeteer] [${requestId}] Login page loaded (load) in ${Date.now() - loginNavStart}ms`);
                         } catch (loginGotoErr) {
-                            logger.warn(`[Puppeteer] [${requestId}] Login navigation failed: ${loginGotoErr.message}. Retrying once with 60s timeout...`);
-                            await authPage.goto(loginUrl, { waitUntil: 'networkidle2', timeout: 60000 });
+                            logger.warn(`[Puppeteer] [${requestId}] Login page 'load' timed out (${Date.now() - loginNavStart}ms): ${loginGotoErr.message} — falling back to domcontentloaded`);
+                            // Fallback: domcontentloaded always fires before load.
+                            // The form is present once the HTML is parsed.
+                            await authPage.goto(loginUrl, { waitUntil: 'domcontentloaded', timeout: 20000 });
+                            logger.info(`[Puppeteer] [${requestId}] Login page loaded (domcontentloaded fallback) in ${Date.now() - loginNavStart}ms`);
                         }
 
                         // Maintenance + anti-bot checks
@@ -291,36 +308,45 @@ class ErpBrowserService {
                             if (el) el.blur();
                         }, passwordSel);
 
-                        // Small blur-settle delay (200ms instead of 500ms)
+                        // Small blur-settle delay
                         await new Promise(r => setTimeout(r, 200));
 
                         logger.info(`[Puppeteer] [${requestId}] Submitting login...`);
                         const loginBtnSelector = await this._resolveAndInteract(authPage, 'LOGIN_BUTTON', 'wait');
 
-                        // ── networkidle2 for post-submit navigation ────────────
+                        // ── Post-submit navigation ─────────────────────────────
+                        // Use 'load' for post-submit to detect the redirect.
+                        // ASP.NET login performs a server-side redirect to
+                        // StudentMaster.aspx on success; 'load' fires once that
+                        // page is rendered — sufficient to read the URL and cookies.
+                        const submitStart = Date.now();
                         await Promise.all([
                             authPage.click(loginBtnSelector),
-                            authPage.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 })
-                        ]).catch(e => logger.info(`[Puppeteer] [${requestId}] Nav note: ${e.message}`));
+                            authPage.waitForNavigation({ waitUntil: 'load', timeout: 20000 })
+                        ]).catch(e => logger.info(`[Puppeteer] [${requestId}] Submit nav note (${Date.now() - submitStart}ms): ${e.message}`));
 
                         let pageUrl = authPage.url();
+                        logger.info(`[Puppeteer] [${requestId}] Post-submit URL: ${pageUrl} (${Date.now() - submitStart}ms)`);
+
                         if (pageUrl.includes('Default.aspx')) {
-                            logger.info(`[Puppeteer] [${requestId}] Still on Default.aspx — attempting ASP.NET Enter keypress fallback...`);
+                            logger.info(`[Puppeteer] [${requestId}] Still on Default.aspx — trying ASP.NET Enter keypress fallback...`);
+                            const enterStart = Date.now();
                             await Promise.all([
                                 authPage.keyboard.press('Enter'),
-                                authPage.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 })
-                            ]).catch(e => logger.info(`[Puppeteer] [${requestId}] Enter fallback note: ${e.message}`));
+                                authPage.waitForNavigation({ waitUntil: 'load', timeout: 15000 })
+                            ]).catch(e => logger.info(`[Puppeteer] [${requestId}] Enter fallback note (${Date.now() - enterStart}ms): ${e.message}`));
                             pageUrl = authPage.url();
                         }
 
                         if (pageUrl.includes('Default.aspx')) {
-                            logger.info(`[Puppeteer] [${requestId}] Still on Default.aspx — attempting document.forms[0].submit() fallback...`);
+                            logger.info(`[Puppeteer] [${requestId}] Still on Default.aspx — trying document.forms[0].submit() fallback...`);
+                            const formStart = Date.now();
                             await Promise.all([
                                 authPage.evaluate(() => {
                                     if (document.forms && document.forms[0]) document.forms[0].submit();
                                 }),
-                                authPage.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 })
-                            ]).catch(e => logger.info(`[Puppeteer] [${requestId}] Form submit fallback note: ${e.message}`));
+                                authPage.waitForNavigation({ waitUntil: 'load', timeout: 15000 })
+                            ]).catch(e => logger.info(`[Puppeteer] [${requestId}] Form submit fallback note (${Date.now() - formStart}ms): ${e.message}`));
                             pageUrl = authPage.url();
                         }
 
@@ -330,11 +356,13 @@ class ErpBrowserService {
                         await antiBotDetector.assertNoBotChallenge(authPage, { pageName: 'login_post', requestId });
 
                         if (pageUrl.includes('Default.aspx')) {
+                            // Still on login page = wrong credentials or session issue
                             throw new Error('Login failed — still on login page. Check credentials.');
                         }
                         loginSpan.addEvent('erp_login_success');
                     });
                     timer.end('erpAuth');
+                    logger.info(`[Puppeteer] [${requestId}] erpAuth complete in ${timer.get('erpAuth')}ms`);
 
                     // ── Extract cookies from auth page ─────────────────────────
                     const browserCookies = await authPage.cookies();
@@ -358,37 +386,33 @@ class ErpBrowserService {
                         logger.info(`[Puppeteer] [${requestId}] Name: "${scrapedName}"`);
                     } catch (e) { scrapedName = userId; }
 
-                    // ── Parallel scraping: 4 pages, same context ──────────────
-                    timer.start('parallelScrape');
-                    logger.info(`[Puppeteer] [${requestId}] Starting parallel/concurrency scrape...`);
+                    // ── AUTH COMPLETE — return cookies + student name immediately ─
+                    // DATA SYNC NOTE: Full profile/marks/fees/assignments scraping
+                    // is NOT done here. It runs in the background via
+                    // syncService.triggerProviderSync() which calls syncStudent(),
+                    // which calls erpBrowserService.loginWithCookies() using the
+                    // cookies we just obtained — no second login required.
+                    //
+                    // This ensures the HTTP login request completes within the
+                    // frontend's 20-second timeout instead of waiting 72 seconds
+                    // for all scraping to finish.
 
-                    const shouldScrape = (module) => !recoveryPlan || recoveryPlan.includes(module);
+                    scrapedData.studentName = scrapedName;
+                    // Leave profileHtml / marksHtml / feesHtml / assignmentsHtml empty.
+                    // syncStudent() will populate them in the background.
 
-                    const scrapeResults = await this._scrapeAllModules(context, shouldScrape, requestId, timer);
-
-                    scrapedData.studentName     = scrapedName;
-                    scrapedData.profileHtml     = scrapeResults.profileHtml;
-                    scrapedData.marksHtml       = scrapeResults.marksHtml;
-                    scrapedData.feesHtml        = scrapeResults.feesHtml;
-                    scrapedData.assignmentsHtml = scrapeResults.assignmentsHtml;
-
-                    timer.end('parallelScrape');
-
-                    // ── Close auth page (context remains alive for pool reuse) ──
+                    // ── Close auth page (context released back to pool) ─────────
                     try { await authPage.close(); } catch (_) {}
 
                     const report = timer.report({
-                        loginType: 'full',
+                        loginType: 'auth-only',
                         cookieCount: browserCookies.length,
-                        profileLen: scrapedData.profileHtml?.length || 0,
-                        marksLen:   scrapedData.marksHtml?.length   || 0,
-                        feesLen:    scrapedData.feesHtml?.length     || 0,
-                        assignmentsLen: scrapedData.assignmentsHtml?.length || 0
                     });
 
                     logger.info(
-                        `[ErpBrowserService] [${requestId}] SCRAPE COMPLETE in ${report.totalMs}ms — ` +
-                        `auth=${timer.get('erpAuth')}ms parallel=${timer.get('parallelScrape')}ms`
+                        `[ErpBrowserService] [${requestId}] AUTH-ONLY COMPLETE in ${report.totalMs}ms — ` +
+                        `erpAuth=${timer.get('erpAuth')}ms | name="${scrapedName}" | ` +
+                        `cookies=${browserCookies.length} — background sync will populate data`
                     );
 
                     return { cookieString, scrapedData, perfReport: report, requestId };

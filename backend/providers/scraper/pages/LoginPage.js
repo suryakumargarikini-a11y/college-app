@@ -42,11 +42,15 @@ class LoginPage extends BasePage {
         this._setState(PAGE_STATE.LOADING);
 
         // Navigate to the ERP login page
+        // Use 'load' (not 'networkidle2') — the form is interactive at window.onload.
+        // SITAM's ASP.NET portal has persistent background requests that prevent
+        // networkidle2 from ever firing, causing the 60s timeout to expire.
+        const navStart = Date.now();
         try {
-            await this._page.goto(this._loginUrl, { waitUntil: 'networkidle2', timeout: 60000 });
+            await this._page.goto(this._loginUrl, { waitUntil: 'load', timeout: 25000 });
         } catch (navErr) {
-            // One retry with same timeout (ERP can be slow to respond)
-            await this._page.goto(this._loginUrl, { waitUntil: 'networkidle2', timeout: 60000 });
+            // Fallback to domcontentloaded if window.onload is blocked by slow assets
+            await this._page.goto(this._loginUrl, { waitUntil: 'domcontentloaded', timeout: 20000 });
         }
 
         this._setState(PAGE_STATE.READY);
@@ -89,7 +93,7 @@ class LoginPage extends BasePage {
         const loginBtnSel = await this._resolveSelector('LOGIN_BUTTON');
         await Promise.all([
             this._page.click(loginBtnSel),
-            this._page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 40000 }),
+            this._page.waitForNavigation({ waitUntil: 'load', timeout: 20000 }),
         ]).catch(() => {}); // navigation promise may resolve before click settles
 
         await antiBotDetector.assertNoBotChallenge(this._page, {

@@ -1528,7 +1528,12 @@ const api = {
 
         // ── AbortController & Timeout Setup ─────────────────────────────────────
         const requestController = new AbortController();
-        const TIMEOUT_MS = isCritical ? 20000 : 30000; // 20s for auth/health/sync, 30s default
+        // Login (/auth/login) uses a generous timeout because eCAP browser-based
+        // authentication is synchronous and can take 5–25 seconds on the SITAM
+        // portal. We use 90s for login (well above worst-case auth time of ~45s)
+        // and 30s for all other endpoints.
+        const isLoginEndpoint = endpoint.includes('/auth/login');
+        const TIMEOUT_MS = isLoginEndpoint ? 90000 : (isCritical ? 20000 : 30000);
         let timeoutTimer = setTimeout(() => {
             if (isLogin && loginAttemptId) {
                 console.log(`[LOGIN-RACE] attempt=${loginAttemptId} TIMEOUT`);
