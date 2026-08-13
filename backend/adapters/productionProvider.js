@@ -95,30 +95,31 @@ class ProductionProvider {
     async getAssignments(userId) {
         const student = await studentRepository.findByUserId(userId);
         if (!student) {
-            throw new Error('Student assignments not found in local cache');
+            return [];
         }
-        return student.assignments;
+        return student.assignments || [];
     }
 
     async getTimetable(userId) {
         const student = await studentRepository.findByUserId(userId);
         if (!student) {
-            throw new Error('Student timetable not found in local cache');
+            return [];
         }
-        return student.timetable;
+        return student.timetable || [];
     }
 
     async getSyllabus(userId) {
         const student = await studentRepository.findByUserId(userId);
-        if (!student) {
-            throw new Error('Student data not found in local cache');
+        if (!student || !student.marks) {
+            return [];
         }
         const subjectIds = [
             ...new Set([
-                ...student.marks.map(m => m.subjectId),
-                ...student.attendance.map(a => a.subjectId)
+                ...(student.marks || []).map(m => m.subjectId),
+                ...(student.attendance || []).map(a => a.subjectId)
             ])
-        ];
+        ].filter(Boolean);
+        if (subjectIds.length === 0) return [];
         const subjectsWithSyllabus = await prisma.subject.findMany({
             where: { id: { in: subjectIds } },
             include: { syllabus: true }

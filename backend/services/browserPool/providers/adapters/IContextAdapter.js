@@ -45,6 +45,10 @@ class IContextAdapter {
         throw new Error('[IContextAdapter] setCookies() not implemented');
     }
 
+    async setCookie(...cookies) {
+        throw new Error('[IContextAdapter] setCookie() not implemented');
+    }
+
     /**
      * Retrieve all cookies currently set in this context.
      *

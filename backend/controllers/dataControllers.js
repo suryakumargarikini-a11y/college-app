@@ -400,26 +400,24 @@ const getAssignments = async (req, res, next) => {
     try {
         const bc = getBusinessCollector();
         if (bc) bc.trackFeatureAccess('assignments').catch(() => { });
-        const listRaw = await dataProvider.getAssignments(req.session.userId);
-        if (!listRaw) {
-            return res.fail('Student assignments not found', null, 404);
-        }
+        const listRaw = (await dataProvider.getAssignments(req.session.userId)) || [];
 
         const list = listRaw.map(asn => {
-            const isSubmitted = asn.status.toLowerCase() === 'submitted';
-            const isUrgent = asn.status.toLowerCase() === 'urgent';
+            const statusStr = (asn.status || '').toLowerCase();
+            const isSubmitted = statusStr === 'submitted';
+            const isUrgent = statusStr === 'urgent';
             return {
                 title: asn.title,
                 subject: asn.subject,
-                status: asn.status,
-                date: asn.date,
+                status: asn.status || 'Pending',
+                date: asn.date || '',
                 icon: isSubmitted ? 'check_circle' : isUrgent ? 'warning' : 'pending',
                 color: isSubmitted ? 'secondary' : isUrgent ? 'tertiary' : 'on-surface-variant'
             };
         });
 
         res.ok({
-            activeCount: list.filter(a => a.status.toLowerCase() !== 'submitted').length,
+            activeCount: list.filter(a => (a.status || '').toLowerCase() !== 'submitted').length,
             list
         }, 'Assignments fetched successfully');
     } catch (error) {
@@ -430,16 +428,11 @@ const getAssignments = async (req, res, next) => {
 // Timetable controller
 const getTimetable = async (req, res, next) => {
     try {
-        const student = await dataProvider.getProfile(req.session.userId);
-        if (!student) {
-            return res.fail('Student timetable not found', null, 404);
-        }
-
-        const slotsRaw = await dataProvider.getTimetable(req.session.userId);
+        const slotsRaw = (await dataProvider.getTimetable(req.session.userId)) || [];
         const slots = slotsRaw.map(t => ({
             day: t.day,
-            period: parseInt(t.period),
-            room: t.room,
+            period: parseInt(t.period) || 1,
+            room: t.room || '',
             section: t.section || 'A',
             facultyName: t.facultyName || 'N/A',
             time: t.time || '09:00 AM',

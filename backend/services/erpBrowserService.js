@@ -764,7 +764,13 @@ class ErpBrowserService {
                                 return { name: name.trim(), value: rest.join('=').trim(), domain, path: '/' };
                             });
 
-                        await context.setCookie(...cookieObjects);
+                        if (typeof context.setCookies === 'function') {
+                            await context.setCookies(cookieObjects);
+                        } else if (typeof context.setCookie === 'function') {
+                            await context.setCookie(...cookieObjects);
+                        } else if (typeof context.addCookies === 'function') {
+                            await context.addCookies(cookieObjects);
+                        }
                         logger.info(
                             `[Puppeteer] [${requestId}] Injected ${cookieObjects.length} cookies into context`
                         );

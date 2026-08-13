@@ -54,6 +54,14 @@ class PlaywrightContextAdapter extends IContextAdapter {
         await this._context.addCookies(cookies);
     }
 
+    /**
+     * Alias for setCookies to support Puppeteer-style setCookie(...spread or array) callers.
+     */
+    async setCookie(...cookies) {
+        const cookieArray = Array.isArray(cookies[0]) ? cookies[0] : cookies;
+        await this._context.addCookies(cookieArray);
+    }
+
     // ─── Lifecycle ─────────────────────────────────────────────────────────────
 
     /**
