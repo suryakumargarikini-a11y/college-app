@@ -3,7 +3,7 @@
 // Matches Stitch UI design exactly, all modules functional
 // ============================================================
 
-const PRODUCTION_API = 'https://web-production-259f33.up.railway.app/api';
+const PRODUCTION_API = 'https://api.sitam.co.in/api';
 const isMobileNative = window.Capacitor && window.Capacitor.platform !== 'web';
 const API_BASE = window.API_BASE_URL || (isMobileNative ? PRODUCTION_API : '/api');
 
@@ -761,6 +761,7 @@ window.viewDocument = async function ({ id, title, originalFileName, mimeType, f
             haptic();
             showToast('Saving file...', 'info', 2000);
             const filesystem = window.Capacitor?.Plugins?.Filesystem;
+            const fileOpener = window.Capacitor?.Plugins?.FileOpener;
             if (isNative && filesystem) {
                 try {
                     const base64Data = await new Promise((resolve, reject) => {
@@ -774,16 +775,42 @@ window.viewDocument = async function ({ id, title, originalFileName, mimeType, f
                         reader.readAsDataURL(currentBlob);
                     });
 
-                    await filesystem.writeFile({
-                        path: cleanFileName,
+                    // CACHE directory: app-private, no permission required on any Android version.
+                    // DOCUMENTS requires WRITE_EXTERNAL_STORAGE runtime grant which is never requested.
+                    const safeName = cleanFileName.replace(/[^a-zA-Z0-9_.-]/g, '_');
+                    const writeResult = await filesystem.writeFile({
+                        path: safeName,
                         data: base64Data,
-                        directory: 'DOCUMENTS',
+                        directory: 'CACHE',
                         recursive: true
                     });
-                    showToast('File saved to Documents folder', 'success', 3000);
+
+                    // Get absolute URI of the saved file
+                    const uriResult = await filesystem.getUri({
+                        path: safeName,
+                        directory: 'CACHE'
+                    });
+                    const fileUri = uriResult?.uri || writeResult?.uri;
+
+                    showToast('File saved — opening...', 'success', 2000);
+
+                    // Open file via FileOpener so user gets native share/save sheet
+                    if (fileOpener && fileUri) {
+                        try {
+                            await fileOpener.open({ filePath: fileUri, contentType: cleanMime });
+                        } catch (openErr) {
+                            const msg = String(openErr?.message || '').toLowerCase();
+                            const isCancel = msg.includes('cancel') || msg.includes('dismiss') || msg.includes('user_canceled');
+                            if (!isCancel) {
+                                showToast('File saved to app cache. Open a file manager to access it.', 'info', 4000);
+                            }
+                        }
+                    } else {
+                        showToast('File saved. Open a file manager to access it.', 'success', 3000);
+                    }
                 } catch (e) {
                     console.error('[File Save Error]', e);
-                    showToast('Failed to save file: ' + (e.message || 'Error'), 'error', 3000);
+                    showToast('Failed to save file: ' + (e.message || 'Storage error'), 'error', 3000);
                 }
             } else {
                 const link = document.createElement('a');
@@ -794,6 +821,7 @@ window.viewDocument = async function ({ id, title, originalFileName, mimeType, f
                 link.remove();
             }
         };
+
 
         if (downloadBtn) downloadBtn.onclick = triggerDownload;
 
@@ -834,20 +862,20 @@ window.viewDocument = async function ({ id, title, originalFileName, mimeType, f
                 const writeResult = await filesystem.writeFile({
                     path: tempFileName,
                     data: base64Data,
-                    directory: 'EXTERNAL',
+                    directory: 'CACHE',   // CACHE: no permission needed on any Android version
                     recursive: true
                 });
 
                 const fileUriResult = await filesystem.getUri({
                     path: tempFileName,
-                    directory: 'EXTERNAL'
+                    directory: 'CACHE'
                 });
 
                 let statResult = null;
                 try {
                     statResult = await filesystem.stat({
                         path: tempFileName,
-                        directory: 'EXTERNAL'
+                        directory: 'CACHE'
                     });
                 } catch (statErr) {
                     console.warn('[Preview Debug] Filesystem.stat error:', statErr);
@@ -860,7 +888,7 @@ window.viewDocument = async function ({ id, title, originalFileName, mimeType, f
                 try {
                     const readBackResult = await filesystem.readFile({
                         path: tempFileName,
-                        directory: 'EXTERNAL'
+                        directory: 'CACHE'
                     });
                     readBackData = readBackResult.data;
                     readBackMatch = (readBackData === base64Data);
@@ -875,6 +903,7 @@ window.viewDocument = async function ({ id, title, originalFileName, mimeType, f
                 } catch (readBackErr) {
                     console.warn('[Preview Debug] Readback verification warning:', readBackErr);
                 }
+
 
                 const rawUri = fileUriResult?.uri || writeResult?.uri || tempFileName;
                 const targetPath = (typeof rawUri === 'string' && rawUri.includes('%')) ? decodeURIComponent(rawUri) : rawUri;
@@ -1103,7 +1132,18 @@ const wsService = {
                 if (router.currentRoute === '/marks') {
                     router.routes['/marks']?.afterRender?.();
                 }
-                setEl('dash-gpa-val', 'innerText', data.cgpa || '--');
+                // Use cgpa (cumulative) as the primary SGPA display value —
+                // same source as Academics page CGPA ring: parseFloat(overall?.cgpa || rawData.cgpa)
+                const rawVal = data?.cgpa || data?.overall?.cgpa || data?.sgpa;
+                const info = (window.AcademicV2 && window.AcademicV2.getSgpaPerformanceInfo)
+                    ? window.AcademicV2.getSgpaPerformanceInfo(rawVal)
+                    : { displayVal: rawVal || '--', label: 'N/A', badgeClass: 'bg-slate-100 text-slate-500 border-slate-200' };
+                setEl('dash-sgpa-val', 'innerText', info.displayVal);
+                const badgeEl = $('dash-sgpa-badge');
+                if (badgeEl) {
+                    badgeEl.innerText = info.label;
+                    badgeEl.className = `text-right text-[9px] font-extrabold uppercase tracking-wide border px-2.5 py-0.5 rounded-full ${info.badgeClass}`;
+                }
                 showToast('Live Academic Results Synchronized!', 'analytics');
             }
         }
@@ -2293,19 +2333,19 @@ const pages = {
                         </div>
                     </div>
 
-                    <!-- CGPA Card -->
+                    <!-- OVERALL SGPA Card -->
                     <div id="dashboard-academic-v2-container" class="glass-card p-5 rounded-3xl flex flex-col justify-between h-40 border-l-4 border-l-amber-500 cursor-pointer hover:scale-[1.02] active-scale transition-all" onclick="haptic(); router.navigate('/marks')">
                         <div class="flex justify-between items-start">
                             <div>
-                                <h4 class="text-sm font-bold text-on-surface">Academic GPA</h4>
-                                <p class="text-[10px] text-slate-400">Cumulative (CGPA)</p>
+                                <h4 class="text-sm font-bold text-on-surface uppercase">OVERALL SGPA</h4>
+                                <p class="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">CUMULATIVE PERFORMANCE</p>
                             </div>
                             <span class="material-symbols-outlined text-amber-500 text-2xl" style="font-variation-settings:'FILL' 1">stars</span>
                         </div>
                         <div class="flex justify-between items-end">
-                            <p class="text-3xl font-black text-slate-800 leading-none" id="dash-gpa-val">--</p>
-                            <div class="text-right text-[9px] font-extrabold uppercase tracking-wide bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full">
-                                SGPA: <span id="dash-sgpa-val">--</span>
+                            <p class="text-3xl font-black text-slate-800 leading-none" id="dash-sgpa-val">--</p>
+                            <div id="dash-sgpa-badge" class="text-right text-[9px] font-extrabold uppercase tracking-wide border px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border-slate-200">
+                                --
                             </div>
                         </div>
                     </div>
@@ -2461,18 +2501,33 @@ const pages = {
             }).catch(() => { });
 
             api.get('/v2/academic/results').then(marksRes => {
-                const resData = marksRes?.data || marksRes || {};
-                const sList = resData.semesters || [];
-                const cgpa = resData.cgpa || resData.overall?.cgpa || '--';
-                const sgpa = (resData.sgpa && resData.sgpa !== 'N/A' && resData.sgpa !== '--')
-                    ? resData.sgpa
-                    : (sList.length > 0 ? (sList[sList.length - 1]?.sgpa || sList[0]?.sgpa || '--') : '--');
-                setEl('dash-gpa-val', 'innerText', cgpa);
-                setEl('dash-sgpa-val', 'innerText', sgpa);
+                // api.get() returns raw JSON body: { success, data: { cgpa, semesters, overall }, timestamp }
+                // marksRes.data is the inner payload: { cgpa, semesters, overall }
+                const payload = marksRes?.data ?? marksRes ?? {};
+
                 if (window.AcademicV2 && document.getElementById('dashboard-academic-v2-container')) {
-                    AcademicV2.renderDashboardCard('dashboard-academic-v2-container', resData);
+                    AcademicV2.renderDashboardCard('dashboard-academic-v2-container', payload);
+                } else {
+                    const rawCgpa = payload?.overall?.cgpa || payload?.cgpa;
+                    const info = (window.AcademicV2 && window.AcademicV2.getSgpaPerformanceInfo)
+                        ? window.AcademicV2.getSgpaPerformanceInfo(rawCgpa)
+                        : { displayVal: rawCgpa || '--', label: 'N/A', badgeClass: 'bg-slate-100 text-slate-500 border-slate-200' };
+                    setEl('dash-sgpa-val', 'innerText', info.displayVal);
+                    const badgeEl = $('dash-sgpa-badge');
+                    if (badgeEl) {
+                        badgeEl.innerText = info.label;
+                        badgeEl.className = `text-right text-[9px] font-extrabold uppercase tracking-wide border px-2.5 py-0.5 rounded-full ${info.badgeClass}`;
+                    }
                 }
-            }).catch(e => { console.warn('[Dashboard] Academic V2 fetch note:', e); });
+            }).catch(e => {
+                console.warn('[Dashboard] Academic V2 fetch note:', e);
+                setEl('dash-sgpa-val', 'innerText', '--');
+                const badgeEl = $('dash-sgpa-badge');
+                if (badgeEl) {
+                    badgeEl.innerText = 'N/A';
+                    badgeEl.className = 'text-right text-[9px] font-extrabold uppercase tracking-wide border px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border-slate-200';
+                }
+            });
 
             api.get('/fees').then(feesRes => {
                 const due = feesRes.data?.dueAmount || feesRes.data?.totalDue;
@@ -2795,9 +2850,11 @@ const pages = {
             try {
                 const resultsRes = await api.get('/v2/academic/results');
                 console.log(resultsRes);
-                const rData = resultsRes.data;
-                const fetchedSemesters = rData.data?.semesters || [];
-                const fetchedOverall = rData.data?.overall || null;
+                // api.get() returns raw JSON body: { success, data: { cgpa, semesters, overall }, timestamp }
+                // resultsRes.data is the inner { cgpa, semesters, overall } object
+                const rData = resultsRes.data ?? resultsRes;
+                const fetchedSemesters = rData.semesters || [];
+                const fetchedOverall = rData.overall || null;
                 console.log(fetchedSemesters);
                 if (fetchedSemesters && fetchedSemesters.length > 0 && pages.marks.renderHistory) {
                     pages.marks.renderHistory(fetchedSemesters, fetchedOverall, rData);
@@ -2807,6 +2864,11 @@ const pages = {
             }
         },
         renderHistory: (semesters, overall, data) => {
+            console.log("renderHistory called");
+            console.log("semesters:", semesters);
+            console.log("overall:", overall);
+            console.log("data:", data);
+
             const semList = Array.isArray(semesters) ? semesters : [];
             const rawData = data || {};
             const cgpa = parseFloat(overall?.cgpa || rawData.cgpa) || 0;
@@ -2834,6 +2896,8 @@ const pages = {
 
             if (semList.length > 0) {
                 grid.className = "space-y-4 col-span-1 md:col-span-2";
+                console.log('Rendering semesters');
+                console.log(semList);
                 grid.innerHTML = semList.map((sem) => {
                     return `
                         <div class="bg-surface-container-low border border-slate-200/80 rounded-2xl overflow-hidden shadow-sm transition-all duration-300">
@@ -2965,10 +3029,13 @@ const pages = {
             toggleShell(true);
             setActiveNav('marks');
 
-            const cachedData = getCachedData('/student/results') || getCachedData('/marks');
+            const cachedData =
+                getCachedData('/v2/academic/results') ||
+                getCachedData('/student/results') ||
+                getCachedData('/marks');
             let hasShownCached = false;
             if (cachedData) {
-                const raw = cachedData.data || cachedData;
+                const raw = cachedData?.data?.data ?? cachedData?.data ?? cachedData;
                 const semList = raw.semesters || [];
                 const ovData = raw.overall || null;
                 if (semList.length > 0 || (raw.subjects && raw.subjects.length > 0) || (raw.marks && raw.marks.length > 0)) {
@@ -2983,10 +3050,16 @@ const pages = {
 
             try {
                 const res = await api.get('/v2/academic/results');
-                const data = res?.data || res || {};
-                const semesters = data.semesters || [];
-                const overall = data.overall || null;
-                pages.marks.renderHistory(semesters, overall, data);
+                console.log('API RESPONSE:', res);
+                // api.get() returns raw JSON body: { success, data: { cgpa, semesters, overall }, timestamp }
+                // res.data is the inner payload: { cgpa, semesters, overall }
+                const payload = res?.data ?? res;
+                console.log('PAYLOAD:', payload);
+                console.log('SEMESTERS:', payload.semesters);
+                console.log('OVERALL:', payload.overall);
+                const semesters = payload.semesters || [];
+                const overall = payload.overall || null;
+                pages.marks.renderHistory(semesters, overall, payload);
             } catch (e) {
                 console.error('[Marks] Error:', e);
                 if (!hasShownCached) {
@@ -5022,59 +5095,156 @@ const pages = {
     },
 
     // ---- ACADEMICS HUB ----
+    // The hub is a navigation grid — each tile router.navigate()s to the
+    // existing fully-implemented page. No content is duplicated here.
     academics: {
         render: () => `
             <div class="min-h-screen pb-32 bg-[#F8FAFC]">
                 <main class="pt-20 px-4 max-w-lg mx-auto">
-                    <!-- Tab Selector -->
-                    <div class="flex gap-2 overflow-x-auto pb-3 mb-5 hide-scrollbar momentum-scroll select-none" id="academic-tabs">
-                        <button class="academic-tab-btn flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider bg-primary text-white" data-tab="attendance">Attendance</button>
-                        <button class="academic-tab-btn flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-500" data-tab="timetable">Timetable</button>
-                        <button class="academic-tab-btn flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-500" data-tab="assignments">Assignments</button>
-                        <button class="academic-tab-btn flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-500" data-tab="fees">Fees</button>
+                    <!-- Header -->
+                    <section class="mb-6">
+                        <p class="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-1 font-headline">Your Academic Life</p>
+                        <h2 class="text-3xl font-extrabold tracking-tight text-slate-800" style="font-family:'Plus Jakarta Sans',sans-serif">Academics</h2>
+                    </section>
+
+                    <!-- Quick SGPA Banner -->
+                    <div id="academics-hub-sgpa-banner"
+                         class="glass-card mb-6 p-4 rounded-2xl flex items-center justify-between border-l-4 border-l-amber-500 cursor-pointer active-scale transition-all shadow-sm"
+                         onclick="haptic(); router.navigate('/marks')">
+                        <div>
+                            <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Overall CGPA</p>
+                            <p class="text-2xl font-black text-slate-800 leading-none mt-0.5" id="hub-sgpa-val">--</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span id="hub-sgpa-badge" class="text-[9px] font-extrabold uppercase tracking-wide border px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border-slate-200">--</span>
+                            <span class="material-symbols-outlined text-amber-500 text-xl" style="font-variation-settings:'FILL' 1">stars</span>
+                        </div>
                     </div>
-                    <!-- Tab Content Container -->
-                    <div id="academic-tab-content" class="space-y-4"></div>
+
+                    <!-- Feature Grid -->
+                    <div class="grid grid-cols-2 gap-3">
+
+                        <!-- Marks & Results -->
+                        <div class="glass-card p-5 rounded-2xl flex flex-col gap-3 cursor-pointer active-scale transition-all shadow-sm border border-white/40"
+                             onclick="haptic(); router.navigate('/marks')">
+                            <div class="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
+                                <span class="material-symbols-outlined text-amber-600 text-xl" style="font-variation-settings:'FILL' 1">grade</span>
+                            </div>
+                            <div>
+                                <h3 class="font-extrabold text-slate-800 text-sm leading-tight">Marks &amp; Results</h3>
+                                <p class="text-[10px] text-slate-400 mt-0.5">SGPA · Grades · History</p>
+                            </div>
+                        </div>
+
+                        <!-- Attendance -->
+                        <div class="glass-card p-5 rounded-2xl flex flex-col gap-3 cursor-pointer active-scale transition-all shadow-sm border border-white/40"
+                             onclick="haptic(); router.navigate('/attendance')">
+                            <div class="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
+                                <span class="material-symbols-outlined text-emerald-600 text-xl" style="font-variation-settings:'FILL' 1">fact_check</span>
+                            </div>
+                            <div>
+                                <h3 class="font-extrabold text-slate-800 text-sm leading-tight">Attendance</h3>
+                                <p class="text-[10px] text-slate-400 mt-0.5">Subject-wise · Status</p>
+                            </div>
+                        </div>
+
+                        <!-- Timetable -->
+                        <div class="glass-card p-5 rounded-2xl flex flex-col gap-3 cursor-pointer active-scale transition-all shadow-sm border border-white/40"
+                             onclick="haptic(); router.navigate('/timetable')">
+                            <div class="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
+                                <span class="material-symbols-outlined text-blue-600 text-xl" style="font-variation-settings:'FILL' 1">calendar_month</span>
+                            </div>
+                            <div>
+                                <h3 class="font-extrabold text-slate-800 text-sm leading-tight">Timetable</h3>
+                                <p class="text-[10px] text-slate-400 mt-0.5">Classes · Schedule</p>
+                            </div>
+                        </div>
+
+                        <!-- Assignments -->
+                        <div class="glass-card p-5 rounded-2xl flex flex-col gap-3 cursor-pointer active-scale transition-all shadow-sm border border-white/40"
+                             onclick="haptic(); router.navigate('/assignments')">
+                            <div class="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center">
+                                <span class="material-symbols-outlined text-violet-600 text-xl" style="font-variation-settings:'FILL' 1">assignment</span>
+                            </div>
+                            <div>
+                                <h3 class="font-extrabold text-slate-800 text-sm leading-tight">Assignments</h3>
+                                <p class="text-[10px] text-slate-400 mt-0.5">Pending · Submitted</p>
+                            </div>
+                        </div>
+
+                        <!-- Exams -->
+                        <div class="glass-card p-5 rounded-2xl flex flex-col gap-3 cursor-pointer active-scale transition-all shadow-sm border border-white/40"
+                             onclick="haptic(); router.navigate('/exams')">
+                            <div class="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center">
+                                <span class="material-symbols-outlined text-rose-600 text-xl" style="font-variation-settings:'FILL' 1">quiz</span>
+                            </div>
+                            <div>
+                                <h3 class="font-extrabold text-slate-800 text-sm leading-tight">Exams</h3>
+                                <p class="text-[10px] text-slate-400 mt-0.5">Schedule · Seating</p>
+                            </div>
+                        </div>
+
+                        <!-- Syllabus -->
+                        <div class="glass-card p-5 rounded-2xl flex flex-col gap-3 cursor-pointer active-scale transition-all shadow-sm border border-white/40"
+                             onclick="haptic(); router.navigate('/syllabus')">
+                            <div class="w-10 h-10 rounded-xl bg-sky-100 flex items-center justify-center">
+                                <span class="material-symbols-outlined text-sky-600 text-xl" style="font-variation-settings:'FILL' 1">menu_book</span>
+                            </div>
+                            <div>
+                                <h3 class="font-extrabold text-slate-800 text-sm leading-tight">Syllabus</h3>
+                                <p class="text-[10px] text-slate-400 mt-0.5">Subjects · Units</p>
+                            </div>
+                        </div>
+
+                        <!-- Library -->
+                        <div class="glass-card p-5 rounded-2xl flex flex-col gap-3 cursor-pointer active-scale transition-all shadow-sm border border-white/40"
+                             onclick="haptic(); router.navigate('/library')">
+                            <div class="w-10 h-10 rounded-xl bg-teal-100 flex items-center justify-center">
+                                <span class="material-symbols-outlined text-teal-600 text-xl" style="font-variation-settings:'FILL' 1">local_library</span>
+                            </div>
+                            <div>
+                                <h3 class="font-extrabold text-slate-800 text-sm leading-tight">Library</h3>
+                                <p class="text-[10px] text-slate-400 mt-0.5">Books · E-Resources</p>
+                            </div>
+                        </div>
+
+                        <!-- LMS Portal -->
+                        <div class="glass-card p-5 rounded-2xl flex flex-col gap-3 cursor-pointer active-scale transition-all shadow-sm border border-white/40"
+                             onclick="haptic(); router.navigate('/lms')">
+                            <div class="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center">
+                                <span class="material-symbols-outlined text-indigo-600 text-xl" style="font-variation-settings:'FILL' 1">workspace_premium</span>
+                            </div>
+                            <div>
+                                <h3 class="font-extrabold text-slate-800 text-sm leading-tight">LMS Portal</h3>
+                                <p class="text-[10px] text-slate-400 mt-0.5">Learning Management</p>
+                            </div>
+                        </div>
+
+                    </div>
                 </main>
             </div>
         `,
-        afterRender: () => {
+        afterRender: async () => {
             toggleShell(true);
             setActiveNav('academics');
 
-            const tabButtons = document.querySelectorAll('.academic-tab-btn');
-            const contentContainer = $('academic-tab-content');
-
-            const loadTab = async (tabName) => {
-                tabButtons.forEach(btn => {
-                    if (btn.dataset.tab === tabName) {
-                        btn.className = 'academic-tab-btn flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider bg-primary text-white';
-                    } else {
-                        btn.className = 'academic-tab-btn flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-500';
-                    }
-                });
-
-                const page = pages[tabName];
-                if (page) {
-                    const htmlStr = page.render();
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(htmlStr, 'text/html');
-                    const mainContent = doc.querySelector('main')?.innerHTML || htmlStr;
-                    if (contentContainer) {
-                        contentContainer.innerHTML = mainContent;
-                    }
-                    await page.afterRender?.();
+            // Load CGPA into the banner — same source as Dashboard and Marks page
+            try {
+                const marksRes = await api.get('/v2/academic/results');
+                const payload = marksRes?.data ?? marksRes ?? {};
+                const rawCgpa = payload?.overall?.cgpa || payload?.cgpa;
+                const info = (window.AcademicV2 && window.AcademicV2.getSgpaPerformanceInfo)
+                    ? window.AcademicV2.getSgpaPerformanceInfo(rawCgpa)
+                    : { displayVal: rawCgpa || '--', label: '--', badgeClass: 'bg-slate-100 text-slate-500 border-slate-200' };
+                setEl('hub-sgpa-val', 'innerText', info.displayVal);
+                const badge = $('hub-sgpa-badge');
+                if (badge) {
+                    badge.innerText = info.label;
+                    badge.className = `text-[9px] font-extrabold uppercase tracking-wide border px-2.5 py-0.5 rounded-full ${info.badgeClass}`;
                 }
-            };
-
-            tabButtons.forEach(btn => {
-                btn.addEventListener('click', () => {
-                    haptic();
-                    loadTab(btn.dataset.tab);
-                });
-            });
-
-            loadTab('attendance');
+            } catch (e) {
+                // Banner stays showing '--' gracefully
+            }
         }
     },
 
@@ -7672,7 +7842,7 @@ const router = {
             '/notifications': pages.notifications,
             '/exams': pages.exams,
             '/maintenance': pages.maintenance,
-            '/academics': pages.marks,
+            '/academics': pages.academics,
             '/career': pages.career,
             '/services': pages.services,
             '/exit-pass': pages['exit-pass'],
