@@ -105,28 +105,37 @@ function allowed(m, s) {
     if (!m || !s) return false;
     if (m.expiresAt && new Date(m.expiresAt) < new Date()) return false;
 
-    // 1. Branch match
-    if (!m.branch) return false;
-    const branchMatch = s.branch && staffScopeService.canonicalizeBranch(m.branch) === staffScopeService.canonicalizeBranch(s.branch);
-    if (!branchMatch) return false;
+    // Each targeting field: null on the material = broadcast to everyone in that dimension.
+    // A field is only restrictive when it is explicitly set on the material.
 
-    // 2. Year match
+    // 1. Branch: null → all branches; set → must match student's branch
+    if (m.branch) {
+        if (!s.branch) return false;
+        const branchMatch = staffScopeService.canonicalizeBranch(m.branch) ===
+                            staffScopeService.canonicalizeBranch(s.branch);
+        if (!branchMatch) return false;
+    }
+
+    // 2. AcademicYear: null → all years; set → must match
     const targetYr = m.academicYear || m.year;
-    if (!targetYr) return false;
-    const yearAliases = getYearAliases(s.year, s.academicYear);
-    const yearMatch = yearAliases.includes(String(targetYr).trim());
-    if (!yearMatch) return false;
+    if (targetYr) {
+        const yearAliases = getYearAliases(s.year, s.academicYear);
+        if (!yearAliases.includes(String(targetYr).trim())) return false;
+    }
 
-    // 3. Semester match
-    if (!m.semester) return false;
-    const semAliases = getSemesterAliases(s.semester);
-    const semMatch = semAliases.includes(String(m.semester).trim());
-    if (!semMatch) return false;
+    // 3. Semester: null → all semesters; set → must match
+    if (m.semester) {
+        const semAliases = getSemesterAliases(s.semester);
+        if (!semAliases.includes(String(m.semester).trim())) return false;
+    }
 
-    // 4. Section match
-    if (!m.section) return false;
-    const secMatch = String(m.section).trim().toUpperCase() === String(s.section).trim().toUpperCase();
-    if (!secMatch) return false;
+    // 4. Section: null → all sections; set → must match
+    if (m.section) {
+        if (!s.section) return false;
+        const secMatch = String(m.section).trim().toUpperCase() ===
+                         String(s.section).trim().toUpperCase();
+        if (!secMatch) return false;
+    }
 
     return true;
 }
