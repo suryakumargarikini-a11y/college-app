@@ -43,13 +43,19 @@ function sanitizeErrorForClient(error) {
 
     // Authentication errors — pass these through (user needs to know)
     if (msg.includes('invalid credentials') || msg.includes('incorrect password') || msg.includes('wrong password') ||
-        msg.includes('check your credentials') || msg.includes('invalid user')) {
+        msg.includes('check your credentials') || msg.includes('invalid user') ||
+        msg.includes('authentication failed') || msg.includes('mock: invalid')) {
         return error.message; // intentionally pass through — user action required
     }
 
     // Captcha
     if (msg.includes('captcha')) {
         return 'SITAM ERP is showing a CAPTCHA. Please try again in a few minutes.';
+    }
+
+    // Provider unavailable
+    if (msg.includes('unavailable') || msg.includes('erp system')) {
+        return 'SITAM ERP is currently unavailable. Please try again shortly.';
     }
 
     // DB write failure
@@ -62,20 +68,30 @@ function sanitizeErrorForClient(error) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// LOGIN CONTROLLER — with per-stage timing + detailed diagnostic logs
-// Every step is instrumented so logcat shows exactly where execution stops.
+// LOGIN CONTROLLER
+//
+// SECURITY INVARIANTS (non-negotiable):
+//   1. A JWT/session token is NEVER issued unless credentials are authenticated.
+//   2. Authentication = either:
+//        (a) The supplied password matches a verifiably-stored credential, OR
+//        (b) The configured ERP provider explicitly accepts the credentials.
+//   3. No Student DB record is created before authentication succeeds.
+//   4. A password mismatch against the local cache does NOT fall through to
+//      a successful login — the provider is called as the arbiter.
+//   5. ERPUnavailableError → 503 (not 401, not a fake success).
+//   6. AuthenticationError → 401, no token, no DB write.
 // ─────────────────────────────────────────────────────────────────────────────
 const login = async (req, res) => {
     const loginStart = Date.now();
     const rawUserId = (req.body.userId || '').trim();
-    const password = (req.body.password || '').trim();
+    const password  = (req.body.password || '').trim();
     const requestId = req.requestId || 'no-req-id';
 
     logger.info(`[LOGIN-1] ▶ Request received — rawUserId: ${rawUserId || 'MISSING'} | requestId: ${requestId} | ip: ${req.ip}`);
     console.log(`[LOGIN-1] ▶ Request received — rawUserId: ${rawUserId || 'MISSING'} | requestId: ${requestId}`);
 
     if (!rawUserId || !password) {
-        logger.warn(`[LOGIN-X] ✗ Validation failed — rawUserId: ${!!rawUserId}, password: ${!!password}`);
+        logger.warn(`[LOGIN-X] ✗ Validation failed — userId present: ${!!rawUserId}, password present: ${!!password}`);
         return res.status(400).json({
             success: false,
             message: 'userId and password are required',
@@ -86,67 +102,64 @@ const login = async (req, res) => {
     // Server-Side Parent Mode Detection:
     // Registration IDs ending with P/p indicate Parent Mode login.
     // Strip ONLY the trailing P/p to resolve the target student's account.
-    const isParent = /p$/i.test(rawUserId) || req.body.isParent === true;
-    const cleanUserId = rawUserId.replace(/p$/i, '');
-    const userRole = isParent ? 'PARENT' : 'STUDENT';
-    const userId = cleanUserId; // Use clean student ID for database and session operations
+    const isParent  = /p$/i.test(rawUserId) || req.body.isParent === true;
+    const userId    = rawUserId.replace(/p$/i, ''); // clean student ID for DB + session
+    const userRole  = isParent ? 'PARENT' : 'STUDENT';
 
     try {
-        // ── STAGE 2: Cache-First Credential & Student Lookup (< 5ms) ──────
-        const cacheService = require('../services/cacheService');
-        const cryptoHelper = require('../services/cryptoHelper');
-        const crypto = require('crypto');
+        const cacheService  = require('../services/cacheService');
+        const cryptoHelper  = require('../services/cryptoHelper');
+        const crypto        = require('crypto');
+        const ProviderFactory = require('../providers/ProviderFactory');
+        const { AuthenticationError, ERPUnavailableError, CaptchaDetectedError } = require('../providers/errors');
 
+        // ── STAGE 2: Cache-First Student Lookup (<5ms / <150ms) ─────────────
         let cachedStudent = await cacheService.get('user_credentials', userId);
-        let isFromMemoryCache = false;
 
         if (cachedStudent) {
-            isFromMemoryCache = true;
-            logger.info(`[LOGIN-2] Cache HIT for student credentials: ${userId}`);
+            logger.info(`[LOGIN-2] Memory cache HIT for: ${userId}`);
         } else {
-            // ── STAGE 2b: Fail-Safe Fast Database Lookup (<100ms) ─────────────
             try {
                 const dbLookupStart = Date.now();
-                logger.info(`[LOGIN-2b] DB lookup for student: ${userId} (isParent: ${isParent})`);
+                logger.info(`[LOGIN-2b] DB lookup for: ${userId} (isParent: ${isParent})`);
 
-                // Non-blocking query with short 150ms budget
                 const queryPromise = prisma.student.findUnique({ where: { userId } });
                 const timerPromise = new Promise(r => setTimeout(() => r(null), 150));
-
                 cachedStudent = await Promise.race([queryPromise, timerPromise]);
 
-                const dbLookupMs = Date.now() - dbLookupStart;
-                logger.info(`[LOGIN-2b] DB lookup complete in ${dbLookupMs}ms — found: ${!!cachedStudent}`);
+                logger.info(`[LOGIN-2b] DB lookup complete in ${Date.now() - dbLookupStart}ms — found: ${!!cachedStudent}`);
 
                 if (cachedStudent) {
-                    // Populate memory cache for future logins (<5ms next time)
                     cacheService.set('user_credentials', userId, cachedStudent, 24 * 60 * 60 * 1000);
                 }
             } catch (dbErr) {
-                logger.warn(`[LOGIN-2b] DB lookup fail-safe note (${dbErr.message}) — proceeding to instant session`);
+                logger.warn(`[LOGIN-2b] DB lookup failed (${dbErr.message}) — will authenticate via provider`);
                 cachedStudent = null;
             }
         }
 
-        // ── STAGE 3: Cached Credential Verification ───────────────────────
-        if (cachedStudent) {
-            logger.info(`[LOGIN-3] Student found in DB — attempting instant credential verification for: ${userId}`);
-            console.log(`[LOGIN-3] Student found in DB — attempting instant credential verification for: ${userId}`);
+        // ── STAGE 3: Credential Verification ─────────────────────────────────
+        // INVARIANT: We only take the fast path (skip provider call) when we can
+        // positively confirm the supplied password against a verifiably-stored
+        // credential (AES-decrypted or HMAC-hashed).  Any other outcome triggers
+        // provider.login() as the arbiter.  Falling through from a failed
+        // comparison to a successful login is explicitly prevented.
 
+        if (cachedStudent) {
+            logger.info(`[LOGIN-3] Student found — verifying credentials locally for: ${userId}`);
+            console.log(`[LOGIN-3] Student found — verifying credentials locally for: ${userId}`);
+
+            // Check AES-encrypted credential (scraper-written path)
             let decryptedPassword = null;
             try {
-                const cryptoHelper = require('../services/cryptoHelper');
                 decryptedPassword = cryptoHelper.decrypt(cachedStudent.password);
-                logger.info(`[LOGIN-3] Credential decryption successful for: ${userId}`);
             } catch (cryptoErr) {
-                logger.error(`[LOGIN-3] Credential decryption failed for ${userId}: ${cryptoErr.message}`);
-                console.error(`[LOGIN-3] Credential decryption failed: ${cryptoErr.message}`);
+                logger.warn(`[LOGIN-3] Decryption note for ${userId}: ${cryptoErr.message}`);
             }
 
-            // Also check HMAC-SHA256 hash format (used by seed-demo.js via hashPassword())
+            // Check HMAC-SHA256 credential (seed-demo.js / admin path)
             let hmacMatch = false;
             try {
-                const crypto = require('crypto');
                 const saltsToTry = [
                     process.env.ADMIN_PASSWORD_SALT,
                     'sitam-admin-s4lt-ch4ng3-in-pr0ducti0n',
@@ -155,38 +168,25 @@ const login = async (req, res) => {
                 for (const salt of new Set(saltsToTry)) {
                     if (!salt) continue;
                     const hmacHash = crypto.createHmac('sha256', salt).update(password).digest('hex');
-                    if (cachedStudent.password === hmacHash) {
-                        hmacMatch = true;
-                        break;
-                    }
+                    if (cachedStudent.password === hmacHash) { hmacMatch = true; break; }
                 }
             } catch (_) {}
 
-            if (decryptedPassword === password || hmacMatch) {
-                logger.info(`[LOGIN-3] ✓ Credentials matched — instant login for: ${userId} (role: ${userRole})`);
-                console.log(`[LOGIN-3] ✓ Credentials matched — instant login for: ${userId} (role: ${userRole})`);
+            const localCredentialValid = (decryptedPassword === password) || hmacMatch;
 
-                // ── STAGE 4: Session Token Creation ───────────────────────
-                const sessionStart = Date.now();
-                logger.info(`[LOGIN-4] Creating session token for: ${userId}`);
-                console.log(`[LOGIN-4] Creating session token for: ${userId}`);
+            if (localCredentialValid) {
+                // ── FAST PATH: local credential matches → no ERP call needed ──
+                logger.info(`[LOGIN-3] ✓ Local credential match — issuing token for: ${userId} (role: ${userRole})`);
+                console.log(`[LOGIN-3] ✓ Local credential match — instant login for: ${userId}`);
 
-                const mockScrapedData = {
-                    studentName: cachedStudent.name,
-                    profileHtml: cachedStudent.address ? 'Cached' : ''
-                };
+                const token = sessionManager.createSession(userId, password, 'cached_cookie', {
+                    studentName: cachedStudent.name
+                }, userRole, isParent);
 
-                const token = sessionManager.createSession(userId, password, 'cached_cookie', mockScrapedData, userRole, isParent);
-                const sessionMs = Date.now() - sessionStart;
-                logger.info(`[LOGIN-4] Session token created in ${sessionMs}ms — token present: ${!!token}`);
-                console.log(`[LOGIN-4] Session token created in ${sessionMs}ms — token present: ${!!token}`);
+                auditLogRepository.log(cachedStudent.id, isParent ? 'LOGIN_PARENT_INSTANT' : 'LOGIN_INSTANT',
+                    `Instant login via verified cached credential (role: ${userRole})`)
+                    .catch(e => logger.warn(`[LOGIN-3] Audit log failed: ${e.message}`));
 
-                // ── STAGE 5: Audit Log (non-blocking) ─────────────────────
-                logger.info(`[LOGIN-5] Writing audit log for: ${userId}`);
-                auditLogRepository.log(cachedStudent.id, isParent ? 'LOGIN_PARENT_INSTANT' : 'LOGIN_INSTANT', `Logged in instantly via cached credentials (role: ${userRole})`)
-                    .catch(e => logger.warn(`[LOGIN-5] Audit log failed (non-blocking): ${e.message}`));
-
-                // ── STAGE 6: Business Metrics (non-blocking) ──────────────
                 try {
                     const bc = getBusinessCollector();
                     if (bc) {
@@ -195,28 +195,23 @@ const login = async (req, res) => {
                     }
                 } catch (_) {}
 
-                // ── STAGE 7: Background Sync Trigger (non-blocking) ───────
+                // Trigger background sync only when data is stale (production only)
                 const DEMO_MODE = (process.env.DEMO_MODE || '').toLowerCase() === 'true';
-                const lastSync = cachedStudent.lastSync;
-                const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
-                const isStale = !lastSync || new Date(lastSync) < thirtyMinutesAgo;
+                const lastSync  = cachedStudent.lastSync;
+                const isStale   = !lastSync || new Date(lastSync) < new Date(Date.now() - 30 * 60 * 1000);
 
                 if (DEMO_MODE) {
-                    logger.info(`[LOGIN-7] DEMO MODE — skipping background ERP sync for: ${userId}`);
-                    console.log(`[LOGIN-7] DEMO MODE — skipping background ERP sync.`);
+                    logger.info(`[LOGIN-7] DEMO MODE — skipping background sync for: ${userId}`);
                 } else if (isStale) {
-                    logger.info(`[LOGIN-7] Cached data stale (lastSync: ${lastSync || 'never'}). Triggering background provider sync for: ${userId}`);
-                    console.log(`[LOGIN-7] Cached data stale. Triggering background provider sync for: ${userId}`);
+                    logger.info(`[LOGIN-7] Data stale — triggering background sync for: ${userId}`);
                     syncService.triggerProviderSync(userId, password);
                 } else {
-                    logger.info(`[LOGIN-7] Cached data is fresh (lastSync: ${lastSync}). Skipping background sync.`);
-                    console.log(`[LOGIN-7] Cached data is fresh. Skipping background sync.`);
+                    logger.info(`[LOGIN-7] Data fresh — skipping background sync for: ${userId}`);
                 }
 
-                // ── STAGE 8: Send Response ─────────────────────────────────
                 const totalMs = Date.now() - loginStart;
-                logger.info(`[LOGIN-8] ✓ INSTANT LOGIN SUCCESS for ${userId} (role: ${userRole}) — total: ${totalMs}ms`);
-                console.log(`[LOGIN-8] ✓ INSTANT LOGIN SUCCESS for ${userId} (role: ${userRole}) — total: ${totalMs}ms`);
+                logger.info(`[LOGIN-OK] ✓ INSTANT LOGIN SUCCESS for ${userId} (role: ${userRole}) — ${totalMs}ms`);
+                console.log(`[LOGIN-OK] ✓ INSTANT LOGIN SUCCESS for ${userId} — ${totalMs}ms`);
 
                 return res.json({
                     success: true,
@@ -227,103 +222,160 @@ const login = async (req, res) => {
                     studentName: cachedStudent.name,
                     timestamp: new Date().toISOString()
                 });
+
             } else {
-                logger.warn(`[LOGIN-3] ✗ Password mismatch for cached student: ${userId} — falling through to provider sync`);
-                console.log(`[LOGIN-3] ✗ Password mismatch — falling through to provider sync`);
-            }
-        } else {
-            logger.info(`[LOGIN-3] Student not in DB — proceeding to provider sync for: ${userId}`);
-            console.log(`[LOGIN-3] Student not in DB — proceeding to provider sync for: ${userId}`);
-        }
+                // ── PROVIDER RE-VERIFICATION PATH ─────────────────────────────
+                // The stored credential does NOT match the supplied password.
+                // Possible reasons:
+                //   1. Genuinely wrong password → provider will reject → 401
+                //   2. Stored credential is stale/from broken flow → provider re-verifies
+                // Either way: the ERP provider is the sole arbiter.
+                // We do NOT fall through to login success from here.
+                logger.warn(`[LOGIN-3] ✗ Local credential mismatch for: ${userId} — re-verifying with ERP provider`);
+                console.log(`[LOGIN-3] ✗ Local mismatch — calling provider.login() to re-verify for: ${userId}`);
 
-        // ── STAGE 4: First-time / Cache Miss — Upsert Minimal Identity & Offload ─────
-        const providerSyncStart = Date.now();
-        logger.info(`[LOGIN-4] Upserting minimal student identity & offloading sync for: ${userId}`);
+                const provider = ProviderFactory.getProvider();
+                logger.info(`[LOGIN-3P] Using provider: ${provider.providerName} for re-verification of: ${userId}`);
 
-        let student = cachedStudent;
-        if (!student) {
-            try {
-                const studentRepository = require('../repositories');
-                student = await studentRepository.upsertStudent(userId, {
-                    name: userId,
-                    password: password,
-                    roll: userId,
-                    section: 'A',
-                    program: 'B.Tech',
-                    branch: 'CSE'
+                // Throws AuthenticationError if wrong password → caught below → 401
+                // Throws ERPUnavailableError if ERP is down → caught below → 503
+                const providerSession = await provider.login({ userId, password, requestId });
+
+                logger.info(`[LOGIN-3P] ✓ Provider accepted credentials — updating stored credential for: ${userId}`);
+
+                // Update the stored credential now that provider has verified it
+                try {
+                    const encryptedPassword = cryptoHelper.encrypt(password);
+                    await prisma.student.update({ where: { userId }, data: { password: encryptedPassword } });
+                    cacheService.del('user_credentials', userId); // invalidate stale cache
+                    logger.info(`[LOGIN-3P] ✓ Credential updated in DB for: ${userId}`);
+                } catch (updateErr) {
+                    // Non-fatal — provider accepted, proceed with login
+                    logger.warn(`[LOGIN-3P] Credential DB update failed (non-fatal) for ${userId}: ${updateErr.message}`);
+                }
+
+                // Trigger full background sync so real data is fetched
+                syncService.triggerProviderSync(userId, password);
+
+                const token = sessionManager.createSession(userId, password, providerSession.cookies || '', {
+                    studentName: providerSession.studentName || cachedStudent.name
+                }, userRole, isParent);
+
+                auditLogRepository.log(cachedStudent.id, isParent ? 'LOGIN_PARENT_REVERIFIED' : 'LOGIN_REVERIFIED',
+                    `Re-verified via ${provider.providerName} after local mismatch (role: ${userRole})`)
+                    .catch(e => logger.warn(`[LOGIN-3P] Audit log failed: ${e.message}`));
+
+                try {
+                    const bc = getBusinessCollector();
+                    if (bc) {
+                        bc.trackActiveUser(userId).catch(() => {});
+                        bc.trackFeatureAccess('login').catch(() => {});
+                    }
+                } catch (_) {}
+
+                const totalMs = Date.now() - loginStart;
+                logger.info(`[LOGIN-OK] ✓ REVERIFIED LOGIN SUCCESS for ${userId} (role: ${userRole}) — ${totalMs}ms`);
+                console.log(`[LOGIN-OK] ✓ REVERIFIED LOGIN SUCCESS for ${userId} — ${totalMs}ms`);
+
+                return res.json({
+                    success: true,
+                    token,
+                    role: userRole,
+                    isParent,
+                    message: 'Login successful',
+                    studentName: providerSession.studentName || cachedStudent.name,
+                    timestamp: new Date().toISOString()
                 });
+            }
+
+        } else {
+            // ── STAGE 4: UNKNOWN STUDENT — Provider-First Authentication ──────
+            // The student does not exist in our DB.
+            // INVARIANT: provider.login() is called FIRST.
+            //   - If it throws AuthenticationError → 401, no DB record created.
+            //   - If it throws ERPUnavailableError → 503, no DB record created.
+            //   - Only after provider.login() succeeds do we write to the DB.
+            logger.info(`[LOGIN-4] Student not in DB — authenticating via provider FIRST for: ${userId}`);
+            console.log(`[LOGIN-4] Student not in DB — calling provider.login() before any DB write for: ${userId}`);
+
+            const provider = ProviderFactory.getProvider();
+            logger.info(`[LOGIN-4P] Using provider: ${provider.providerName} for first-time login of: ${userId}`);
+
+            // Throws on failure — no DB write happens
+            const providerSession = await provider.login({ userId, password, requestId });
+
+            logger.info(`[LOGIN-4P] ✓ Provider accepted credentials for new student: ${userId}`);
+
+            // NOW safe to write DB record (authentication succeeded)
+            let student;
+            try {
+                student = await studentRepository.upsertStudent(userId, {
+                    name:     providerSession.studentName || userId,
+                    password: password, // encrypted inside upsertStudent via cryptoHelper
+                    roll:     userId,
+                    section:  '',
+                    program:  '',
+                    branch:   ''
+                    // Real profile fields (branch, semester, etc.) filled by background sync
+                });
+                logger.info(`[LOGIN-4P] ✓ Student record created/updated in DB for: ${userId}`);
             } catch (upsertErr) {
-                logger.warn(`[LOGIN-4] Minimal student upsert note: ${upsertErr.message}`);
-                student = { id: userId, userId: userId, name: userId };
+                logger.error(`[LOGIN-4P] DB upsert failed for ${userId}: ${upsertErr.message}`);
+                // Provider authenticated but DB failed — ephemeral in-memory record only
+                student = { id: userId, userId, name: providerSession.studentName || userId };
+                logger.warn(`[LOGIN-4P] Using ephemeral record for: ${userId} (DB write failed — login still allowed)`);
             }
+
+            // Cache for fast path on next login
+            cacheService.set('user_credentials', userId, student, 24 * 60 * 60 * 1000);
+
+            // Background full sync — fills attendance, marks, fees, real profile
+            syncService.triggerProviderSync(userId, password);
+
+            const token = sessionManager.createSession(userId, password, providerSession.cookies || '', {
+                studentName: providerSession.studentName || student.name
+            }, userRole, isParent);
+
+            auditLogRepository.log(student.id, isParent ? 'LOGIN_PARENT_EXTERNAL' : 'LOGIN_EXTERNAL',
+                `First-time login authenticated via ${provider.providerName} (role: ${userRole})`)
+                .catch(e => logger.warn(`[LOGIN-4P] Audit log failed: ${e.message}`));
+
+            try {
+                const bc = getBusinessCollector();
+                if (bc) {
+                    bc.trackActiveUser(userId).catch(() => {});
+                    bc.trackFeatureAccess('login').catch(() => {});
+                }
+            } catch (_) {}
+
+            const totalMs = Date.now() - loginStart;
+            logger.info(`[LOGIN-OK] ✓ FULL LOGIN SUCCESS for ${userId} (role: ${userRole}) — ${totalMs}ms`);
+            console.log(`[LOGIN-OK] ✓ FULL LOGIN SUCCESS for ${userId} — ${totalMs}ms`);
+
+            return res.json({
+                success: true,
+                token,
+                role: userRole,
+                isParent,
+                message: 'Login successful',
+                studentName: providerSession.studentName || student.name,
+                timestamp: new Date().toISOString()
+            });
         }
-
-        if (!student) {
-            student = { id: userId, userId: userId, name: userId };
-        }
-
-        // Cache credentials in memory for subsequent logins (<5ms next time)
-        cacheService.set('user_credentials', userId, student, 24 * 60 * 60 * 1000);
-
-        // Trigger background worker sync for full Puppeteer scraping (Attendance, Marks, Academic V2, Timetable, Fees)
-        syncService.triggerProviderSync(userId, password);
-
-        const providerSyncMs = Date.now() - providerSyncStart;
-        logger.info(`[LOGIN-4] ✓ Minimal student identity verified/created in ${providerSyncMs}ms for: ${userId}`);
-
-        // ── STAGE 5: Create JWT Session (< 1ms) ───────────────────────────
-        const jwtStart = Date.now();
-        const token = sessionManager.createSession(userId, password, '', {
-            studentName: student.name
-        }, userRole, isParent);
-        const jwtMs = Date.now() - jwtStart;
-        logger.info(`[LOGIN-5] JWT session created in ${jwtMs}ms — token present: ${!!token}`);
-
-        // ── STAGE 7: Audit Log (non-blocking) ─────────────────────────────
-        auditLogRepository.log(student.id, isParent ? 'LOGIN_PARENT_EXTERNAL' : 'LOGIN_EXTERNAL', `Successfully verified credentials and synced via Provider (role: ${userRole})`)
-            .catch(e => logger.warn(`[LOGIN-7] Audit log failed (non-blocking): ${e.message}`));
-
-        // ── STAGE 8: Business Metrics (non-blocking) ──────────────────────
-        try {
-            const bc = getBusinessCollector();
-            if (bc) {
-                bc.trackActiveUser(userId).catch(() => {});
-                bc.trackFeatureAccess('login').catch(() => {});
-            }
-        } catch (_) {}
-
-        return res.json({
-            success: true,
-            token,
-            role: userRole,
-            isParent,
-            message: 'Login successful',
-            studentName: student.name,
-            timestamp: new Date().toISOString()
-        });
-
-        // ── STAGE 9: Send Response ─────────────────────────────────────────
-        const totalMs = Date.now() - loginStart;
-        logger.info(`[LOGIN-9] ✓ FULL LOGIN SUCCESS for ${userId} — total: ${totalMs}ms`);
-        console.log(`[LOGIN-9] ✓ FULL LOGIN SUCCESS for ${userId} — total: ${totalMs}ms`);
-
-        return res.json({
-            success: true,
-            token,
-            message: 'Login successful',
-            studentName: student.name,
-            timestamp: new Date().toISOString()
-        });
 
     } catch (error) {
         const totalMs = Date.now() - loginStart;
-        // Log the full internal error (real Puppeteer/network/DB details) for backend debugging
         logger.error(`[LOGIN-ERR] ✗ Login FAILED for ${userId} after ${totalMs}ms — ${error.message}`, { stack: error.stack });
         console.error(`[LOGIN-ERR] ✗ Login FAILED for ${userId} after ${totalMs}ms — ${error.message}`);
 
-        // Return a sanitized message to the client — never expose protocol errors or stack traces
+        // Select appropriate HTTP status
+        const { AuthenticationError, ERPUnavailableError, CaptchaDetectedError } = require('../providers/errors');
+        let httpStatus = 401;
+        if (error instanceof ERPUnavailableError)  httpStatus = 503;
+        if (error instanceof CaptchaDetectedError) httpStatus = 503;
+
         const clientMessage = sanitizeErrorForClient(error);
-        return res.status(401).json({
+        return res.status(httpStatus).json({
             success: false,
             message: clientMessage,
             timestamp: new Date().toISOString()
@@ -478,4 +530,3 @@ const logout = async (req, res) => {
 };
 
 module.exports = { login, logout, registerFcmToken, removeFcmToken };
-
