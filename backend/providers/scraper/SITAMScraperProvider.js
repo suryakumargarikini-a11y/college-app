@@ -241,9 +241,27 @@ class SITAMScraperProvider extends ERPProvider {
                 // Load recovery plan
                 const recoveryPlan = await recovery.getRecoveryPlan(userId);
 
-                // 1. Login and get raw scraped data (passing the recovery plan to only scrape what is missing)
+                // 1. Authenticate against eCAP — returns cookies + student name only (auth-only fast path).
+                //    _loginWithPool() intentionally does NOT scrape data pages so that the
+                //    authController HTTP response returns in ~8s rather than ~72s.
                 const loginResult = await this.login({ userId, password, recoveryPlan });
-                const { cookies, scrapedData } = loginResult;
+                const { cookies } = loginResult;
+
+                // 2. Scrape all data pages using the authenticated cookie session.
+                //    This is the step the AUTH-ONLY comment said "background sync will populate" —
+                //    it was described correctly but never implemented in this code path.
+                //    loginWithCookies() → _scrapeWithCookies() → _scrapeAllModules()
+                //    injects the auth cookies, navigates all 4 ERP pages in parallel, and
+                //    returns { profileHtml, marksHtml, feesHtml, assignmentsHtml }.
+                const erpBrowserService = require('../../services/erpBrowserService');
+                const scrapeResult = await erpBrowserService.loginWithCookies(
+                    userId,
+                    cookies,
+                    loginResult.requestId
+                );
+                const scrapedData = scrapeResult.scrapedData;
+                // Preserve the student name obtained during auth (loginWithCookies sets it to userId by default)
+                scrapedData.studentName = loginResult.scrapedData?.studentName || scrapedData.studentName || userId;
 
                 // Merge in cached HTML from previous runs for modules that were skipped in this run
                 for (const moduleName of ['profile', 'marks', 'fees', 'assignments']) {
