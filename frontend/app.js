@@ -1486,6 +1486,9 @@ const _inflight = {};
 // --- AbortController tracker per active GET endpoint ---
 const _abortControllers = {};
 
+// --- Logout Re-entrancy Lock ---
+let _isLoggingOut = false;
+
 // --- Core API Service ---
 const api = {
     // ── Route Change Request Cancellation ────────────────────────────────────
@@ -1685,19 +1688,24 @@ const api = {
 
             if (!resp.ok) {
                 if (resp.status === 401) {
-                    const _tokenExpiry = secureStorage.getItem('tokenExpiry');
-                    const _nowMs = Date.now();
-                    console.error(
-                        '[LOGOUT-TRIGGER] Reason: HTTP 401 Unauthorized\n' +
-                        `  Endpoint:     ${endpoint}\n` +
-                        `  Method:       ${method}\n` +
-                        `  Token expiry: ${_tokenExpiry ? new Date(Number(_tokenExpiry)).toISOString() : 'unknown'}\n` +
-                        `  Current time: ${new Date(_nowMs).toISOString()}\n` +
-                        `  Expired:      ${_tokenExpiry ? (_nowMs > Number(_tokenExpiry) ? 'YES' : 'NO') : 'unknown'}\n` +
-                        `  Response body: ${text.slice(0, 300)}\n` +
-                        `  Stack: ${new Error().stack}`
-                    );
-                    api.logout();
+                    const isLogoutEndpoint = endpoint.includes('/auth/logout') || endpoint.includes('/logout');
+                    if (!isLogoutEndpoint) {
+                        const _tokenExpiry = secureStorage.getItem('tokenExpiry');
+                        const _nowMs = Date.now();
+                        console.error(
+                            '[LOGOUT-TRIGGER] Reason: HTTP 401 Unauthorized\n' +
+                            `  Endpoint:     ${endpoint}\n` +
+                            `  Method:       ${method}\n` +
+                            `  Token expiry: ${_tokenExpiry ? new Date(Number(_tokenExpiry)).toISOString() : 'unknown'}\n` +
+                            `  Current time: ${new Date(_nowMs).toISOString()}\n` +
+                            `  Expired:      ${_tokenExpiry ? (_nowMs > Number(_tokenExpiry) ? 'YES' : 'NO') : 'unknown'}\n` +
+                            `  Response body: ${text.slice(0, 300)}\n` +
+                            `  Stack: ${new Error().stack}`
+                        );
+                        api.logout();
+                    } else {
+                        console.warn(`[API] 401 response on logout endpoint (${endpoint}) — skipping recursive logout trigger.`);
+                    }
                 }
                 throw new Error(data.error || data.message || `HTTP ${resp.status}`);
             }
@@ -1836,19 +1844,39 @@ const api = {
     },
 
     logout() {
+        if (_isLoggingOut) {
+            console.warn('[API] Logout execution already in progress — skipping duplicate trigger.');
+            return;
+        }
+        _isLoggingOut = true;
+
         const performLogout = () => {
-            clearUserCache();
-            secureStorage.removeItem('token');
-            secureStorage.removeItem('tokenExpiry');
-            secureStorage.removeItem('studentName');
-            state.token = null;
-            state.profile = null;
-            if (state._syncPollTimer) clearInterval(state._syncPollTimer);
-            // Clear the entire page cache so nothing from the previous session leaks
-            _pageCache.forEach(entry => { if (entry.node?.parentNode) entry.node.parentNode.removeChild(entry.node); });
-            _pageCache.clear();
-            router.navigate('/login');
+            try {
+                clearUserCache();
+                secureStorage.removeItem('token');
+                secureStorage.removeItem('tokenExpiry');
+                secureStorage.removeItem('studentName');
+                state.token = null;
+                state.profile = null;
+                if (state._syncPollTimer) clearInterval(state._syncPollTimer);
+                // Clear the entire page cache so nothing from the previous session leaks
+                _pageCache.forEach(entry => { if (entry.node?.parentNode) entry.node.parentNode.removeChild(entry.node); });
+                _pageCache.clear();
+                router.navigate('/login');
+            } finally {
+                _isLoggingOut = false;
+            }
         };
+
+        // Guard: If there is no usable auth token in memory or storage,
+        // do NOT perform a network request to /auth/logout (which requires authentication).
+        // Perform local cleanup and return immediately.
+        const currentToken = state.token || secureStorage.getItem('token');
+        if (!currentToken) {
+            console.log('[API] No auth token present — performing local logout only.');
+            performLogout();
+            return;
+        }
 
         // ── Server-side session invalidation ──────────────────────────────────
         // MUST call backend logout BEFORE clearing local token so auth header is still present.
@@ -1857,11 +1885,11 @@ const api = {
         const serverLogout = () => api.request('/auth/logout', { method: 'POST' }).catch(() => { });
 
         if (messaging) {
-            messaging.getToken().then(async (currentToken) => {
-                if (currentToken) {
+            messaging.getToken().then(async (fcmToken) => {
+                if (fcmToken) {
                     await api.request('/auth/fcm-token', {
                         method: 'DELETE',
-                        body: JSON.stringify({ token: currentToken })
+                        body: JSON.stringify({ token: fcmToken })
                     }).catch(() => { });
                 }
                 // Invalidate server session AFTER FCM cleanup but BEFORE local cleanup

@@ -480,27 +480,27 @@ const removeFcmToken = async (req, res) => {
 
 
 const logout = async (req, res) => {
-    const token = req.token;          // set by requireAuth middleware
-    const { userId } = req.session;
+    const token = req.token;          // set by optionalAuthForLogout middleware if valid
+    const userId = req.session ? req.session.userId : null;
 
     try {
-        logger.info(`[LOGOUT] ▶ Logout request — userId: ${userId || 'UNKNOWN'} | ip: ${req.ip}`);
+        if (token && userId) {
+            logger.info(`[LOGOUT] ▶ Logout request — userId: ${userId} | ip: ${req.ip}`);
 
-        // 1. Remove from in-memory session store + DB
-        sessionManager.deleteSession(token);
-        logger.info(`[LOGOUT] Session deleted from store for: ${userId}`);
+            // 1. Remove from in-memory session store + DB
+            sessionManager.deleteSession(token);
+            logger.info(`[LOGOUT] Session deleted from store for: ${userId}`);
 
-        // 2. Invalidate provider (ERP) session so no background sync re-uses it
-        try {
-            const ProviderSessionManager = require('../providers/session/ProviderSessionManager');
-            await ProviderSessionManager.invalidate(userId);
-            logger.info(`[LOGOUT] Provider session invalidated for: ${userId}`);
-        } catch (provErr) {
-            logger.warn(`[LOGOUT] Provider session invalidation failed (non-blocking): ${provErr.message}`);
-        }
+            // 2. Invalidate provider (ERP) session so no background sync re-uses it
+            try {
+                const ProviderSessionManager = require('../providers/session/ProviderSessionManager');
+                await ProviderSessionManager.invalidate(userId);
+                logger.info(`[LOGOUT] Provider session invalidated for: ${userId}`);
+            } catch (provErr) {
+                logger.warn(`[LOGOUT] Provider session invalidation failed (non-blocking): ${provErr.message}`);
+            }
 
-        // 3. Invalidate data caches for userId
-        if (userId) {
+            // 3. Invalidate data caches for userId
             try {
                 const cacheService = require('../services/cacheService');
                 cacheService.invalidate('user_credentials', userId);
@@ -515,10 +515,8 @@ const logout = async (req, res) => {
             } catch (cErr) {
                 logger.warn(`[LOGOUT] Cache invalidation note: ${cErr.message}`);
             }
-        }
 
-        // 3. Audit log (non-blocking)
-        if (userId) {
+            // 4. Audit log (non-blocking)
             try {
                 const student = await prisma.student.findUnique({
                     where: { userId },
@@ -529,9 +527,12 @@ const logout = async (req, res) => {
                         .catch(e => logger.warn(`[LOGOUT] Audit log failed: ${e.message}`));
                 }
             } catch (_) {}
+
+            logger.info(`[LOGOUT] ✓ Logout complete for: ${userId}`);
+        } else {
+            logger.info(`[LOGOUT] Idempotent logout — no active session/token to destroy | ip: ${req.ip}`);
         }
 
-        logger.info(`[LOGOUT] ✓ Logout complete for: ${userId}`);
         return res.json({
             success: true,
             message: 'Logged out successfully',
@@ -539,7 +540,7 @@ const logout = async (req, res) => {
         });
 
     } catch (error) {
-        logger.error(`[LOGOUT] Error during logout for ${userId}: ${error.message}`);
+        logger.error(`[LOGOUT] Error during logout: ${error.message}`);
         // Always return success on logout — don't block the client
         return res.json({
             success: true,
