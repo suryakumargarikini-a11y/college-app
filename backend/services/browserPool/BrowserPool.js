@@ -207,7 +207,32 @@ class BrowserPool {
         );
 
         return new Promise((resolve, reject) => {
-            const timer = setTimeout(() => {
+            // Create the item object FIRST so the timer closure can mark it
+            // settled before _drainQueue can observe it after clearTimeout().
+            // This is the foundation of the race-condition fix — see _drainQueue.
+            const item = {
+                priority,
+                enqueuedAt,
+                resolve,
+                reject,
+                timer:      null,
+                requestId,
+                jobType,
+                userId,
+                // FIX: _settled flag — set to true by the timeout handler before
+                // calling reject(). _drainQueue checks this after clearTimeout() to
+                // detect the race where the timer fires at the same instant as dequeue.
+                // Without this flag, _doCheckout() would create a real BrowserContext
+                // (incrementing recordContextCreated) whose .then(next.resolve) is a
+                // no-op on the already-settled Promise — leaking the context forever.
+                _settled:   false,
+            };
+
+            item.timer = setTimeout(() => {
+                // Mark settled BEFORE calling remove() + reject() so _drainQueue
+                // sees the flag even if it dequeued this item a few microseconds ago.
+                item._settled = true;
+
                 this.queue.remove(reject);
                 this.metrics.recordTimeout();
 
@@ -220,16 +245,7 @@ class BrowserPool {
                 ));
             }, ACQUIRE_TIMEOUT_MS);
 
-            this.queue.enqueue({
-                priority,
-                enqueuedAt,
-                resolve,
-                reject,
-                timer,
-                requestId,
-                jobType,
-                userId,
-            });
+            this.queue.enqueue(item);
         });
     }
 
@@ -626,6 +642,34 @@ class BrowserPool {
         if (!next) return;
 
         clearTimeout(next.timer);
+
+        // ── Race-condition guard (context-leak fix) ───────────────────────────
+        // PROBLEM: The acquire() timeout handler and _drainQueue() can dequeue
+        // the same item at nearly the same instant:
+        //   T+0ms   : _drainQueue dequeues item
+        //   T+1ms   : timer fires, reject() called — Promise already settled
+        //   T+2ms   : clearTimeout() — too late, timer already fired
+        //   T+3ms   : _doCheckout() creates a real BrowserContext
+        //             → recordContextCreated() increments the counter
+        //   T+4ms   : .then(next.resolve) → no-op (Promise already rejected)
+        //             → context is orphaned, recordContextDestroyed() never fires
+        //             → leak: created=N+1, destroyed=N → leaked=1
+        //
+        // FIX: acquire() sets item._settled = true BEFORE calling reject().
+        // If _settled is true here, the Promise is already rejected — skip this
+        // item to prevent an orphaned context. Try the next queued item instead.
+        if (next._settled) {
+            logger.warn(
+                `[POOL][${this.name}] Skipping settled queue item ` +
+                `req=${next.requestId} type=${next.jobType} — ` +
+                `acquire timeout raced with dequeue (context-leak guard).`
+            );
+            // The Promise is already rejected — do not call _doCheckout.
+            // Try to serve the next queued request with the same free browser.
+            this._drainQueue(freeInstance);
+            return;
+        }
+
         const waitMs = Date.now() - next.enqueuedAt;
 
         logger.info(
