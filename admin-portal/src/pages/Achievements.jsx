@@ -181,11 +181,12 @@ export default function Achievements() {
       setCreateOpen(false);
       fetchAchievements();
     } catch (err) {
-      showToast(err.response?.data?.error || 'Failed to create achievement', 'error');
+      showToast(err.response?.data?.error || err.message || 'Failed to create achievement', 'error');
     } finally {
       setSaving(false);
     }
   };
+
 
   const openEditModal = (item) => {
     setEditItem(item);

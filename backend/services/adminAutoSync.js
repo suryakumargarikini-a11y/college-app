@@ -13,6 +13,7 @@ async function autoSyncAdminCredentials() {
 
         const adminHash = hashPassword('Admin@SITAM2024');
         const guardHash = hashPassword('Guard@SITAM2024');
+        const hodHash   = hashPassword('Admin@SITAM2024');
 
         await prisma.admin.updateMany({
             where: { email: 'admin@sitamecap.co.in' },
@@ -24,7 +25,13 @@ async function autoSyncAdminCredentials() {
             data: { passwordHash: guardHash }
         });
 
-        logger.info('[AdminAuth] Admin & Guard password hashes synchronized with active runtime salt.');
+        await prisma.admin.updateMany({
+            where: { role: 'HOD' },
+            data: { passwordHash: hodHash }
+        });
+
+        logger.info('[AdminAuth] Admin, Guard & HOD password hashes synchronized with active runtime salt.');
+
     } catch (err) {
         logger.error(`[AdminAuth] Password sync error: ${err.message}`);
     }

@@ -1,13 +1,24 @@
 import axios from 'axios';
 import { authStore } from '../store/authStore';
 
+const PROD_API_BASE_URL = 'https://web-production-259f33.up.railway.app/api';
 const DEV_FALLBACK_API = 'http://localhost:3001/api';
 
+const resolveBaseURL = () => {
+  if (import.meta.env.VITE_API_BASE_URL) return import.meta.env.VITE_API_BASE_URL;
+  // If running in browser on production domain (e.g. vercel.app or sitamecap.co.in), use live Railway API
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    return PROD_API_BASE_URL;
+  }
+  return DEV_FALLBACK_API;
+};
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || DEV_FALLBACK_API,
+  baseURL: resolveBaseURL(),
   headers: { 'Content-Type': 'application/json' },
   timeout: 30000,
 });
+
 
 // Attach tab-isolated JWT token
 api.interceptors.request.use((config) => {
