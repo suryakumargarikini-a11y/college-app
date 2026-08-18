@@ -93,25 +93,30 @@ async function createAchievement(req, res, next) {
         if (!title) return res.status(400).json({ error: 'Title is required' });
         if (!description) return res.status(400).json({ error: 'Description is required' });
 
-        let targetBranch = String(body.branch || '').trim();
+        let targetBranch;
 
         if (admin.role === 'HOD') {
-            const { canonicals } = await staffScopeService.getAuthorizedDepartments(admin);
-            if (!targetBranch) {
-                targetBranch = canonicals[0];
+            // SECURITY: Always derive branch from server-side authenticated HOD identity.
+            // The frontend branch field is intentionally ignored for HOD users.
+            // req.admin.department is set by adminAuth middleware from StaffScope.
+            if (admin.department) {
+                targetBranch = admin.department;
             } else {
-                const requestedCanon = staffScopeService.canonicalizeBranch(targetBranch);
-                if (!canonicals.includes(requestedCanon)) {
+                // Safety fallback: re-fetch from StaffScope if middleware didn't populate it
+                const { canonicals } = await staffScopeService.getAuthorizedDepartments(admin);
+                if (!canonicals.length) {
                     return res.status(403).json({
-                        error: `Forbidden: HOD '${admin.email}' is not authorized to create achievements for branch '${targetBranch}'`
+                        error: 'Forbidden: HOD has no authorized department scope. Contact the administrator.'
                     });
                 }
-                targetBranch = requestedCanon;
+                targetBranch = canonicals[0];
             }
         } else {
+            targetBranch = String(body.branch || '').trim();
             if (!targetBranch) targetBranch = 'ALL';
             else targetBranch = staffScopeService.canonicalizeBranch(targetBranch);
         }
+
 
         let imageUrl = null;
 

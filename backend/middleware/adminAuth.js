@@ -2,6 +2,7 @@
 
 const crypto = require('crypto');
 const prisma = require('../services/dbService');
+const staffScopeService = require('../services/staffScopeService');
 
 // ── P0-3: Startup Guard — ADMIN_JWT_SECRET ────────────────────────────────────
 const _ADMIN_JWT_KNOWN_DEFAULTS = new Set([
@@ -109,6 +110,18 @@ const adminAuth = async (req, res, next) => {
             email: admin.email,
             role: admin.role // Always use current DB role, ignoring outdated token role claims
         };
+
+        // 4. For HOD: resolve canonical department from StaffScope so controllers
+        //    never need to re-fetch it and can never be misled by frontend input.
+        if (admin.role === 'HOD') {
+            try {
+                const { canonicals } = await staffScopeService.getAuthorizedDepartments(req.admin);
+                req.admin.department = canonicals.length > 0 ? canonicals[0] : null;
+            } catch (_) {
+                req.admin.department = null;
+            }
+        }
+
         next();
     } catch (err) {
         return res.status(401).json({ error: 'Invalid or expired token' });

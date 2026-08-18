@@ -4,6 +4,22 @@ const prisma = require('../../services/dbService');
 const { signToken } = require('../../middleware/adminAuth');
 const logger = require('../../services/logger');
 const { auditLogRepository } = require('../../repositories/index');
+const staffScopeService = require('../../services/staffScopeService');
+
+/**
+ * Resolves the HOD's primary canonical department from StaffScope.
+ * Returns null for non-HOD roles.
+ */
+async function resolveHodDepartment(adminRecord) {
+    if (!adminRecord || adminRecord.role !== 'HOD') return null;
+    try {
+        const { canonicals } = await staffScopeService.getAuthorizedDepartments(adminRecord);
+        return canonicals.length > 0 ? canonicals[0] : null;
+    } catch (err) {
+        logger.error(`[AuthController] Failed to resolve HOD department for ${adminRecord.id}: ${err.message}`);
+        return null;
+    }
+}
 
 // ── P0-4: Startup Guard — ADMIN_PASSWORD_SALT (used as HMAC pepper) ───────────
 // Fail hard at module load if the pepper is absent, empty, or a known default.
@@ -52,13 +68,17 @@ const login = async (req, res) => {
             userAgent: req.get('user-agent')
         }).catch(err => logger.error(`Failed to log admin login: ${err.message}`));
 
+        // Resolve department for HOD users — sourced from StaffScope (not Admin model)
+        const department = await resolveHodDepartment(admin);
+
         res.json({
             token,
             admin: {
                 id: admin.id,
                 email: admin.email,
                 name: admin.name,
-                role: admin.role
+                role: admin.role,
+                department // null for non-HOD; canonical dept string (e.g. "ECE") for HOD
             }
         });
     } catch (error) {
@@ -74,7 +94,10 @@ const getMe = async (req, res) => {
             select: { id: true, email: true, name: true, role: true, isActive: true }
         });
         if (!admin || !admin.isActive) return res.status(401).json({ error: 'Unauthorized' });
-        res.json({ admin });
+
+        // Include department for HOD roles
+        const department = await resolveHodDepartment(admin);
+        res.json({ admin: { ...admin, department } });
     } catch (error) {
         logger.error(`Admin getMe error: ${error.message}`);
         res.status(500).json({ error: 'Internal server error' });

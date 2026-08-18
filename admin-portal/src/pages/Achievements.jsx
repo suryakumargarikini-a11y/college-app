@@ -52,16 +52,31 @@ export default function Achievements() {
   const [imagePreview, setImagePreview] = useState('');
   const [saving, setSaving] = useState(false);
 
-  // Read admin identity from session
+  // Read admin identity — try session store first, then refresh from server
   useEffect(() => {
-    try {
-      const u = authStore.getUser();
-      if (u) {
-        setAdminUser(u);
+    const loadAdminUser = async () => {
+      // Read stored user first for immediate render
+      try {
+        const stored = authStore.getUser();
+        if (stored) setAdminUser(stored);
+      } catch (_) {}
+
+      // Always refresh from /api/admin/me — this guarantees `department` is current
+      // even for sessions that predate the department field being included in login.
+      try {
+        const res = await api.get('/admin/me');
+        const fresh = res.data?.admin;
+        if (fresh) {
+          setAdminUser(fresh);
+          // Update the stored user so other pages also see the department field
+          const token = authStore.getToken();
+          if (token) authStore.setAuth(token, fresh);
+        }
+      } catch (e) {
+        console.warn('[Achievements] Could not refresh admin profile from server:', e?.message);
       }
-    } catch (e) {
-      console.error('Failed to parse admin user', e);
-    }
+    };
+    loadAdminUser();
   }, []);
 
   const fetchAchievements = async () => {
@@ -117,9 +132,16 @@ export default function Achievements() {
   };
 
   const openCreateModal = () => {
+    const isHodUser = adminUser?.role === 'HOD';
+    // For HOD: use the server-resolved department. Never fall back to a hardcoded dept.
+    // If department is still loading (null/undefined), block opening and ask user to wait.
+    if (isHodUser && !adminUser.department) {
+      showToast('Your department is still loading. Please wait a moment and try again.', 'info');
+      return;
+    }
     setForm({
       ...INITIAL_FORM,
-      branch: adminUser?.role === 'HOD' ? (adminUser.department || 'CSE') : 'CSE'
+      branch: isHodUser ? adminUser.department : 'CSE'
     });
     setImageFile(null);
     setImagePreview('');
@@ -506,14 +528,21 @@ export default function Achievements() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Branch / Department</label>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                Branch / Department
+                <span className="ml-1 text-slate-400 font-normal normal-case">(auto-assigned)</span>
+              </label>
               {isHod ? (
-                <input
-                  type="text"
-                  disabled
-                  value={form.branch}
-                  className="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 cursor-not-allowed"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    disabled
+                    value={form.branch || ''}
+                    placeholder="Loading department..."
+                    className="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 cursor-not-allowed pr-10"
+                  />
+                  <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-base">lock</span>
+                </div>
               ) : (
                 <select
                   value={form.branch}
@@ -525,6 +554,7 @@ export default function Achievements() {
                 </select>
               )}
             </div>
+
           </div>
 
           <div>
