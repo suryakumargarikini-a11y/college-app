@@ -126,7 +126,8 @@ class DevSecOpsScheduler {
         this._started = true;
         logger.info('[DevSecOpsScheduler] Phase 1 active. Intervals: hourly, 6h, 24h.');
 
-        this._runBootstrap();
+        // Deferred bootstrap scan after 25s startup window
+        setTimeout(() => this._runBootstrap(), 25000);
     }
 
     /**

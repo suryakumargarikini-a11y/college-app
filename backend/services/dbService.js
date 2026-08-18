@@ -31,8 +31,8 @@ function buildDatabaseUrl() {
         const url = new URL(rawUrl);
         // Set connection pool size and timeout
         url.searchParams.set('connection_limit', CONNECTION_LIMIT.toString());
-        url.searchParams.set('pool_timeout', '2'); // 2s wait before pool timeout
-        url.searchParams.set('connect_timeout', '2'); // 2s initial connection timeout
+        url.searchParams.set('pool_timeout', '20'); // 20s wait before pool timeout
+        url.searchParams.set('connect_timeout', '10'); // 10s initial connection timeout
         return url.toString();
     } catch (_) {
         return rawUrl;

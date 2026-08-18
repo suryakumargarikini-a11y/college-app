@@ -569,21 +569,9 @@ input, textarea {
           <span class="material-symbols-outlined text-[20px]">badge</span>
           <span class="text-[13px] font-bold tracking-wide uppercase">Exit Pass</span>
         </a>
-        <a href="#" data-nav="survey" data-nav-link="survey" class="flex items-center gap-3 px-4 py-3.5 rounded-xl text-slate-500 hover:bg-blue-50 hover:text-blue-700 transition-all duration-300">
-          <span class="material-symbols-outlined text-[20px]">poll</span>
-          <span class="text-[13px] font-bold tracking-wide uppercase">Surveys</span>
-        </a>
         <a href="#" data-nav="announcements" data-nav-link="announcements" class="flex items-center gap-3 px-4 py-3.5 rounded-xl text-slate-500 hover:bg-blue-50 hover:text-blue-700 transition-all duration-300">
           <span class="material-symbols-outlined text-[20px]">campaign</span>
           <span class="text-[13px] font-bold tracking-wide uppercase">Announcements</span>
-        </a>
-        <a href="#" data-nav="lost-found" data-nav-link="lost-found" class="flex items-center gap-3 px-4 py-3.5 rounded-xl text-slate-500 hover:bg-blue-50 hover:text-blue-700 transition-all duration-300">
-          <span class="material-symbols-outlined text-[20px]">search</span>
-          <span class="text-[13px] font-bold tracking-wide uppercase">Lost &amp; Found</span>
-        </a>
-        <a href="#" data-nav="help" data-nav-link="help" class="flex items-center gap-3 px-4 py-3.5 rounded-xl text-slate-500 hover:bg-blue-50 hover:text-blue-700 transition-all duration-300">
-          <span class="material-symbols-outlined text-[20px]">support_agent</span>
-          <span class="text-[13px] font-bold tracking-wide uppercase">Help Desk</span>
         </a>
       </div>
     </div>
@@ -643,14 +631,60 @@ input, textarea {
   <p class="mt-4 text-[#2563EB] font-bold tracking-widest uppercase text-sm animate-pulse" id="loading-text">Loading...</p>
 </div>
 
+<!-- ===== FEE WARNING POPUP ===== -->
+<div id="fee-warning-popup" class="fixed inset-0 z-[200] flex items-center justify-center px-4 hidden" aria-modal="true" role="dialog" aria-labelledby="fee-popup-title">
+  <!-- Backdrop -->
+  <div id="fee-popup-backdrop" class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+  <!-- Modal card -->
+  <div class="relative w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl" style="max-height:90dvh">
+    <!-- Dark header -->
+    <div class="flex items-center justify-between px-5 py-4 bg-slate-900">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-xl bg-rose-500/20 flex items-center justify-center flex-shrink-0">
+          <span class="material-symbols-outlined text-rose-400 text-lg" style="font-variation-settings:'FILL' 1">warning</span>
+        </div>
+        <h2 id="fee-popup-title" class="text-sm font-extrabold text-white tracking-tight">Important Information</h2>
+      </div>
+      <button id="fee-popup-close" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all active:scale-90" aria-label="Close">
+        <span class="material-symbols-outlined text-white text-base">close</span>
+      </button>
+    </div>
+    <!-- White body -->
+    <div class="bg-white px-5 py-5 overflow-y-auto" style="max-height:60dvh">
+      <!-- Fee alert strip -->
+      <div class="flex items-center gap-2 bg-rose-50 border border-rose-200 rounded-xl px-4 py-3 mb-4">
+        <span class="material-symbols-outlined text-rose-500 text-xl flex-shrink-0" style="font-variation-settings:'FILL' 1">account_balance_wallet</span>
+        <p class="text-xs font-extrabold text-rose-700 uppercase tracking-wider">Pending Fee Alert</p>
+      </div>
+      <!-- English message -->
+      <p class="text-sm text-slate-800 leading-relaxed font-medium">
+        If you have any Pending fees Pay before the Exam Schedule released otherwise halltickets will not generated &amp; you will not allowed to Exam even you pay before 1 day of Exam
+      </p>
+      <!-- Telugu message -->
+      <div class="mt-4 pt-4 border-t border-slate-100">
+        <p class="text-sm text-slate-700 leading-relaxed" style="font-family:'Noto Sans Telugu',sans-serif">
+          మీకు ఏవైనా పెండింగ్ ఫీజులు ఉంటే, పరీక్షల షెడ్యూల్ విడుదలకు ముందే వాటిని చెల్లించండి. లేకపోతే మీ హాల్ టికెట్ జనరేట్ చేయబడదు మరియు పరీక్షకు ఒక రోజు ముందు ఫీజు చెల్లించినా పరీక్షకు అనుమతించబడరు.
+        </p>
+      </div>
+    </div>
+    <!-- Footer action -->
+    <div class="bg-white border-t border-slate-100 px-5 py-4">
+      <button id="fee-popup-pay-btn" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-extrabold text-xs uppercase tracking-widest py-3 rounded-xl shadow-md active:scale-95 transition-all" onclick="closeFeePopup(); router.navigate('/fees');">
+        View Fee Details
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== FLOATING TOAST NOTIFICATIONS ===== -->
 <div id="toast-container" class="fixed bottom-24 right-6 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none"></div>
+
 
 <!-- ===== GLOBAL SEARCH OVERLAY ===== -->
 <div id="search-overlay" class="fixed inset-0 bg-[#F8FAFC]/97 backdrop-blur-lg z-[130] flex flex-col hidden opacity-0 transition-opacity duration-300">
   <div class="px-6 py-4 flex items-center gap-4 border-b border-slate-200/80 bg-white shadow-sm">
     <span class="material-symbols-outlined text-slate-400">search</span>
-    <input type="text" id="global-search-input" placeholder="Search subject, faculty, company, survey, ticket, etc..." class="flex-1 text-sm text-slate-800 bg-transparent outline-none placeholder:text-slate-400" />
+    <input type="text" id="global-search-input" placeholder="Search subject, faculty, company, announcements..." class="flex-1 text-sm text-slate-800 bg-transparent outline-none placeholder:text-slate-400" />
     <button onclick="toggleSearchOverlay(false)" class="p-2 hover:bg-slate-100 rounded-full transition-colors active:scale-95 duration-200">
       <span class="material-symbols-outlined text-slate-500">close</span>
     </button>

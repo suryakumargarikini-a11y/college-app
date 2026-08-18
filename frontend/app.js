@@ -577,6 +577,12 @@ const state = {
     isOnline: true
 };
 
+// --- Per-launch popup guard ---
+// Declared at module scope so it is false exactly once when app.js loads
+// (i.e. on app launch/page load) and survives every login/logout/navigation
+// cycle within that page lifetime. Resets only on full page reload.
+let _feePopupShownThisLaunch = false;
+
 
 // --- Pulsing Real-time Live Status Indicator ---
 function updateLiveIndicator(active) {
@@ -621,6 +627,25 @@ function showToast(message, icon = 'info', duration = 4000) {
 
     toast.addEventListener('click', dismiss);
     setTimeout(dismiss, duration);
+}
+
+// --- Fee Warning Popup ---
+function showFeePopup() {
+    const popup = document.getElementById('fee-warning-popup');
+    if (!popup) return;
+    popup.classList.remove('hidden');
+    // Wire close button (idempotent — safe to attach multiple times via once:true)
+    const closeBtn = document.getElementById('fee-popup-close');
+    if (closeBtn) closeBtn.addEventListener('click', closeFeePopup, { once: true });
+    // Backdrop tap closes the popup
+    const backdrop = document.getElementById('fee-popup-backdrop');
+    if (backdrop) backdrop.addEventListener('click', closeFeePopup, { once: true });
+}
+
+function closeFeePopup() {
+    const popup = document.getElementById('fee-warning-popup');
+    if (!popup) return;
+    popup.classList.add('hidden');
 }
 
 function getMimeType(headerContentType, fileName, defaultMime) {
@@ -1360,11 +1385,9 @@ const EP_TTL = {
     '/notifications': 1 * 60 * 1000,   //  1 min  — near-realtime; backed by WebSocket
     '/placements': 5 * 60 * 1000,   //  5 min  — new drives are infrequent
     '/exit-passes/my': 30 * 1000,        // 30 sec  — status changes quickly after approval
-    '/surveys': 5 * 60 * 1000,   //  5 min
     '/assignments': 5 * 60 * 1000,   //  5 min
     '/exams': 10 * 60 * 1000,   // 10 min
     '/syllabus': 30 * 60 * 1000,   // 30 min
-    '/lost-found': 5 * 60 * 1000,   //  5 min
 };
 // Default TTL for any endpoint not listed above
 const DEFAULT_TTL = 5 * 60 * 1000;
@@ -1380,8 +1403,6 @@ const EP_PRIORITY = {
     '/assignments': 2, // Medium: homework
     '/notifications': 1, // Low: unread items
     '/placements': 1, // Low
-    '/surveys': 1, // Low
-    '/lost-found': 1, // Low
     '/exit-passes/my': 1  // Low
 };
 function getPriority(ep) {
@@ -2064,32 +2085,34 @@ function closeDrawer() {
 // ============================================================
 // PAGE DEFINITIONS
 // ============================================================
-function showFeeWarningPopup(title, description) {
+function showFeeWarningPopup() {
     if (document.getElementById('fee-warning-modal')) return;
     const modal = document.createElement('div');
     modal.id = 'fee-warning-modal';
     modal.className = 'fixed inset-0 z-[120] bg-black/60 backdrop-blur-md flex items-center justify-center p-4 transition-all duration-300 opacity-0';
     modal.innerHTML = `
-        <div class="bg-white rounded-3xl p-6 max-w-sm w-full border border-red-100 shadow-2xl space-y-4 scale-95 transition-transform duration-300">
-            <div class="flex flex-col items-center text-center">
-                <div class="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mb-3">
-                    <span class="material-symbols-outlined text-2xl font-bold">warning</span>
-                </div>
-                <h3 class="text-base font-extrabold text-slate-900 leading-snug">⚠ \${title || 'Fee Due Warning'}</h3>
-                <p class="text-xs text-slate-500 mt-2 leading-relaxed">
-                    \${description || 'Please clear your pending fee dues immediately.'}
-                </p>
-                <div class="mt-4 p-3 bg-red-50 border border-red-100 text-red-700 rounded-xl text-xs font-bold text-left leading-relaxed">
-                    Pay before Mid Examination. Hall Tickets may not be issued until dues are cleared.
-                </div>
+        <div class="bg-white rounded-3xl max-w-sm w-full border border-red-100 shadow-2xl scale-95 transition-transform duration-300 overflow-hidden">
+            <div class="flex justify-end pt-4 pr-4">
+                <button id="fee-warning-x-btn" aria-label="Close" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors active-scale">
+                    <span class="material-symbols-outlined text-base">close</span>
+                </button>
             </div>
-            <div class="flex gap-2 justify-center">
-                <button id="fee-warning-pay-btn" class="bg-blue-600 text-white px-5 py-2.5 rounded-full font-bold text-xs shadow-md active-scale transition-transform">
-                    Pay Fees
-                </button>
-                <button id="fee-warning-close-btn" class="bg-slate-100 text-slate-600 px-5 py-2.5 rounded-full font-bold text-xs active-scale transition-transform">
-                    Dismiss
-                </button>
+            <div class="flex flex-col items-center text-center px-6 pb-6 space-y-4">
+                <div class="w-14 h-14 bg-red-100 text-red-600 rounded-full flex items-center justify-center">
+                    <span class="material-symbols-outlined text-3xl" style="font-variation-settings:'FILL' 1">warning</span>
+                </div>
+                <div>
+                    <h3 class="text-base font-extrabold text-slate-900 leading-snug">Pending Fee Alert</h3>
+                    <p class="text-[11px] font-bold text-slate-500 mt-0.5">అవసరమైన రుసుము హెచ్చరిక</p>
+                </div>
+                <div class="w-full p-4 bg-red-50 border border-red-100 rounded-2xl text-left space-y-3">
+                    <p class="text-xs text-red-800 leading-relaxed font-medium">
+                        ⚠️ You have unpaid fee dues. Please clear them immediately to avoid hall ticket blockage before Mid Examinations.
+                    </p>
+                    <p class="text-xs text-red-700 leading-relaxed font-medium">
+                        ⚠️ మీకు చెల్లించని రుసుము బాకీలు ఉన్నాయి. మిడ్ పరీక్షలకు ముందు హాల్ టికెట్ నిరోధం నివారించడానికి వాటిని వెంటనే చెల్లించండి.
+                    </p>
+                </div>
             </div>
         </div>
     `;
@@ -2099,18 +2122,12 @@ function showFeeWarningPopup(title, description) {
         modal.querySelector('.bg-white').classList.remove('scale-95');
     }, 50);
 
-    const closeBtn = modal.querySelector('#fee-warning-close-btn');
-    const payBtn = modal.querySelector('#fee-warning-pay-btn');
     const closeModal = () => {
         modal.classList.add('opacity-0');
         modal.querySelector('.bg-white').classList.add('scale-95');
         setTimeout(() => modal.remove(), 300);
     };
-    closeBtn.addEventListener('click', closeModal);
-    payBtn.addEventListener('click', () => {
-        closeModal();
-        router.navigate('/fees');
-    });
+    modal.querySelector('#fee-warning-x-btn').addEventListener('click', closeModal);
 }
 
 const pages = {
@@ -2284,11 +2301,24 @@ const pages = {
                         // ── DASHBOARD-FIRST: navigate immediately, sync in background ──
                         console.log(`[LOGIN-RACE] attempt=${attemptId} NAVIGATE`);
                         router.navigate('/dashboard');
-                        // Fire push registration and full prefetch asynchronously
+                        // Fire push registration, full prefetch, and fee check asynchronously
                         Promise.all([
                             registerPush().catch(() => { }),
                             prefetchAll().catch(() => { })
                         ]).catch(() => { });
+                        // Deferred fee popup: check after dashboard is likely rendered
+                        setTimeout(async () => {
+                            try {
+                                const feesRes = await api.get('/fees');
+                                const feeList = feesRes.data?.fees || feesRes.data || [];
+                                const hasPending = Array.isArray(feeList)
+                                    ? feeList.some(f => f.paymentStatus && !['Paid', 'Completed'].includes(f.paymentStatus))
+                                    : (parseFloat(String(feesRes.data?.dueAmount || feesRes.data?.totalDue || '0').replace(/[₹,]/g, '')) > 0);
+                                if (hasPending) showFeeWarningPopup();
+                            } catch (e) {
+                                console.warn('[FeePopup] check failed:', e);
+                            }
+                        }, 1200);
                     } else {
                         if (errEl) {
                             errEl.textContent = res.error || 'Login failed.';
@@ -2568,11 +2598,17 @@ const pages = {
                 if (rawDue > 0) {
                     setEl('dash-fee-text', 'innerText', due + ' Due');
                     $('dash-fee-alert')?.classList.remove('hidden');
+                    // Show fee warning popup once per app launch (module-level guard)
+                    if (!_feePopupShownThisLaunch) {
+                        _feePopupShownThisLaunch = true;
+                        showFeePopup();
+                    }
                 } else {
                     setEl('dash-fee-text', 'innerText', 'Cleared');
                     $('dash-fee-alert')?.classList.add('hidden');
                 }
             }).catch(() => { });
+
 
             api.get('/assignments').then(res => {
                 const list = res.data?.list || [];
@@ -4027,162 +4063,6 @@ const pages = {
         }
     },
 
-    // ---- BRANCH ACHIEVEMENTS ----
-    achievements: {
-        render: () => `<body class="bg-background min-h-screen pb-32">
-            <main class="pt-20 px-6 max-w-2xl mx-auto">
-                <section class="mb-6 flex justify-between items-end">
-                    <div>
-                        <p class="text-[9px] font-bold uppercase tracking-[0.2em] text-on-surface-variant mb-1">Wall of Honor</p>
-                        <h2 class="text-3xl font-extrabold tracking-tight text-on-surface" style="font-family:'Plus Jakarta Sans',sans-serif">Achievements</h2>
-                    </div>
-                </section>
-
-                <!-- Scope Toggle & Search & Filters -->
-                <div class="space-y-4 mb-6">
-                    <div class="flex p-1 bg-surface-container-high rounded-2xl gap-1">
-                        <button class="ach-scope-btn flex-1 py-2 rounded-xl text-xs font-bold transition-all bg-primary text-white" data-scope="BRANCH" id="ach-scope-branch">My Branch</button>
-                        <button class="ach-scope-btn flex-1 py-2 rounded-xl text-xs font-bold transition-all text-on-surface-variant hover:text-on-surface" data-scope="ALL" id="ach-scope-all">All College</button>
-                    </div>
-
-                    <div class="relative">
-                        <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-[20px]">search</span>
-                        <input type="text" id="ach-search" placeholder="Search achievements, winners..." class="w-full pl-11 pr-4 py-3 bg-surface-container-low border border-outline-variant/10 rounded-2xl text-sm focus:outline-none focus:border-primary text-on-surface" />
-                    </div>
-
-                    <div class="flex gap-2 overflow-x-auto pb-2 hide-scrollbar momentum-scroll select-none" id="ach-category-filters">
-                        <button class="ach-cat-btn flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold bg-primary text-white" data-category="ALL">All</button>
-                        <button class="ach-cat-btn flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold bg-surface-container-high text-on-surface-variant" data-category="Student">Student</button>
-                        <button class="ach-cat-btn flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold bg-surface-container-high text-on-surface-variant" data-category="Faculty">Faculty</button>
-                        <button class="ach-cat-btn flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold bg-surface-container-high text-on-surface-variant" data-category="Research">Research</button>
-                        <button class="ach-cat-btn flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold bg-surface-container-high text-on-surface-variant" data-category="Sports">Sports</button>
-                        <button class="ach-cat-btn flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold bg-surface-container-high text-on-surface-variant" data-category="Competition">Competition</button>
-                        <button class="ach-cat-btn flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold bg-surface-container-high text-on-surface-variant" data-category="Placement">Placement</button>
-                        <button class="ach-cat-btn flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold bg-surface-container-high text-on-surface-variant" data-category="Cultural">Cultural</button>
-                    </div>
-                </div>
-
-                <div class="space-y-4" id="ach-list">
-                    <div class="h-24 bg-surface-container-low rounded-xl animate-pulse"></div>
-                </div>
-            </main>
-        </body>`,
-        afterRender: async () => {
-            toggleShell(true);
-            setActiveNav('services');
-            loading.show('Loading achievements...');
-
-            let currentScope = 'BRANCH';
-            let currentSearch = '';
-            let currentCategory = 'ALL';
-
-            const loadAndRender = async () => {
-                try {
-                    const res = await api.get(`/achievements?scope=${currentScope}`);
-                    const list = $('ach-list');
-                    if (!list) return;
-
-                    const data = res.data || {};
-                    const achievements = data.achievements || [];
-                    const studentBranch = data.studentBranch || 'Your Branch';
-
-                    const scopeBtnBranch = $('ach-scope-branch');
-                    if (scopeBtnBranch) {
-                        scopeBtnBranch.textContent = `My Branch (${studentBranch})`;
-                    }
-
-                    const filtered = achievements.filter(a => {
-                        const matchesSearch = !currentSearch ||
-                            [a.title, a.description, a.participantName, a.category].some(x => x?.toLowerCase().includes(currentSearch.toLowerCase()));
-                        const matchesCat = currentCategory === 'ALL' || a.category === currentCategory;
-                        return matchesSearch && matchesCat;
-                    });
-
-                    if (filtered.length === 0) {
-                        list.innerHTML = `<div class="text-center py-16 text-on-surface-variant">
-                            <span class="material-symbols-outlined text-5xl text-amber-500 mb-4 block">emoji_events</span>
-                            <p class="font-bold">No achievements found</p>
-                            <p class="text-xs text-slate-400 mt-1">There are no published achievements matching this view.</p>
-                        </div>`;
-                        return;
-                    }
-
-                    list.innerHTML = filtered.map(a => {
-                        const dateStr = new Date(a.achievementDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-
-                        return `<div class="p-5 rounded-2xl bg-surface-container-lowest border border-outline-variant/10 flex flex-col gap-3 animate-reveal shadow-sm hover:shadow-md transition-all">
-                            ${a.imageUrl ? `
-                                <div class="h-44 rounded-xl overflow-hidden bg-surface-container mb-1">
-                                    <img src="${a.imageUrl}" alt="${a.title}" class="w-full h-full object-cover" />
-                                </div>
-                            ` : ''}
-
-                            <div class="flex items-center gap-2 flex-wrap">
-                                <span class="px-2.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider bg-violet-100 text-violet-700 border border-violet-200">${a.category}</span>
-                                <span class="px-2.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200">${a.branch}</span>
-                            </div>
-
-                            <h4 class="font-extrabold text-on-surface text-base leading-snug">${a.title}</h4>
-                            <p class="text-xs text-on-surface-variant leading-relaxed">${a.description}</p>
-
-                            ${a.participantName ? `
-                                <div class="flex items-center gap-1.5 text-xs text-primary font-bold pt-1">
-                                    <span class="material-symbols-outlined text-[16px]">person</span>
-                                    <span>${a.participantName}</span>
-                                </div>
-                            ` : ''}
-
-                            <div class="flex items-center justify-between border-t border-outline-variant/5 pt-3 mt-1 text-[10px] text-on-surface-variant font-medium">
-                                <span>${dateStr}</span>
-                                <span>Published by ${a.createdByName || 'Faculty'}</span>
-                            </div>
-                        </div>`;
-                    }).join('');
-                } catch (err) {
-                    console.error('[Achievements] load failed:', err);
-                    const list = $('ach-list');
-                    if (list) {
-                        list.innerHTML = `<div class="text-center py-16 text-on-surface-variant">
-                            <span class="material-symbols-outlined text-5xl text-rose-500 mb-4 block">error</span>
-                            <p class="font-bold">Failed to load achievements</p>
-                        </div>`;
-                    }
-                }
-            };
-
-            const searchInput = $('ach-search');
-            searchInput?.addEventListener('input', (e) => {
-                currentSearch = e.target.value;
-                loadAndRender();
-            });
-
-            document.querySelectorAll('.ach-scope-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    haptic();
-                    document.querySelectorAll('.ach-scope-btn').forEach(b => b.className = 'ach-scope-btn flex-1 py-2 rounded-xl text-xs font-bold transition-all text-on-surface-variant hover:text-on-surface');
-                    e.currentTarget.className = 'ach-scope-btn flex-1 py-2 rounded-xl text-xs font-bold transition-all bg-primary text-white';
-                    currentScope = e.currentTarget.dataset.scope;
-                    loadAndRender();
-                });
-            });
-
-            document.querySelectorAll('.ach-cat-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    haptic();
-                    document.querySelectorAll('.ach-cat-btn').forEach(b => b.className = 'ach-cat-btn flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold bg-surface-container-high text-on-surface-variant');
-                    e.currentTarget.className = 'ach-cat-btn flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold bg-primary text-white';
-                    currentCategory = e.currentTarget.dataset.category;
-                    loadAndRender();
-                });
-            });
-
-            try {
-                await loadAndRender();
-            } finally {
-                loading.hide();
-            }
-        }
-    },
 
     // ---- ASSIGNMENTS & LMS ----
     assignments: {
@@ -4665,7 +4545,6 @@ const pages = {
                         <button class="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-500 whitespace-nowrap active-scale" data-filter="academic">Academic</button>
                         <button class="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-500 whitespace-nowrap active-scale" data-filter="placement">Placements</button>
                         <button class="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-500 whitespace-nowrap active-scale" data-filter="event">Events</button>
-                        <button class="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-500 whitespace-nowrap active-scale" data-filter="survey">Surveys</button>
                         <button class="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-500 whitespace-nowrap active-scale" data-filter="exit-pass">Exit Pass</button>
                     </div>
                 </div>
@@ -4721,14 +4600,8 @@ const pages = {
                 if (normType.includes('event')) {
                     return { icon: 'festival', bg: 'bg-purple-50 border-purple-100', text: 'text-purple-600' };
                 }
-                if (normType.includes('survey')) {
-                    return { icon: 'poll', bg: 'bg-emerald-50 border-emerald-100', text: 'text-emerald-600' };
-                }
                 if (normType.includes('exit-pass') || normType.includes('gate-pass')) {
                     return { icon: 'badge', bg: 'bg-amber-50 border-amber-100', text: 'text-amber-600' };
-                }
-                if (normType.includes('help-desk') || normType.includes('ticket')) {
-                    return { icon: 'support_agent', bg: 'bg-rose-50 border-rose-100', text: 'text-rose-600' };
                 }
                 return { icon: 'notifications', bg: 'bg-slate-50 border-slate-100', text: 'text-slate-600' };
             };
@@ -4745,9 +4618,7 @@ const pages = {
                         if (activeFilter === 'academic') return nt.includes('academic') || nt.includes('attendance') || nt.includes('marks') || nt.includes('assignment');
                         if (activeFilter === 'placement') return nt.includes('placement') || nt.includes('career');
                         if (activeFilter === 'event') return nt.includes('event');
-                        if (activeFilter === 'survey') return nt.includes('survey');
                         if (activeFilter === 'exit-pass') return nt.includes('exit-pass') || nt.includes('gate-pass');
-                        if (activeFilter === 'help-desk') return nt.includes('help-desk') || nt.includes('ticket');
                         return false;
                     });
                 }
@@ -5497,16 +5368,6 @@ const pages = {
                             </div>
                         </div>
 
-                        <div class="service-card glass-panel p-5 flex flex-col justify-between h-40 cursor-pointer active-scale transition-all hover:shadow-md border border-slate-200/50" onclick="haptic(); router.navigate('/survey')">
-                            <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-purple-500 to-pink-500 flex items-center justify-center text-white shadow-md shadow-purple-500/20">
-                                <span class="material-symbols-outlined text-2xl font-bold">poll</span>
-                            </div>
-                            <div>
-                                <h4 class="font-extrabold text-slate-800 text-sm tracking-wide">Surveys</h4>
-                                <p class="text-[10px] text-slate-400 mt-1 leading-snug">Voice your feedback anonymously</p>
-                            </div>
-                        </div>
-
                         <div class="service-card glass-panel p-5 flex flex-col justify-between h-40 cursor-pointer active-scale transition-all hover:shadow-md border border-slate-200/50" onclick="haptic(); router.navigate('/announcements')">
                             <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center text-white shadow-md shadow-amber-500/20">
                                 <span class="material-symbols-outlined text-2xl font-bold">campaign</span>
@@ -5524,26 +5385,6 @@ const pages = {
                             <div>
                                 <h4 class="font-extrabold text-slate-800 text-sm tracking-wide">Notifications</h4>
                                 <p class="text-[10px] text-slate-400 mt-1 leading-snug">System alerts &amp; real-time updates</p>
-                            </div>
-                        </div>
-
-                        <div class="service-card glass-panel p-5 flex flex-col justify-between h-40 cursor-pointer active-scale transition-all hover:shadow-md border border-slate-200/50" onclick="haptic(); router.navigate('/lost-found')">
-                            <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-red-500 to-rose-500 flex items-center justify-center text-white shadow-md shadow-red-500/20">
-                                <span class="material-symbols-outlined text-2xl font-bold">search</span>
-                            </div>
-                            <div>
-                                <h4 class="font-extrabold text-slate-800 text-sm tracking-wide">Lost &amp; Found</h4>
-                                <p class="text-[10px] text-slate-400 mt-1 leading-snug">Report items &amp; manage return claims</p>
-                            </div>
-                        </div>
-
-                        <div class="service-card glass-panel p-5 flex flex-col justify-between h-40 cursor-pointer active-scale transition-all hover:shadow-md border border-slate-200/50" onclick="haptic(); router.navigate('/help')">
-                            <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-slate-600 to-blue-900 flex items-center justify-center text-white shadow-md shadow-slate-600/20">
-                                <span class="material-symbols-outlined text-2xl font-bold">support_agent</span>
-                            </div>
-                            <div>
-                                <h4 class="font-extrabold text-slate-800 text-sm tracking-wide">Help Desk</h4>
-                                <p class="text-[10px] text-slate-400 mt-1 leading-snug">Open support tickets for issues</p>
                             </div>
                         </div>
                     </div>
@@ -6203,317 +6044,6 @@ const pages = {
         }
     },
 
-    // ---- SURVEYS ----
-    survey: {
-        render: () => `
-            <div class="min-h-screen pb-32 bg-[#F8FAFC]">
-                <main class="pt-20 px-4 max-w-lg mx-auto space-y-6" id="survey-main-container">
-                    <section>
-                        <p class="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-1">Feedback</p>
-                        <h2 class="text-3xl font-extrabold tracking-tight text-slate-800" style="font-family:'Plus Jakarta Sans',sans-serif">Campus Surveys</h2>
-                    </section>
-
-                    <section class="space-y-4">
-                        <h3 class="text-sm font-bold uppercase tracking-wider text-slate-400">Active Surveys</h3>
-                        <div class="space-y-3" id="active-surveys-list">
-                            <div class="h-24 bg-slate-100 rounded-xl animate-pulse"></div>
-                        </div>
-                    </section>
-
-                    <section class="space-y-3 pt-4">
-                        <h3 class="text-sm font-bold uppercase tracking-wider text-slate-400">Completed Surveys</h3>
-                        <div class="space-y-3" id="completed-surveys-list">
-                            <div class="h-16 bg-slate-100 rounded-xl animate-pulse"></div>
-                        </div>
-                    </section>
-                </main>
-                
-                <div id="survey-wizard-panel" class="fixed inset-0 bg-[#F8FAFC] z-[125] hidden flex-col">
-                    <div class="px-6 py-4 flex items-center justify-between border-b border-slate-200/80 bg-white shadow-sm">
-                        <div>
-                            <h3 class="font-extrabold text-slate-800 text-sm" id="wizard-survey-title">---</h3>
-                            <div id="anonymous-badge" class="mt-0.5 inline-flex items-center gap-1 bg-purple-50 text-purple-700 px-2 py-0.5 border border-purple-100 rounded text-[9px] font-black uppercase tracking-wide hidden">
-                                <span class="material-symbols-outlined text-[10px]" style="font-size:10px">visibility_off</span> Anonymous
-                            </div>
-                        </div>
-                        <button onclick="closeSurveyWizard()" class="p-2 hover:bg-slate-100 rounded-full transition-colors active:scale-95 duration-200">
-                            <span class="material-symbols-outlined text-slate-500">close</span>
-                        </button>
-                    </div>
-                    <div class="flex-1 overflow-y-auto px-6 py-8 flex flex-col justify-between max-w-md mx-auto w-full">
-                        <div class="space-y-6 w-full">
-                            <div class="space-y-1.5">
-                                <div class="flex justify-between text-[9px] font-bold uppercase tracking-widest text-slate-400">
-                                    <span id="wizard-progress-text">Question 1 of 5</span>
-                                    <span id="wizard-progress-pct">20% Completed</span>
-                                </div>
-                                <div class="w-full h-2 bg-slate-200 rounded-full overflow-hidden border border-white">
-                                    <div class="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-300" style="width: 20%;" id="wizard-progress-bar"></div>
-                                </div>
-                            </div>
-                            
-                            <div class="space-y-4">
-                                <p class="text-[11px] font-bold text-primary uppercase tracking-widest" id="wizard-question-label">Question</p>
-                                <h4 class="text-xl font-black text-slate-800 leading-snug" id="wizard-question-text">---</h4>
-                            </div>
-                            
-                            <div id="wizard-answer-control" class="pt-4"></div>
-                        </div>
-
-                        <div class="flex gap-4 pt-8 w-full">
-                            <button id="wizard-prev-btn" class="flex-1 bg-slate-100 text-slate-600 font-bold py-3.5 rounded-xl active-scale transition-transform flex items-center justify-center gap-1.5 border border-slate-200">
-                                <span class="material-symbols-outlined text-sm">arrow_back</span> Back
-                            </button>
-                            <button id="wizard-next-btn" class="flex-1 bg-primary text-white font-bold py-3.5 rounded-xl shadow-md active-scale transition-transform flex items-center justify-center gap-1.5">
-                                Next <span class="material-symbols-outlined text-sm">arrow_forward</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `,
-        afterRender: async () => {
-            toggleShell(true);
-            setActiveNav('services');
-
-            const activeList = $('active-surveys-list');
-            const completedList = $('completed-surveys-list');
-            let activeSurveys = [];
-            let completedResponses = [];
-
-            let currentSurvey = null;
-            let currentQuestions = [];
-            let currentQuestionIndex = 0;
-            let currentAnswers = {};
-
-            const renderSurveyList = () => {
-                if (!activeList || !completedList) return;
-
-                if (activeSurveys.length === 0) {
-                    activeList.innerHTML = `<div class="p-6 rounded-2xl bg-white/60 border border-slate-200/50 text-center text-slate-400 font-bold text-xs uppercase tracking-wider">No active surveys.</div>`;
-                } else {
-                    activeList.innerHTML = activeSurveys.map(s => `
-                        <div class="glass-panel p-5 space-y-3 border border-slate-200/50 active-scale transition-all duration-300 relative group" onclick="startSurvey('${s.id}')">
-                            <div class="flex justify-between items-start">
-                                <div>
-                                    <h4 class="font-extrabold text-slate-800 text-sm leading-tight">${s.title}</h4>
-                                    <p class="text-xs text-slate-500 mt-1 leading-normal line-clamp-2">${s.description}</p>
-                                </div>
-                                <span class="material-symbols-outlined text-slate-400">chevron_right</span>
-                            </div>
-                            <div class="flex justify-between items-center pt-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                <span>${s.questions?.length || 0} Questions</span>
-                                ${s.isAnonymous ? `<span class="text-purple-600">Anonymous</span>` : '<span>Identified</span>'}
-                            </div>
-                        </div>
-                    `).join('');
-                }
-
-                if (completedResponses.length === 0) {
-                    completedList.innerHTML = `<div class="p-4 rounded-xl border border-slate-200/30 text-center text-slate-400 font-bold text-xs">No completed surveys.</div>`;
-                } else {
-                    completedList.innerHTML = completedResponses.map(r => `
-                        <div class="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex justify-between items-center active-scale transition-all duration-200 cursor-pointer" onclick="viewCompletedSurvey('${r.id}')">
-                            <div>
-                                <h4 class="text-xs font-bold text-slate-700 leading-tight">${r.survey?.title}</h4>
-                                <p class="text-[10px] text-slate-400 mt-1 font-bold">Submitted on ${new Date(r.submittedAt).toLocaleDateString()}</p>
-                            </div>
-                            <span class="material-symbols-outlined text-slate-400 text-base">check_circle</span>
-                        </div>
-                    `).join('');
-                }
-            };
-
-            const loadSurveys = async () => {
-                loading.show('Loading Surveys...');
-                try {
-                    const [actRes, compRes] = await Promise.all([
-                        api.get('/surveys'),
-                        api.get('/surveys/submitted')
-                    ]);
-                    activeSurveys = actRes.surveys || [];
-                    completedResponses = compRes.responses || [];
-                    renderSurveyList();
-                } catch (err) {
-                    console.error('[Survey] Load failed:', err);
-                } finally {
-                    loading.hide();
-                }
-            };
-
-            window.startSurvey = (surveyId) => {
-                const s = activeSurveys.find(x => x.id === surveyId);
-                if (!s) return;
-                currentSurvey = s;
-                currentQuestions = s.questions || [];
-                currentQuestionIndex = 0;
-                currentAnswers = {};
-
-                setEl('wizard-survey-title', 'innerText', s.title);
-                if (s.isAnonymous) {
-                    $('anonymous-badge')?.classList.remove('hidden');
-                } else {
-                    $('anonymous-badge')?.classList.add('hidden');
-                }
-
-                const panel = $('survey-wizard-panel');
-                if (panel) {
-                    panel.classList.remove('hidden');
-                }
-                renderQuestion();
-            };
-
-            window.closeSurveyWizard = () => {
-                const panel = $('survey-wizard-panel');
-                if (panel) panel.classList.add('hidden');
-                currentSurvey = null;
-                currentQuestions = [];
-                currentQuestionIndex = 0;
-                currentAnswers = {};
-            };
-
-            const renderQuestion = () => {
-                const q = currentQuestions[currentQuestionIndex];
-                if (!q) return;
-
-                const total = currentQuestions.length;
-                const idx = currentQuestionIndex + 1;
-                const pct = Math.round((idx / total) * 100);
-                setEl('wizard-progress-text', 'innerText', `Question ${idx} of ${total}`);
-                setEl('wizard-progress-pct', 'innerText', `${pct}% Completed`);
-
-                const bar = $('wizard-progress-bar');
-                if (bar) bar.style.width = `${pct}%`;
-
-                setEl('wizard-question-label', 'innerText', `Question ${idx} — ${q.type}`);
-                setEl('wizard-question-text', 'innerText', q.text);
-
-                const prevBtn = $('wizard-prev-btn');
-                if (prevBtn) {
-                    if (currentQuestionIndex === 0) {
-                        prevBtn.classList.add('opacity-50', 'pointer-events-none');
-                    } else {
-                        prevBtn.classList.remove('opacity-50', 'pointer-events-none');
-                    }
-                }
-
-                const nextBtn = $('wizard-next-btn');
-                if (nextBtn) {
-                    if (currentQuestionIndex === total - 1) {
-                        nextBtn.innerHTML = `Submit <span class="material-symbols-outlined text-sm">done</span>`;
-                    } else {
-                        nextBtn.innerHTML = `Next <span class="material-symbols-outlined text-sm">arrow_forward</span>`;
-                    }
-                }
-
-                const container = $('wizard-answer-control');
-                if (!container) return;
-
-                const savedAns = currentAnswers[q.id] || '';
-
-                if (q.type === 'MCQ') {
-                    let choices = [];
-                    try { choices = JSON.parse(q.options) || []; } catch (_) { }
-                    container.innerHTML = `<div class="space-y-2.5">${choices.map(choice => {
-                        const isSelected = savedAns === choice;
-                        const borderClass = isSelected ? 'border-primary bg-blue-50/40 text-primary' : 'border-slate-200 hover:bg-slate-50 text-slate-800';
-                        return `
-                            <div class="mcq-option p-4 border rounded-xl cursor-pointer font-bold text-sm transition-all duration-200 active-scale ${borderClass}" 
-                                 onclick="selectOption('${q.id}', '${choice.replace(/'/g, "\\'")}')">
-                                ${choice}
-                            </div>
-                        `;
-                    }).join('')}</div>`;
-                } else if (q.type === 'RATING') {
-                    const stars = [1, 2, 3, 4, 5];
-                    const selectedVal = parseInt(savedAns) || 0;
-                    container.innerHTML = `
-                        <div class="flex justify-center gap-4 star-rating select-none">
-                            ${stars.map(star => {
-                        const filledClass = star <= selectedVal ? 'filled' : '';
-                        return `
-                                    <button class="star p-1 active-scale text-4xl ${filledClass}" onclick="selectRating('${q.id}', ${star})">
-                                        ★
-                                    </button>
-                                `;
-                    }).join('')}
-                        </div>
-                    `;
-                } else {
-                    container.innerHTML = `
-                        <textarea id="text-ans" placeholder="Type your response here..." class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary transition-all h-36 resize-none bg-slate-50">${savedAns}</textarea>
-                    `;
-                    const textarea = $('text-ans');
-                    textarea?.addEventListener('input', (e) => {
-                        currentAnswers[q.id] = e.target.value;
-                    });
-                }
-            };
-
-            window.selectOption = (qid, choice) => {
-                haptic();
-                currentAnswers[qid] = choice;
-                renderQuestion();
-            };
-
-            window.selectRating = (qid, stars) => {
-                haptic();
-                currentAnswers[qid] = stars.toString();
-                renderQuestion();
-            };
-
-            $('wizard-prev-btn')?.addEventListener('click', () => {
-                if (currentQuestionIndex > 0) {
-                    haptic();
-                    currentQuestionIndex--;
-                    renderQuestion();
-                }
-            });
-
-            $('wizard-next-btn')?.addEventListener('click', async () => {
-                const q = currentQuestions[currentQuestionIndex];
-                if (!q) return;
-
-                const ans = currentAnswers[q.id] || '';
-                if (q.type !== 'TEXT' && (!ans || ans.trim() === '')) {
-                    showToast('Please select an option before proceeding.', 'error', 2000);
-                    return;
-                }
-
-                const total = currentQuestions.length;
-                if (currentQuestionIndex < total - 1) {
-                    haptic();
-                    currentQuestionIndex++;
-                    renderQuestion();
-                } else {
-                    haptic();
-                    const submissionAnswers = Object.keys(currentAnswers).map(qid => ({
-                        questionId: qid,
-                        answer: currentAnswers[qid]
-                    }));
-
-                    loading.show('Submitting survey feedback...');
-                    try {
-                        const res = await api.post(`/surveys/${currentSurvey.id}/submit`, { answers: submissionAnswers });
-                        if (res.success) {
-                            showToast('Thank you! Survey submitted.', 'success', 2000);
-                            closeSurveyWizard();
-                            loadSurveys();
-                        } else {
-                            showToast(res.message || 'Failed to submit survey', 'error', 3000);
-                        }
-                    } catch (err) {
-                        console.error('[Survey] submission error:', err);
-                        showToast('Submission failed.', 'error', 3000);
-                    } finally {
-                        loading.hide();
-                    }
-                }
-            });
-
-            loadSurveys();
-        }
-    },
 
     // ---- ANNOUNCEMENTS ----
     announcements: {
@@ -6651,699 +6181,7 @@ const pages = {
         }
     },
 
-    // ---- LOST & FOUND ----
-    'lost-found': {
-        render: () => `
-            <div class="min-h-screen pb-32 bg-[#F8FAFC]">
-                <main class="pt-20 px-4 max-w-lg mx-auto space-y-6">
-                    <section class="flex justify-between items-center">
-                        <div>
-                            <p class="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-1">Campus Board</p>
-                            <h2 class="text-3xl font-extrabold tracking-tight text-slate-800" style="font-family:'Plus Jakarta Sans',sans-serif">Lost &amp; Found</h2>
-                        </div>
-                        <button id="report-lf-btn" class="bg-primary text-white font-bold text-xs uppercase tracking-wider px-5 py-2.5 rounded-full shadow-md active-scale transition-all">Report</button>
-                    </section>
 
-                    <div class="flex gap-2">
-                        <button class="flex-1 lf-filter-btn py-2.5 rounded-xl border border-slate-200/80 bg-primary text-white text-xs font-bold uppercase tracking-wider shadow-sm transition-all" data-type="ALL">All Items</button>
-                        <button class="flex-1 lf-filter-btn py-2.5 rounded-xl border border-slate-200/80 bg-white text-slate-600 text-xs font-bold uppercase tracking-wider transition-all" data-type="LOST">🔴 Lost</button>
-                        <button class="flex-1 lf-filter-btn py-2.5 rounded-xl border border-slate-200/80 bg-white text-slate-600 text-xs font-bold uppercase tracking-wider transition-all" data-type="FOUND">🟢 Found</button>
-                    </div>
-
-                    <div class="space-y-4" id="lf-items-list">
-                        <div class="h-24 bg-slate-100 rounded-xl animate-pulse"></div>
-                    </div>
-                </main>
-
-                <div id="lf-sheet-backdrop" class="bottom-sheet-backdrop hidden opacity-0"></div>
-                <div id="lf-sheet" class="bottom-sheet">
-                    <div class="px-6 py-4 flex items-center justify-between border-b border-slate-100">
-                        <h3 class="font-extrabold text-slate-800 text-lg">Report Item</h3>
-                        <button id="close-lf-sheet" class="p-2 hover:bg-slate-100 rounded-full transition-colors"><span class="material-symbols-outlined text-slate-500">close</span></button>
-                    </div>
-                    <form id="lf-form" class="p-6 space-y-4 overflow-y-auto">
-                        <div class="flex gap-2 select-none">
-                            <button type="button" id="lf-type-lost-btn" class="flex-1 py-3 bg-red-50 border-2 border-red-500 text-red-700 rounded-xl text-xs font-extrabold uppercase tracking-wide transition-all">Lost</button>
-                            <button type="button" id="lf-type-found-btn" class="flex-1 py-3 bg-slate-50 border border-slate-200 text-slate-500 rounded-xl text-xs font-extrabold uppercase tracking-wide transition-all">Found</button>
-                        </div>
-                        <div class="space-y-1">
-                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wide">Item Name</label>
-                            <input type="text" id="lf-title" required placeholder="e.g. Water Bottle, Keys, Wallet" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary transition-all" />
-                        </div>
-                        <div class="space-y-1">
-                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wide">Description &amp; Key Details</label>
-                            <textarea id="lf-description" required placeholder="Describe details (color, brand, scratches...)" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary transition-all h-20 resize-none"></textarea>
-                        </div>
-                        <div class="space-y-1">
-                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wide">Location</label>
-                            <input type="text" id="lf-location" required placeholder="e.g. Library 2nd floor, Room B-101" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary transition-all" />
-                        </div>
-                        <div class="space-y-1">
-                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wide">Image URLs (Up to 3, comma separated)</label>
-                            <input type="text" id="lf-images" placeholder="URL 1, URL 2..." class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary transition-all" />
-                        </div>
-                        <button type="submit" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-3.5 rounded-xl shadow-md active-scale transition-transform">Post Report</button>
-                    </form>
-                </div>
-
-                <div id="lf-claim-backdrop" class="bottom-sheet-backdrop hidden opacity-0"></div>
-                <div id="lf-claim-sheet" class="bottom-sheet">
-                    <div class="px-6 py-4 flex items-center justify-between border-b border-slate-100">
-                        <h3 class="font-extrabold text-slate-800 text-lg">Submit Claim Request</h3>
-                        <button id="close-lf-claim-sheet" class="p-2 hover:bg-slate-100 rounded-full transition-colors"><span class="material-symbols-outlined text-slate-500">close</span></button>
-                    </div>
-                    <form id="lf-claim-form" class="p-6 space-y-4">
-                        <div class="space-y-1">
-                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wide">Claim Verification Description</label>
-                            <textarea id="lf-claim-message" required placeholder="Please describe identifying marks or contents of the item to confirm you are the owner..." class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary transition-all h-28 resize-none"></textarea>
-                        </div>
-                        <button type="submit" class="w-full bg-primary text-white font-bold py-3.5 rounded-xl shadow-md active-scale transition-transform">Submit Claim</button>
-                    </form>
-                </div>
-            </div>
-        `,
-        afterRender: async () => {
-            toggleShell(true);
-            setActiveNav('services');
-
-            const list = $('lf-items-list');
-            const sheet = $('lf-sheet');
-            const backdrop = $('lf-sheet-backdrop');
-            const applyBtn = $('report-lf-btn');
-            const closeBtn = $('close-lf-sheet');
-            const form = $('lf-form');
-
-            const claimSheet = $('lf-claim-sheet');
-            const claimBackdrop = $('lf-claim-backdrop');
-            const closeClaimBtn = $('close-lf-claim-sheet');
-            const claimForm = $('lf-claim-form');
-
-            const filterBtns = document.querySelectorAll('.lf-filter-btn');
-            let activeFilter = 'ALL';
-            let allItems = [];
-            let currentClaimItemId = null;
-            let reportType = 'LOST';
-
-            const setFormType = (type) => {
-                reportType = type;
-                const lostBtn = $('lf-type-lost-btn');
-                const foundBtn = $('lf-type-found-btn');
-                if (type === 'LOST') {
-                    lostBtn.className = 'flex-1 py-3 bg-red-50 border-2 border-red-500 text-red-700 rounded-xl text-xs font-extrabold uppercase tracking-wide transition-all';
-                    foundBtn.className = 'flex-1 py-3 bg-slate-50 border border-slate-200 text-slate-500 rounded-xl text-xs font-extrabold uppercase tracking-wide transition-all';
-                } else {
-                    lostBtn.className = 'flex-1 py-3 bg-slate-50 border border-slate-200 text-slate-500 rounded-xl text-xs font-extrabold uppercase tracking-wide transition-all';
-                    foundBtn.className = 'flex-1 py-3 bg-emerald-50 border-2 border-emerald-500 text-emerald-700 rounded-xl text-xs font-extrabold uppercase tracking-wide transition-all';
-                }
-            };
-
-            $('lf-type-lost-btn')?.addEventListener('click', () => setFormType('LOST'));
-            $('lf-type-found-btn')?.addEventListener('click', () => setFormType('FOUND'));
-
-            const openSheet = () => {
-                haptic();
-                const dock = document.getElementById('bottom-dock');
-                if (dock) {
-                    const dockRect = dock.getBoundingClientRect();
-                    const dockClearance = window.innerHeight - dockRect.top;
-                    const sheetBottom = Math.max(dockClearance + 16, 80);
-                    document.documentElement.style.setProperty(
-                        '--bottom-sheet-bottom', `${sheetBottom}px`
-                    );
-                }
-                backdrop.classList.remove('hidden');
-                sheet.classList.remove('hidden');
-                setTimeout(() => {
-                    backdrop.classList.add('opacity-100');
-                    sheet.classList.add('open');
-                }, 10);
-            };
-
-            const closeSheet = () => {
-                backdrop.classList.remove('opacity-100');
-                sheet.classList.remove('open');
-                setTimeout(() => {
-                    backdrop.classList.add('hidden');
-                }, 300);
-            };
-
-            applyBtn?.addEventListener('click', openSheet);
-            backdrop?.addEventListener('click', closeSheet);
-            closeBtn?.addEventListener('click', closeSheet);
-
-            const openClaimSheet = (itemId) => {
-                haptic();
-                currentClaimItemId = itemId;
-                const dock = document.getElementById('bottom-dock');
-                if (dock) {
-                    const dockRect = dock.getBoundingClientRect();
-                    const dockClearance = window.innerHeight - dockRect.top;
-                    const sheetBottom = Math.max(dockClearance + 16, 80);
-                    document.documentElement.style.setProperty(
-                        '--bottom-sheet-bottom', `${sheetBottom}px`
-                    );
-                }
-                claimBackdrop.classList.remove('hidden');
-                claimSheet.classList.remove('hidden');
-                setTimeout(() => {
-                    claimBackdrop.classList.add('opacity-100');
-                    claimSheet.classList.add('open');
-                }, 10);
-            };
-
-            const closeClaimSheet = () => {
-                claimBackdrop.classList.remove('opacity-100');
-                claimSheet.classList.remove('open');
-                setTimeout(() => {
-                    claimBackdrop.classList.add('hidden');
-                    currentClaimItemId = null;
-                }, 300);
-            };
-
-            claimBackdrop?.addEventListener('click', closeClaimSheet);
-            closeClaimBtn?.addEventListener('click', closeClaimSheet);
-
-            const renderItems = () => {
-                if (!list) return;
-                const filtered = activeFilter === 'ALL'
-                    ? allItems
-                    : allItems.filter(item => item.type === activeFilter);
-
-                if (filtered.length === 0) {
-                    list.innerHTML = `<div class="text-center py-16 text-slate-400 font-bold">No lost or found reports.</div>`;
-                    return;
-                }
-
-                list.innerHTML = filtered.map(item => {
-                    const isOwner = item.studentId === state.profile?.id;
-                    const badgeClass = item.type === 'LOST' ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100';
-                    const statusClass = item.status === 'CLAIMED' ? 'bg-slate-100 text-slate-600' : item.status === 'CLAIM_REQUESTED' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700';
-
-                    let imgs = [];
-                    try { imgs = JSON.parse(item.imageUrls) || []; } catch (_) { }
-                    const imagesHtml = imgs.length > 0 ? `
-                        <div class="flex gap-2 overflow-x-auto pb-1 mt-2 hide-scrollbar">
-                            ${imgs.map(url => `<img src="${url}" class="w-20 h-20 rounded-lg object-cover border border-slate-200 flex-shrink-0" />`).join('')}
-                        </div>
-                    ` : '';
-
-                    let actionsHtml = '';
-                    if (item.status === 'ACTIVE' && !isOwner) {
-                        actionsHtml = `
-                            <button class="claim-item-btn w-full mt-3 bg-blue-50 text-blue-600 font-extrabold text-xs uppercase tracking-wider py-2.5 rounded-xl border border-blue-100 active-scale" data-id="${item.id}">
-                                Claim Item
-                            </button>
-                        `;
-                    } else if (item.status === 'CLAIM_REQUESTED') {
-                        const verifiedClaim = item.claims?.find(c => c.status === 'VERIFIED');
-                        if (isOwner && verifiedClaim) {
-                            actionsHtml = `
-                                <div class="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-2">
-                                    <p class="text-xs font-bold text-amber-800">Claim Verified by Admin: "${verifiedClaim.message || ''}"</p>
-                                    <button class="confirm-claim-btn w-full bg-emerald-600 text-white font-extrabold text-xs uppercase tracking-wider py-2.5 rounded-xl active-scale" data-id="${item.id}" data-claim-id="${verifiedClaim.id}">
-                                        Confirm Return
-                                    </button>
-                                </div>
-                            `;
-                        } else {
-                            actionsHtml = `
-                                <div class="mt-3 p-2 bg-amber-50 border border-amber-100 text-amber-700 rounded-xl text-center text-[10px] font-bold uppercase tracking-wider">
-                                    Awaiting Claim Verification
-                                </div>
-                            `;
-                        }
-                    } else if (item.status === 'CLAIMED') {
-                        actionsHtml = `
-                            <div class="mt-3 p-2 bg-slate-100 border border-slate-200 text-slate-500 rounded-xl text-center text-[10px] font-bold uppercase tracking-wider">
-                                ✓ Returned &amp; Closed
-                            </div>
-                        `;
-                    }
-
-                    return `
-                        <div class="glass-panel p-5 space-y-3 border border-slate-200/50 active-scale transition-all duration-300">
-                            <div class="flex justify-between items-start">
-                                <div class="flex items-center gap-2">
-                                    <span class="px-2.5 py-0.5 rounded-full border text-[9px] font-black uppercase tracking-wider ${badgeClass}">${item.type}</span>
-                                    <span class="px-2.5 py-0.5 rounded-full border text-[9px] font-black uppercase tracking-wider ${statusClass}">${item.status}</span>
-                                </div>
-                                <span class="text-[10px] font-bold text-slate-400 font-mono">${new Date(item.createdAt).toLocaleDateString()}</span>
-                            </div>
-                            <div>
-                                <h4 class="font-extrabold text-slate-800 text-sm">${item.title}</h4>
-                                <p class="text-xs text-slate-500 mt-1 leading-normal break-words">${item.description}</p>
-                                <p class="text-[10px] text-slate-400 font-bold mt-2 flex items-center gap-1">
-                                    <span class="material-symbols-outlined text-xs" style="font-size:12px">location_on</span> ${item.location}
-                                </p>
-                                ${imagesHtml}
-                            </div>
-                            ${actionsHtml}
-                        </div>
-                    `;
-                }).join('');
-
-                list.querySelectorAll('.claim-item-btn').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        openClaimSheet(btn.dataset.id);
-                    });
-                });
-
-                list.querySelectorAll('.confirm-claim-btn').forEach(btn => {
-                    btn.addEventListener('click', async (e) => {
-                        e.stopPropagation();
-                        haptic();
-                        const id = btn.dataset.id;
-                        const claimId = btn.dataset.claimId;
-                        loading.show('Confirming claim...');
-                        try {
-                            const res = await api.post(`/lost-found/${id}/confirm-claim`, { claimId });
-                            if (res.success) {
-                                showToast('Claim confirmed! Marked as returned.', 'success', 2000);
-                                loadItems();
-                            } else {
-                                showToast(res.message || 'Confirmation failed', 'error', 3000);
-                            }
-                        } catch (_) {
-                            showToast('Confirmation failed.', 'error', 3000);
-                        } finally {
-                            loading.hide();
-                        }
-                    });
-                });
-            };
-
-            const loadItems = async () => {
-                loading.show('Loading Items...');
-                try {
-                    const res = await api.get('/lost-found');
-                    allItems = res.items || [];
-                    renderItems();
-                } catch (err) {
-                    console.error('[LostFound] load failed:', err);
-                    if (list) {
-                        list.innerHTML = `
-                            <div class="p-6 bg-white border border-slate-200/50 rounded-2xl shadow-sm text-center space-y-4">
-                                <div class="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto">
-                                    <span class="material-symbols-outlined text-xl">cloud_off</span>
-                                </div>
-                                <div>
-                                    <h4 class="text-sm font-bold text-slate-800">Connection Error</h4>
-                                    <p class="text-xs text-slate-400 mt-1">Unable to retrieve Lost & Found items. Please try again.</p>
-                                </div>
-                                <button onclick="router.routes['/lost-found']?.afterRender?.()" class="px-5 py-2 bg-primary text-white font-extrabold text-xs rounded-full active-scale transition-transform">
-                                    Retry
-                                </button>
-                            </div>
-                        `;
-                    }
-                } finally {
-                    loading.hide();
-                }
-            };
-
-            filterBtns.forEach(btn => {
-                btn.addEventListener('click', () => {
-                    haptic();
-                    activeFilter = btn.dataset.type;
-                    filterBtns.forEach(b => {
-                        if (b.dataset.type === activeFilter) {
-                            b.className = 'flex-1 lf-filter-btn py-2.5 rounded-xl border border-slate-200/80 bg-primary text-white text-xs font-bold uppercase tracking-wider shadow-sm transition-all';
-                        } else {
-                            b.className = 'flex-1 lf-filter-btn py-2.5 rounded-xl border border-slate-200/80 bg-white text-slate-600 text-xs font-bold uppercase tracking-wider transition-all';
-                        }
-                    });
-                    renderItems();
-                });
-            });
-
-            form?.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                haptic();
-                const title = $('lf-title').value.trim();
-                const description = $('lf-description').value.trim();
-                const location = $('lf-location').value.trim();
-                const imagesStr = $('lf-images').value.trim();
-
-                let imageUrls = [];
-                if (imagesStr) {
-                    imageUrls = imagesStr.split(',').map(s => s.trim()).filter(Boolean).slice(0, 3);
-                }
-
-                if (!title || !description || !location) return;
-
-                loading.show('Posting report...');
-                try {
-                    const res = await api.post('/lost-found', { title, description, location, type: reportType, imageUrls });
-                    if (res.success) {
-                        showToast('Report posted successfully!', 'success', 2000);
-                        closeSheet();
-                        form.reset();
-                        loadItems();
-                    }
-                } catch (_) {
-                    showToast('Failed to post report.', 'error', 3000);
-                } finally {
-                    loading.hide();
-                }
-            });
-
-            claimForm?.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                haptic();
-                const message = $('lf-claim-message').value.trim();
-                if (!message || !currentClaimItemId) return;
-
-                loading.show('Submitting claim...');
-                try {
-                    const res = await api.post(`/lost-found/${currentClaimItemId}/claim`, { message });
-                    if (res.success) {
-                        showToast('Claim submitted! Awaiting Admin verification.', 'success', 2500);
-                        closeClaimSheet();
-                        claimForm.reset();
-                        loadItems();
-                    }
-                } catch (_) {
-                    showToast('Failed to submit claim.', 'error', 3000);
-                } finally {
-                    loading.hide();
-                }
-            });
-
-            if (!state.profile) {
-                api.get('/profile').then(p => { state.profile = p.data; }).catch(() => { });
-            }
-
-            loadItems();
-        }
-    },
-
-    // ---- HELP DESK ----
-    help: {
-        render: () => `
-            <div class="min-h-screen pb-32 bg-[#F8FAFC]">
-                <main class="pt-20 px-4 max-w-lg mx-auto space-y-6" id="help-main-container">
-                    <section class="flex justify-between items-center">
-                        <div>
-                            <p class="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-1">Support</p>
-                            <h2 class="text-3xl font-extrabold tracking-tight text-slate-800" style="font-family:'Plus Jakarta Sans',sans-serif">Help Desk</h2>
-                        </div>
-                        <button id="raise-ticket-btn" class="bg-primary text-white font-bold text-xs uppercase tracking-wider px-5 py-2.5 rounded-full shadow-md active-scale transition-all">Raise Ticket</button>
-                    </section>
-
-                    <div class="space-y-4" id="tickets-list-container">
-                        <div class="h-24 bg-slate-100 rounded-xl animate-pulse"></div>
-                    </div>
-                </main>
-
-                <div id="ticket-chat-panel" class="fixed inset-0 bg-[#F8FAFC] z-[125] hidden flex-col">
-                    <div class="px-6 py-4 flex items-center justify-between border-b border-slate-200/80 bg-white shadow-sm">
-                        <div>
-                            <h3 class="font-extrabold text-slate-800 text-sm font-mono" id="chat-ticket-no">#HD-2026-000000</h3>
-                            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider" id="chat-ticket-subject">---</p>
-                        </div>
-                        <button onclick="closeTicketChat()" class="p-2 hover:bg-slate-100 rounded-full transition-colors active:scale-95 duration-200">
-                            <span class="material-symbols-outlined text-slate-500">close</span>
-                        </button>
-                    </div>
-                    <div class="flex-1 overflow-y-auto px-4 py-6 space-y-4 flex flex-col" id="chat-bubbles-container"></div>
-                    <div class="px-4 py-3 bg-white border-t border-slate-200/80 flex items-center gap-3">
-                        <input type="text" id="chat-reply-input" placeholder="Type support reply..." class="flex-1 text-sm text-slate-800 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-primary transition-all" />
-                        <button id="chat-send-btn" class="p-3 bg-primary text-white rounded-xl active-scale transition-transform flex items-center justify-center shadow-md">
-                            <span class="material-symbols-outlined text-base">send</span>
-                        </button>
-                    </div>
-                </div>
-
-                <div id="ticket-sheet-backdrop" class="bottom-sheet-backdrop hidden opacity-0"></div>
-                <div id="ticket-sheet" class="bottom-sheet">
-                    <div class="px-6 py-4 flex items-center justify-between border-b border-slate-100">
-                        <h3 class="font-extrabold text-slate-800 text-lg">Raise Support Ticket</h3>
-                        <button id="close-ticket-sheet" class="p-2 hover:bg-slate-100 rounded-full transition-colors"><span class="material-symbols-outlined text-slate-500">close</span></button>
-                    </div>
-                    <form id="ticket-form" class="p-6 space-y-4 overflow-y-auto">
-                        <div class="space-y-1">
-                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wide">Category</label>
-                            <select id="ticket-category" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary transition-all">
-                                <option value="Academic">Academic (ETA: 24 Hours)</option>
-                                <option value="Technical">Technical (ETA: 6 Hours)</option>
-                                <option value="Fees">Fees (ETA: 48 Hours)</option>
-                                <option value="Hostel">Hostel (ETA: 24 Hours)</option>
-                                <option value="General">General (ETA: 48 Hours)</option>
-                            </select>
-                        </div>
-                        <div class="space-y-1">
-                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wide">Priority</label>
-                            <div class="flex gap-2 select-none">
-                                <button type="button" data-priority="LOW" class="flex-1 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 text-xs font-bold uppercase ticket-priority-btn">Low</button>
-                                <button type="button" data-priority="NORMAL" class="flex-1 py-2 rounded-lg border-2 border-primary bg-blue-50/50 text-primary text-xs font-bold uppercase ticket-priority-btn">Normal</button>
-                                <button type="button" data-priority="HIGH" class="flex-1 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 text-xs font-bold uppercase ticket-priority-btn">High</button>
-                            </div>
-                        </div>
-                        <div class="space-y-1">
-                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wide">Subject</label>
-                            <input type="text" id="ticket-subject" required placeholder="Brief summary of the issue..." class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary transition-all" />
-                        </div>
-                        <div class="space-y-1">
-                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wide">Detailed Description</label>
-                            <textarea id="ticket-description" required placeholder="Describe the issue in detail (min 20 characters)..." class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary transition-all h-24 resize-none"></textarea>
-                        </div>
-                        <button type="submit" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-3.5 rounded-xl shadow-md active-scale transition-transform">Submit Ticket</button>
-                    </form>
-                </div>
-            </div>
-        `,
-        afterRender: async () => {
-            toggleShell(true);
-            setActiveNav('services');
-
-            const list = $('tickets-list-container');
-            const sheet = $('ticket-sheet');
-            const backdrop = $('ticket-sheet-backdrop');
-            const applyBtn = $('raise-ticket-btn');
-            const closeBtn = $('close-ticket-sheet');
-            const form = $('ticket-form');
-            const chatPanel = $('ticket-chat-panel');
-            const chatBubbles = $('chat-bubbles-container');
-            const replyInput = $('chat-reply-input');
-            const sendBtn = $('chat-send-btn');
-            const priorityBtns = document.querySelectorAll('.ticket-priority-btn');
-
-            let allTickets = [];
-            let currentTicketId = null;
-            let ticketPriority = 'NORMAL';
-
-            priorityBtns.forEach(btn => {
-                btn.addEventListener('click', () => {
-                    haptic();
-                    ticketPriority = btn.dataset.priority;
-                    priorityBtns.forEach(b => {
-                        if (b.dataset.priority === ticketPriority) {
-                            b.className = 'flex-1 py-2 rounded-lg border-2 border-primary bg-blue-50/50 text-primary text-xs font-bold uppercase ticket-priority-btn';
-                        } else {
-                            b.className = 'flex-1 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 text-xs font-bold uppercase ticket-priority-btn';
-                        }
-                    });
-                });
-            });
-
-            const openSheet = () => {
-                haptic();
-                const dock = document.getElementById('bottom-dock');
-                if (dock) {
-                    const dockRect = dock.getBoundingClientRect();
-                    const dockClearance = window.innerHeight - dockRect.top;
-                    const sheetBottom = Math.max(dockClearance + 16, 80);
-                    document.documentElement.style.setProperty(
-                        '--bottom-sheet-bottom', `${sheetBottom}px`
-                    );
-                }
-                backdrop.classList.remove('hidden');
-                sheet.classList.remove('hidden');
-                setTimeout(() => {
-                    backdrop.classList.add('opacity-100');
-                    sheet.classList.add('open');
-                }, 10);
-            };
-
-            const closeSheet = () => {
-                backdrop.classList.remove('opacity-100');
-                sheet.classList.remove('open');
-                setTimeout(() => {
-                    backdrop.classList.add('hidden');
-                }, 300);
-            };
-
-            applyBtn?.addEventListener('click', openSheet);
-            backdrop?.addEventListener('click', closeSheet);
-            closeBtn?.addEventListener('click', closeSheet);
-
-            const renderTickets = () => {
-                if (!list) return;
-
-                if (allTickets.length === 0) {
-                    list.innerHTML = `<div class="p-6 rounded-2xl bg-white/60 border border-slate-200/50 text-center text-slate-400 font-bold text-xs uppercase tracking-wider">No tickets raised.</div>`;
-                    return;
-                }
-
-                list.innerHTML = allTickets.map(t => {
-                    let sc = 'status-open';
-                    if (t.status === 'IN_PROGRESS') sc = 'status-in-progress';
-                    else if (t.status === 'RESOLVED') sc = 'status-resolved';
-                    else if (t.status === 'CLOSED') sc = 'status-closed';
-
-                    let prColor = 'bg-slate-100 text-slate-600';
-                    if (t.priority === 'HIGH') prColor = 'bg-amber-100 text-amber-800';
-                    else if (t.priority === 'URGENT') prColor = 'bg-rose-100 text-rose-800';
-
-                    return `
-                        <div class="glass-panel p-5 space-y-3 border border-slate-200/50 active-scale transition-all duration-300 cursor-pointer" onclick="openTicketChat('${t.id}')">
-                            <div class="flex justify-between items-center">
-                                <div class="flex items-center gap-1.5">
-                                    <span class="px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-blue-50 text-blue-600 border border-blue-100">${t.category}</span>
-                                    <span class="px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${prColor}">${t.priority}</span>
-                                </div>
-                                <span class="status-chip ${sc}">${t.status}</span>
-                            </div>
-                            <div>
-                                <h4 class="font-extrabold text-slate-800 text-sm leading-tight font-mono">${t.ticketNumber}</h4>
-                                <p class="text-xs font-bold text-slate-500 mt-1 leading-snug">${t.subject}</p>
-                                <p class="text-[10px] text-slate-400 font-bold mt-2">⏱ Est. Response: ${t.estimatedResponseTime || '24 hours'}</p>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-            };
-
-            const loadTickets = async () => {
-                loading.show('Loading Support Tickets...');
-                try {
-                    const res = await api.get('/help-desk');
-                    allTickets = res.tickets || [];
-                    renderTickets();
-                } catch (err) {
-                    console.error('[HelpDesk] Load failed:', err);
-                } finally {
-                    loading.hide();
-                }
-            };
-
-            window.openTicketChat = async (ticketId) => {
-                haptic();
-                currentTicketId = ticketId;
-                const ticket = allTickets.find(t => t.id === ticketId);
-                if (!ticket) return;
-
-                setEl('chat-ticket-no', 'innerText', ticket.ticketNumber);
-                setEl('chat-ticket-subject', 'innerText', ticket.subject);
-
-                if (chatPanel) {
-                    chatPanel.classList.remove('hidden');
-                }
-                loadChatMessages();
-            };
-
-            window.closeTicketChat = () => {
-                if (chatPanel) chatPanel.classList.add('hidden');
-                currentTicketId = null;
-                if (replyInput) replyInput.value = '';
-            };
-
-            const loadChatMessages = async () => {
-                if (!currentTicketId || !chatBubbles) return;
-
-                chatBubbles.innerHTML = `<div class="text-center py-12 text-slate-400 text-xs font-bold">Loading conversation...</div>`;
-
-                try {
-                    const res = await api.get(`/help-desk/${currentTicketId}`);
-                    const ticket = res.ticket || {};
-                    const replies = ticket.replies || [];
-
-                    let html = `
-                        <div class="chat-bubble-admin px-4 py-3 rounded-2xl max-w-[85%] text-sm leading-relaxed shadow-sm">
-                            <p class="font-black text-[10px] text-slate-400 uppercase tracking-widest mb-1">Issue Description</p>
-                            <p>${ticket.description}</p>
-                            <span class="text-[9px] font-bold text-slate-400 block text-right mt-1 font-mono">${new Date(ticket.createdAt).toLocaleTimeString()}</span>
-                        </div>
-                    `;
-
-                    replies.forEach(reply => {
-                        const isStudent = reply.senderType === 'STUDENT';
-                        const bubbleClass = isStudent ? 'chat-bubble-student' : 'chat-bubble-admin';
-                        const labelName = isStudent ? 'You' : reply.senderName || 'Support Admin';
-                        const labelColor = isStudent ? 'text-blue-200' : 'text-slate-400';
-
-                        html += `
-                            <div class="${bubbleClass} px-4 py-3 rounded-2xl max-w-[85%] text-sm leading-relaxed shadow-sm">
-                                <p class="font-black text-[10px] ${labelColor} uppercase tracking-widest mb-1">${labelName}</p>
-                                <p>${reply.message}</p>
-                                <span class="text-[9px] font-bold ${isStudent ? 'text-blue-100/75' : 'text-slate-400'} block text-right mt-1 font-mono">${new Date(reply.createdAt).toLocaleTimeString()}</span>
-                            </div>
-                        `;
-                    });
-
-                    chatBubbles.innerHTML = html;
-
-                    setTimeout(() => {
-                        chatBubbles.scrollTop = chatBubbles.scrollHeight;
-                    }, 50);
-                } catch (err) {
-                    console.error('[HelpDesk] Load chat failed:', err);
-                }
-            };
-
-            const sendReply = async () => {
-                const message = replyInput.value.trim();
-                if (!message || !currentTicketId) return;
-
-                haptic();
-                replyInput.value = '';
-                try {
-                    const res = await api.post(`/help-desk/${currentTicketId}/reply`, { message });
-                    if (res.success) {
-                        loadChatMessages();
-                    }
-                } catch (err) {
-                    console.error('[HelpDesk] send reply failed:', err);
-                }
-            };
-
-            sendBtn?.addEventListener('click', sendReply);
-            replyInput?.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') sendReply();
-            });
-
-            form?.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                haptic();
-                const category = $('ticket-category').value;
-                const subject = $('ticket-subject').value.trim();
-                const description = $('ticket-description').value.trim();
-
-                if (!subject || !description || description.length < 20) {
-                    showToast('Description must be at least 20 characters long.', 'error', 3000);
-                    return;
-                }
-
-                loading.show('Raising ticket...');
-                try {
-                    const res = await api.post('/help-desk', { subject, description, category, priority: ticketPriority });
-                    if (res.success) {
-                        showToast(`Ticket Raised! ETA: ${res.ticket?.estimatedResponseTime}`, 'success', 4000);
-                        closeSheet();
-                        form.reset();
-                        loadTickets();
-                    }
-                } catch (_) {
-                    showToast('Failed to raise support ticket.', 'error', 3000);
-                } finally {
-                    loading.hide();
-                }
-            });
-
-            loadTickets();
-        }
-    },
 
     lms: {
         render: () => `
@@ -7879,10 +6717,7 @@ const router = {
             '/career': pages.career,
             '/services': pages.services,
             '/exit-pass': pages['exit-pass'],
-            '/survey': pages.survey,
             '/announcements': pages.announcements,
-            '/lost-found': pages['lost-found'],
-            '/help': pages.help,
             '/lms': pages.lms,
             '/achievements': pages.achievements
         };
@@ -8386,52 +7221,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            const [assignments, announcements, placements, surveys, helpTickets, lostFound] = await Promise.all([
-                api.get('/assignments').then(c => c?.data?.list || []).catch(() => []),
-                api.get('/announcements').then(c => c?.announcements || []).catch(() => []),
-                api.get('/placements').then(c => c?.placements || []).catch(() => []),
-                api.get('/surveys').then(c => c?.surveys || []).catch(() => []),
-                api.get('/help-desk').then(c => c?.tickets || []).catch(() => []),
-                api.get('/lost-found').then(c => c?.items || []).catch(() => [])
-            ]);
-
-            const matches = [];
-
-            assignments.forEach(a => {
-                if (a.title.toLowerCase().includes(query) || a.subject.toLowerCase().includes(query)) {
-                    matches.push({ type: 'Assignment', title: a.title, subtitle: `${a.subject} · Due ${a.date}`, route: '/assignments' });
-                }
-            });
-
-            announcements.forEach(a => {
-                if (a.title.toLowerCase().includes(query) || a.description.toLowerCase().includes(query)) {
-                    matches.push({ type: 'Notice', title: a.title, subtitle: a.description, route: '/announcements' });
-                }
-            });
-
-            placements.forEach(p => {
-                if (p.companyName.toLowerCase().includes(query) || p.jobRole.toLowerCase().includes(query)) {
-                    matches.push({ type: 'Placement', title: p.companyName, subtitle: `${p.jobRole} · ₹${p.packageLpa} LPA`, route: '/career' });
-                }
-            });
-
-            surveys.forEach(s => {
-                if (s.title.toLowerCase().includes(query) || s.description.toLowerCase().includes(query)) {
-                    matches.push({ type: 'Survey', title: s.title, subtitle: s.description, route: '/survey' });
-                }
-            });
-
-            helpTickets.forEach(t => {
-                if (t.subject.toLowerCase().includes(query) || t.ticketNumber.toLowerCase().includes(query) || t.description.toLowerCase().includes(query)) {
-                    matches.push({ type: 'Support Ticket', title: t.ticketNumber, subtitle: `${t.subject} (${t.status})`, route: '/help' });
-                }
-            });
-
-            lostFound.forEach(lf => {
-                if (lf.title.toLowerCase().includes(query) || lf.description.toLowerCase().includes(query) || lf.location.toLowerCase().includes(query)) {
-                    matches.push({ type: `Lost & Found (${lf.type})`, title: lf.title, subtitle: `${lf.description} · Found at ${lf.location}`, route: '/lost-found' });
-                }
-            });
 
             if (matches.length === 0) {
                 resultsContainer.innerHTML = `<div class="text-center py-16 text-slate-400 text-xs font-bold uppercase tracking-wider">No matching results found.</div>`;

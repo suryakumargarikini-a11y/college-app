@@ -3,9 +3,9 @@
   "appName": "My SITAM",
   "webDir": "frontend",
   "server": {
-    "androidScheme": "http",
+    "androidScheme": "https",
     "allowNavigation": [
-      "web-production-259f33.up.railway.app",
+      "api.sitam.co.in",
       "10.207.200.169",
       "10.207.200.169:8080",
       "10.0.2.2",

@@ -15,8 +15,10 @@ class FeeReminderScheduler {
         this._started = true;
         logger.info('[FeeReminderScheduler] Starting Daily Fee Reminder Scheduler...');
         
-        // Execute immediately on startup, then on interval
-        this.runCheck().catch(err => logger.error('[FeeReminderScheduler] Initial run failed:', err));
+        // Execute after 20s startup grace period, then on daily interval
+        setTimeout(() => {
+            this.runCheck().catch(err => logger.error('[FeeReminderScheduler] Initial run failed:', err));
+        }, 20000);
         
         this._intervalId = setInterval(() => {
             this.runCheck().catch(err => logger.error('[FeeReminderScheduler] Daily check failed:', err));

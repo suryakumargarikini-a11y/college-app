@@ -600,17 +600,11 @@ const announcementsRoutes = require('./routes/announcements');
 const placementsRoutes    = require('./routes/placements');
 const feeNoticesRoutes    = require('./routes/feeNotices');
 const exitPassesRoutes    = require('./routes/exitPasses');
-const surveysRoutes       = require('./routes/surveys');
-const helpDeskRoutes      = require('./routes/helpDesk');
-const lostFoundRoutes     = require('./routes/lostFound');
 
 app.use('/api/announcements', announcementsRoutes);
 app.use('/api/placements',    placementsRoutes);
 app.use('/api/fee-notices',   feeNoticesRoutes);
 app.use('/api/exit-passes',   exitPassesRoutes);
-app.use('/api/surveys',       surveysRoutes);
-app.use('/api/help-desk',     helpDeskRoutes);
-app.use('/api/lost-found',    lostFoundRoutes);
 console.log('[BOOT-08] Student-facing routes loaded');
 
 // ─── Error Handling ───────────────────────────────────────────────────────────

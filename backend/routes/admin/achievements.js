@@ -20,10 +20,18 @@ router.post(
 );
 
 // SUPER_ADMIN and HOD can update achievements
+// Content-type-aware body parsing: raw buffer for image uploads, JSON for metadata
 router.put(
     '/:id',
     authorizeRoles('SUPER_ADMIN', 'HOD'),
-    express.json({ limit: '10mb' }),
+    (req, res, next) => {
+        const ct = (req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
+        if (ct.startsWith('image/') || ct === 'application/octet-stream') {
+            express.raw({ type: '*/*', limit: '10mb' })(req, res, next);
+        } else {
+            express.json({ limit: '10mb' })(req, res, next);
+        }
+    },
     c.updateAchievement
 );
 

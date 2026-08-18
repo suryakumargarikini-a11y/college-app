@@ -187,16 +187,26 @@ export default function Achievements() {
     setSaving(true);
     try {
       if (imageFile) {
-        // Upload replacement image file
-        await api.put(`/admin/achievements/${editItem.id}`, imageFile, {
+        // Single PUT: binary body + all metadata as query params
+        // This avoids a second request overwriting the newly saved imageUrl.
+        const queryParams = new URLSearchParams({
+          title: form.title,
+          description: form.description,
+          category: form.category,
+          branch: form.branch,
+          participantName: form.participantName || '',
+          achievementDate: form.achievementDate,
+          isPublished: String(form.isPublished)
+        });
+
+        await api.put(`/admin/achievements/${editItem.id}?${queryParams}`, imageFile, {
           headers: {
             'Content-Type': imageFile.type || 'application/octet-stream',
             'X-File-Name': imageFile.name
           }
         });
-        // Also update details
-        await api.put(`/admin/achievements/${editItem.id}`, form);
       } else {
+        // No image change — plain JSON update
         await api.put(`/admin/achievements/${editItem.id}`, form);
       }
 

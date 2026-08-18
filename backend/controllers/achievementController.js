@@ -175,7 +175,12 @@ async function updateAchievement(req, res, next) {
             }
         }
 
-        const body = req.body || {};
+        // When binary image body is sent, field metadata arrives via query params.
+        // For plain JSON updates, req.body is the parsed object.
+        const body = (req.body && Buffer.isBuffer(req.body))
+            ? (req.query || {})
+            : (req.body || {});
+
         const updateData = {};
 
         if (body.title !== undefined) updateData.title = String(body.title).trim();
@@ -183,7 +188,7 @@ async function updateAchievement(req, res, next) {
         if (body.category !== undefined && VALID_CATEGORIES.includes(body.category)) updateData.category = body.category;
         if (body.participantName !== undefined) updateData.participantName = body.participantName ? String(body.participantName).trim() : null;
         if (body.achievementDate !== undefined) updateData.achievementDate = new Date(body.achievementDate);
-        if (body.isPublished !== undefined) updateData.isPublished = Boolean(body.isPublished);
+        if (body.isPublished !== undefined) updateData.isPublished = String(body.isPublished) === 'true';
 
         if (body.branch !== undefined && admin.role !== 'HOD') {
             updateData.branch = staffScopeService.canonicalizeBranch(body.branch);

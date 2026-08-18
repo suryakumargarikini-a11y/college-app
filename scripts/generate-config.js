@@ -24,10 +24,10 @@ if (!apiBaseUrl) {
         process.exit(1);
     }
     // Default fallback to production Railway cloud API
-    console.warn('[Config] WARNING: API_BASE_URL not set. Using https://web-production-259f33.up.railway.app/api as fallback.');
+    console.warn('[Config] WARNING: API_BASE_URL not set. Using https://api.sitam.co.in/api as fallback.');
 }
 
-const resolvedApiUrl = apiBaseUrl || 'https://web-production-259f33.up.railway.app/api';
+const resolvedApiUrl = apiBaseUrl || 'https://api.sitam.co.in/api';
 
 
 const appVersion = process.env.APP_VERSION || '1.0.0';
