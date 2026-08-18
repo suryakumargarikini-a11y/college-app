@@ -30,15 +30,20 @@ api.interceptors.request.use((config) => {
 });
 
 // Handle 401 — clear current tab session and redirect to login
+// IMPORTANT: Do NOT redirect on failed login attempts (/auth/login) so the UI can display the error message.
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
+    const isLoginRequest = err.config?.url?.includes('/auth/login');
+    if (err.response?.status === 401 && !isLoginRequest) {
       authStore.clearAuth();
-      window.location.href = '/login';
+      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(err);
   }
 );
+
 
 export default api;

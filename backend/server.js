@@ -668,6 +668,15 @@ const server = app.listen(PORT, '0.0.0.0', async () => {
         logger.warn(`[Startup] Failed to reset isSyncing states: ${lockErr.message}`);
     }
 
+    // Auto-sync admin, guard, and HOD credentials with active runtime salt
+    try {
+        const { autoSyncAdminCredentials } = require('./services/adminAutoSync');
+        await autoSyncAdminCredentials();
+    } catch (syncErr) {
+        logger.warn(`[Startup] Failed to auto-sync admin credentials: ${syncErr.message}`);
+    }
+
+
     // Validate Chromium — degraded mode if unavailable (no crash-loop)
     const browserReady = await validateChromiumStartup();
 
