@@ -251,8 +251,15 @@ export default function Achievements() {
       <PageHeader
         title="Branch Achievements"
         subtitle={isHod ? `Manage achievements for Department of ${adminUser?.department || 'your branch'}` : "Manage department and institutional achievements"}
-        actionText="Add Achievement"
-        onAction={openCreateModal}
+        actions={
+          <button
+            onClick={openCreateModal}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 active:scale-95 text-white text-sm font-bold rounded-xl shadow-sm transition-all"
+          >
+            <span className="material-symbols-outlined text-base leading-none">add</span>
+            Add Achievement
+          </button>
+        }
       />
 
       {/* KPI Cards */}
