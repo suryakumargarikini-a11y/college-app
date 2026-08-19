@@ -30,6 +30,32 @@ function detectImageType(buffer, ext) {
     return null;
 }
 
+/**
+ * Build the public-facing image URL for a saved achievement image.
+ *
+ * API_BASE_URL (Railway env var) looks like:
+ *   https://web-production-259f33.up.railway.app/api
+ *
+ * The image endpoint is mounted at:
+ *   /api/achievements/images/:fileName
+ *
+ * So the absolute URL is:
+ *   https://web-production-259f33.up.railway.app/api/achievements/images/:fileName
+ *
+ * We strip the trailing /api from API_BASE_URL only if it ends with /api, to get
+ * the bare origin, then append /api/achievements/images/:fileName.
+ * If API_BASE_URL is not set, fall back to a relative URL (works when frontend
+ * and backend share the same origin — not the case in production).
+ */
+function buildImageUrl(fileName) {
+    const relativePath = `/api/achievements/images/${fileName}`;
+    const apiBase = (process.env.API_BASE_URL || '').trim().replace(/\/+$/, '');
+    if (!apiBase) return relativePath;
+    // Strip /api suffix to get bare origin, then build the full path
+    const origin = apiBase.endsWith('/api') ? apiBase.slice(0, -4) : apiBase;
+    return `${origin}${relativePath}`;
+}
+
 async function saveImage(buffer, originalName) {
     await ensureRoot();
     const ext = extension(originalName) || '.jpg';
@@ -38,7 +64,7 @@ async function saveImage(buffer, originalName) {
     await fs.writeFile(filePath, buffer, { flag: 'wx' });
     return {
         fileName,
-        imageUrl: `/api/achievements/images/${fileName}`
+        imageUrl: buildImageUrl(fileName)
     };
 }
 

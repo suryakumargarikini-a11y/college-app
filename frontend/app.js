@@ -7,6 +7,21 @@ const PRODUCTION_API = 'https://api.sitam.co.in/api';
 const isMobileNative = window.Capacitor && window.Capacitor.platform !== 'web';
 const API_BASE = window.API_BASE_URL || (isMobileNative ? PRODUCTION_API : '/api');
 
+// Railway backend origin — used to resolve relative achievement image URLs that
+// were stored before the absolute-URL fix was deployed.
+const RAILWAY_ORIGIN = 'https://web-production-259f33.up.railway.app';
+
+/**
+ * Resolves a stored achievement imageUrl to an absolute URL safe for any client:
+ *   - Already-absolute URLs (http/https) are returned unchanged.
+ *   - Relative paths (/api/achievements/images/...) are prefixed with the Railway origin.
+ */
+function resolveAchievementImageUrl(imageUrl) {
+    if (!imageUrl) return null;
+    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) return imageUrl;
+    return `${RAILWAY_ORIGIN}${imageUrl.startsWith('/') ? '' : '/'}${imageUrl}`;
+}
+
 let _decryptedToken = null;
 
 // Native Logcat Boot Logger Helper with Queue and Polling
@@ -6496,9 +6511,9 @@ const pages = {
 
                         const imageHtml = ach.imageUrl ? `
                             <div class="w-full h-48 bg-slate-100 rounded-2xl overflow-hidden mb-3 relative group">
-                                <img src="${ach.imageUrl}" alt="${ach.title}" 
+                                <img src="${resolveAchievementImageUrl(ach.imageUrl)}" alt="${ach.title}" 
                                      class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                                     onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\\'w-full h-32 bg-gradient-to-br from-amber-500/10 to-indigo-500/10 rounded-2xl flex flex-col items-center justify-center text-amber-600 gap-2 border border-amber-200/50\\'><span class=\\'material-symbols-outlined text-4xl\\'>workspace_premium</span><span class=\\'text-xs font-bold text-slate-500\\'>SITAM Honor</span></div>';" />
+                                     onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\\'w-full h-32 bg-gradient-to-br from-amber-500/10 to-indigo-500/10 rounded-2xl flex flex-col items-center justify-center text-amber-600 gap-2 border border-amber-200/50\\'><span class=\\'material-symbols-outlined text-4xl\\'> workspace_premium</span><span class=\\'text-xs font-bold text-slate-500\\'> SITAM Honor</span></div>';" />
                             </div>
                         ` : '';
 

@@ -8,6 +8,21 @@ import SearchInput from '../components/SearchInput';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { useToast } from '../hooks/useToast';
 
+// Railway backend base URL — used to resolve relative image URLs stored before the
+// absolute-URL fix was deployed. New records already have absolute URLs.
+const RAILWAY_BASE = 'https://web-production-259f33.up.railway.app';
+
+/**
+ * Converts a stored imageUrl to an absolute URL.
+ * - Already-absolute URLs (http/https) are returned unchanged.
+ * - Relative paths like /api/achievements/images/... are prefixed with the Railway origin.
+ */
+function resolveImageUrl(imageUrl) {
+  if (!imageUrl) return null;
+  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) return imageUrl;
+  return `${RAILWAY_BASE}${imageUrl.startsWith('/') ? '' : '/'}${imageUrl}`;
+}
+
 const CATEGORIES = [
   'Student', 'Faculty', 'Research', 'Sports',
   'Competition', 'Placement', 'Cultural', 'Other'
@@ -404,7 +419,7 @@ export default function Achievements() {
                   {a.imageUrl ? (
                     <div className="h-44 bg-slate-100 relative overflow-hidden">
                       <img
-                        src={a.imageUrl}
+                        src={resolveImageUrl(a.imageUrl)}
                         alt={a.title}
                         className="w-full h-full object-cover"
                       />
