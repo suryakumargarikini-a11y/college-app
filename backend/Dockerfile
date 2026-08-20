@@ -73,9 +73,15 @@ COPY --chown=node:node . .
 COPY --from=builder --chown=node:node /build/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder --chown=node:node /build/node_modules/@prisma  ./node_modules/@prisma
 
-# Create the logs directory and give the node user full ownership of /usr/src/app.
+# Create required directories and give the node user full ownership of /usr/src/app.
+# /data/uploads/achievements = Railway Volume mount point for achievement images.
+# A Railway Volume must be mounted here to persist images across deploys.
 # winston-daily-rotate-file needs to mkdir logs/ at startup.
-RUN mkdir -p /usr/src/app/logs && chown -R node:node /usr/src/app
+RUN mkdir -p /usr/src/app/logs /data/uploads/achievements \
+ && chown -R node:node /usr/src/app /data/uploads/achievements
+
+# Declare the Volume mount point — Railway can attach a persistent Volume here.
+VOLUME ["/data/uploads/achievements"]
 
 EXPOSE 8080
 

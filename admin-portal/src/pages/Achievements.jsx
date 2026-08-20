@@ -48,6 +48,7 @@ export default function Achievements() {
   const [achievements, setAchievements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [adminUser, setAdminUser] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(true);
 
   // Filters
   const [search, setSearch] = useState('');
@@ -70,16 +71,17 @@ export default function Achievements() {
   // Read admin identity — try session store first, then refresh from server
   useEffect(() => {
     const loadAdminUser = async () => {
+      setProfileLoading(true);
       // Read stored user first for immediate render
       try {
         const stored = authStore.getUser();
         if (stored) setAdminUser(stored);
       } catch (_) {}
 
-      // Always refresh from /api/admin/me — this guarantees `department` is current
+      // Always refresh from /api/admin/auth/me — this guarantees `department` is current
       // even for sessions that predate the department field being included in login.
       try {
-        const res = await api.get('/admin/me');
+        const res = await api.get('/admin/auth/me');
         const fresh = res.data?.admin;
         if (fresh) {
           setAdminUser(fresh);
@@ -89,6 +91,8 @@ export default function Achievements() {
         }
       } catch (e) {
         console.warn('[Achievements] Could not refresh admin profile from server:', e?.message);
+      } finally {
+        setProfileLoading(false);
       }
     };
     loadAdminUser();
@@ -146,14 +150,42 @@ export default function Achievements() {
     }
   };
 
-  const openCreateModal = () => {
+  const openCreateModal = async () => {
     const isHodUser = adminUser?.role === 'HOD';
-    // For HOD: use the server-resolved department. Never fall back to a hardcoded dept.
-    // If department is still loading (null/undefined), block opening and ask user to wait.
-    if (isHodUser && !adminUser.department) {
-      showToast('Your department is still loading. Please wait a moment and try again.', 'info');
-      return;
+
+    // For HOD: department MUST come from the server. If profileLoading is still true
+    // (i.e. user clicked before /admin/auth/me resolved), wait for it.
+    if (isHodUser && !adminUser?.department) {
+      if (profileLoading) {
+        showToast('Loading your profile… please try again in a moment.', 'info');
+        return;
+      }
+      // Profile load finished but department is still null — re-fetch on demand
+      try {
+        showToast('Resolving your department…', 'info');
+        const res = await api.get('/admin/auth/me');
+        const fresh = res.data?.admin;
+        if (fresh) {
+          setAdminUser(fresh);
+          const token = authStore.getToken();
+          if (token) authStore.setAuth(token, fresh);
+          if (!fresh.department) {
+            showToast('Your department could not be resolved. Contact the administrator.', 'error');
+            return;
+          }
+          // Proceed with the resolved department
+          setForm({ ...INITIAL_FORM, branch: fresh.department });
+          setImageFile(null);
+          setImagePreview('');
+          setCreateOpen(true);
+          return;
+        }
+      } catch (e) {
+        showToast('Could not load your department. Please refresh the page.', 'error');
+        return;
+      }
     }
+
     setForm({
       ...INITIAL_FORM,
       branch: isHodUser ? adminUser.department : 'CSE'
@@ -292,10 +324,13 @@ export default function Achievements() {
         actions={
           <button
             onClick={openCreateModal}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 active:scale-95 text-white text-sm font-bold rounded-xl shadow-sm transition-all"
+            disabled={profileLoading && adminUser?.role === 'HOD'}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 active:scale-95 text-white text-sm font-bold rounded-xl shadow-sm transition-all disabled:opacity-60 disabled:cursor-wait"
           >
-            <span className="material-symbols-outlined text-base leading-none">add</span>
-            Add Achievement
+            {profileLoading && adminUser?.role === 'HOD'
+              ? <><span className="material-symbols-outlined text-base leading-none animate-spin">progress_activity</span> Loading…</>
+              : <><span className="material-symbols-outlined text-base leading-none">add</span> Add Achievement</>
+            }
           </button>
         }
       />

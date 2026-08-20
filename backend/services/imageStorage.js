@@ -4,7 +4,35 @@ const fs = require('fs/promises');
 const path = require('path');
 const crypto = require('crypto');
 
-const ROOT = path.resolve(process.env.ACHIEVEMENTS_STORAGE_PATH || path.join(__dirname, '..', 'uploads', 'achievements'));
+// ── Storage Root Resolution ─────────────────────────────────────────────────
+// Priority order:
+//   1. ACHIEVEMENTS_STORAGE_PATH env var (explicit Railway Volume mount point)
+//   2. /data/uploads/achievements  — recommended Railway Volume mount path
+//   3. backend/uploads/achievements — LOCAL DEV ONLY (ephemeral on Railway!)
+//
+// ACTION REQUIRED FOR RAILWAY:
+//   1. Create a Railway Volume in the Railway dashboard.
+//   2. Set the Volume mount path to: /data/uploads/achievements
+//   3. Set env var: ACHIEVEMENTS_STORAGE_PATH=/data/uploads/achievements
+//   Without this, images are LOST on every deploy.
+const isProduction = process.env.NODE_ENV === 'production';
+const DEFAULT_PROD_PATH = '/data/uploads/achievements';
+const DEFAULT_DEV_PATH = path.join(__dirname, '..', 'uploads', 'achievements');
+
+const ROOT = path.resolve(
+    process.env.ACHIEVEMENTS_STORAGE_PATH ||
+    (isProduction ? DEFAULT_PROD_PATH : DEFAULT_DEV_PATH)
+);
+
+if (isProduction && !process.env.ACHIEVEMENTS_STORAGE_PATH) {
+    console.error(
+        '[ImageStorage] WARNING: ACHIEVEMENTS_STORAGE_PATH is not set in production!\n' +
+        '  Images will be stored at ' + ROOT + ' which is EPHEMERAL on Railway.\n' +
+        '  ACTION: Create a Railway Volume mounted at /data/uploads/achievements\n' +
+        '  and set ACHIEVEMENTS_STORAGE_PATH=/data/uploads/achievements in Railway Variables.'
+    );
+}
+
 
 async function ensureRoot() {
     try {
