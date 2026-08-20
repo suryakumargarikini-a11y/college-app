@@ -7,9 +7,9 @@ const PRODUCTION_API = 'https://api.sitam.co.in/api';
 const isMobileNative = window.Capacitor && window.Capacitor.platform !== 'web';
 const API_BASE = window.API_BASE_URL || (isMobileNative ? PRODUCTION_API : '/api');
 
-// Railway backend origin — used to resolve relative achievement image URLs that
+// Canonical production backend origin — used to resolve relative achievement image URLs that
 // were stored before the absolute-URL fix was deployed.
-const RAILWAY_ORIGIN = 'https://web-production-259f33.up.railway.app';
+const RAILWAY_ORIGIN = 'https://api.sitam.co.in';
 
 /**
  * Resolves a stored achievement imageUrl to an absolute URL safe for any client:

@@ -1,12 +1,12 @@
 import axios from 'axios';
 import { authStore } from '../store/authStore';
 
-const PROD_API_BASE_URL = 'https://web-production-259f33.up.railway.app/api';
+const PROD_API_BASE_URL = 'https://api.sitam.co.in/api';
 const DEV_FALLBACK_API = 'http://localhost:3001/api';
 
 const resolveBaseURL = () => {
   if (import.meta.env.VITE_API_BASE_URL) return import.meta.env.VITE_API_BASE_URL;
-  // If running in browser on production domain (e.g. vercel.app or sitamecap.co.in), use live Railway API
+  // If running in browser on production domain, use the canonical custom domain
   if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
     return PROD_API_BASE_URL;
   }

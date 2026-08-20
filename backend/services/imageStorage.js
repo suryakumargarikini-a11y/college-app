@@ -33,14 +33,14 @@ function detectImageType(buffer, ext) {
 /**
  * Build the public-facing image URL for a saved achievement image.
  *
- * API_BASE_URL (Railway env var) looks like:
- *   https://web-production-259f33.up.railway.app/api
+ * API_BASE_URL (Railway env var) should be set to:
+ *   https://api.sitam.co.in/api
  *
  * The image endpoint is mounted at:
  *   /api/achievements/images/:fileName
  *
  * So the absolute URL is:
- *   https://web-production-259f33.up.railway.app/api/achievements/images/:fileName
+ *   https://api.sitam.co.in/api/achievements/images/:fileName
  *
  * We strip the trailing /api from API_BASE_URL only if it ends with /api, to get
  * the bare origin, then append /api/achievements/images/:fileName.

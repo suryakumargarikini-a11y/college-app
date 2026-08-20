@@ -8,9 +8,9 @@ import SearchInput from '../components/SearchInput';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { useToast } from '../hooks/useToast';
 
-// Railway backend base URL — used to resolve relative image URLs stored before the
+// Canonical production backend origin — used to resolve relative image URLs stored before the
 // absolute-URL fix was deployed. New records already have absolute URLs.
-const RAILWAY_BASE = 'https://web-production-259f33.up.railway.app';
+const RAILWAY_BASE = 'https://api.sitam.co.in';
 
 /**
  * Converts a stored imageUrl to an absolute URL.
