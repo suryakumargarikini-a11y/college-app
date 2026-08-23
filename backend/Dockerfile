@@ -80,8 +80,8 @@ COPY --from=builder --chown=node:node /build/node_modules/@prisma  ./node_module
 RUN mkdir -p /usr/src/app/logs /data/uploads/achievements \
  && chown -R node:node /usr/src/app /data/uploads/achievements
 
-# Declare the Volume mount point — Railway can attach a persistent Volume here.
-VOLUME ["/data/uploads/achievements"]
+
+# Note: Persistent volumes are attached via Railway dashboard settings (Railway Volumes).
 
 EXPOSE 8080
 
