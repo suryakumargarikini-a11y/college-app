@@ -1,9 +1,9 @@
 {
   "name": "sitam-erp-admin",
   "version": 2,
-  "buildCommand": "cd admin-portal && npm install && npm run build",
+  "buildCommand": "echo skip",
   "outputDirectory": "admin-portal/dist",
-  "installCommand": "npm install --prefix admin-portal",
+  "installCommand": "echo skip",
   "rewrites": [
     {
       "source": "/((?!assets/).*)",

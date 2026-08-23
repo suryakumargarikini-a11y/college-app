@@ -5,7 +5,8 @@ backend/prisma/dev.db
 backend/prisma/dev.db-journal
 frontend/config.js
 .env
-dist/
+# Ignore dist everywhere EXCEPT admin-portal/dist (needed for Vercel static deploy)
+frontend/dist/
 *.log
 .gemini/
 backend/logs/
