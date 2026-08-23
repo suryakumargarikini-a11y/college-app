@@ -1,27 +1,13 @@
 {
-  "name": "sitam-erp",
+  "name": "sitam-erp-admin",
   "version": 2,
-  "builds": [
+  "buildCommand": "cd admin-portal && npm install && npm run build",
+  "outputDirectory": "admin-portal/dist",
+  "installCommand": "npm install --prefix admin-portal",
+  "rewrites": [
     {
-      "src": "admin-portal/package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "https://web-production-259f33.up.railway.app/api/$1"
-    },
-    {
-      "src": "/assets/(.*)",
-      "dest": "/assets/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
+      "source": "/((?!assets/).*)",
+      "destination": "/index.html"
     }
   ]
 }
