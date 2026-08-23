@@ -52,9 +52,15 @@ async function getAdminAchievements(req, res, next) {
                         error: `Forbidden: HOD lacks authorization for requested branch '${req.query.branch}'`
                     });
                 }
-                where.branch = { in: staffScopeService.getRawAliasesForCanonicals([requestedCanon]) };
+                where.OR = [
+                    { branch: { in: staffScopeService.getRawAliasesForCanonicals([requestedCanon]) } },
+                    { branch: 'ALL' }
+                ];
             } else {
-                where.branch = { in: rawAliases };
+                where.OR = [
+                    { branch: { in: rawAliases } },
+                    { branch: 'ALL' }
+                ];
             }
         } else if (req.query.branch && req.query.branch !== 'ALL') {
             const canon = staffScopeService.canonicalizeBranch(req.query.branch);
