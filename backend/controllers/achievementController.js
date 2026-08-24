@@ -129,8 +129,7 @@ async function createAchievement(req, res, next) {
         // Check if image buffer attached in request body
         if (Buffer.isBuffer(req.body) && req.body.length > 0) {
             const originalFileName = imageStorage.safeName(req.headers['x-file-name'] || 'achievement.jpg');
-            const ext = imageStorage.extension(originalFileName);
-            const detectedMime = imageStorage.detectImageType(req.body, ext);
+            const detectedMime = imageStorage.detectImageType(req.body);
             if (!detectedMime) {
                 return res.status(400).json({ error: 'Invalid or unsupported image file format.' });
             }
@@ -208,8 +207,7 @@ async function updateAchievement(req, res, next) {
         // Image upload handling
         if (Buffer.isBuffer(req.body) && req.body.length > 0) {
             const originalFileName = imageStorage.safeName(req.headers['x-file-name'] || 'achievement.jpg');
-            const ext = imageStorage.extension(originalFileName);
-            const detectedMime = imageStorage.detectImageType(req.body, ext);
+            const detectedMime = imageStorage.detectImageType(req.body);
             if (!detectedMime) {
                 return res.status(400).json({ error: 'Invalid or unsupported image file format.' });
             }

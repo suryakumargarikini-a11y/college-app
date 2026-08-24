@@ -50,12 +50,30 @@ function extension(name) {
     return path.extname(name).toLowerCase();
 }
 
-function detectImageType(buffer, ext) {
-    if (ext === '.png' && buffer.subarray(0, 8).toString('hex') === '89504e470d0a1a0a') return 'image/png';
-    if (['.jpg', '.jpeg'].includes(ext) && buffer.subarray(0, 3).toString('hex') === 'ffd8ff') return 'image/jpeg';
-    if (ext === '.gif' && buffer.subarray(0, 3).toString() === 'GIF') return 'image/gif';
-    if (ext === '.webp' && buffer.subarray(8, 12).toString() === 'WEBP') return 'image/webp';
+/**
+ * Detect image MIME type from magic bytes alone.
+ * The file extension is intentionally ignored — Android and other clients
+ * frequently upload JPEG images with a .png extension (or vice versa).
+ * Validating extension vs. magic bytes causes false 400 errors on valid images.
+ *
+ * Returns the detected MIME string, or null if the buffer is not a supported image.
+ */
+function detectImageType(buffer) {
+    if (!buffer || buffer.length < 3) return null;
+    if (buffer.length >= 8 && buffer.subarray(0, 8).toString('hex') === '89504e470d0a1a0a') return 'image/png';
+    if (buffer.subarray(0, 3).toString('hex') === 'ffd8ff') return 'image/jpeg';
+    if (buffer.subarray(0, 3).toString() === 'GIF') return 'image/gif';
+    if (buffer.length >= 12 && buffer.subarray(8, 12).toString() === 'WEBP') return 'image/webp';
     return null;
+}
+
+/**
+ * Returns the canonical file extension for a detected MIME type.
+ * Used when the original filename extension may not match the actual image format.
+ */
+function extFromMime(mime) {
+    const map = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/gif': '.gif', 'image/webp': '.webp' };
+    return map[mime] || '.jpg';
 }
 
 /**
@@ -86,7 +104,10 @@ function buildImageUrl(fileName) {
 
 async function saveImage(buffer, originalName) {
     await ensureRoot();
-    const ext = extension(originalName) || '.jpg';
+    // Derive the extension from the actual magic bytes, not the original filename.
+    // This handles Android files saved as .png that are actually JPEG, etc.
+    const detectedMime = detectImageType(buffer);
+    const ext = detectedMime ? extFromMime(detectedMime) : (extension(originalName) || '.jpg');
     const fileName = `${crypto.randomUUID()}${ext}`;
     const filePath = path.join(ROOT, fileName);
     await fs.writeFile(filePath, buffer, { flag: 'wx' });
@@ -118,6 +139,7 @@ module.exports = {
     safeName,
     extension,
     detectImageType,
+    extFromMime,
     saveImage,
     resolve,
     remove
