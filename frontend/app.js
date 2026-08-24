@@ -6474,7 +6474,10 @@ const pages = {
                     let query = `?scope=${activeScope}`;
                     if (activeCat !== 'ALL') query += `&category=${encodeURIComponent(activeCat)}`;
 
-                    const res = await api.get(`/achievements${query}`);
+                    // bypassCache: true — achievements are admin-deletable.
+                    // The SWR IndexedDB cache must never serve a stale list that contains
+                    // a record the admin has since deleted. Always fetch live from the API.
+                    const res = await api.get(`/achievements${query}`, { bypassCache: true });
                     const achievements = res.data?.achievements || res.achievements || [];
 
                     if (!Array.isArray(achievements) || achievements.length === 0) {

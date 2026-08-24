@@ -315,6 +315,9 @@ async function getStudentAchievements(req, res, next) {
             orderBy: { achievementDate: 'desc' }
         });
 
+        // Achievements are admin-deletable. Never serve a stale cached response —
+        // deleted records must disappear from the APK immediately on next fetch.
+        res.setHeader('Cache-Control', 'no-store');
         res.json({
             studentBranch: studentCanonBranch,
             scope,
