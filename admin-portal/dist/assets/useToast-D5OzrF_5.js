@@ -1,0 +1,1 @@
+import{r}from"./index-Drdiicsw.js";let n=0;function d(){const[c,s]=r.useState([]),u=r.useCallback((o,e="success")=>{const t=++n;s(a=>[...a,{id:t,message:o,type:e}]),setTimeout(()=>{s(a=>a.filter(l=>l.id!==t))},3500)},[]),i=r.useCallback(o=>{s(e=>e.filter(t=>t.id!==o))},[]);return{toasts:c,showToast:u,removeToast:i}}export{d as u};

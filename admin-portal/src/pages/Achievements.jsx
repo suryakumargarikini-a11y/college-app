@@ -203,7 +203,12 @@ export default function Achievements() {
     setSaving(true);
     try {
       if (imageFile) {
-        // Upload image binary
+        // Read File as ArrayBuffer so Axios sends a true binary body (not FormData).
+        // Passing a File/Blob object directly to Axios can cause it to use FormData
+        // which changes Content-Type to multipart/form-data, breaking the backend parser.
+        const arrayBuffer = await imageFile.arrayBuffer();
+        const binaryData = new Uint8Array(arrayBuffer);
+
         const queryParams = new URLSearchParams({
           title: form.title,
           description: form.description,
@@ -214,9 +219,9 @@ export default function Achievements() {
           isPublished: String(form.isPublished)
         });
 
-        await api.post(`/admin/achievements?${queryParams}`, imageFile, {
+        await api.post(`/admin/achievements?${queryParams}`, binaryData, {
           headers: {
-            'Content-Type': imageFile.type || 'application/octet-stream',
+            'Content-Type': imageFile.type || 'image/jpeg',
             'X-File-Name': imageFile.name
           }
         });
@@ -254,11 +259,16 @@ export default function Achievements() {
 
   const handleEditSubmit = async (e) => {
     e.preventDefault();
+    if (!form.title.trim()) return showToast('Title is required', 'error');
+    if (!form.description.trim()) return showToast('Description is required', 'error');
     setSaving(true);
     try {
       if (imageFile) {
+        // Read File as ArrayBuffer so Axios sends a true binary body (not FormData).
+        const arrayBuffer = await imageFile.arrayBuffer();
+        const binaryData = new Uint8Array(arrayBuffer);
+
         // Single PUT: binary body + all metadata as query params
-        // This avoids a second request overwriting the newly saved imageUrl.
         const queryParams = new URLSearchParams({
           title: form.title,
           description: form.description,
@@ -269,9 +279,9 @@ export default function Achievements() {
           isPublished: String(form.isPublished)
         });
 
-        await api.put(`/admin/achievements/${editItem.id}?${queryParams}`, imageFile, {
+        await api.put(`/admin/achievements/${editItem.id}?${queryParams}`, binaryData, {
           headers: {
-            'Content-Type': imageFile.type || 'application/octet-stream',
+            'Content-Type': imageFile.type || 'image/jpeg',
             'X-File-Name': imageFile.name
           }
         });

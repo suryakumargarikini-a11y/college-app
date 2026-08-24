@@ -18,7 +18,11 @@ router.post(
     authorizeRoles('SUPER_ADMIN', 'HOD'),
     (req, res, next) => {
         const ct = (req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
-        if (ct.startsWith('image/') || ct === 'application/octet-stream') {
+        // Treat as binary if: image MIME type, octet-stream, OR multipart with X-File-Name
+        // (some Axios versions convert File/Blob to FormData with multipart/form-data)
+        const hasFileHeader = !!req.headers['x-file-name'];
+        if (ct.startsWith('image/') || ct === 'application/octet-stream' ||
+            (ct === 'multipart/form-data' && hasFileHeader)) {
             express.raw({ type: '*/*', limit: '10mb' })(req, res, next);
         } else {
             express.json({ limit: '10mb' })(req, res, next);
@@ -35,7 +39,10 @@ router.put(
     authorizeRoles('SUPER_ADMIN', 'HOD'),
     (req, res, next) => {
         const ct = (req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
-        if (ct.startsWith('image/') || ct === 'application/octet-stream') {
+        // Treat as binary if: image MIME type, octet-stream, OR multipart with X-File-Name
+        const hasFileHeader = !!req.headers['x-file-name'];
+        if (ct.startsWith('image/') || ct === 'application/octet-stream' ||
+            (ct === 'multipart/form-data' && hasFileHeader)) {
             express.raw({ type: '*/*', limit: '10mb' })(req, res, next);
         } else {
             express.json({ limit: '10mb' })(req, res, next);
