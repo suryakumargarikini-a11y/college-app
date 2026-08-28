@@ -2680,14 +2680,15 @@ const pages = {
                         const colors = ['border-l-secondary', 'border-l-emerald-500', 'border-l-amber-500', 'border-l-rose-500', 'border-l-violet-500', 'border-l-indigo-500'];
                         timetableContainer.innerHTML = todaySlots.map((s, i) => {
                             const timeVal = (s.time || '--').replace(/^"|"$/g, '').trim();
-                            const subjectDisplay = (s.subjectName && s.subjectName !== s.subjectCode)
-                                ? s.subjectName
-                                : (s.subjectCode || 'Class');
+                            // Same duplicate guard as full timetable screen
+                            const hasDistinctName = s.subjectName && s.subjectName !== s.subjectCode;
+                            const subjectDisplay = hasDistinctName ? s.subjectName : (s.subjectCode || 'Class');
+                            const dashCodeLabel = (s.subjectCode && hasDistinctName) ? s.subjectCode : '--';
                             return `
                                 <div class="min-w-[190px] max-w-[190px] flex-shrink-0 p-3.5 bg-white/60 border border-white/20 border-l-4 ${colors[i % colors.length]} rounded-2xl flex flex-col justify-between h-24 active-scale transition-transform cursor-pointer" onclick="router.navigate('/timetable')">
                                     <div class="min-w-0">
                                         <div class="flex justify-between items-center mb-1">
-                                            <span class="text-[9px] font-black text-slate-400 uppercase tracking-wider">${s.subjectCode || '--'}</span>
+                                            <span class="text-[9px] font-black text-slate-400 uppercase tracking-wider">${dashCodeLabel}</span>
                                             <span class="text-[9px] font-black text-secondary uppercase bg-blue-50/50 px-1.5 py-0.5 rounded-md">P${s.period}</span>
                                         </div>
                                         <h4 class="text-xs font-bold text-slate-800 truncate">${subjectDisplay}</h4>
@@ -3754,7 +3755,15 @@ const pages = {
                 api.get('/attendance').then(attRes => {
                     const attList = attRes.attendance || [];
                     const overall = calcOverallAttendance(attList);
-                    setEl('prof-att-val', 'innerText', overall.text);
+                    // Semantic color: <75% is critical (rose), >=75% is safe (emerald)
+                    const attEl = $('prof-att-val');
+                    if (attEl) {
+                        attEl.innerText = overall.text;
+                        const attPct = parseFloat(overall.text) || 0;
+                        attEl.className = `text-xl font-black mt-1.5 ${
+                            attPct >= 75 ? 'text-emerald-600' : 'text-rose-600'
+                        }`;
+                    }
                 }).catch(() => { });
 
                 // ─── Section panels ──────────────────────────────────────────
@@ -4402,9 +4411,13 @@ const pages = {
                 grid.innerHTML = daySlots.map((s, i) => {
                     const timeVal = (s.time || '--').replace(/^"|"$/g, '').trim();
                     const periodVal = parseInt(s.period) || (i + 1);
-                    const subjectDisplay = (s.subjectName && s.subjectName !== s.subjectCode)
-                        ? s.subjectName
-                        : (s.subjectCode || 'Class');
+                    // Guard: never show the same value twice
+                    // If subjectName is identical to subjectCode (e.g. "MCC" / "MCC"),
+                    // show only the name once — suppress the duplicate code label.
+                    const hasDistinctName = s.subjectName && s.subjectName !== s.subjectCode;
+                    const subjectDisplay = hasDistinctName ? s.subjectName : (s.subjectCode || 'Class');
+                    // Only show code label when it is different from the main display name
+                    const codeLabel = (s.subjectCode && hasDistinctName) ? s.subjectCode : null;
 
                     const isHighlighted = (i === highlightedIndex);
                     const borderClass = isHighlighted
@@ -4422,7 +4435,7 @@ const pages = {
                             <span class="material-symbols-outlined text-base sm:text-lg" style="font-variation-settings:'FILL' 1">${icons[i % icons.length]}</span>
                         </div>
                         <div class="flex-1 min-w-0 pr-12">
-                            <p class="text-[9px] font-extrabold text-on-surface-variant/70 tracking-wider uppercase">${s.subjectCode || '--'}</p>
+                            ${codeLabel ? `<p class="text-[9px] font-extrabold text-on-surface-variant/70 tracking-wider uppercase">${codeLabel}</p>` : ''}
                             <h4 class="font-extrabold text-sm text-on-surface truncate" style="font-family:'Plus Jakarta Sans',sans-serif">${subjectDisplay}</h4>
                             <div class="flex flex-wrap items-center gap-x-3.5 gap-y-0.5 mt-1">
                                 <div class="flex items-center gap-1 text-[10px] text-on-surface-variant">
@@ -6432,7 +6445,7 @@ const pages = {
                     </div>
 
                     <!-- Category Pills Horizontal Scroll -->
-                    <div class="flex gap-2 overflow-x-auto pb-2 hide-scrollbar momentum-scroll select-none" id="ach-category-tabs">
+                    <div class="flex gap-2 overflow-x-auto pb-2 hide-scrollbar momentum-scroll select-none ach-chips-scroll" id="ach-category-tabs" style="padding-right:24px">
                         <button class="ach-cat-btn flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-bold bg-primary text-white transition-all" data-cat="ALL">All</button>
                         <button class="ach-cat-btn flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all" data-cat="Student">Student</button>
                         <button class="ach-cat-btn flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all" data-cat="Faculty">Faculty</button>
@@ -6478,7 +6491,18 @@ const pages = {
                     // The SWR IndexedDB cache must never serve a stale list that contains
                     // a record the admin has since deleted. Always fetch live from the API.
                     const res = await api.get(`/achievements${query}`, { bypassCache: true });
-                    const achievements = res.data?.achievements || res.achievements || [];
+                    const allAchievements = res.data?.achievements || res.achievements || [];
+                    // Filter out obvious test/forensic records by title pattern
+                    // These should not reach isPublished=true in production, but as a
+                    // safety net we screen them client-side as well.
+                    const TEST_TITLE_PATTERNS = [
+                        /forensic/i, /workflow.verif/i, /end.to.end.*test/i,
+                        /verify.*branch/i, /branch.*test/i, /\btest\b.*achievement/i,
+                        /achievement.*\btest\b/i, /\btest\b.*record/i
+                    ];
+                    const achievements = allAchievements.filter(a =>
+                        !TEST_TITLE_PATTERNS.some(re => re.test(a.title || ''))
+                    );
 
                     if (!Array.isArray(achievements) || achievements.length === 0) {
                         listEl.innerHTML = `
@@ -6685,12 +6709,38 @@ const router = {
     // ── Unified goBack: single authority for all back actions ──────────────
     goBack() {
         haptic();
-        // 1. Close drawer
+        // 1. Close search overlay if open
+        const searchOverlay = $('search-overlay');
+        if (searchOverlay && !searchOverlay.classList.contains('hidden')) {
+            if (window.toggleSearchOverlay) { toggleSearchOverlay(false); return; }
+        }
+        // 2. Close any open bottom-sheet (class 'open' is the sentinel)
+        const openSheet = document.querySelector('.bottom-sheet.open');
+        if (openSheet) {
+            openSheet.classList.remove('open');
+            // Also hide backdrop
+            const backdrop = document.querySelector('.bottom-sheet-backdrop');
+            if (backdrop) { backdrop.style.opacity = '0'; setTimeout(() => backdrop.remove(), 300); }
+            return;
+        }
+        // 3. Close fullscreen modals / overlays that are visible
+        const fullscreenOverlay = $('fullscreen-id-overlay');
+        if (fullscreenOverlay && !fullscreenOverlay.classList.contains('hidden')) {
+            fullscreenOverlay.classList.add('hidden');
+            fullscreenOverlay.classList.remove('flex');
+            return;
+        }
+        const fileViewerModal = $('file-viewer-modal');
+        if (fileViewerModal && !fileViewerModal.classList.contains('hidden')) {
+            fileViewerModal.classList.add('hidden');
+            return;
+        }
+        // 4. Close drawer
         const drawer = $('nav-drawer');
         if (drawer && !drawer.classList.contains('-translate-x-full')) {
             closeDrawer(); return;
         }
-        // 2. Close payment overlay
+        // 5. Close payment overlay
         const overlay = $('payment-overlay');
         if (overlay && !overlay.classList.contains('hidden')) {
             if (state.paymentTimeout) clearTimeout(state.paymentTimeout);
@@ -6698,7 +6748,7 @@ const router = {
             setTimeout(() => overlay.classList.add('hidden'), 300);
             return;
         }
-        // 3. Navigate history
+        // 6. Navigate history
         if (state.navHistory && state.navHistory.length > 1) {
             state.navHistory.pop();
             const prev = state.navHistory[state.navHistory.length - 1];
@@ -6706,10 +6756,16 @@ const router = {
             this.navigate(prev);
             return;
         }
-        // 4. Double-press to exit
+        // 7. Double-press to exit (only when at root)
         const now = Date.now();
         if (state._lastBackPress && (now - state._lastBackPress < 2000)) {
-            window.Capacitor?.Plugins?.App?.exitApp();
+            // Use Capacitor App plugin exitApp
+            if (window.Capacitor?.Plugins?.App) {
+                window.Capacitor.Plugins.App.exitApp();
+            } else {
+                // Fallback for browser testing
+                window.close();
+            }
         } else {
             state._lastBackPress = now;
             showToast('Press back again to exit', 'info', 2000);
@@ -7061,6 +7117,82 @@ document.addEventListener('DOMContentLoaded', () => {
             App.addListener('backButton', () => router.goBack());
         }
     }
+
+    // ── Magnetic Dock: proximity-based scale for desktop + touch press for Android ──
+    (function initMagneticDock() {
+        const dock = document.getElementById('bottom-dock');
+        if (!dock) return;
+
+        const MAX_SCALE   = 1.35;
+        const MAG_DIST    = 130;  // px radius around item center that triggers scaling
+        const SPRING_DUR  = '0.25s';
+
+        const items = Array.from(dock.querySelectorAll('.dock-item'));
+
+        // Pre-compute style reset
+        function resetAll() {
+            items.forEach(el => {
+                el.style.transform = '';
+                el.style.transition = `transform ${SPRING_DUR} cubic-bezier(0.34,1.56,0.64,1)`;
+            });
+        }
+
+        // Pointer proximity handler (desktop/hover)
+        function handlePointerMove(e) {
+            const cx = e.clientX, cy = e.clientY;
+            items.forEach(el => {
+                const r  = el.getBoundingClientRect();
+                const ex = r.left + r.width  / 2;
+                const ey = r.top  + r.height / 2;
+                const d  = Math.hypot(cx - ex, cy - ey);
+                if (d < MAG_DIST) {
+                    const t = 1 - d / MAG_DIST;
+                    const s = 1 + (MAX_SCALE - 1) * t;
+                    el.style.transform  = `scale(${s.toFixed(3)})`;
+                    el.style.transition = `transform ${SPRING_DUR} cubic-bezier(0.34,1.56,0.64,1)`;
+                } else {
+                    el.style.transform  = '';
+                }
+            });
+        }
+
+        // Touch press handler (Android — scale on touchdown, restore on release)
+        function handleTouchStart(e) {
+            const touch = e.touches[0];
+            const target = e.currentTarget;
+            target._touchStartX = touch.clientX;
+            target._touchStartY = touch.clientY;
+            target.style.transform  = `scale(${MAX_SCALE})`;
+            target.style.transition = `transform 0.12s cubic-bezier(0.34,1.56,0.64,1)`;
+        }
+        function handleTouchEnd(e) {
+            const target = e.currentTarget;
+            const touch  = e.changedTouches[0];
+            const dx = Math.abs(touch.clientX - (target._touchStartX || 0));
+            const dy = Math.abs(touch.clientY - (target._touchStartY || 0));
+            target.style.transform  = '';
+            target.style.transition = `transform ${SPRING_DUR} cubic-bezier(0.34,1.56,0.64,1)`;
+            // If significant movement, suppress the click (scroll gesture — not a tap)
+            if (dx > 10 || dy > 10) {
+                e.preventDefault();
+            }
+        }
+        function handleTouchCancel(e) {
+            e.currentTarget.style.transform  = '';
+            e.currentTarget.style.transition = `transform ${SPRING_DUR} cubic-bezier(0.34,1.56,0.64,1)`;
+        }
+
+        // Attach desktop pointer events
+        dock.addEventListener('pointermove', handlePointerMove);
+        dock.addEventListener('pointerleave', resetAll);
+
+        // Attach per-item touch events
+        items.forEach(el => {
+            el.addEventListener('touchstart', handleTouchStart, { passive: true });
+            el.addEventListener('touchend',   handleTouchEnd);
+            el.addEventListener('touchcancel',handleTouchCancel, { passive: true });
+        });
+    })();
 
     // ── SITAM Splash Controller & Session Bootstrapping ────────────────────
     const progressBar = $('splash-progress-bar');
