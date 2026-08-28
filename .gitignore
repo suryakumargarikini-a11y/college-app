@@ -17,3 +17,32 @@ backend/data/
 node/
 backend/prisma/dev.db-shm
 backend/prisma/dev.db-wal
+
+# ─────────────────────────────────────────────
+# SECURITY: Never commit signing keystores
+# ─────────────────────────────────────────────
+android/app/*.jks
+android/app/*.keystore
+
+# ─────────────────────────────────────────────
+# SECURITY: Scratch / temporary test files
+# These contain production URLs and test data
+# ─────────────────────────────────────────────
+scratch/
+backend/scratch/
+
+# ─────────────────────────────────────────────
+# SECURITY: Secret rotation metadata
+# File is read at runtime but contains no actual
+# secret values — still should not be tracked
+# ─────────────────────────────────────────────
+backend/security/secrets/secrets-registry.json
+
+# ─────────────────────────────────────────────
+# SECURITY: Infrastructure credential files
+# alertmanager.yml contains SMTP credentials
+# kubernetes deploy yaml contains bearer token
+# Both are unused in current Railway deployment
+# ─────────────────────────────────────────────
+backend/monitoring/alertmanager/alertmanager.yml
+backend/kubernetes/sitam-app-deploy.yaml
