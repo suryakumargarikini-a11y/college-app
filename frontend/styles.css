@@ -5,6 +5,105 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
+/* ── Centralized Design Tokens ── */
+:root {
+    /* Brand colors */
+    --color-primary:        #2563EB;
+    --color-primary-dim:    #1d4ed8;
+    --color-primary-bg:     #dbeafe;
+    --color-secondary:      #6366F1;
+    --color-secondary-bg:   #e0e7ff;
+
+    /* Semantic status colors */
+    --color-success:        #10b981;
+    --color-success-bg:     #d1fae5;
+    --color-warning:        #f59e0b;
+    --color-warning-bg:     #fef3c7;
+    --color-danger:         #ef4444;
+    --color-danger-bg:      #fee2e2;
+
+    /* Surface colors */
+    --color-surface:        #F8FAFC;
+    --color-surface-card:   #ffffff;
+    --color-text:           #0F172A;
+    --color-muted:          #64748B;
+    --color-outline:        #cbd5e1;
+
+    /* Spacing */
+    --spacing-xs:   4px;
+    --spacing-sm:   8px;
+    --spacing-md:   16px;
+    --spacing-lg:   24px;
+    --spacing-xl:   32px;
+
+    /* Radius */
+    --radius-sm:    8px;
+    --radius-md:    16px;
+    --radius-lg:    24px;
+    --radius-xl:    32px;
+    --radius-full:  9999px;
+
+    /* Shadows */
+    --shadow-sm:    0 1px 3px rgba(15,23,42,0.06), 0 1px 2px rgba(15,23,42,0.04);
+    --shadow-md:    0 4px 16px rgba(15,23,42,0.08), 0 1px 4px rgba(15,23,42,0.04);
+    --shadow-lg:    0 20px 60px rgba(15,23,42,0.12), 0 4px 16px rgba(15,23,42,0.06);
+
+    /* Transitions */
+    --transition-fast:   0.12s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-base:   0.22s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-spring: 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+
+    /* Safe area — cached for reuse */
+    --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-area-top:    env(safe-area-inset-top, 0px);
+
+    /* Dock height reference (updated by JS after dock renders) */
+    --dock-height: 72px;
+
+    /* Bottom sheet default */
+    --bottom-sheet-bottom: 80px;
+}
+
+/* ── Safe-area aware page bottom padding ── */
+/* Apply this class to every page <main> container so the last
+   item is always visible above the floating dock. */
+.page-safe-bottom {
+    padding-bottom: calc(var(--safe-area-bottom) + var(--dock-height) + 24px);
+}
+
+/* ── Dock: ensure items scale upward from their bottom ── */
+.dock-item {
+    transform-origin: center bottom;
+}
+
+/* ── Dock: prevent transform from jumping during active-scale ── */
+.dock-item:active {
+    transform: scale(0.9) !important;
+}
+
+/* ── Achievement chip scroll: right fade affordance ── */
+.ach-chips-scroll {
+    position: relative;
+}
+
+/* ── Global bottom clearance for all page root containers ──
+   Every page uses Tailwind pb-32 (128px). On devices with gesture
+   nav, the bottom safe-area is additional. This rule ensures the
+   dock never covers the last item on any screen. ── */
+#app > div,
+#app > body {
+    padding-bottom: max(128px, calc(env(safe-area-inset-bottom, 0px) + 100px)) !important;
+}
+
+/* ── Profile attendance cell: initial color placeholder reset ──
+   Dynamic color is applied via JS; this prevents a flash of the
+   wrong emerald color before the attendance value loads. ── */
+#prof-att-val {
+    color: inherit;
+}
+
+
+
 body {
     font-family: 'Inter', sans-serif;
     color: #0F172A;

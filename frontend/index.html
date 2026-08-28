@@ -451,9 +451,9 @@ input, textarea {
       </div>
       <div id="top-app-bar-actions" class="flex items-center gap-3 flex-shrink-0">
         <!-- Pulsing Real-time Live Status Indicator -->
-        <div id="live-indicator" class="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 text-emerald-600 rounded-full border border-emerald-500/20 text-[9px] font-headline font-extrabold uppercase tracking-widest transition-all duration-500 scale-0 opacity-0 select-none">
+        <div id="live-indicator" class="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 text-emerald-600 rounded-full border border-emerald-500/20 text-[9px] font-headline font-extrabold uppercase tracking-widest transition-all duration-500 scale-0 opacity-0 select-none" title="Real-time WebSocket sync is active">
            <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping"></span>
-           <span>Live</span>
+           <span>Synced</span>
         </div>
         <button id="search-btn" class="p-2 hover:bg-slate-100/50 transition-all active:scale-95 duration-200 rounded-full text-slate-500 hover:text-blue-600 relative" onclick="toggleSearchOverlay(true)" title="Search">
           <span class="material-symbols-outlined">search</span>
@@ -677,7 +677,7 @@ input, textarea {
 </div>
 
 <!-- ===== FLOATING TOAST NOTIFICATIONS ===== -->
-<div id="toast-container" class="fixed bottom-24 right-6 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none"></div>
+<div id="toast-container" class="fixed z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none" style="bottom:calc(env(safe-area-inset-bottom,0px) + 96px);right:1.5rem"></div>
 
 
 <!-- ===== GLOBAL SEARCH OVERLAY ===== -->
