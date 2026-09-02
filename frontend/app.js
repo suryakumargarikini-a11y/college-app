@@ -271,31 +271,12 @@ if (legacyToken && !secureStorage.getItem('token')) {
     localStorage.removeItem('token');
 }
 
-// --- Production Firebase Client Service ---
-const firebaseConfig = {
-    apiKey: "AIzaSyDummyKeyForSandboxTestingReadyPlaceholder",
-    authDomain: "sitam-smart-erp.firebaseapp.com",
-    projectId: "sitam-smart-erp",
-    storageBucket: "sitam-smart-erp.appspot.com",
-    messagingSenderId: "123456789012",
-    appId: "1:123456789012:web:abcdef123456"
-};
-
-let messaging = null;
-try {
-    if (typeof firebase !== 'undefined') {
-        if (firebase.apps.length === 0) {
-            firebase.initializeApp(firebaseConfig);
-        }
-        if (firebase.messaging.isSupported()) {
-            messaging = firebase.messaging();
-        }
-    } else {
-        console.log('[Firebase Client] Web Firebase SDK not loaded, bypassing initialization.');
-    }
-} catch (err) {
-    console.warn('[Firebase Client] Initialization bypassed or unsupported:', err);
-}
+// --- Firebase Client (Web SDK) ---
+// The native Android app uses google-services.json + Capacitor PushNotifications for FCM.
+// The Web Firebase SDK is NOT used for native Android push delivery.
+// This block is intentionally disabled to prevent initializing the wrong Firebase project.
+// DO NOT re-enable this block for native push — it would conflict with the Capacitor plugin.
+const messaging = null;
 
 // Foreground push alert card renderer
 function showPushBanner(title, body, route) {
@@ -4556,9 +4537,6 @@ const pages = {
                         <p class="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-1">Stay Updated</p>
                         <h2 class="text-3xl font-extrabold tracking-tight text-slate-800" style="font-family:'Plus Jakarta Sans',sans-serif">Notifications</h2>
                     </div>
-                    <button id="mark-all-read-btn" class="text-xs font-bold text-primary uppercase hover:underline flex items-center gap-1 active-scale">
-                        <span class="material-symbols-outlined text-sm">done_all</span> Mark All Read
-                    </button>
                 </section>
 
                 <!-- Search & Filters -->
@@ -4611,7 +4589,6 @@ const pages = {
 
             const searchInput = $('notif-search');
             const filterContainer = $('notif-filters');
-            const markAllReadBtn = $('mark-all-read-btn');
 
             let allNotifications = [];
             let activeFilter = 'all';
@@ -4869,20 +4846,6 @@ const pages = {
                 });
             }
 
-            // 5. Bind mark all read
-            if (markAllReadBtn) {
-                markAllReadBtn.addEventListener('click', async () => {
-                    haptic();
-                    allNotifications.forEach(n => n.isRead = true);
-                    renderNotifications();
-
-                    api.post('/notifications/read-all').catch(() => { });
-
-                    SITAMDb.set('erp_cache', '/notifications', { notifications: allNotifications }, 24 * 60 * 60 * 1000).catch(() => { });
-
-                    updateUnreadBadge();
-                });
-            }
         }
     },
 
@@ -5353,8 +5316,19 @@ const pages = {
 
             loading.show('Loading Placements...');
             try {
-                const res = await api.get('/placements');
-                allItems = res.placements || [];
+                // bypassCache: true — placements must always be fresh so newly published
+                // drives appear immediately (stale IndexedDB cache caused published drives
+                // to be invisible until the 5-min TTL expired).
+                // onRevalidate — if SWR background refresh completes after initial render,
+                // update allItems and re-render so new drives appear without a page reload.
+                const res = await api.get('/placements', {
+                    bypassCache: true,
+                    onRevalidate: (fresh) => {
+                        allItems = (fresh && fresh.placements) || [];
+                        renderItems();
+                    }
+                });
+                allItems = (res && res.placements) || [];
                 renderItems();
             } catch (err) {
                 console.error('[Career] placements fetch failed:', err);
