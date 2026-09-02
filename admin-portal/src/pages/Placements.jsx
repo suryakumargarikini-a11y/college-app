@@ -10,7 +10,7 @@ import ToastContainer from '../components/Toast';
 import { useToast } from '../hooks/useToast';
 
 const INITIAL_FORM = {
-  companyName: '', jobRole: '', packageLPA: '', eligibility: '',
+  companyName: '', jobRole: '', packageLpa: '', eligibility: '',
   description: '', registrationLink: '', driveDate: '', status: 'DRAFT', companyLogoUrl: '',
 };
 
@@ -63,7 +63,7 @@ export default function Placements() {
   const openEdit   = (item) => {
     setEditing(item);
     setForm({
-      companyName: item.companyName, jobRole: item.jobRole, packageLPA: item.packageLPA,
+      companyName: item.companyName, jobRole: item.jobRole, packageLpa: item.packageLpa,
       eligibility: item.eligibility, description: item.description,
       registrationLink: item.registrationLink, driveDate: item.driveDate ? item.driveDate.substring(0, 10) : '',
       status: item.status, companyLogoUrl: item.companyLogoUrl || '',
@@ -170,7 +170,7 @@ export default function Placements() {
                       </div>
                     </td>
                     <td className="td text-gray-600">{item.jobRole}</td>
-                    <td className="td font-semibold text-gray-800 whitespace-nowrap">{item.packageLPA} <span className="text-xs font-normal text-gray-400">LPA</span></td>
+                    <td className="td font-semibold text-gray-800 whitespace-nowrap">{item.packageLpa} <span className="text-xs font-normal text-gray-400">LPA</span></td>
                     <td className="td text-xs text-gray-400 whitespace-nowrap">
                       {item.driveDate ? new Date(item.driveDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
                     </td>
@@ -206,7 +206,7 @@ export default function Placements() {
             <div><label className="block text-xs font-semibold text-gray-600 mb-1.5">Job Role *</label><input className="input-field" value={form.jobRole} onChange={f('jobRole')} placeholder="e.g. Software Engineer" required /></div>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <div><label className="block text-xs font-semibold text-gray-600 mb-1.5">Package (LPA) *</label><input type="number" step="0.1" min="0" className="input-field" value={form.packageLPA} onChange={f('packageLPA')} placeholder="e.g. 6.5" required /></div>
+            <div><label className="block text-xs font-semibold text-gray-600 mb-1.5">Package (LPA) *</label><input type="number" step="0.1" min="0" className="input-field" value={form.packageLpa} onChange={f('packageLpa')} placeholder="e.g. 6.5" required /></div>
             <div><label className="block text-xs font-semibold text-gray-600 mb-1.5">Drive Date *</label><input type="date" className="input-field" value={form.driveDate} onChange={f('driveDate')} required /></div>
           </div>
           <div><label className="block text-xs font-semibold text-gray-600 mb-1.5">Eligibility Criteria *</label><input className="input-field" value={form.eligibility} onChange={f('eligibility')} placeholder="e.g. 60% aggregate, no active backlogs" required /></div>
