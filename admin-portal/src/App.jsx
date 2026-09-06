@@ -5,6 +5,8 @@ import { authStore } from './store/authStore';
 
 /* ── Lazy-loaded pages (code splitting) ── */
 const Login             = lazy(() => import('./pages/Login'));
+/* Public standalone page — no auth required */
+const PrivacyPolicy     = lazy(() => import('./pages/PrivacyPolicy'));
 const Dashboard         = lazy(() => import('./pages/Dashboard'));
 const Announcements     = lazy(() => import('./pages/Announcements'));
 const Placements        = lazy(() => import('./pages/Placements'));
@@ -75,6 +77,16 @@ export default function App() {
   return (
     <Suspense fallback={<PageLoader />}>
     <Routes>
+      {/*
+        PUBLIC ROUTE — /privacy-policy
+        ─────────────────────────────────────────────────────────────────────
+        Intentionally placed OUTSIDE AdminLayout and ALL authentication guards.
+        Accessible without a session, in incognito mode, and via direct URL.
+        This is the Privacy Policy URL submitted to Google Play Console for
+        the My SITAM Android application (co.in.sitamecap.erp).
+      */}
+      <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+
       <Route
         path="/login"
         element={
