@@ -140,3 +140,34 @@
 #   -keep public class * extends org.apache.cordova.* { ... }
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# 8. CAPACITOR ANNOTATION RETENTION — Fix runtime NullPointerException in
+#    getPermissionStates (crash observed on first R8-optimized build)
+#
+# CRASH: java.lang.NullPointerException
+#          at com.getcapacitor.z.getPermissionStates(SourceFile:19)
+#          at com.capacitorjs.plugins.pushnotifications.PushNotificationsPlugin.checkPermissions
+#
+# ROOT CAUSE: R8 full-mode strips runtime annotation attributes from plugin
+#   classes even when the class itself is kept. The Capacitor bridge reads
+#   @CapacitorPlugin via reflection at runtime:
+#     PluginHandle.java:35  pluginClass.getAnnotation(CapacitorPlugin.class)
+#     Bridge.java:1178      annotation.permissions()
+#   With annotation data stripped, getAnnotation() returns null → NPE.
+#
+# FIX: Preserve RuntimeVisibleAnnotations attribute and keep the annotation
+#   interfaces so R8 does not discard their metadata.
+#
+# WHAT BREAKS WITHOUT IT: App crashes immediately on launch.
+# ---------------------------------------------------------------------------
+
+# Preserve runtime annotation attributes on all classes (needed for Capacitor plugin dispatch)
+-keepattributes RuntimeVisibleAnnotations,AnnotationDefault
+
+# Keep Capacitor annotation interfaces so reflection can read their methods
+-keep @interface com.getcapacitor.annotation.CapacitorPlugin { *; }
+-keep @interface com.getcapacitor.annotation.Permission { *; }
+-keep @interface com.getcapacitor.annotation.PermissionCallback { *; }
+-keep @interface com.getcapacitor.annotation.ActivityCallback { *; }
+
+
